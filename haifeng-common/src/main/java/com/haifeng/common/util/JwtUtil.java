@@ -32,30 +32,55 @@ public class JwtUtil {
 
     private static final String CLAIM_USER_ID = "userId";
     private static final String CLAIM_TOKEN_TYPE = "tokenType";
+    private static final String CLAIM_USER_TYPE = "userType";
+    private static final String CLAIM_MEMBER_TYPE = "memberType";
     private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
+    public static final String USER_TYPE_ADMIN = "admin";
+    public static final String USER_TYPE_MEMBER = "member";
+    public static final String MEMBER_TYPE_NORMAL = "normal";
+    public static final String MEMBER_TYPE_VIP = "vip";
 
     private SecretKey getSecretKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * 生成 AccessToken（2小时）
+     * 生成 AccessToken（2小时）- 简化版本，向后兼容
      */
     public String generateAccessToken(Long userId) {
+        return generateAccessToken(userId, USER_TYPE_MEMBER, null);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 完整版本
+     */
+    public String generateAccessToken(Long userId, String userType, String memberType) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_USER_ID, userId);
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS);
+        claims.put(CLAIM_USER_TYPE, userType);
+        if (memberType != null) {
+            claims.put(CLAIM_MEMBER_TYPE, memberType);
+        }
         return createToken(claims, accessTokenExpire);
     }
 
     /**
-     * 生成 RefreshToken（7天）
+     * 生成 RefreshToken（7天）- 简化版本，向后兼容
      */
     public String generateRefreshToken(Long userId) {
+        return generateRefreshToken(userId, USER_TYPE_MEMBER);
+    }
+
+    /**
+     * 生成 RefreshToken（7天）- 完整版本
+     */
+    public String generateRefreshToken(Long userId, String userType) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_USER_ID, userId);
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_REFRESH);
+        claims.put(CLAIM_USER_TYPE, userType);
         return createToken(claims, refreshTokenExpire);
     }
 
@@ -136,5 +161,41 @@ public class JwtUtil {
      */
     public boolean validateToken(String token) {
         return parseToken(token) != null && !isTokenExpired(token);
+    }
+
+    /**
+     * 从Token中获取用户类型
+     */
+    public String getUserTypeFromToken(String token) {
+        Claims claims = parseToken(token);
+        if (claims == null) {
+            return null;
+        }
+        return claims.get(CLAIM_USER_TYPE, String.class);
+    }
+
+    /**
+     * 从Token中获取会员类型
+     */
+    public String getMemberTypeFromToken(String token) {
+        Claims claims = parseToken(token);
+        if (claims == null) {
+            return null;
+        }
+        return claims.get(CLAIM_MEMBER_TYPE, String.class);
+    }
+
+    /**
+     * 获取 AccessToken 过期时间（秒）
+     */
+    public Long getAccessTokenExpire() {
+        return accessTokenExpire;
+    }
+
+    /**
+     * 获取 RefreshToken 过期时间（秒）
+     */
+    public Long getRefreshTokenExpire() {
+        return refreshTokenExpire;
     }
 }
