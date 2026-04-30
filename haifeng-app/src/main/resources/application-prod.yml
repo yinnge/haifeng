@@ -27,10 +27,8 @@ spring:
 
   # Flyway 配置
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    validate-on-migrate: true
+      enabled: false
+
 
 # MyBatis-Plus 配置
 mybatis-plus:
@@ -45,16 +43,17 @@ mybatis-plus:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET}
-  access-token-expire: 7200
-  refresh-token-expire: 604800
+  access-secret: ${JWT_ACCESS_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
+  access-token-expire: ${JWT_ACCESS_EXPIRE:7200}
+  refresh-token-expire: ${JWT_REFRESH_EXPIRE:604800}
 
 # Actuator 配置
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health
   endpoint:
     health:
       show-details: never

@@ -19,7 +19,7 @@ COMMENT ON COLUMN sys_role.status IS '状态: 0-禁用, 1-启用';
 -- 模块表
 CREATE TABLE sys_module (
     id BIGINT PRIMARY KEY,
-    module_name VARCHAR(50) NOT NULL,
+module_name VARCHAR(50) NOT NULL,
     module_code VARCHAR(50) NOT NULL UNIQUE,
     parent_id BIGINT DEFAULT 0,
     path VARCHAR(200),

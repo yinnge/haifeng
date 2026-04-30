@@ -5,4 +5,4 @@ spring:
     name: haifeng-admin
 
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${ADMIN_PORT:8081}

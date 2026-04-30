@@ -463,10 +463,10 @@ public R<Void> vipFeature() {
 - `aspect/AuthAspect.java` - 权限切面
 - `security/JwtAuthenticationFilter.java` - JWT 过滤器
 - `config/SecurityConfig.java` - 安全配置（修改）
+- - `db/migration/V1__create_admin_tables.sql` - 数据库迁移
 
 ### haifeng-admin (管理端)
 - `pom.xml` - 添加 Lombok 依赖
-- `db/migration/V1__create_admin_tables.sql` - 数据库迁移
 - `entity/SysRole.java` - 角色实体
 - `entity/SysModule.java` - 模块实体
 - `entity/SysRoleModule.java` - 角色模块关联实体
