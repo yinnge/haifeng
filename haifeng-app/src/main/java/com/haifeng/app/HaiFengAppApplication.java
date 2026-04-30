@@ -10,7 +10,7 @@ import org.springframework.context.annotation.ComponentScan;
  */
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.haifeng.common", "com.haifeng.app"})
-@MapperScan("com.haifeng.app.mapper")
+@MapperScan("com.haifeng.common.mapper")
 public class HaiFengAppApplication {
 
     public static void main(String[] args) {
