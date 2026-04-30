@@ -1,4 +1,4 @@
-package com.haifeng.app.entity;
+package com.haifeng.common.entity.user;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

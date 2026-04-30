@@ -1,4 +1,4 @@
-package com.haifeng.admin.entity;
+package com.haifeng.common.entity.permission;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -10,9 +10,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 
-/**
- * 角色模块关联实体
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,15 +20,11 @@ public class SysRoleModule {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /**
-     * 角色ID
-     */
     private Long roleId;
 
-    /**
-     * 模块ID
-     */
     private Long moduleId;
 
     private OffsetDateTime createdAt;
+
+    private OffsetDateTime updatedAt;
 }

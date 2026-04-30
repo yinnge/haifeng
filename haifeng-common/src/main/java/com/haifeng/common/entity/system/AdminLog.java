@@ -1,4 +1,4 @@
-package com.haifeng.admin.entity;
+package com.haifeng.common.entity.system;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -10,9 +10,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 
-/**
- * 管理员操作日志实体
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,55 +20,23 @@ public class AdminLog {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
-    /**
-     * 管理员ID
-     */
     private Long adminId;
 
-    /**
-     * 管理员用户名
-     */
     private String adminName;
 
-    /**
-     * 操作描述
-     */
     private String operation;
 
-    /**
-     * 请求方法
-     */
-    private String method;
+    private String requestPath;
 
-    /**
-     * 请求参数
-     */
-    private String params;
+    private String requestMethod;
 
-    /**
-     * 请求IP
-     */
-    private String ip;
+    private String requestParams;
 
-    /**
-     * User-Agent
-     */
-    private String userAgent;
+    private String result;
 
-    /**
-     * 状态: 0-失败, 1-成功
-     */
-    private Integer status;
-
-    /**
-     * 错误信息
-     */
     private String errorMsg;
 
-    /**
-     * 执行时间(ms)
-     */
-    private Long executeTime;
+    private String ip;
 
     private OffsetDateTime createdAt;
 }
