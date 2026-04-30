@@ -1,6 +1,7 @@
 package com.haifeng.common.aspect;
 
 import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.response.ResultCode;
@@ -54,7 +55,25 @@ public class AuthAspect {
     }
 
     /**
-     * 检查VIP权限
+     * 检查Pro权限（专业版及以上：pro、vip）
+     */
+    @Before("@annotation(requirePro) || @within(requirePro)")
+    public void checkPro(JoinPoint joinPoint, RequirePro requirePro) {
+        AuthUser currentUser = SecurityUtil.getCurrentUser();
+        if (currentUser == null) {
+            log.warn("用户未登录，拒绝Pro访问: {}", joinPoint.getSignature().toShortString());
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+
+        if (!currentUser.isProOrAbove()) {
+            log.warn("用户非Pro及以上，拒绝访问: userId={}, memberType={}",
+                    currentUser.getUserId(), currentUser.getMemberType());
+            throw new BusinessException(ResultCode.PRO_REQUIRED);
+        }
+    }
+
+    /**
+     * 检查VIP权限（仅旗舰版）
      */
     @Before("@annotation(requireVip) || @within(requireVip)")
     public void checkVip(JoinPoint joinPoint, RequireVip requireVip) {
@@ -65,7 +84,8 @@ public class AuthAspect {
         }
 
         if (!currentUser.isVip()) {
-            log.warn("用户非VIP，拒绝访问: userId={}", currentUser.getUserId());
+            log.warn("用户非VIP，拒绝访问: userId={}, memberType={}",
+                    currentUser.getUserId(), currentUser.getMemberType());
             throw new BusinessException(ResultCode.VIP_REQUIRED);
         }
     }

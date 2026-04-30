@@ -38,8 +38,9 @@ public class JwtUtil {
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     public static final String USER_TYPE_ADMIN = "admin";
     public static final String USER_TYPE_MEMBER = "member";
-    public static final String MEMBER_TYPE_NORMAL = "normal";
-    public static final String MEMBER_TYPE_VIP = "vip";
+    public static final String MEMBER_TYPE_NORMAL = "normal";  // 普通版
+    public static final String MEMBER_TYPE_PRO = "pro";        // 专业版
+    public static final String MEMBER_TYPE_VIP = "vip";        // 旗舰版
 
     private SecretKey getSecretKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));

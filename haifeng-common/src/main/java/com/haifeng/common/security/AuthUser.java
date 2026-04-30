@@ -31,7 +31,7 @@ public class AuthUser implements UserDetails {
     private String userType;
 
     /**
-     * 会员类型: normal / vip（仅 member 有效）
+     * 会员类型: normal(普通版) / pro(专业版) / vip(旗舰版)（仅 member 有效）
      */
     private String memberType;
 
@@ -103,9 +103,24 @@ public class AuthUser implements UserDetails {
     }
 
     /**
-     * 判断是否为VIP会员
+     * 判断是否为VIP会员（旗舰版）
      */
     public boolean isVip() {
         return isMember() && "vip".equals(memberType);
+    }
+
+    /**
+     * 判断是否为Pro会员（专业版）
+     */
+    public boolean isPro() {
+        return isMember() && "pro".equals(memberType);
+    }
+
+    /**
+     * 判断是否为Pro或更高级别（专业版及以上）
+     * 权限层级: normal < pro < vip
+     */
+    public boolean isProOrAbove() {
+        return isMember() && ("pro".equals(memberType) || "vip".equals(memberType));
     }
 }

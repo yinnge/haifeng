@@ -20,7 +20,8 @@ public enum ResultCode {
     USER_NOT_FOUND(1001, "用户不存在"),
     PASSWORD_ERROR(1002, "密码错误"),
     MEMBER_EXPIRED(1003, "会员已过期"),
-    VIP_REQUIRED(1004, "权限不足（非VIP）");
+    PRO_REQUIRED(1004, "权限不足（需要专业版及以上）"),
+    VIP_REQUIRED(1005, "权限不足（需要旗舰版）");
 
     private final Integer code;
     private final String msg;

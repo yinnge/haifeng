@@ -109,6 +109,7 @@ CREATE INDEX idx_admin_logs_created ON admin_logs(created_at);
 COMMENT ON TABLE admin_logs IS '操作日志表';
 
 -- 6. 会员表
+-- member_type: normal(普通版) -> pro(专业版) -> vip(旗舰版)
 CREATE TABLE IF NOT EXISTS t_member (
     id                          BIGSERIAL PRIMARY KEY,
     username                    VARCHAR(50) NOT NULL UNIQUE,
@@ -129,7 +130,7 @@ CREATE TABLE IF NOT EXISTS t_member (
     is_deleted                  BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_member_type CHECK (member_type IN ('normal', 'vip')),
+    CONSTRAINT chk_member_type CHECK (member_type IN ('normal', 'pro', 'vip')),
     CONSTRAINT chk_member_status CHECK (status IN ('active', 'disabled')),
     CONSTRAINT chk_commission_balance CHECK (commission_balance >= 0)
 );
@@ -138,20 +139,27 @@ CREATE INDEX idx_member_phone ON t_member(phone) WHERE is_deleted = FALSE;
 CREATE INDEX idx_member_type ON t_member(member_type) WHERE is_deleted = FALSE;
 CREATE INDEX idx_member_referrer ON t_member(referrer_id) WHERE is_deleted = FALSE;
 
--- 邀请码生成函数
+-- 邀请码生成函数（高并发安全：使用 advisory lock 防止幻读）
 CREATE OR REPLACE FUNCTION fn_generate_invite_code()
 RETURNS VARCHAR AS $$
 DECLARE
     chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     code VARCHAR(8);
     code_exists BOOLEAN;
+    lock_id BIGINT := 1001;  -- 邀请码生成专用锁ID
 BEGIN
+    -- 获取事务级别的 advisory lock，事务结束自动释放
+    PERFORM pg_advisory_xact_lock(lock_id);
+
     LOOP
         code := '';
         FOR i IN 1..8 LOOP
             code := code || substr(chars, floor(random() * length(chars) + 1)::int, 1);
         END LOOP;
-        SELECT EXISTS(SELECT 1 FROM t_member WHERE invite_code = code) INTO code_exists;
+        -- 使用 FOR UPDATE 锁定检查，防止幻读
+        SELECT EXISTS(
+            SELECT 1 FROM t_member WHERE invite_code = code FOR UPDATE
+        ) INTO code_exists;
         EXIT WHEN NOT code_exists;
     END LOOP;
     RETURN code;
