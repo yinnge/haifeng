@@ -10,7 +10,7 @@ public class AdminUpdateDTO {
     @Size(min = 2, max = 50, message = "用户名长度必须在2-50之间")
     private String username;
 
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{6,16}$",
+    @Pattern(regexp = "^$|^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{6,16}$",
              message = "密码必须是数字+字母，长度6-16位")
     private String password;
 
