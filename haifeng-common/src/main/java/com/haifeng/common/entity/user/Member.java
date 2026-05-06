@@ -1,6 +1,7 @@
 package com.haifeng.common.entity.user;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.haifeng.common.handler.AESEncryptTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +14,7 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("t_member")
+@TableName(value = "t_member", autoResultMap = true)
 public class Member {
 
     @TableId(type = IdType.ASSIGN_ID)
@@ -48,6 +49,11 @@ public class Member {
     private OffsetDateTime lastLoginAt;
 
     private String lastLoginIp;
+
+    @TableField(typeHandler = AESEncryptTypeHandler.class)
+    private String wechatId;
+
+    private String wechatIdIndex;
 
     @TableLogic
     @TableField("is_deleted")
