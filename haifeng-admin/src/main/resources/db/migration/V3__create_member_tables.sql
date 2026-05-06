@@ -100,13 +100,13 @@ CREATE TABLE t_member_notification (
     is_deleted          BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_notification_type CHECK (notification_type IN (
-        'system',           -- 系统通知
-        'order',            -- 订单通知
-        'commission',       -- 佣金通知
-        'withdraw',         -- 提现通知
-        'membership',       -- 会员到期提醒
-        'announcement',     -- 公告通知
-        'activity'          -- 活动通知
+        'member_expire_soon',       -- 会员即将到期
+        'member_expired',           -- 会员已过期
+        'commission_earned',        -- 佣金到账
+        'commission_paid',          -- 佣金已发放
+        'system_notice',            -- 系统公告
+        'member_renewed',           -- 会员续费成功
+        'member_activation_success' -- 会员开通成功
     ))
 );
 
@@ -117,7 +117,7 @@ CREATE INDEX idx_member_notification_created ON t_member_notification(created_at
 
 COMMENT ON TABLE t_member_notification IS '消息通知表';
 COMMENT ON COLUMN t_member_notification.member_id IS '会员ID';
-COMMENT ON COLUMN t_member_notification.notification_type IS '通知类型: system-系统通知, order-订单通知, commission-佣金通知, withdraw-提现通知, membership-会员到期提醒, announcement-公告通知, activity-活动通知';
+COMMENT ON COLUMN t_member_notification.notification_type IS '通知类型: member_expire_soon-会员即将到期, member_expired-会员已过期, commission_earned-佣金到账, commission_paid-佣金已发放, system_notice-系统公告, member_renewed-会员续费成功, member_activation_success-会员开通成功';
 COMMENT ON COLUMN t_member_notification.title IS '通知标题';
 COMMENT ON COLUMN t_member_notification.content IS '通知内容';
 COMMENT ON COLUMN t_member_notification.related_id IS '关联业务ID';
