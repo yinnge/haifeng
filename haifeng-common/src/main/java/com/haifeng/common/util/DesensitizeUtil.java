@@ -35,4 +35,21 @@ public class DesensitizeUtil {
         }
         return phone.substring(0, 3) + "****" + phone.substring(7);
     }
+
+    /**
+     * 用户名脱敏：保留第一个字符，其余用*替换
+     * 例如：张三 -> 张*，王小明 -> 王**
+     *
+     * @param name 用户名
+     * @return 脱敏后的用户名
+     */
+    public static String desensitizeName(String name) {
+        if (name == null || name.isEmpty()) {
+            return name;
+        }
+        if (name.length() == 1) {
+            return name;
+        }
+        return name.charAt(0) + "*".repeat(name.length() - 1);
+    }
 }
