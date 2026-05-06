@@ -3,6 +3,7 @@ package com.haifeng.admin.controller.user;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.user.MemberQueryDTO;
 import com.haifeng.admin.dto.user.MemberStatusDTO;
+import com.haifeng.admin.dto.user.MemberUpgradeDTO;
 import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.vo.user.MemberDetailVO;
 import com.haifeng.admin.vo.user.MemberListVO;
@@ -52,5 +53,14 @@ public class MemberController {
     @OperationLog(module = "用户管理", action = "查看用户微信明文")
     public R<String> getWechat(@PathVariable Long id) {
         return R.ok(memberService.getWechatPlaintext(id));
+    }
+
+    /**
+     * 会员开通/升级/续费
+     */
+    @PostMapping("/{id}/upgrade")
+    @OperationLog(module = "用户管理", action = "会员开通/续费")
+    public R<Long> upgradeMember(@PathVariable Long id, @Valid @RequestBody MemberUpgradeDTO dto) {
+        return R.ok(memberService.upgradeMember(id, dto));
     }
 }

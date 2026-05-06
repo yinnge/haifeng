@@ -3,6 +3,7 @@ package com.haifeng.admin.service.user;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.user.MemberQueryDTO;
 import com.haifeng.admin.dto.user.MemberStatusDTO;
+import com.haifeng.admin.dto.user.MemberUpgradeDTO;
 import com.haifeng.admin.vo.user.MemberDetailVO;
 import com.haifeng.admin.vo.user.MemberListVO;
 
@@ -27,4 +28,10 @@ public interface MemberService {
      * 获取用户微信明文（需记录操作日志）
      */
     String getWechatPlaintext(Long id);
+
+    /**
+     * 会员开通/升级/续费
+     * @return 订单ID
+     */
+    Long upgradeMember(Long id, MemberUpgradeDTO dto);
 }
