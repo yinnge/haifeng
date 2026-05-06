@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS t_member (
     status                      VARCHAR(20) DEFAULT 'active',
     last_login_at               TIMESTAMPTZ,
     last_login_ip               VARCHAR(50),
+    wechat_id                   VARCHAR(255),                       -- 微信号(AES加密存储)
+    wechat_id_index             VARCHAR(64),                        -- 微信号盲索引(SHA-256)
     is_deleted                  BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -138,53 +140,16 @@ CREATE TABLE IF NOT EXISTS t_member (
 CREATE INDEX idx_member_phone ON t_member(phone) WHERE is_deleted = FALSE;
 CREATE INDEX idx_member_type ON t_member(member_type) WHERE is_deleted = FALSE;
 CREATE INDEX idx_member_referrer ON t_member(referrer_id) WHERE is_deleted = FALSE;
+CREATE INDEX idx_member_wechat_index ON t_member(wechat_id_index) WHERE is_deleted = FALSE;
 
--- 邀请码生成函数（高并发安全：使用 advisory lock 防止幻读）
-CREATE OR REPLACE FUNCTION fn_generate_invite_code()
-RETURNS VARCHAR AS $$
-DECLARE
-    chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    code VARCHAR(8);
-    code_exists BOOLEAN;
-    lock_id BIGINT := 1001;  -- 邀请码生成专用锁ID
-BEGIN
-    -- 获取事务级别的 advisory lock，事务结束自动释放
-    PERFORM pg_advisory_xact_lock(lock_id);
-
-    LOOP
-        code := '';
-        FOR i IN 1..8 LOOP
-            code := code || substr(chars, floor(random() * length(chars) + 1)::int, 1);
-        END LOOP;
-        -- 使用 FOR UPDATE 锁定检查，防止幻读
-        SELECT EXISTS(
-            SELECT 1 FROM t_member WHERE invite_code = code FOR UPDATE
-        ) INTO code_exists;
-        EXIT WHEN NOT code_exists;
-    END LOOP;
-    RETURN code;
-END;
-$$ LANGUAGE plpgsql;
-
--- 自动生成邀请码触发器
-CREATE OR REPLACE FUNCTION fn_auto_invite_code()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.invite_code IS NULL THEN
-        NEW.invite_code := fn_generate_invite_code();
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_member_invite_code
-    BEFORE INSERT ON t_member
-    FOR EACH ROW
-    EXECUTE FUNCTION fn_auto_invite_code();
+-- 邀请码由 Java 层 Hashids 生成（基于雪花ID，绝对唯一）
+-- UNIQUE 约束作为兜底保护
 
 COMMENT ON TABLE t_member IS '会员表';
 COMMENT ON COLUMN t_member.phone IS '手机号（用于登录，必填）';
 COMMENT ON COLUMN t_member.invite_code IS '邀请码（8位，自动生成）';
+COMMENT ON COLUMN t_member.wechat_id IS '微信号(AES加密存储)';
+COMMENT ON COLUMN t_member.wechat_id_index IS '微信号盲索引(SHA-256哈希，用于等值查询)';
 
 -- 默认管理员（密码：Admin123）
 INSERT INTO sys_role (id, role_name, role_code, description, status)
