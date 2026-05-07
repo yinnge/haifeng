@@ -1,6 +1,7 @@
 package com.haifeng.admin.dto.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.StringToArrayConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -44,11 +45,9 @@ public class MajorDetailImportDTO {
     @ExcelProperty("职业前景")
     private String careerProspect;
 
-    // TODO: 需要创建StringToArrayConverter
-    @ExcelProperty(value = "主要课程") // , converter = StringToArrayConverter.class
-    private String mainCoursesStr; // 暂用String，后续改为String[] + converter
+    @ExcelProperty(value = "主要课程", converter = StringToArrayConverter.class)
+    private String[] mainCourses;
 
-    // TODO: 需要创建StringToArrayConverter
-    @ExcelProperty(value = "知识技能") // , converter = StringToArrayConverter.class
-    private String knowledgeSkillsStr; // 暂用String，后续改为String[] + converter
+    @ExcelProperty(value = "知识技能", converter = StringToArrayConverter.class)
+    private String[] knowledgeSkills;
 }
