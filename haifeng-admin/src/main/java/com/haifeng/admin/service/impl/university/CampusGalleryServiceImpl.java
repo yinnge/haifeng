@@ -14,6 +14,8 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.CampusGalleryMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.util.SnowflakeIdGenerator;
+import com.alibaba.excel.EasyExcel;
+import com.haifeng.admin.excel.university.CampusGalleryExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -131,19 +135,47 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(Long id, Short status) {
+        CampusGallery gallery = campusGalleryMapper.selectById(id);
+        if (gallery == null) {
+            throw new BusinessException(404, "校园图册不存在");
+        }
+
+        gallery.setStatus(status);
+        gallery.setUpdatedAt(OffsetDateTime.now());
+        campusGalleryMapper.updateById(gallery);
+
+        log.info("修改校园图册状态成功: id={}, status={}", id, status);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         CampusGallery gallery = campusGalleryMapper.selectById(id);
-        if (gallery == null || gallery.getStatus() == 0) {
+        if (gallery == null) {
             throw new BusinessException(404, "校园图册不存在");
         }
 
         // 软删除：status = 0
         gallery.setStatus((short) 0);
         gallery.setUpdatedAt(OffsetDateTime.now());
-
         campusGalleryMapper.updateById(gallery);
 
-        log.info("删除校园图册成功: id={}", id);
+        log.info("软删除校园图册成功: id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void hardDelete(Long id) {
+        CampusGallery gallery = campusGalleryMapper.selectById(id);
+        if (gallery == null) {
+            throw new BusinessException(404, "校园图册不存在");
+        }
+
+        // 硬删除：物理删除
+        campusGalleryMapper.deleteById(id);
+
+        log.info("硬删除校园图册成功: id={}", id);
     }
 
     @Override
@@ -166,14 +198,103 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
             }
         }
 
-        log.info("批量删除校园图册成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+        log.info("批量软删除校园图册成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchHardDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException(400, "ID列表不能为空");
+        }
+
+        int successCount = 0;
+
+        for (Long id : ids) {
+            CampusGallery gallery = campusGalleryMapper.selectById(id);
+            if (gallery != null) {
+                campusGalleryMapper.deleteById(id);
+                successCount++;
+            }
+        }
+
+        log.info("批量硬删除校园图册成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importGallery(MultipartFile file) {
-        // TODO: 待Task 11创建Excel DTO类后实现
-        // 需要依赖: CampusGalleryExcelDTO
-        throw new BusinessException(501, "Excel导入功能待实现，请先创建Excel DTO类");
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
+
+        List<CampusGalleryExcelDTO> dataList;
+        try {
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(CampusGalleryExcelDTO.class)
+                    .sheet()
+                    .doReadSync();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        List<String> errors = new ArrayList<>();
+        OffsetDateTime now = OffsetDateTime.now();
+        int successCount = 0;
+
+        for (int i = 0; i < dataList.size(); i++) {
+            int rowNum = i + 2;
+            CampusGalleryExcelDTO dto = dataList.get(i);
+
+            // 校验必填字段
+            if (!StringUtils.hasText(dto.getUniversityName())) {
+                errors.add("第" + rowNum + "行: 院校名称不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getImageUrl())) {
+                errors.add("第" + rowNum + "行: 图片URL不能为空");
+                continue;
+            }
+
+            // 根据院校名称查找院校
+            LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
+            univWrapper.eq(University::getName, dto.getUniversityName())
+                       .ne(University::getStatus, (short) 0);
+            University university = universityMapper.selectOne(univWrapper);
+
+            if (university == null) {
+                errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                continue;
+            }
+
+            Long id = SnowflakeIdGenerator.nextId();
+            CampusGallery gallery = CampusGallery.builder()
+                    .id(id)
+                    .universityId(university.getId())
+                    .universityName(university.getName())
+                    .imageType(dto.getImageType())
+                    .imageUrl(dto.getImageUrl())
+                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                    .status((short) 1)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            campusGalleryMapper.insert(gallery);
+            successCount++;
+        }
+
+        if (!errors.isEmpty()) {
+            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
+                    successCount, errors.size(), String.join("; ", errors));
+            throw new BusinessException(400, errorMsg);
+        }
+
+        log.info("导入校园图册数据成功: 共{}条", successCount);
     }
 }

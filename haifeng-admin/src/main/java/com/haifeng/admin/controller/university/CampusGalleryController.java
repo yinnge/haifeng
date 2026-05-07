@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.university;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.CampusGalleryService;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
@@ -49,22 +50,52 @@ public class CampusGalleryController {
     }
 
     /**
-     * 删除校园图册
+     * 修改校园图册状态（禁用/启用）
+     */
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "院校管理", action = "修改校园图册状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
+        campusGalleryService.updateStatus(id, dto.getStatus());
+        return R.ok();
+    }
+
+    /**
+     * 软删除校园图册（可恢复）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "院校管理", action = "删除校园图册")
+    @OperationLog(module = "院校管理", action = "软删除校园图册")
     public R<Void> delete(@PathVariable Long id) {
         campusGalleryService.delete(id);
         return R.ok();
     }
 
     /**
-     * 批量删除校园图册
+     * 硬删除校园图册（永久删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "院校管理", action = "硬删除校园图册")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        campusGalleryService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 批量软删除校园图册
      */
     @DeleteMapping("/batch")
-    @OperationLog(module = "院校管理", action = "批量删除校园图册")
+    @OperationLog(module = "院校管理", action = "批量软删除校园图册")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         campusGalleryService.batchDelete(dto.getIds());
+        return R.ok();
+    }
+
+    /**
+     * 批量硬删除校园图册
+     */
+    @DeleteMapping("/batch/hard")
+    @OperationLog(module = "院校管理", action = "批量硬删除校园图册")
+    public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
+        campusGalleryService.batchHardDelete(dto.getIds());
         return R.ok();
     }
 

@@ -39,18 +39,40 @@ public interface CampusGalleryService {
     void update(Long id, CampusGalleryUpdateDTO dto);
 
     /**
-     * 删除校园图册（软删除，status=0）
+     * 修改校园图册状态（禁用/启用）
+     *
+     * @param id     图册ID
+     * @param status 新状态（0禁用，1启用）
+     */
+    void updateStatus(Long id, Short status);
+
+    /**
+     * 软删除校园图册（可恢复，status=0）
      *
      * @param id 图册ID
      */
     void delete(Long id);
 
     /**
-     * 批量删除校园图册（软删除）
+     * 硬删除校园图册（永久删除）
+     *
+     * @param id 图册ID
+     */
+    void hardDelete(Long id);
+
+    /**
+     * 批量软删除校园图册
      *
      * @param ids 图册ID列表
      */
     void batchDelete(List<Long> ids);
+
+    /**
+     * 批量硬删除校园图册
+     *
+     * @param ids 图册ID列表
+     */
+    void batchHardDelete(List<Long> ids);
 
     /**
      * Excel导入校园图册数据

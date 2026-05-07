@@ -15,6 +15,8 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.UniversityGuideMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.util.SnowflakeIdGenerator;
+import com.alibaba.excel.EasyExcel;
+import com.haifeng.admin.excel.university.UniversityGuideExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -198,19 +202,47 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(Long id, Short status) {
+        UniversityGuide guide = universityGuideMapper.selectById(id);
+        if (guide == null) {
+            throw new BusinessException(404, "院校适应指南不存在");
+        }
+
+        guide.setStatus(status);
+        guide.setUpdatedAt(OffsetDateTime.now());
+        universityGuideMapper.updateById(guide);
+
+        log.info("修改院校适应指南状态成功: id={}, status={}", id, status);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
-        if (guide == null || guide.getStatus() == 0) {
+        if (guide == null) {
             throw new BusinessException(404, "院校适应指南不存在");
         }
 
         // 软删除：status = 0
         guide.setStatus((short) 0);
         guide.setUpdatedAt(OffsetDateTime.now());
-
         universityGuideMapper.updateById(guide);
 
-        log.info("删除院校适应指南成功: id={}", id);
+        log.info("软删除院校适应指南成功: id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void hardDelete(Long id) {
+        UniversityGuide guide = universityGuideMapper.selectById(id);
+        if (guide == null) {
+            throw new BusinessException(404, "院校适应指南不存在");
+        }
+
+        // 硬删除：物理删除
+        universityGuideMapper.deleteById(id);
+
+        log.info("硬删除院校适应指南成功: id={}", id);
     }
 
     @Override
@@ -233,14 +265,114 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             }
         }
 
-        log.info("批量删除院校适应指南成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+        log.info("批量软删除院校适应指南成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchHardDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException(400, "ID列表不能为空");
+        }
+
+        int successCount = 0;
+
+        for (Long id : ids) {
+            UniversityGuide guide = universityGuideMapper.selectById(id);
+            if (guide != null) {
+                universityGuideMapper.deleteById(id);
+                successCount++;
+            }
+        }
+
+        log.info("批量硬删除院校适应指南成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importGuide(MultipartFile file) {
-        // TODO: 待Task 11创建Excel DTO类后实现
-        // 需要依赖: UniversityGuideExcelDTO
-        throw new BusinessException(501, "Excel导入功能待实现，请先创建Excel DTO类");
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
+
+        List<UniversityGuideExcelDTO> dataList;
+        try {
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(UniversityGuideExcelDTO.class)
+                    .sheet()
+                    .doReadSync();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        List<String> errors = new ArrayList<>();
+        OffsetDateTime now = OffsetDateTime.now();
+        int successCount = 0;
+
+        for (int i = 0; i < dataList.size(); i++) {
+            int rowNum = i + 2;
+            UniversityGuideExcelDTO dto = dataList.get(i);
+
+            // 校验必填字段
+            if (!StringUtils.hasText(dto.getUniversityName())) {
+                errors.add("第" + rowNum + "行: 院校名称不能为空");
+                continue;
+            }
+
+            // 根据院校名称查找院校
+            LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
+            univWrapper.eq(University::getName, dto.getUniversityName())
+                       .ne(University::getStatus, (short) 0);
+            University university = universityMapper.selectOne(univWrapper);
+
+            if (university == null) {
+                errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                continue;
+            }
+
+            // 检查该院校是否已有指南（1:1关系）
+            LambdaQueryWrapper<UniversityGuide> guideWrapper = new LambdaQueryWrapper<>();
+            guideWrapper.eq(UniversityGuide::getUniversityId, university.getId())
+                       .ne(UniversityGuide::getStatus, (short) 0);
+            UniversityGuide existingGuide = universityGuideMapper.selectOne(guideWrapper);
+
+            if (existingGuide != null) {
+                // 更新现有记录
+                existingGuide.setCustomTags(dto.getCustomTags());
+                existingGuide.setRemark(dto.getRemark());
+                if (dto.getStatus() != null) {
+                    existingGuide.setStatus(dto.getStatus().shortValue());
+                }
+                existingGuide.setUpdatedAt(now);
+                universityGuideMapper.updateById(existingGuide);
+            } else {
+                // 新建指南记录
+                Long id = SnowflakeIdGenerator.nextId();
+                UniversityGuide guide = UniversityGuide.builder()
+                        .id(id)
+                        .universityId(university.getId())
+                        .customTags(dto.getCustomTags())
+                        .remark(dto.getRemark())
+                        .status(dto.getStatus() != null ? dto.getStatus().shortValue() : (short) 1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                universityGuideMapper.insert(guide);
+            }
+            successCount++;
+        }
+
+        if (!errors.isEmpty()) {
+            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
+                    successCount, errors.size(), String.join("; ", errors));
+            throw new BusinessException(400, errorMsg);
+        }
+
+        log.info("导入院校适应指南数据成功: 共{}条", successCount);
     }
 }

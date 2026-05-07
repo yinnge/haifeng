@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.university;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.UniversityGuideService;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
@@ -58,22 +59,52 @@ public class UniversityGuideController {
     }
 
     /**
-     * 删除院校适应指南
+     * 修改院校适应指南状态（禁用/启用）
+     */
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "院校管理", action = "修改院校适应指南状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
+        universityGuideService.updateStatus(id, dto.getStatus());
+        return R.ok();
+    }
+
+    /**
+     * 软删除院校适应指南（可恢复）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "院校管理", action = "删除院校适应指南")
+    @OperationLog(module = "院校管理", action = "软删除院校适应指南")
     public R<Void> delete(@PathVariable Long id) {
         universityGuideService.delete(id);
         return R.ok();
     }
 
     /**
-     * 批量删除院校适应指南
+     * 硬删除院校适应指南（永久删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "院校管理", action = "硬删除院校适应指南")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        universityGuideService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 批量软删除院校适应指南
      */
     @DeleteMapping("/batch")
-    @OperationLog(module = "院校管理", action = "批量删除院校适应指南")
+    @OperationLog(module = "院校管理", action = "批量软删除院校适应指南")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         universityGuideService.batchDelete(dto.getIds());
+        return R.ok();
+    }
+
+    /**
+     * 批量硬删除院校适应指南
+     */
+    @DeleteMapping("/batch/hard")
+    @OperationLog(module = "院校管理", action = "批量硬删除院校适应指南")
+    public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
+        universityGuideService.batchHardDelete(dto.getIds());
         return R.ok();
     }
 

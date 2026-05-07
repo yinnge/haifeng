@@ -48,18 +48,40 @@ public interface UniversityGuideService {
     void update(Long id, UniversityGuideUpdateDTO dto);
 
     /**
-     * 删除院校适应指南（软删除，status=0）
+     * 修改院校适应指南状态（禁用/启用）
+     *
+     * @param id     指南ID
+     * @param status 新状态（0禁用，1启用）
+     */
+    void updateStatus(Long id, Short status);
+
+    /**
+     * 软删除院校适应指南（可恢复，status=0）
      *
      * @param id 指南ID
      */
     void delete(Long id);
 
     /**
-     * 批量删除院校适应指南（软删除）
+     * 硬删除院校适应指南（永久删除）
+     *
+     * @param id 指南ID
+     */
+    void hardDelete(Long id);
+
+    /**
+     * 批量软删除院校适应指南
      *
      * @param ids 指南ID列表
      */
     void batchDelete(List<Long> ids);
+
+    /**
+     * 批量硬删除院校适应指南
+     *
+     * @param ids 指南ID列表
+     */
+    void batchHardDelete(List<Long> ids);
 
     /**
      * Excel导入院校适应指南数据

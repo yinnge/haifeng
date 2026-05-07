@@ -14,6 +14,9 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.util.SnowflakeIdGenerator;
+import com.alibaba.excel.EasyExcel;
+import com.haifeng.admin.excel.university.UniversityExcelDTO;
+import com.haifeng.admin.excel.university.UniversityDetailExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -22,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -282,19 +287,52 @@ public class UniversityServiceImpl implements UniversityService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(Long id, Short status) {
+        University university = universityMapper.selectById(id);
+        if (university == null) {
+            throw new BusinessException(404, "院校不存在");
+        }
+
+        university.setStatus(status);
+        university.setUpdatedAt(OffsetDateTime.now());
+        universityMapper.updateById(university);
+
+        log.info("修改院校状态成功: id={}, status={}", id, status);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         University university = universityMapper.selectById(id);
-        if (university == null || university.getStatus() == 0) {
+        if (university == null) {
             throw new BusinessException(404, "院校不存在");
         }
 
         // 软删除：status = 0
         university.setStatus((short) 0);
         university.setUpdatedAt(OffsetDateTime.now());
-
         universityMapper.updateById(university);
 
-        log.info("删除院校成功: id={}", id);
+        log.info("软删除院校成功: id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void hardDelete(Long id) {
+        University university = universityMapper.selectById(id);
+        if (university == null) {
+            throw new BusinessException(404, "院校不存在");
+        }
+
+        // 先删除关联的详情记录
+        LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
+        detailWrapper.eq(UniversityDetail::getUniversityId, id);
+        universityDetailMapper.delete(detailWrapper);
+
+        // 硬删除：物理删除
+        universityMapper.deleteById(id);
+
+        log.info("硬删除院校成功: id={}", id);
     }
 
     @Override
@@ -317,22 +355,216 @@ public class UniversityServiceImpl implements UniversityService {
             }
         }
 
-        log.info("批量删除院校成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+        log.info("批量软删除院校成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchHardDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException(400, "ID列表不能为空");
+        }
+
+        int successCount = 0;
+
+        for (Long id : ids) {
+            University university = universityMapper.selectById(id);
+            if (university != null) {
+                // 先删除关联的详情记录
+                LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
+                detailWrapper.eq(UniversityDetail::getUniversityId, id);
+                universityDetailMapper.delete(detailWrapper);
+
+                // 硬删除
+                universityMapper.deleteById(id);
+                successCount++;
+            }
+        }
+
+        log.info("批量硬删除院校成功: 请求数量={}, 实际删除数量={}", ids.size(), successCount);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importUniversities(MultipartFile file) {
-        // TODO: 待Task 11创建Excel DTO类后实现
-        // 需要依赖: UniversityExcelDTO
-        throw new BusinessException(501, "Excel导入功能待实现，请先创建Excel DTO类");
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
+
+        List<UniversityExcelDTO> dataList;
+        try {
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(UniversityExcelDTO.class)
+                    .sheet()
+                    .doReadSync();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        List<String> errors = new ArrayList<>();
+        OffsetDateTime now = OffsetDateTime.now();
+        int successCount = 0;
+
+        for (int i = 0; i < dataList.size(); i++) {
+            int rowNum = i + 2; // Excel行号（从2开始，1是表头）
+            UniversityExcelDTO dto = dataList.get(i);
+
+            // 校验必填字段
+            if (!StringUtils.hasText(dto.getName())) {
+                errors.add("第" + rowNum + "行: 院校名称不能为空");
+                continue;
+            }
+
+            // 检查名称是否重复
+            LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(University::getName, dto.getName())
+                   .ne(University::getStatus, (short) 0);
+            if (universityMapper.selectCount(wrapper) > 0) {
+                errors.add("第" + rowNum + "行: 院校名称[" + dto.getName() + "]已存在");
+                continue;
+            }
+
+            Long id = SnowflakeIdGenerator.nextId();
+            University university = University.builder()
+                    .id(id)
+                    .name(dto.getName())
+                    .nameEn(dto.getNameEn())
+                    .provinceName(dto.getProvinceName())
+                    .cityName(dto.getCityName())
+                    .region(dto.getRegion())
+                    .category(dto.getCategory())
+                    .majorCount(dto.getMajorCount() != null ? dto.getMajorCount() : 0)
+                    .educationLevel(dto.getEducationLevel())
+                    .nature(dto.getNature())
+                    .recommendationRate(dto.getRecommendationRate())
+                    .recommendationYear(dto.getRecommendationYear())
+                    .hasDoctorate(dto.getHasDoctorate() != null ? dto.getHasDoctorate() : false)
+                    .hasMaster(dto.getHasMaster() != null ? dto.getHasMaster() : false)
+                    .department(dto.getDepartment())
+                    .tags(dto.getTags())
+                    .famousUnion(dto.getFamousUnion())
+                    .imageUrl(dto.getImageUrl())
+                    .introduction(dto.getIntroduction())
+                    .sortOrder(0)
+                    .status((short) 1)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            universityMapper.insert(university);
+            successCount++;
+        }
+
+        if (!errors.isEmpty()) {
+            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
+                    successCount, errors.size(), String.join("; ", errors));
+            throw new BusinessException(400, errorMsg);
+        }
+
+        log.info("导入院校主表数据成功: 共{}条", successCount);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importUniversityDetails(MultipartFile file) {
-        // TODO: 待Task 11创建Excel DTO类后实现
-        // 需要依赖: UniversityDetailExcelDTO
-        throw new BusinessException(501, "Excel导入功能待实现，请先创建Excel DTO类");
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
+
+        List<UniversityDetailExcelDTO> dataList;
+        try {
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(UniversityDetailExcelDTO.class)
+                    .sheet()
+                    .doReadSync();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        List<String> errors = new ArrayList<>();
+        OffsetDateTime now = OffsetDateTime.now();
+        int successCount = 0;
+
+        for (int i = 0; i < dataList.size(); i++) {
+            int rowNum = i + 2;
+            UniversityDetailExcelDTO dto = dataList.get(i);
+
+            // 校验必填字段
+            if (!StringUtils.hasText(dto.getUniversityName())) {
+                errors.add("第" + rowNum + "行: 院校名称不能为空");
+                continue;
+            }
+
+            // 根据院校名称查找院校
+            LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
+            univWrapper.eq(University::getName, dto.getUniversityName())
+                       .ne(University::getStatus, (short) 0);
+            University university = universityMapper.selectOne(univWrapper);
+
+            if (university == null) {
+                errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                continue;
+            }
+
+            // 检查是否已有详情记录
+            LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
+            detailWrapper.eq(UniversityDetail::getUniversityId, university.getId());
+            UniversityDetail existingDetail = universityDetailMapper.selectOne(detailWrapper);
+
+            if (existingDetail != null) {
+                // 更新现有记录
+                existingDetail.setAddress(dto.getAddress());
+                existingDetail.setAdmissionPhone(dto.getAdmissionPhone());
+                existingDetail.setWebsite(dto.getWebsite());
+                existingDetail.setHistoryGroupScore(dto.getHistoryGroupScore());
+                existingDetail.setScienceGroupScore(dto.getScienceGroupScore());
+                existingDetail.setCarouselImages(dto.getCarouselImages());
+                existingDetail.setIntroduction(dto.getIntroduction());
+                existingDetail.setAbroadRate(dto.getAbroadRate());
+                existingDetail.setGenderRatio(dto.getGenderRatio());
+                existingDetail.setUpdatedAt(now);
+                universityDetailMapper.updateById(existingDetail);
+            } else {
+                // 新建详情记录
+                Long detailId = SnowflakeIdGenerator.nextId();
+                UniversityDetail detail = UniversityDetail.builder()
+                        .id(detailId)
+                        .universityId(university.getId())
+                        .address(dto.getAddress())
+                        .admissionPhone(dto.getAdmissionPhone())
+                        .website(dto.getWebsite())
+                        .historyGroupScore(dto.getHistoryGroupScore())
+                        .scienceGroupScore(dto.getScienceGroupScore())
+                        .carouselImages(dto.getCarouselImages())
+                        .introduction(dto.getIntroduction())
+                        .abroadRate(dto.getAbroadRate())
+                        .genderRatio(dto.getGenderRatio())
+                        .sortOrder(0)
+                        .status((short) 1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                universityDetailMapper.insert(detail);
+            }
+            successCount++;
+        }
+
+        if (!errors.isEmpty()) {
+            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
+                    successCount, errors.size(), String.join("; ", errors));
+            throw new BusinessException(400, errorMsg);
+        }
+
+        log.info("导入院校详情数据成功: 共{}条", successCount);
     }
 }
