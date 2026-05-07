@@ -32,6 +32,12 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 40MB
+
 # MyBatis-Plus 配置
 mybatis-plus:
   configuration:
