@@ -17,9 +17,9 @@ public class PostgradMajorListVO {
 
     private String disciplineCategory;
 
-    private Integer popularity;
+    private String popularity;
 
-    private Integer difficulty;
+    private String difficulty;
 
     private Integer status;
 

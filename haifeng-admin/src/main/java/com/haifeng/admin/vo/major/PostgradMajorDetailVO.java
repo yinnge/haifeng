@@ -17,9 +17,9 @@ public class PostgradMajorDetailVO {
 
     private String disciplineCategory;
 
-    private Integer popularity;
+    private String popularity;
 
-    private Integer difficulty;
+    private String difficulty;
 
     private String brief;
 
@@ -29,7 +29,7 @@ public class PostgradMajorDetailVO {
 
     private String[] admissionRequirements;
 
-    private Integer crossExamDifficulty;
+    private String crossExamDifficulty;
 
     private String crossExamDescription;
 
