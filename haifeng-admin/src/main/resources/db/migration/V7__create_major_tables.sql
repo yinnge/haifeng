@@ -85,6 +85,8 @@ COMMENT ON COLUMN t_major.updated_at IS '更新时间';
 
 -- ===========================================================
 -- 2. 专业详情表 (t_major_detail) - 与 t_major 1:1
+-- 关联关系说明（不使用外键约束，性能考虑）：
+--   major_id -> t_major.id
 -- ===========================================================
 CREATE TABLE t_major_detail (
     id                      BIGINT          PRIMARY KEY,
@@ -124,9 +126,9 @@ CREATE TRIGGER trg_major_detail_updated_at
     EXECUTE FUNCTION fn_update_timestamp();
 
 -- 注释
-COMMENT ON TABLE t_major_detail IS '专业详情表：与 t_major 一对一，存储专业详细描述';
+COMMENT ON TABLE t_major_detail IS '专业详情表：与 t_major 一对一，存储专业详细描述。关联：major_id -> t_major.id';
 COMMENT ON COLUMN t_major_detail.id IS '主键ID（雪花算法）';
-COMMENT ON COLUMN t_major_detail.major_id IS '关联专业表ID（一对一）';
+COMMENT ON COLUMN t_major_detail.major_id IS '关联专业表ID（关联 t_major.id，一对一）';
 COMMENT ON COLUMN t_major_detail.course_count IS '课程数量';
 COMMENT ON COLUMN t_major_detail.graduate_scale IS '毕业生规模（如：50000-60000人）';
 COMMENT ON COLUMN t_major_detail.male_ratio IS '男生比例（%）';
@@ -210,6 +212,9 @@ COMMENT ON COLUMN t_postgrad_major.updated_at IS '更新时间';
 
 -- ===========================================================
 -- 4. 考研专业-大学关联表 (t_postgrad_major_university)
+-- 关联关系说明（不使用外键约束，性能考虑）：
+--   postgrad_major_id -> t_postgrad_major.id
+--   university_id -> t_university.id
 -- ===========================================================
 CREATE TABLE t_postgrad_major_university (
     id                      BIGINT          PRIMARY KEY,
@@ -220,6 +225,7 @@ CREATE TABLE t_postgrad_major_university (
     sort_order              INTEGER         DEFAULT 0,
     status                  SMALLINT        NOT NULL DEFAULT 1,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     -- 约束
     CONSTRAINT uk_postgrad_major_university UNIQUE (postgrad_major_id, university_id)
@@ -229,13 +235,20 @@ CREATE TABLE t_postgrad_major_university (
 CREATE INDEX idx_pmu_major ON t_postgrad_major_university (postgrad_major_id, sort_order) WHERE status = 1;
 CREATE INDEX idx_pmu_university ON t_postgrad_major_university (university_id) WHERE status = 1;
 
+-- 触发器
+CREATE TRIGGER trg_postgrad_major_university_updated_at
+    BEFORE UPDATE ON t_postgrad_major_university
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_update_timestamp();
+
 -- 注释
-COMMENT ON TABLE t_postgrad_major_university IS '考研专业-大学 多对多关联表';
+COMMENT ON TABLE t_postgrad_major_university IS '考研专业-大学 多对多关联表。关联：postgrad_major_id -> t_postgrad_major.id, university_id -> t_university.id';
 COMMENT ON COLUMN t_postgrad_major_university.id IS '主键ID（雪花算法）';
-COMMENT ON COLUMN t_postgrad_major_university.postgrad_major_id IS '考研专业ID';
-COMMENT ON COLUMN t_postgrad_major_university.university_id IS '大学ID';
+COMMENT ON COLUMN t_postgrad_major_university.postgrad_major_id IS '考研专业ID（关联 t_postgrad_major.id）';
+COMMENT ON COLUMN t_postgrad_major_university.university_id IS '大学ID（关联 t_university.id）';
 COMMENT ON COLUMN t_postgrad_major_university.university_name IS '大学名称（冗余，方便展示）';
 COMMENT ON COLUMN t_postgrad_major_university.postgrad_major_name IS '考研专业名称（冗余，方便展示）';
 COMMENT ON COLUMN t_postgrad_major_university.sort_order IS '排序权重';
 COMMENT ON COLUMN t_postgrad_major_university.status IS '状态：0=禁用，1=启用';
 COMMENT ON COLUMN t_postgrad_major_university.created_at IS '创建时间';
+COMMENT ON COLUMN t_postgrad_major_university.updated_at IS '更新时间';
