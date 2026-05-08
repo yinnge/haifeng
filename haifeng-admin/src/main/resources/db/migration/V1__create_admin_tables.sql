@@ -78,7 +78,9 @@ CREATE TABLE sys_admin (
     last_login_ip   VARCHAR(50),
     is_deleted      BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    totp_secret     VARCHAR(64),
+    is_totp_enabled BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX idx_admin_role ON sys_admin(role_id) WHERE is_deleted = FALSE;
@@ -87,6 +89,8 @@ CREATE INDEX idx_admin_status ON sys_admin(status) WHERE is_deleted = FALSE;
 COMMENT ON TABLE sys_admin IS '管理员表';
 COMMENT ON COLUMN sys_admin.phone IS '手机号（用于登录）';
 COMMENT ON COLUMN sys_admin.status IS '状态: 0-禁用, 1-启用';
+COMMENT ON COLUMN sys_admin.totp_secret IS 'TOTP动态口令密钥(Base32编码)';
+COMMENT ON COLUMN sys_admin.is_totp_enabled IS '是否已开启双因素认证';
 
 -- 5. 操作日志表
 CREATE TABLE admin_logs (
