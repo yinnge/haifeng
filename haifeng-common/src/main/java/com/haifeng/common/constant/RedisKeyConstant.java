@@ -24,6 +24,21 @@ public final class RedisKeyConstant {
     public static final String LIMIT_API_PREFIX = "haifeng:limit:api:";
 
     /**
+     * 验证码
+     */
+    public static final String CAPTCHA_PREFIX = "haifeng:captcha:";
+
+    /**
+     * 管理员登录失败计数
+     */
+    public static final String ADMIN_LOGIN_FAIL_PREFIX = "haifeng:admin:login:fail:";
+
+    /**
+     * 管理员 TOTP 预认证
+     */
+    public static final String ADMIN_PRE_AUTH_PREFIX = "haifeng:admin:pre-auth:";
+
+    /**
      * 获取 RefreshToken 的 Redis Key
      *
      * @param userId   用户ID
@@ -53,5 +68,35 @@ public final class RedisKeyConstant {
      */
     public static String getLimitApiKey(String ip, String path) {
         return LIMIT_API_PREFIX + ip + ":" + path;
+    }
+
+    /**
+     * 获取验证码 Redis Key
+     *
+     * @param uuid 验证码唯一标识
+     * @return Redis Key
+     */
+    public static String getCaptchaKey(String uuid) {
+        return CAPTCHA_PREFIX + uuid;
+    }
+
+    /**
+     * 获取管理员登录失败计数 Key
+     *
+     * @param phone 手机号
+     * @return Redis Key
+     */
+    public static String getAdminLoginFailKey(String phone) {
+        return ADMIN_LOGIN_FAIL_PREFIX + phone;
+    }
+
+    /**
+     * 获取管理员预认证 Key
+     *
+     * @param token 预认证令牌
+     * @return Redis Key
+     */
+    public static String getAdminPreAuthKey(String token) {
+        return ADMIN_PRE_AUTH_PREFIX + token;
     }
 }
