@@ -9,6 +9,8 @@ import com.haifeng.admin.dto.industry.IndustryUpdateDTO;
 import com.haifeng.admin.vo.industry.IndustryDetailVO;
 import com.haifeng.admin.vo.industry.IndustryListVO;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 public interface IndustryService {
@@ -52,4 +54,14 @@ public interface IndustryService {
      * 批量硬删除行业
      */
     void batchDelete(List<Long> ids);
+
+    /**
+     * 导入行业主表xlsx
+     */
+    void importIndustries(MultipartFile file);
+
+    /**
+     * 导入行业详情xlsx（9个Sheet）
+     */
+    void importIndustryDetails(MultipartFile file);
 }

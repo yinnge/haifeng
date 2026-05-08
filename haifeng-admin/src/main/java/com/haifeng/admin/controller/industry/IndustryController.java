@@ -14,6 +14,7 @@ import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -96,6 +97,26 @@ public class IndustryController {
     @OperationLog(module = "行业管理", action = "批量硬删除行业")
     public R<Void> batchDelete(@RequestBody List<Long> ids) {
         industryService.batchDelete(ids);
+        return R.ok();
+    }
+
+    /**
+     * 导入行业主表xlsx
+     */
+    @PostMapping("/import")
+    @OperationLog(module = "行业管理", action = "导入行业主表")
+    public R<Void> importIndustries(@RequestParam("file") MultipartFile file) {
+        industryService.importIndustries(file);
+        return R.ok();
+    }
+
+    /**
+     * 导入行业详情xlsx（9个Sheet）
+     */
+    @PostMapping("/import-detail")
+    @OperationLog(module = "行业管理", action = "导入行业详情")
+    public R<Void> importIndustryDetails(@RequestParam("file") MultipartFile file) {
+        industryService.importIndustryDetails(file);
         return R.ok();
     }
 }
