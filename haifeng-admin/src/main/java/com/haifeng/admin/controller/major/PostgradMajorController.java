@@ -1,6 +1,6 @@
 package com.haifeng.admin.controller.major;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.dto.major.PostgradMajorAddDTO;
 import com.haifeng.admin.dto.major.PostgradMajorQueryDTO;
@@ -31,7 +31,7 @@ public class PostgradMajorController {
      * 分页查询考研专业列表
      */
     @GetMapping("/list")
-    public R<Page<PostgradMajorListVO>> list(@Valid PostgradMajorQueryDTO dto) {
+    public R<IPage<PostgradMajorListVO>> list(@Valid PostgradMajorQueryDTO dto) {
         return R.ok(postgradMajorService.list(dto));
     }
 

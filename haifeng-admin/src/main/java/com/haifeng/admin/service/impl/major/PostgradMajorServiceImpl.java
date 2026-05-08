@@ -2,6 +2,7 @@ package com.haifeng.admin.service.impl.major;
 
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.major.*;
 import com.haifeng.admin.service.major.PostgradMajorService;
@@ -55,7 +56,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
     private static final Set<String> VALID_CROSS_EXAM_DIFFICULTY = Set.of("较易", "中等", "较难");
 
     @Override
-    public Page<PostgradMajorListVO> list(PostgradMajorQueryDTO queryDTO) {
+    public IPage<PostgradMajorListVO> list(PostgradMajorQueryDTO queryDTO) {
         Page<PostgradMajor> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<PostgradMajor> wrapper = new LambdaQueryWrapper<>();

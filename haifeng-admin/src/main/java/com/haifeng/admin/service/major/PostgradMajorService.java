@@ -1,6 +1,6 @@
 package com.haifeng.admin.service.major;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.major.*;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.PostgradMajorDetailVO;
@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface PostgradMajorService {
-    Page<PostgradMajorListVO> list(PostgradMajorQueryDTO queryDTO);
+    IPage<PostgradMajorListVO> list(PostgradMajorQueryDTO queryDTO);
     PostgradMajorDetailVO getById(Long id);
     Long add(PostgradMajorAddDTO addDTO);
     void update(Long id, PostgradMajorUpdateDTO updateDTO);

@@ -2,6 +2,7 @@ package com.haifeng.admin.service.impl.major;
 
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.major.*;
 import com.haifeng.admin.service.major.MajorService;
@@ -42,7 +43,7 @@ public class MajorServiceImpl implements MajorService {
     private final MajorDetailMapper majorDetailMapper;
 
     @Override
-    public Page<MajorListVO> list(MajorQueryDTO queryDTO) {
+    public IPage<MajorListVO> list(MajorQueryDTO queryDTO) {
         Page<Major> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<>();

@@ -3,6 +3,7 @@ package com.haifeng.admin.service.impl.major;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityImportDTO;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityQueryDTO;
@@ -43,7 +44,7 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
     private final UniversityMapper universityMapper;
 
     @Override
-    public Page<PostgradMajorUniversityListVO> list(PostgradMajorUniversityQueryDTO queryDTO) {
+    public IPage<PostgradMajorUniversityListVO> list(PostgradMajorUniversityQueryDTO queryDTO) {
         Page<PostgradMajorUniversity> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<PostgradMajorUniversity> wrapper = new LambdaQueryWrapper<>();
