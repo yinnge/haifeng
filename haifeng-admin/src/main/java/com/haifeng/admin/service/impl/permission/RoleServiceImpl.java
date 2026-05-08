@@ -50,6 +50,9 @@ public class RoleServiceImpl implements RoleService {
         if (StringUtils.hasText(dto.getRoleName())) {
             wrapper.like(SysRole::getRoleName, dto.getRoleName());
         }
+        if (dto.getStatus() != null) {
+            wrapper.eq(SysRole::getStatus, dto.getStatus());
+        }
 
         wrapper.orderByDesc(SysRole::getCreatedAt);
 
@@ -165,15 +168,33 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public void delete(Long id) {
+        if (id == 1L) {
+            throw new BusinessException(400, "超级管理员角色不可删除");
+        }
+
         SysRole role = roleMapper.selectById(id);
         if (role == null || role.getDeleted()) {
             throw new BusinessException(404, "角色不存在");
         }
 
-        role.setDeleted(true);
+        // 硬删除：从数据库彻底删除
+        roleMapper.hardDeleteById(id);
+        log.info("硬删除角色成功: {}", role.getRoleName());
+    }
+
+    @Override
+    public void toggleStatus(Long id) {
+        SysRole role = roleMapper.selectById(id);
+        if (role == null || role.getDeleted()) {
+            throw new BusinessException(404, "角色不存在");
+        }
+
+        // 切换状态：0→1 或 1→0
+        Integer newStatus = role.getStatus() == 1 ? 0 : 1;
+        role.setStatus(newStatus);
         role.setUpdatedAt(OffsetDateTime.now());
         roleMapper.updateById(role);
-        log.info("删除角色成功: {}", role.getRoleName());
+        log.info("切换角色状态成功: {}, 新状态: {}", role.getRoleName(), newStatus == 1 ? "启用" : "禁用");
     }
 
     @Override
