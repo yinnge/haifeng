@@ -127,6 +127,10 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void update(Long id, AdminUpdateDTO dto) {
+        if (id == 1L && dto.getRoleId() != null && dto.getRoleId() != 1L) {
+            throw new BusinessException(400, "默认管理员角色不可变更");
+        }
+
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null || admin.getDeleted()) {
             throw new BusinessException(404, "管理员不存在");
@@ -181,14 +185,32 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void delete(Long id) {
+        if (id == 1L) {
+            throw new BusinessException(400, "默认管理员不可删除");
+        }
+
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null || admin.getDeleted()) {
             throw new BusinessException(404, "管理员不存在");
         }
 
-        admin.setDeleted(true);
+        // 硬删除：从数据库彻底删除
+        adminMapper.hardDeleteById(id);
+        log.info("硬删除管理员成功: {}", admin.getUsername());
+    }
+
+    @Override
+    public void toggleStatus(Long id) {
+        SysAdmin admin = adminMapper.selectById(id);
+        if (admin == null || admin.getDeleted()) {
+            throw new BusinessException(404, "管理员不存在");
+        }
+
+        // 切换状态：0→1 或 1→0
+        Integer newStatus = admin.getStatus() == 1 ? 0 : 1;
+        admin.setStatus(newStatus);
         admin.setUpdatedAt(OffsetDateTime.now());
         adminMapper.updateById(admin);
-        log.info("删除管理员成功: {}", admin.getUsername());
+        log.info("切换管理员状态成功: {}, 新状态: {}", admin.getUsername(), newStatus == 1 ? "启用" : "禁用");
     }
 }
