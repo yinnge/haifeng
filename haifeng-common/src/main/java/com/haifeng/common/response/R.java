@@ -65,4 +65,12 @@ public class R<T> implements Serializable {
         r.setMsg(msg);
         return r;
     }
+
+    public static <T> R<T> fail(ResultCode resultCode, T data) {
+        R<T> r = new R<>();
+        r.setCode(resultCode.getCode());
+        r.setMsg(resultCode.getMsg());
+        r.setData(data);
+        return r;
+    }
 }
