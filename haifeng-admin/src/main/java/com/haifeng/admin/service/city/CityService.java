@@ -9,6 +9,8 @@ import com.haifeng.admin.dto.city.CityUpdateDTO;
 import com.haifeng.admin.vo.city.CityDetailVO;
 import com.haifeng.admin.vo.city.CityListVO;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 public interface CityService {
@@ -52,4 +54,14 @@ public interface CityService {
      * 批量硬删除城市
      */
     void batchDelete(List<Long> ids);
+
+    /**
+     * 导入城市主表xlsx
+     */
+    void importCities(MultipartFile file);
+
+    /**
+     * 导入城市详情xlsx（多Sheet）
+     */
+    void importCityDetails(MultipartFile file);
 }

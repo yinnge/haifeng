@@ -14,6 +14,7 @@ import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -96,6 +97,26 @@ public class CityController {
     @OperationLog(module = "城市管理", action = "批量硬删除城市")
     public R<Void> batchDelete(@RequestBody List<Long> ids) {
         cityService.batchDelete(ids);
+        return R.ok();
+    }
+
+    /**
+     * 导入城市主表xlsx
+     */
+    @PostMapping("/import")
+    @OperationLog(module = "城市管理", action = "导入城市主表")
+    public R<Void> importCities(@RequestParam("file") MultipartFile file) {
+        cityService.importCities(file);
+        return R.ok();
+    }
+
+    /**
+     * 导入城市详情xlsx（多Sheet）
+     */
+    @PostMapping("/import-detail")
+    @OperationLog(module = "城市管理", action = "导入城市详情")
+    public R<Void> importCityDetails(@RequestParam("file") MultipartFile file) {
+        cityService.importCityDetails(file);
         return R.ok();
     }
 }
