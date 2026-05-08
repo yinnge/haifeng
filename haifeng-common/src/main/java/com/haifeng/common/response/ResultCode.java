@@ -21,7 +21,9 @@ public enum ResultCode {
     PASSWORD_ERROR(1002, "密码错误"),
     MEMBER_EXPIRED(1003, "会员已过期"),
     PRO_REQUIRED(1004, "权限不足（需要专业版及以上）"),
-    VIP_REQUIRED(1005, "权限不足（需要旗舰版）");
+    VIP_REQUIRED(1005, "权限不足（需要旗舰版）"),
+    ACCOUNT_LOCKED(1006, "账号已锁定，请30分钟后重试"),
+    TOTP_REQUIRED(20001, "需进行二次验证");
 
     private final Integer code;
     private final String msg;
