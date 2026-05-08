@@ -44,6 +44,11 @@ public class SysAdmin {
     @TableField("is_deleted")
     private Boolean deleted;
 
+    private String totpSecret;
+
+    @TableField("is_totp_enabled")
+    private Boolean totpEnabled;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;
