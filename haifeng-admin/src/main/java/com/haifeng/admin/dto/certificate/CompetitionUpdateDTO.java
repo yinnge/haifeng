@@ -1,12 +1,16 @@
 package com.haifeng.admin.dto.certificate;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import lombok.Data;
 
 @Data
 public class CompetitionUpdateDTO {
+
+    @NotNull(message = "竞赛ID不能为空")
+    private Long id;
 
     @NotBlank(message = "竞赛名称不能为空")
     @Size(max = 200, message = "竞赛名称最长200字符")

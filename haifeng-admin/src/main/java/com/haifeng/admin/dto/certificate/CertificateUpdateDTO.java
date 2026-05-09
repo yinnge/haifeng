@@ -1,6 +1,7 @@
 package com.haifeng.admin.dto.certificate;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
@@ -9,6 +10,9 @@ import java.util.List;
 
 @Data
 public class CertificateUpdateDTO {
+
+    @NotNull(message = "证书ID不能为空")
+    private Long id;
 
     @NotBlank(message = "证书名称不能为空")
     @Size(max = 150, message = "证书名称最长150字符")
