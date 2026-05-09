@@ -1,10 +1,12 @@
 package com.haifeng.admin.service.impl.algorithm.admission;
 
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupAddDTO;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupQueryDTO;
+import com.haifeng.admin.excel.algorithm.admission.AdmissionImportDTO;
 import com.haifeng.admin.service.algorithm.admission.AdmissionGroupService;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
@@ -23,10 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -213,8 +214,180 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void importData(MultipartFile file) {
-        throw new BusinessException(500, "导入功能待实现");
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
+
+        List<AdmissionImportDTO> dataList;
+        try {
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(AdmissionImportDTO.class)
+                    .sheet()
+                    .doReadSync();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        // ==================== 第一次遍历：校验 ====================
+        List<String> errors = new ArrayList<>();
+        Map<String, Long> universityIdCache = new HashMap<>();
+        Set<String> validSubjectTypes = Set.of("理科", "物理类", "文科", "历史类", "不分文理");
+        Set<String> validBatches = Set.of("本科批", "提前批", "专科批");
+        // 用于检查同一专业组内专业代码是否重复
+        Map<String, Set<String>> groupMajorCodes = new HashMap<>();
+
+        for (int i = 0; i < dataList.size(); i++) {
+            int rowNum = i + 2;
+            AdmissionImportDTO dto = dataList.get(i);
+
+            // 必填字段校验
+            if (!StringUtils.hasText(dto.getUniversityName())) {
+                errors.add("第" + rowNum + "行: 大学名不能为空");
+                continue;
+            }
+            if (dto.getYear() == null) {
+                errors.add("第" + rowNum + "行: 年份不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getProvince())) {
+                errors.add("第" + rowNum + "行: 省份不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getSubjectType())) {
+                errors.add("第" + rowNum + "行: 科类不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getBatch())) {
+                errors.add("第" + rowNum + "行: 批次不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getGroupCode())) {
+                errors.add("第" + rowNum + "行: 专业组代码不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getMajorCode())) {
+                errors.add("第" + rowNum + "行: 专业代码不能为空");
+                continue;
+            }
+            if (!StringUtils.hasText(dto.getMajorName())) {
+                errors.add("第" + rowNum + "行: 专业名称不能为空");
+                continue;
+            }
+
+            // 枚举值校验
+            if (!validSubjectTypes.contains(dto.getSubjectType())) {
+                errors.add("第" + rowNum + "行: 科类[" + dto.getSubjectType() + "]不合法，只允许：理科/物理类/文科/历史类/不分文理");
+                continue;
+            }
+            if (!validBatches.contains(dto.getBatch())) {
+                errors.add("第" + rowNum + "行: 批次[" + dto.getBatch() + "]不合法，只允许：本科批/提前批/专科批");
+                continue;
+            }
+
+            // 大学名校验
+            String uniName = dto.getUniversityName().trim();
+            if (!universityIdCache.containsKey(uniName)) {
+                Long universityId = universityMapper.selectIdByName(uniName);
+                if (universityId == null) {
+                    errors.add("第" + rowNum + "行: 大学[" + uniName + "]不存在");
+                    continue;
+                }
+                universityIdCache.put(uniName, universityId);
+            }
+
+            // 同组专业代码重复检查
+            String groupKey = String.format("%s_%d_%s_%s_%s_%s",
+                    uniName, dto.getYear(), dto.getProvince(),
+                    dto.getSubjectType(), dto.getBatch(), dto.getGroupCode());
+            groupMajorCodes.computeIfAbsent(groupKey, k -> new HashSet<>());
+            if (groupMajorCodes.get(groupKey).contains(dto.getMajorCode())) {
+                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在同一专业组内重复");
+                continue;
+            }
+            groupMajorCodes.get(groupKey).add(dto.getMajorCode());
+        }
+
+        if (!errors.isEmpty()) {
+            throw new BusinessException(400, "数据校验失败：" + String.join("; ", errors));
+        }
+
+        // ==================== 第二次遍历：按专业组分组插入 ====================
+        Map<String, List<AdmissionImportDTO>> groupedData = new LinkedHashMap<>();
+        for (AdmissionImportDTO dto : dataList) {
+            String groupKey = String.format("%s_%d_%s_%s_%s_%s",
+                    dto.getUniversityName().trim(), dto.getYear(), dto.getProvince(),
+                    dto.getSubjectType(), dto.getBatch(), dto.getGroupCode());
+            groupedData.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(dto);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        int groupCount = 0;
+        int majorCount = 0;
+
+        for (Map.Entry<String, List<AdmissionImportDTO>> entry : groupedData.entrySet()) {
+            List<AdmissionImportDTO> rows = entry.getValue();
+            AdmissionImportDTO firstRow = rows.get(0);
+
+            Long universityId = universityIdCache.get(firstRow.getUniversityName().trim());
+
+            // 查询或创建专业组
+            Integer groupId = admissionGroupMapper.selectIdByBusinessKey(
+                    universityId, firstRow.getYear(), firstRow.getProvince(),
+                    firstRow.getSubjectType(), firstRow.getBatch(), firstRow.getGroupCode());
+
+            if (groupId == null) {
+                AdmissionGroup group = AdmissionGroup.builder()
+                        .universityId(universityId)
+                        .year(firstRow.getYear())
+                        .province(firstRow.getProvince())
+                        .subjectType(firstRow.getSubjectType())
+                        .batch(firstRow.getBatch())
+                        .enrollmentCode(firstRow.getEnrollmentCode())
+                        .groupCode(firstRow.getGroupCode())
+                        .groupName(firstRow.getGroupCode())
+                        .description(firstRow.getGroupDescription())
+                        .isDeleted(false)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                admissionGroupMapper.insert(group);
+                groupId = group.getId();
+                groupCount++;
+            }
+
+            // 插入专业明细
+            for (AdmissionImportDTO row : rows) {
+                AdmissionMajorScore majorScore = AdmissionMajorScore.builder()
+                        .groupId(groupId)
+                        .majorCode(row.getMajorCode())
+                        .majorName(row.getMajorName())
+                        .subjectRequirements(row.getSubjectRequirements())
+                        .educationLevel(row.getEducationLevel())
+                        .tuition(row.getTuition())
+                        .description(row.getMajorDescription())
+                        .admissionCount(row.getAdmissionCount())
+                        .minScore(row.getMinScore())
+                        .minRank(row.getMinRank())
+                        .avgScore(row.getAvgScore())
+                        .avgRank(row.getAvgRank())
+                        .maxScore(row.getMaxScore())
+                        .maxRank(row.getMaxRank())
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                admissionMajorScoreMapper.insert(majorScore);
+                majorCount++;
+            }
+        }
+
+        log.info("导入专业组数据成功: 新增专业组={}个, 新增专业明细={}条", groupCount, majorCount);
     }
 
     @Override
