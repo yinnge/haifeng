@@ -32,34 +32,34 @@ public class CertificateController {
     }
 
     @PostMapping("/add")
-    @OperationLog("新增证书")
+    @OperationLog(module = "竞赛证书管理", action = "新增证书")
     public R<Long> add(@Valid @RequestBody CertificateAddDTO addDTO) {
         return R.ok(certificateService.addCertificate(addDTO));
     }
 
     @PutMapping("/update")
-    @OperationLog("更新证书")
+    @OperationLog(module = "竞赛证书管理", action = "更新证书")
     public R<Void> update(@Valid @RequestBody CertificateUpdateDTO updateDTO) {
         certificateService.updateCertificate(updateDTO);
         return R.ok();
     }
 
     @DeleteMapping("/soft/{id}")
-    @OperationLog("软删除证书")
+    @OperationLog(module = "竞赛证书管理", action = "软删除证书")
     public R<Void> softDelete(@PathVariable Long id) {
         certificateService.softDeleteCertificate(id);
         return R.ok();
     }
 
     @DeleteMapping("/hard/{id}")
-    @OperationLog("硬删除证书")
+    @OperationLog(module = "竞赛证书管理", action = "硬删除证书")
     public R<Void> hardDelete(@PathVariable Long id) {
         certificateService.hardDeleteCertificate(id);
         return R.ok();
     }
 
     @DeleteMapping("/batch")
-    @OperationLog("批量硬删除证书")
+    @OperationLog(module = "竞赛证书管理", action = "批量硬删除证书")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         certificateService.batchHardDeleteCertificates(batchDTO.getIds());
         return R.ok();

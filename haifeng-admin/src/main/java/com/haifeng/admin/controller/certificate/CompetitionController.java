@@ -32,34 +32,34 @@ public class CompetitionController {
     }
 
     @PostMapping("/add")
-    @OperationLog("新增竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "新增竞赛")
     public R<Long> add(@Valid @RequestBody CompetitionAddDTO addDTO) {
         return R.ok(competitionService.addCompetition(addDTO));
     }
 
     @PutMapping("/update")
-    @OperationLog("更新竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "更新竞赛")
     public R<Void> update(@Valid @RequestBody CompetitionUpdateDTO updateDTO) {
         competitionService.updateCompetition(updateDTO);
         return R.ok();
     }
 
     @DeleteMapping("/soft/{id}")
-    @OperationLog("软删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "软删除竞赛")
     public R<Void> softDelete(@PathVariable Long id) {
         competitionService.softDeleteCompetition(id);
         return R.ok();
     }
 
     @DeleteMapping("/hard/{id}")
-    @OperationLog("硬删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "硬删除竞赛")
     public R<Void> hardDelete(@PathVariable Long id) {
         competitionService.hardDeleteCompetition(id);
         return R.ok();
     }
 
     @DeleteMapping("/batch")
-    @OperationLog("批量硬删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "批量硬删除竞赛")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         competitionService.batchHardDeleteCompetitions(batchDTO.getIds());
         return R.ok();
