@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS t_batch_score_line (
 
 -- 索引
 CREATE INDEX idx_bsl_lookup ON t_batch_score_line (province, year, subject_type);
-CREATE INDEX idx_bsl_year ON t_batch_score_line (year);
+CREATE INDEX idx_bsl_year ON t_batch_score_line (year DESC);
 
 -- 注释
 COMMENT ON TABLE t_batch_score_line IS '批次分数线表：记录各省份各年份各批次的录取分数线';
@@ -138,8 +138,8 @@ VALUES
     (1890000000000029, '宁夏', 2025, '3+1+2'),
 
     -- 尚未改革：西藏、新疆（传统文理）
-    (1890000000000030, '西藏', NULL, NULL),
-    (1890000000000031, '新疆', NULL, NULL)
+    (1890000000000030, '西藏', NULL, '传统文理'),
+    (1890000000000031, '新疆', NULL, '传统文理')
 
 ON CONFLICT (province) DO NOTHING;
 
