@@ -49,6 +49,7 @@ public class CompetitionDetail {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<Map<String, String>> awardsDisplay;
 
+    @TableField("is_deleted")
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

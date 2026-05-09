@@ -24,6 +24,7 @@ public class Competition {
 
     private String registrationTime;
 
+    @TableField("is_deleted")
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)
