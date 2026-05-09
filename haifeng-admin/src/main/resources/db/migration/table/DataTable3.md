@@ -30,14 +30,16 @@ CREATE TABLE IF NOT EXISTS t_member_notification (
 
     -- ==================== 约束 ====================
     CONSTRAINT chk_notification_type CHECK (
-        notification_type IN (
-            'member_expire_soon',   -- 会员即将到期
-            'member_expired',       -- 会员已过期
-            'commission_earned',    -- 佣金到账
-            'commission_paid',      -- 佣金已发放
-            'system_notice'         -- 系统公告
-        )
+    notification_type IN (
+        'member_expire_soon',       -- 会员即将到期
+        'member_expired',           -- 会员已过期
+        'commission_earned',        -- 佣金到账
+        'commission_paid',          -- 佣金已发放
+        'system_notice',            -- 系统公告
+        'member_renewed',           -- 会员续费
+        'member_activation_success' -- 会员开通成功
     )
+ )
 );
 
 -- 索引
@@ -85,7 +87,9 @@ CREATE TABLE member_orders (
     member_id        INTEGER       NOT NULL 
  ,-- 会员ID
     member_name      VARCHAR(50)   NOT NULL                                 ,-- 会员username
-    
+    phone                       VARCHAR(20) UNIQUE NOT NULL,
+    wechat_id                   VARCHAR(255),                                -- 微信号(AES加密存储)
+    wechat_id_index             VARCHAR(64),                                 -- 微信号盲索引(SHA-256)
     -- 订单信息
     order_type       VARCHAR(20)   NOT NULL                                 ,-- 订单类型: new-新开通 / renewal-续费
     before_type      VARCHAR(20)                                            ,-- 操作前会员类型（续费时记录）
@@ -148,8 +152,10 @@ CREATE TABLE IF NOT EXISTS t_referral_commission (
     -- ==================== 推荐关系 ====================
     referrer_id         INTEGER         NOT NULL,               -- 推荐人ID（收钱的人）
     referrer_name       VARCHAR(50),                            -- 推荐人姓名（冗余）
+    referrer_phone       VARCHAR(50),                            -- 推荐人电话（冗余）
     referee_id          INTEGER,                                -- 被推荐人ID（付钱的人）
     referee_name        VARCHAR(50),                            -- 被推荐人姓名（冗余）
+    referrer_phone       VARCHAR(50),                            -- 被推荐人电话（冗余）
 
     -- ==================== 订单关联 ====================
     order_id            INTEGER,                                -- 关联订单ID（如果有订单表的话）
@@ -158,54 +164,62 @@ CREATE TABLE IF NOT EXISTS t_referral_commission (
     order_amount        DECIMAL(10,2)   NOT NULL,               -- 订单金额
     commission_rate     DECIMAL(5,4)    NOT NULL,               -- 佣金比例（0.1000 = 10%）
     commission_amount   DECIMAL(10,2)   NOT NULL,               -- 佣金金额
-
-    -- ==================== 发放状态 ====================
-    status              VARCHAR(20)     DEFAULT 'pending' NOT NULL,  -- pending/paid/cancelled
-    paid_at             TIMESTAMPTZ,                            -- 发放时间
-    paid_operator_id    INTEGER,                                -- 操作人ID
-    paid_operator_name  VARCHAR(50),                            -- 操作人姓名
-    remark              TEXT,                                   -- 备注
-
+    
     -- ==================== 审计字段 ====================
     is_deleted          BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     -- ==================== 约束 ====================
-    CONSTRAINT chk_commission_status
-        CHECK (status IN ('pending', 'paid', 'cancelled')),
     CONSTRAINT chk_commission_amount
-        CHECK (commission_amount >= 0),
-    CONSTRAINT chk_commission_rate
-        CHECK (commission_rate >= 0 AND commission_rate <= 1)
-);
-
-
+        CHECK (commission_amount >= 0)
+    
 -- 索引
 CREATE INDEX idx_rc_referrer   ON t_referral_commission (referrer_id);
 CREATE INDEX idx_rc_referee    ON t_referral_commission (referee_id);
-CREATE INDEX idx_rc_status     ON t_referral_commission (status);
 CREATE INDEX idx_rc_created    ON t_referral_commission (created_at DESC);
 ```
 
-## **1.2 系统设置表 (system_settings)**（设置网站的logos等）
 
+```
+-- ============================================================
+-- 提现记录表 (t_withdraw_record)
+-- ============================================================
 
-| 字段名             | 类型           | 约束                                    | 说明             |
-| --------------- | ------------ | ------------------------------------- | -------------- |
-| id              | SERIAL       | PRIMARY KEY                           | 设置ID           |
-| site_name       | VARCHAR(50)  |                                       | 网站名称           |
-| site_url        | VARCHAR(100) |                                       | 网站Logo         |
-| site_icp        | VARCHAR(100) |                                       | ICP备案号         |
-| site_descption  | Text         |                                       | 网站描述           |
-| api_number      | integer      | DEFAULT 3                             | api调用限制        |
-| member_price    | INT          | DEFAULT 199                           | 会员价格           |
-| vip_price       | INT          | DEFAULT 599                           | vip会员价格        |
-| seo_title       | VARCHAR(200) |                                       | SEO标题（只展示首页即可） |
-| seo_keywords    | VARCHAR(100) |                                       | SEO关键词         |
-| seo_description | TEXT         |                                       | SEO描述          |
-| updated_at      | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP             | 更新时间           |
-| wechat_ew_url   | VARCHAR(100) |                                       | 微信url          |
-| contact_url     | JSONB        | wechat,weibo,zhihu,douyin,b站          | url            |
-| basic_message   | JSONB        | address,phone,email,consultation_time | 全是字符串          |
+CREATE TABLE t_withdraw_record (
+    id                  BIGINT          PRIMARY KEY,            -- 雪花ID
+    member_id           BIGINT          NOT NULL,               -- 用户ID
+    member_name         VARCHAR(50)     NOT NULL,
 
+    -- 用户快照信息（记录提现时的联系方式，防止用户后续修改导致无法对账）
+    phone               VARCHAR(20)     NOT NULL,               -- 用户手机号
+    wechat_id           VARCHAR(255)    NOT NULL,               -- 微信号（AES加密）
+    wechat_id_index     VARCHAR(64)     NOT NULL,               -- 微信号盲索引（用于搜索）
+
+    -- 金额信息
+    amount              DECIMAL(10,2)   NOT NULL,               -- 本次提现金额
+    
+    -- 状态流转
+    status              VARCHAR(20)     NOT NULL DEFAULT 'pending', -- pending(待审核),  rejected(已驳回), paid(已打款)
+    
+    -- 操作人信息
+    operator_id         BIGINT,                                 -- 审核/发放管理员ID
+    operator_name       VARCHAR(50),                            -- 管理员姓名（冗余）
+    
+    -- 备注与审计
+    remark              TEXT,                                   -- 驳回原因或打款备注
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(), -- 申请时间
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()  -- 最后更新时间
+);
+
+-- 索引：提高查询效率
+CREATE INDEX idx_withdraw_member_id ON t_withdraw_record(member_id);
+CREATE INDEX idx_withdraw_status    ON t_withdraw_record(status);
+CREATE INDEX idx_withdraw_wx_index  ON t_withdraw_record(wechat_id_index);
+CREATE INDEX idx_withdraw_created   ON t_withdraw_record(created_at DESC);
+
+-- 注释
+COMMENT ON TABLE  t_withdraw_record                 IS '提现记录表';
+COMMENT ON COLUMN t_withdraw_record.wechat_id_index IS '微信号盲索引，支持管理员模糊/精确搜索';
+COMMENT ON COLUMN t_withdraw_record.status          IS '状态：pending-待审核, approved-已通过, rejected-已驳回, paid-已打款';
+```

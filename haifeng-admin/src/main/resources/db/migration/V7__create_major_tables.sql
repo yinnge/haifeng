@@ -37,7 +37,7 @@ CREATE TABLE t_major (
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     -- 约束
-    CONSTRAINT uk_major_code UNIQUE (major_code),
+    CONSTRAINT uk_major_code UNIQUE (major_code, major_name),
     CONSTRAINT chk_major_employment_rate CHECK (
         employment_rate IS NULL OR (employment_rate >= 0 AND employment_rate <= 100)
     ),

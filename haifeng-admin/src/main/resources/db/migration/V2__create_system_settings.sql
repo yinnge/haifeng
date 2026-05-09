@@ -10,6 +10,8 @@ CREATE TABLE system_settings (
     api_number        INTEGER DEFAULT 3,
     pro_price         INTEGER DEFAULT 199,
     vip_price         INTEGER DEFAULT 599,
+    pro_commission_rate   SMALLINT DEFAULT 10 CHECK (pro_commission_rate >= 0 AND pro_commission_rate <= 100),
+    vip_commission_rate   SMALLINT DEFAULT 15 CHECK (vip_commission_rate >= 0 AND vip_commission_rate <= 100),
     seo_title         VARCHAR(200),
     seo_keywords      VARCHAR(100),
     seo_description   TEXT,
@@ -20,6 +22,8 @@ CREATE TABLE system_settings (
 );
 
 COMMENT ON TABLE system_settings IS '系统设置表（单例）';
+COMMENT ON COLUMN system_settings.pro_commission_rate IS 'Pro会员提成比例（0-100），代表0%到100%';
+COMMENT ON COLUMN system_settings.vip_commission_rate IS 'VIP会员提成比例（0-100），代表0%到100%';
 COMMENT ON COLUMN system_settings.contact_url IS 'JSON格式：{wechat, weibo, zhihu, douyin, bilibili}';
 COMMENT ON COLUMN system_settings.basic_message IS 'JSON格式：{address, phone, email, consultationTime}';
 

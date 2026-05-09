@@ -76,7 +76,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS t_member (
 
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGSERIAL       PRIMARY KEY,
     username                    VARCHAR(50)     NOT NULL UNIQUE,    -- 用户名（登录账号）
     password                    VARCHAR(100)    NOT NULL,           -- 密码（加密存储）
     avatar                      VARCHAR(500),                       -- 头像URL
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS t_member (
     invite_code            VARCHAR(20) UNIQUE,         -- 邀请码
     
     -- ==================== 会员信息 ====================
-    member_type                 VARCHAR(20)     DEFAULT 'normal',   -- 会员类型（null/normal/vip）
+    member_type                 VARCHAR(20)     DEFAULT 'normal',   -- 会员类型（normal/pro/vip）
     expire_at                   TIMESTAMPTZ,                        -- 会员到期时间
 
     -- ==================== 推荐关系 ====================
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS t_member (
 
     -- ==================== 约束 ====================
     CONSTRAINT chk_member_type CHECK (
-        member_type IN ('null','normal', 'vip')
+        member_type IN ('normal', 'pro', 'vip')
     ),
     CONSTRAINT chk_member_status CHECK (
         status IN ('active', 'disabled')
@@ -122,45 +122,10 @@ CREATE INDEX idx_member_type       ON t_member (member_type) WHERE is_deleted = 
 CREATE INDEX idx_member_referrer   ON t_member (referrer_id) WHERE is_deleted = FALSE;
 CREATE INDEX idx_member_expire     ON t_member (expire_at)   WHERE is_deleted = FALSE;
 
--- 触发器
-CREATE OR REPLACE FUNCTION fn_generate_invite_code()
-RETURNS VARCHAR AS $$
-DECLARE
-chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; -- 去掉易混淆的 0OI1
-code VARCHAR(8);
-exists BOOLEAN;
-BEGIN
-LOOP
--- 生成 8 位随机码
-code := '';
-FOR i IN 1..8 LOOP
-code := code || substr(chars, floor(random() * length(chars) + 1)::int, 1);
-END LOOP;
+-- 邀请码由 Java 层 Hashids 生成（基于雪花ID，绝对唯一）
+-- UNIQUE 约束作为兜底保护
 
-        -- 检查是否已存在
-        SELECT EXISTS(SELECT 1 FROM t_member WHERE invite_code = code) INTO exists;
-        EXIT WHEN NOT exists;
-    END LOOP;
-
-    RETURN code;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION fn_auto_invite_code()
-RETURNS TRIGGER AS $$
-BEGIN
-IF NEW.invite_code IS NULL THEN
-NEW.invite_code := fn_generate_invite_code();
-END IF;
-RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_member_invite_code
-BEFORE INSERT ON t_member
-FOR EACH ROW
-EXECUTE FUNCTION fn_auto_invite_code();
-
+-- 更新时间触发器
 CREATE TRIGGER trg_member_updated_at
 BEFORE UPDATE ON t_member
 FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();

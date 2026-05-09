@@ -57,6 +57,7 @@ CREATE TABLE sys_role_module (
     UNIQUE(role_id, module_id)
 );
 
+
 CREATE INDEX idx_role_module_role ON sys_role_module(role_id);
 CREATE INDEX idx_role_module_module ON sys_role_module(module_id);
 
