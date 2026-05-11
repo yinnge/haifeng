@@ -9,5 +9,6 @@ public class StrongBaseScoreListVO {
     private Short year;
     private String province;
     private String subjectType;
+    private String majorName;
     private Boolean isActive;
 }
