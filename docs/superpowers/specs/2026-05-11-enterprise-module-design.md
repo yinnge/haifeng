@@ -244,7 +244,7 @@ Sheet1第4行：企业名称'未知企业'在Sheet0中不存在
 
 ## 实现任务
 
-1. 创建 V16__enterprise__tables.sql（修改后的版本，去掉city_id和idx_ent_industry）
+1. 创建 V15__enterprise__tables.sql（修改后的版本，去掉city_id和idx_ent_industry）
 2. 创建 Entity 类（Enterprise, EnterprisePosition, EnterpriseIndustry）
 3. 创建 Mapper 接口
 4. 创建 DTO 和 VO 类

@@ -1,4 +1,4 @@
-package com.haifeng.common.dto;
+package com.haifeng.common.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

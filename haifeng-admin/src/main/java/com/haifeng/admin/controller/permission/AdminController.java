@@ -48,4 +48,10 @@ public class AdminController {
         adminService.delete(id);
         return R.ok();
     }
+
+    @PutMapping("/{id}/toggle-status")
+    public R<Void> toggleStatus(@PathVariable Long id) {
+        adminService.toggleStatus(id);
+        return R.ok();
+    }
 }

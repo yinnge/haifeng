@@ -46,12 +46,32 @@ public class WithdrawController {
     }
 
     /**
-     * 删除提现记录
+     * 删除提现记录（软删除/禁用）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "用户管理", action = "删除提现记录")
+    @OperationLog(module = "用户管理", action = "禁用提现记录")
     public R<Void> delete(@PathVariable Long id) {
         withdrawService.delete(id);
+        return R.ok();
+    }
+
+    /**
+     * 硬删除提现记录（物理删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "用户管理", action = "硬删除提现记录")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        withdrawService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 恢复提现记录
+     */
+    @PutMapping("/{id}/restore")
+    @OperationLog(module = "用户管理", action = "恢复提现记录")
+    public R<Void> restore(@PathVariable Long id) {
+        withdrawService.restore(id);
         return R.ok();
     }
 }

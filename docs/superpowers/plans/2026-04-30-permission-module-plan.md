@@ -6,7 +6,7 @@
 
 **Architecture:** Entity/Mapper 统一放 haifeng-common，Controller/Service/DTO/VO 按模块分子包。采用 Spring Boot 3.x + MyBatis-Plus + JWT 双Token 认证。
 
-**Tech Stack:** Spring Boot 3.x, MyBatis-Plus, PostgreSQL, Redis, BCrypt, JWT
+**Tech Stack:** Spring Boot 3.x, MyBatis-Plus, PostgreSQL, Redis, BCrypt, JWT, easy-captcha (图形验证码)
 
 ---
 
@@ -16,8 +16,13 @@
 
 ```
 src/main/java/com/haifeng/common/
+├── constant/
+│   └── RedisKeyConstant.java                    # 修改（新增 CAPTCHA_PREFIX）
 ├── dto/
-│   └── BasePageQueryDTO.java                    # 新增
+│   ├── auth/
+│   │   └── LoginDTO.java                        # 修改（新增 captchaCode、uuid）
+│   └── common/
+│       └── BasePageQueryDTO.java                # 新增
 ├── entity/
 │   ├── permission/
 │   │   ├── SysAdmin.java                        # 迁移+修改
@@ -36,6 +41,15 @@ src/main/java/com/haifeng/common/
 │   │   └── SysRoleModuleMapper.java             # 新增
 │   └── user/
 │       └── MemberMapper.java                    # 迁移
+├── service/
+│   ├── CaptchaService.java                      # 新增（验证码服务接口）
+│   └── impl/
+│       └── CaptchaServiceImpl.java              # 新增（验证码服务实现）
+├── vo/
+│   └── auth/
+│       └── CaptchaVO.java                       # 新增（uuid + Base64图片）
+├── config/
+│   └── SecurityConfig.java                      # 修改（白名单新增 captcha）
 └── enums/
     └── StatusEnum.java                          # 新增
 ```
@@ -46,7 +60,7 @@ src/main/java/com/haifeng/common/
 src/main/java/com/haifeng/admin/
 ├── controller/
 │   ├── auth/
-│   │   └── AdminAuthController.java             # 迁移
+│   │   └── AdminAuthController.java             # 修改（新增 getCaptcha 接口）
 │   └── permission/
 │       ├── ModuleController.java                # 新增
 │       ├── RoleController.java                  # 新增
@@ -60,7 +74,7 @@ src/main/java/com/haifeng/admin/
 │   │   └── AdminService.java                    # 新增
 │   └── impl/
 │       ├── auth/
-│       │   └── AdminAuthServiceImpl.java        # 迁移+修改
+│       │   └── AdminAuthServiceImpl.java        # 修改（登录前验证验证码）
 │       └── permission/
 │           ├── ModuleServiceImpl.java           # 新增
 │           ├── RoleServiceImpl.java             # 新增
@@ -94,13 +108,13 @@ src/main/java/com/haifeng/admin/
 src/main/java/com/haifeng/app/
 ├── controller/
 │   └── auth/
-│       └── AppAuthController.java               # 迁移
+│       └── AppAuthController.java               # 修改（新增 getCaptcha 接口）
 ├── service/
 │   ├── auth/
 │   │   └── AppAuthService.java                  # 迁移
 │   └── impl/
 │       └── auth/
-│           └── AppAuthServiceImpl.java          # 迁移+修改
+│           └── AppAuthServiceImpl.java          # 修改（登录前验证验证码）
 └── dto/
     └── auth/
         └── RegisterDTO.java                     # 迁移+修改
@@ -2948,3 +2962,55 @@ mvn clean compile -DskipTests
 git add -A
 git commit -m "feat: 完成权限管理模块实现"
 ```
+
+---
+
+## 2026-05-07 功能扩展：硬删除和禁用恢复
+
+### 新增功能概述
+
+为权限管理模块（角色、管理员、模块）添加以下功能：
+
+1. **硬删除** - 从数据库彻底删除记录，不可恢复
+2. **禁用/启用切换** - 软删除，通过 status 字段控制（0=禁用，1=启用），可恢复
+
+### 新增接口
+
+| 模块 | 操作 | 接口 | 方法 |
+|------|------|------|------|
+| 角色 | 硬删除 | `/api/v1/admin/permission/roles/{id}` | DELETE |
+| 角色 | 禁用/启用 | `/api/v1/admin/permission/roles/{id}/toggle-status` | PUT |
+| 管理员 | 硬删除 | `/api/v1/admin/permission/admins/{id}` | DELETE |
+| 管理员 | 禁用/启用 | `/api/v1/admin/permission/admins/{id}/toggle-status` | PUT |
+| 模块 | 硬删除 | `/api/v1/admin/permission/modules/{id}` | DELETE |
+| 模块 | 禁用/启用 | `/api/v1/admin/permission/modules/{id}/toggle-status` | PUT |
+
+### 修改文件清单
+
+**Mapper 层（haifeng-common）:**
+- `SysRoleMapper.java` - 新增 `hardDeleteById` 方法
+- `SysAdminMapper.java` - 新增 `hardDeleteById` 方法
+- `SysModuleMapper.java` - 新增 `hardDeleteById` 方法
+
+**Service 层（haifeng-admin）:**
+- `RoleService.java` / `RoleServiceImpl.java` - 修改 delete 为硬删除，新增 toggleStatus
+- `AdminService.java` / `AdminServiceImpl.java` - 修改 delete 为硬删除，新增 toggleStatus
+- `ModuleService.java` / `ModuleServiceImpl.java` - 修改 delete 为硬删除，新增 toggleStatus
+
+**Controller 层（haifeng-admin）:**
+- `RoleController.java` - 新增 toggleStatus 接口
+- `AdminController.java` - 新增 toggleStatus 接口
+- `ModuleController.java` - 新增 toggleStatus 接口
+
+**DTO 层（haifeng-admin）:**
+- `RoleQueryDTO.java` - 新增 status 筛选字段
+
+### 列表操作按钮说明
+
+所有列表右侧三个按钮：
+
+| 按钮 | 接口 | 说明 |
+|------|------|------|
+| 删除 | `DELETE /{id}` | 硬删除，从数据库彻底删除 |
+| 禁用/启用 | `PUT /{id}/toggle-status` | 软删除，切换状态可恢复 |
+| 详情 | `GET /{id}` | 查看详情并支持修改 |

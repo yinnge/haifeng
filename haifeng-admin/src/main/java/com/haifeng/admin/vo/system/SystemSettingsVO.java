@@ -25,6 +25,16 @@ public class SystemSettingsVO {
 
     private Integer vipPrice;
 
+    /**
+     * Pro会员提成比例（0-100）
+     */
+    private Integer proCommissionRate;
+
+    /**
+     * VIP会员提成比例（0-100）
+     */
+    private Integer vipCommissionRate;
+
     private String seoTitle;
 
     private String seoKeywords;

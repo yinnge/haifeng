@@ -36,7 +36,7 @@ public interface AnnouncementService {
     void updateStatus(Long id, StatusDTO dto);
 
     /**
-     * 删除公告（软删除）
+     * 硬删除公告
      */
     void delete(Long id);
 }

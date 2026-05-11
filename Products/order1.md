@@ -606,6 +606,7 @@ Content-Type: application/json
 ---
 
 #### 5. 用户登出
+
 ```
 POST /api/v1/app/auth/logout
 Authorization: Bearer {accessToken}
@@ -920,6 +921,23 @@ GET /api/v1/admin/permission/roles/{id}
 #### 3. 新增角色
 ```
 POST /api/v1/admin/permission/roles
+Content-Type: application/json
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| roleName | String | 是 | 角色名称（最长50字符） |
+| roleCode | String | 是 | 角色编码（最长50字符，唯一） |
+| description | String | 否 | 描述（最长100字符） |
+
+**请求示例：**
+```json
+{
+  "roleName": "内容编辑",
+  "roleCode": "content_editor",
+  "description": "负责内容审核和编辑"
+}
 ```
 
 ---
@@ -927,6 +945,23 @@ POST /api/v1/admin/permission/roles
 #### 4. 更新角色
 ```
 PUT /api/v1/admin/permission/roles/{id}
+Content-Type: application/json
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| roleName | String | 是 | 角色名称（最长50字符） |
+| roleCode | String | 是 | 角色编码（最长50字符，唯一） |
+| description | String | 否 | 描述（最长100字符） |
+
+**请求示例：**
+```json
+{
+  "roleName": "高级编辑",
+  "roleCode": "senior_editor",
+  "description": "高级内容编辑，拥有更多权限"
+}
 ```
 
 ---
@@ -943,14 +978,31 @@ DELETE /api/v1/admin/permission/roles/{id}
 ```
 PUT /api/v1/admin/permission/roles/{id}/toggle-status
 ```
-**说明：** 禁用时启用，启用时禁用。软删除可恢复。
+**说明：** 禁用时启用，启用时禁用（status: 0↔1）
 
 ---
 
 #### 7. 角色绑定模块
 ```
 POST /api/v1/admin/permission/roles/{id}/modules
+Content-Type: application/json
 ```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| moduleIds | Long[] | 是 | 模块ID列表 |
+
+**请求示例：**
+```json
+{
+  "moduleIds": [1, 2, 3, 5, 6]
+}
+```
+
+**说明：**
+- 如果传入的是父模块ID（level=1），会自动关联其所有子模块
+- 每次调用会先清除该角色的所有旧关联，再建立新关联
 
 ---
 
@@ -983,6 +1035,30 @@ GET /api/v1/admin/permission/admins/{id}
 #### 3. 新增管理员
 ```
 POST /api/v1/admin/permission/admins
+Content-Type: application/json
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| username | String | 是 | 用户名（2-50字符） |
+| password | String | 是 | 密码（数字+字母，6-16位） |
+| realName | String | 否 | 真实姓名（最长50字符） |
+| phone | String | 是 | 手机号（11位） |
+| email | String | 否 | 邮箱（最长100字符） |
+| avatar | String | 否 | 头像URL（最长500字符） |
+| roleId | Long | 是 | 角色ID |
+
+**请求示例：**
+```json
+{
+  "username": "zhangsan",
+  "password": "Admin123",
+  "realName": "张三",
+  "phone": "13812345678",
+  "email": "zhangsan@example.com",
+  "roleId": 2
+}
 ```
 
 ---
@@ -990,7 +1066,34 @@ POST /api/v1/admin/permission/admins
 #### 4. 更新管理员
 ```
 PUT /api/v1/admin/permission/admins/{id}
+Content-Type: application/json
 ```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| username | String | 是 | 用户名（2-50字符） |
+| password | String | 否 | 密码（数字+字母，6-16位，不传则不修改） |
+| realName | String | 否 | 真实姓名（最长50字符） |
+| phone | String | 是 | 手机号（11位） |
+| email | String | 否 | 邮箱（最长100字符） |
+| avatar | String | 否 | 头像URL（最长500字符） |
+| roleId | Long | 是 | 角色ID |
+| status | Integer | 否 | 状态（0=禁用，1=启用） |
+
+**请求示例：**
+```json
+{
+  "username": "zhangsan",
+  "realName": "张三丰",
+  "phone": "13812345678",
+  "email": "zhangsan@example.com",
+  "roleId": 2,
+  "status": 1
+}
+```
+
+**注意：** 默认管理员（id=1）的角色不可变更
 
 ---
 
@@ -1006,7 +1109,7 @@ DELETE /api/v1/admin/permission/admins/{id}
 ```
 PUT /api/v1/admin/permission/admins/{id}/toggle-status
 ```
-**说明：** 禁用时启用，启用时禁用。软删除可恢复。
+**说明：** 禁用时启用，启用时禁用（status: 0↔1）
 
 ---
 
@@ -1017,11 +1120,45 @@ PUT /api/v1/admin/permission/admins/{id}/toggle-status
 GET /api/v1/admin/permission/modules
 ```
 
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| moduleCode | String | 否 | 模块编码（精确匹配） |
+
+**说明：** 返回树形结构，无分页
+
 ---
 
 #### 2. 新增模块
 ```
 POST /api/v1/admin/permission/modules
+Content-Type: application/json
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| moduleName | String | 是 | 模块名称（最长50字符） |
+| moduleCode | String | 是 | 模块编码（最长50字符，唯一） |
+| parentId | Long | 否 | 父模块ID（子模块必填） |
+| path | String | 否 | 路由路径（最长200字符） |
+| icon | String | 否 | 图标（最长50字符） |
+| sortOrder | Integer | 否 | 排序（默认0，数值越小越靠前） |
+| level | Integer | 是 | 层级（1=父模块，2=子模块） |
+| description | String | 否 | 描述（最长255字符） |
+
+**请求示例：**
+```json
+{
+  "moduleName": "用户管理",
+  "moduleCode": "user_management",
+  "parentId": null,
+  "path": "/admin/user",
+  "icon": "user",
+  "sortOrder": 4,
+  "level": 1,
+  "description": "用户管理模块"
+}
 ```
 
 ---
@@ -1029,6 +1166,32 @@ POST /api/v1/admin/permission/modules
 #### 3. 更新模块
 ```
 PUT /api/v1/admin/permission/modules/{id}
+Content-Type: application/json
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| moduleName | String | 是 | 模块名称（最长50字符） |
+| moduleCode | String | 是 | 模块编码（最长50字符，唯一） |
+| parentId | Long | 否 | 父模块ID |
+| path | String | 否 | 路由路径（最长200字符） |
+| icon | String | 否 | 图标（最长50字符） |
+| sortOrder | Integer | 否 | 排序 |
+| level | Integer | 是 | 层级（1=父模块，2=子模块） |
+| description | String | 否 | 描述（最长255字符） |
+
+**请求示例：**
+```json
+{
+  "moduleName": "用户管理",
+  "moduleCode": "user_mgmt",
+  "path": "/admin/users",
+  "icon": "users",
+  "sortOrder": 3,
+  "level": 1,
+  "description": "用户管理相关功能"
+}
 ```
 
 ---
@@ -1045,7 +1208,7 @@ DELETE /api/v1/admin/permission/modules/{id}
 ```
 PUT /api/v1/admin/permission/modules/{id}/toggle-status
 ```
-**说明：** 禁用时启用，启用时禁用。软删除可恢复。
+**说明：** 禁用时启用，启用时禁用（status: 0↔1）
 
 ---
 
@@ -1056,5 +1219,21 @@ PUT /api/v1/admin/permission/modules/{id}/toggle-status
 | 按钮 | 接口 | 说明 |
 |------|------|------|
 | 删除 | `DELETE /{id}` | 硬删除，从数据库彻底删除，不可恢复 |
-| 禁用/启用 | `PUT /{id}/toggle-status` | 软删除，切换状态（0↔1），可恢复 |
+| 禁用/启用 | `PUT /{id}/toggle-status` | 切换状态（status: 0↔1），可恢复 |
 | 详情 | `GET /{id}` | 查看详情并支持修改 |
+
+---
+
+## 模糊搜索说明
+
+以下字段支持模糊搜索（LIKE %keyword%）：
+
+| 模块 | 支持模糊搜索的字段 |
+|------|------------------|
+| 角色列表 | roleName（角色名称） |
+| 管理员列表 | username（用户名）、phone（手机号）、realName（真实姓名） |
+| 会员列表 | username（用户名）、phone（手机号） |
+
+**精确匹配字段：**
+- 模块列表：moduleCode（模块编码）
+- 所有 status 字段：0 或 1

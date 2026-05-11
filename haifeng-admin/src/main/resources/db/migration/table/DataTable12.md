@@ -67,7 +67,7 @@ INSERT INTO t_province_reform (province, reform_year, reform_model) VALUES
 ('新疆',   NULL, '传统文理');
 ```
 
-## 五、`t_score_rank` 一分一段位次表 — 【全新创建】
+## 五、`t_score_rank` 一分一段位次表 
 
 用于用户输入分数后自动计算位次：
 
@@ -109,4 +109,54 @@ CREATE INDEX idx_sr_lookup
 -- 索引：按位次反查分数
 CREATE INDEX idx_sr_rank_lookup
     ON t_score_rank (province, year, subject_type, rank);
+```
+## 二、批次分数线表 —【全新创建】
+
+
+> [!NOTE] Title
+> 不管你是本科一批还是本科二批，直接传本科批
+
+
+```
+-- ============================================================
+-- 批次分数线表 (t_batch_score_line)
+-- 描述：各省各年各科类的省控线（一本线/本科线/专科线等）
+--       用途：① 判断考生是否有资格报某批次
+--            ② 计算"线差"用于跨年可比分析
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS t_batch_score_line (
+
+    id                  SERIAL          PRIMARY KEY,
+
+    province            VARCHAR(20)     NOT NULL,           -- 省份
+    year                SMALLINT        NOT NULL,           -- 年份
+    subject_type        VARCHAR(20)     NOT NULL,           -- 科类（物理类/历史类/理科/文科/综合改革/不分文理）
+    batch               VARCHAR(50)     NOT NULL,           -- 批次名称
+
+    score_line          INTEGER         NOT NULL,           -- 省控分数线
+    rank_line           INTEGER,                            -- 省控线对应位次（可选）
+
+    -- ==================== 说明字段 ====================
+    remark              VARCHAR(200),                       -- 备注（如：合并批次说明）
+
+    -- ==================== 审计字段 ====================
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+
+    -- ==================== 约束 ====================
+    CONSTRAINT uk_batch_score_line
+        UNIQUE (province, year, subject_type, batch)
+);
+
+
+-- ----------------------------------------------------------
+-- 索引
+-- ----------------------------------------------------------
+CREATE INDEX idx_bsl_lookup
+    ON t_batch_score_line (province, year, subject_type);
+
+CREATE INDEX idx_bsl_year
+    ON t_batch_score_line (year DESC);
+
+
 ```

@@ -145,15 +145,12 @@ public class PlannerServiceImpl implements PlannerService {
     @Override
     public void delete(Long id) {
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || planner.getDeleted()) {
+        if (planner == null) {
             throw new BusinessException(404, "规划师不存在");
         }
 
-        planner.setDeleted(true);
-        planner.setUpdatedAt(OffsetDateTime.now());
+        plannerMapper.deleteById(id);
 
-        plannerMapper.updateById(planner);
-
-        log.info("删除规划师成功: id={}", id);
+        log.info("硬删除规划师成功: id={}", id);
     }
 }

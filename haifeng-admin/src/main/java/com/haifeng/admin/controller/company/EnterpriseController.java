@@ -87,7 +87,7 @@ public class EnterpriseController {
     @DeleteMapping("/batch")
     @OperationLog(module = "企业管理", action = "批量硬删除企业")
     public R<Void> batchDelete(@Valid @RequestBody EnterpriseBatchDeleteDTO dto) {
-        enterpriseService.batchDelete(dto);
+        enterpriseService.batchDelete(dto.getIds());
         return R.ok();
     }
 

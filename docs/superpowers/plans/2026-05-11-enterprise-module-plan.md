@@ -15,7 +15,7 @@
 ### 新建文件
 
 **haifeng-admin/src/main/resources/db/migration/**
-- `V16__enterprise__tables.sql` - Flyway迁移脚本
+- `V15__enterprise__tables.sql` - Flyway迁移脚本
 
 **haifeng-common/src/main/java/com/haifeng/common/entity/company/**
 - `Enterprise.java` - 企业实体
@@ -66,7 +66,7 @@
 ## Task 1: Flyway迁移脚本
 
 **Files:**
-- Create: `haifeng-admin/src/main/resources/db/migration/V16__enterprise__tables.sql`
+- Create: `haifeng-admin/src/main/resources/db/migration/V15__enterprise__tables.sql`
 
 - [ ] **Step 1: 创建V16迁移脚本**
 
@@ -326,7 +326,7 @@ COMMIT;
 - [ ] **Step 3: 提交**
 
 ```bash
-git add haifeng-admin/src/main/resources/db/migration/V16__enterprise__tables.sql
+git add haifeng-admin/src/main/resources/db/migration/V15__enterprise__tables.sql
 git commit -m "feat(db): add V16 enterprise module tables"
 ```
 

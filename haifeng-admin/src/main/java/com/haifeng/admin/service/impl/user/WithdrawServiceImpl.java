@@ -168,4 +168,30 @@ public class WithdrawServiceImpl implements WithdrawService {
 
         log.info("删除提现记录成功: withdrawId={}", id);
     }
+
+    @Override
+    public void hardDelete(Long id) {
+        WithdrawRecord withdraw = withdrawRecordMapper.selectByIdIgnoreDeleted(id);
+        if (withdraw == null) {
+            throw new BusinessException(404, "提现记录不存在");
+        }
+
+        withdrawRecordMapper.hardDeleteById(id);
+        log.info("硬删除提现记录成功: withdrawId={}", id);
+    }
+
+    @Override
+    public void restore(Long id) {
+        WithdrawRecord withdraw = withdrawRecordMapper.selectByIdIgnoreDeleted(id);
+        if (withdraw == null) {
+            throw new BusinessException(404, "提现记录不存在");
+        }
+
+        if (!withdraw.getDeleted()) {
+            throw new BusinessException(400, "该提现记录未被禁用，无需恢复");
+        }
+
+        withdrawRecordMapper.restoreById(id, OffsetDateTime.now());
+        log.info("恢复提现记录成功: withdrawId={}", id);
+    }
 }

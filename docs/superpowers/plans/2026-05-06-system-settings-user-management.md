@@ -95,6 +95,8 @@ CREATE TABLE system_settings (
     api_number        INTEGER DEFAULT 3,
     pro_price         INTEGER DEFAULT 199,
     vip_price         INTEGER DEFAULT 599,
+    pro_commission_rate   SMALLINT DEFAULT 10 CHECK (pro_commission_rate >= 0 AND pro_commission_rate <= 100),
+    vip_commission_rate   SMALLINT DEFAULT 15 CHECK (vip_commission_rate >= 0 AND vip_commission_rate <= 100),
     seo_title         VARCHAR(200),
     seo_keywords      VARCHAR(100),
     seo_description   TEXT,
@@ -730,6 +732,16 @@ public class SystemSettings {
 
     private String seoDescription;
 
+    /**
+     * Pro会员提成比例（0-100）
+     */
+    private Integer proCommissionRate;
+
+    /**
+     * VIP会员提成比例（0-100）
+     */
+    private Integer vipCommissionRate;
+
     @TableField(typeHandler = JacksonTypeHandler.class)
     private ContactUrl contactUrl;
 
@@ -811,6 +823,11 @@ public class MemberQueryDTO extends BasePageQueryDTO {
      * 账号状态：active/disabled
      */
     private String status;
+
+    /**
+     * 邀请码（模糊查询）
+     */
+    private String inviteCode;
 }
 ```
 
@@ -1038,6 +1055,9 @@ public class MemberServiceImpl implements MemberService {
             String blindIndex = CryptoUtil.blindIndex(dto.getWechatId(), securityProperties.getHashSalt());
             wrapper.eq(Member::getWechatIdIndex, blindIndex);
         }
+        if (StringUtils.hasText(dto.getInviteCode())) {
+            wrapper.like(Member::getInviteCode, dto.getInviteCode());
+        }
 
         wrapper.orderByDesc(Member::getCreatedAt);
 
@@ -1222,6 +1242,14 @@ public class SystemSettingsUpdateDTO {
     @Min(value = 0, message = "VIP会员价格不能为负")
     private Integer vipPrice;
 
+    @Min(value = 0, message = "Pro提成比例不能小于0")
+    @Max(value = 100, message = "Pro提成比例不能大于100")
+    private Integer proCommissionRate;
+
+    @Min(value = 0, message = "VIP提成比例不能小于0")
+    @Max(value = 100, message = "VIP提成比例不能大于100")
+    private Integer vipCommissionRate;
+
     @Size(max = 200, message = "SEO标题最多200字符")
     private String seoTitle;
 
@@ -1273,6 +1301,16 @@ public class SystemSettingsVO {
     private Integer proPrice;
 
     private Integer vipPrice;
+
+    /**
+     * Pro会员提成比例（0-100）
+     */
+    private Integer proCommissionRate;
+
+    /**
+     * VIP会员提成比例（0-100）
+     */
+    private Integer vipCommissionRate;
 
     private String seoTitle;
 

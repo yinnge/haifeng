@@ -44,12 +44,32 @@ public class MemberOrderController {
     }
 
     /**
-     * 删除订单
+     * 删除订单（软删除/禁用）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "用户管理", action = "删除订单")
+    @OperationLog(module = "用户管理", action = "禁用订单")
     public R<Void> delete(@PathVariable Long id) {
         orderService.delete(id);
+        return R.ok();
+    }
+
+    /**
+     * 硬删除订单（物理删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "用户管理", action = "硬删除订单")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        orderService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 恢复订单
+     */
+    @PutMapping("/{id}/restore")
+    @OperationLog(module = "用户管理", action = "恢复订单")
+    public R<Void> restore(@PathVariable Long id) {
+        orderService.restore(id);
         return R.ok();
     }
 }

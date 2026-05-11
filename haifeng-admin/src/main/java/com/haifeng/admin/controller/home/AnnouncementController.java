@@ -63,10 +63,10 @@ public class AnnouncementController {
     }
 
     /**
-     * 删除公告
+     * 硬删除公告
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "首页管理", action = "删除公告")
+    @OperationLog(module = "首页管理", action = "硬删除公告")
     public R<Void> delete(@PathVariable Long id) {
         announcementService.delete(id);
         return R.ok();

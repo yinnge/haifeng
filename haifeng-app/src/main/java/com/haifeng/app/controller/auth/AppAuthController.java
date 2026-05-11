@@ -2,12 +2,15 @@ package com.haifeng.app.controller.auth;
 
 import com.haifeng.app.dto.auth.RegisterDTO;
 import com.haifeng.app.service.auth.AppAuthService;
-import com.haifeng.common.dto.LoginDTO;
-import com.haifeng.common.dto.RefreshTokenDTO;
+import com.haifeng.common.dto.auth.LoginDTO;
+import com.haifeng.common.dto.auth.RefreshTokenDTO;
 import com.haifeng.common.response.R;
-import com.haifeng.common.vo.TokenVO;
+import com.haifeng.common.service.CaptchaService;
+import com.haifeng.common.vo.auth.CaptchaVO;
+import com.haifeng.common.vo.auth.TokenVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +22,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AppAuthController {
 
     private final AppAuthService appAuthService;
+    private final CaptchaService captchaService;
+
+    @GetMapping("/captcha")
+    public R<CaptchaVO> getCaptcha() {
+        CaptchaVO captcha = captchaService.generateCaptcha();
+        return R.ok(captcha);
+    }
 
     @PostMapping("/register")
     public R<TokenVO> register(@Valid @RequestBody RegisterDTO dto) {

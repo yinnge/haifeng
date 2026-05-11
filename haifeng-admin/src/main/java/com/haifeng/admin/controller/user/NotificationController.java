@@ -36,12 +36,32 @@ public class NotificationController {
     }
 
     /**
-     * 删除通知
+     * 删除通知（软删除/禁用）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "用户管理", action = "删除通知")
+    @OperationLog(module = "用户管理", action = "禁用通知")
     public R<Void> delete(@PathVariable Long id) {
         notificationService.delete(id);
+        return R.ok();
+    }
+
+    /**
+     * 硬删除通知（物理删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "用户管理", action = "硬删除通知")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        notificationService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 恢复通知
+     */
+    @PutMapping("/{id}/restore")
+    @OperationLog(module = "用户管理", action = "恢复通知")
+    public R<Void> restore(@PathVariable Long id) {
+        notificationService.restore(id);
         return R.ok();
     }
 }

@@ -17,9 +17,8 @@ public class MemberUpgradeDTO {
     @Max(value = 120, message = "时长最多120个月")
     private Integer durationMonths;
 
-    @NotNull(message = "金额不能为空")
     @DecimalMin(value = "0.01", message = "金额必须大于0")
-    private BigDecimal amount;
+    private BigDecimal amount;  // 可选，不传则自动根据系统设置计算
 
     private String remark;
 }

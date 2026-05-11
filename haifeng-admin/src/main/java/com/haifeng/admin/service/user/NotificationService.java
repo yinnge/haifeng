@@ -15,4 +15,8 @@ public interface NotificationService {
     void delete(Long id);
 
     void sendNotification(Long memberId, NotificationType type, String title, String content, Long relatedId);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }

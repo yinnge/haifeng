@@ -9,4 +9,8 @@ public interface CommissionService {
     IPage<CommissionListVO> page(CommissionQueryDTO dto);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }

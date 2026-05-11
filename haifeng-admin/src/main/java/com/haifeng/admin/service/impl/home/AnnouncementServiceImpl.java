@@ -126,15 +126,12 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     @Override
     public void delete(Long id) {
         Announcement announcement = announcementMapper.selectById(id);
-        if (announcement == null || announcement.getDeleted()) {
+        if (announcement == null) {
             throw new BusinessException(404, "公告不存在");
         }
 
-        announcement.setDeleted(true);
-        announcement.setUpdatedAt(OffsetDateTime.now());
+        announcementMapper.deleteById(id);
 
-        announcementMapper.updateById(announcement);
-
-        log.info("删除公告成功: id={}", id);
+        log.info("硬删除公告成功: id={}", id);
     }
 }

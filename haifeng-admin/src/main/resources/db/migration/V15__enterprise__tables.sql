@@ -1,4 +1,4 @@
--- V16__enterprise__tables.sql
+-- V15__enterprise__tables.sql
 -- 企业管理模块数据库表
 
 BEGIN;

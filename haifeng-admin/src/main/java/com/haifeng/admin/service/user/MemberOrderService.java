@@ -14,4 +14,8 @@ public interface MemberOrderService {
     String getWechatPlaintext(Long id);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }

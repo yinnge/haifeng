@@ -4,7 +4,11 @@
 
 **Goal:** 实现首页管理模块的三个子模块（公告列表、规划师列表、培训机构列表）的完整CRUD功能
 
-**Architecture:** 采用标准三层架构，Entity和Mapper放在haifeng-common共用，Controller/Service/DTO/VO放在haifeng-admin。使用MyBatis-Plus简化数据库操作，雪花算法生成ID，软删除代替物理删除。
+**Architecture:** 采用标准三层架构，Entity和Mapper放在haifeng-common共用，Controller/Service/DTO/VO放在haifeng-admin。使用MyBatis-Plus简化数据库操作，雪花算法生成ID。
+
+**删除策略：**
+- **硬删除（DELETE接口）**：物理删除记录，数据不可恢复
+- **软删除（状态切换）**：通过PUT /{id}/status接口设置status=0禁用，status=1启用
 
 **Tech Stack:** Spring Boot 3.x, MyBatis-Plus, PostgreSQL (TEXT[]数组类型), Flyway
 

@@ -81,6 +81,32 @@ public class CommissionServiceImpl implements CommissionService {
         log.info("删除佣金记录成功: commissionId={}", id);
     }
 
+    @Override
+    public void hardDelete(Long id) {
+        ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
+        if (commission == null) {
+            throw new BusinessException(404, "佣金记录不存在");
+        }
+
+        referralCommissionMapper.hardDeleteById(id);
+        log.info("硬删除佣金记录成功: commissionId={}", id);
+    }
+
+    @Override
+    public void restore(Long id) {
+        ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
+        if (commission == null) {
+            throw new BusinessException(404, "佣金记录不存在");
+        }
+
+        if (!commission.getDeleted()) {
+            throw new BusinessException(400, "该佣金记录未被禁用，无需恢复");
+        }
+
+        referralCommissionMapper.restoreById(id, OffsetDateTime.now());
+        log.info("恢复佣金记录成功: commissionId={}", id);
+    }
+
     private List<Long> findOrderIdsByOrderNo(String orderNo) {
         LambdaQueryWrapper<MemberOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(MemberOrder::getDeleted, false);

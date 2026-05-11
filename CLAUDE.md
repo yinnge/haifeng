@@ -4,11 +4,11 @@
 教育规划平台，核心功能：高考志愿填报
 
 ### 访问权限分级
-| 角色 | member_type值 | 说明                 |
-|------|-------------|--------------------|
-| 游客 | null | 具体权限在具体模块说明        |
-| 普通会员 | normal | 具体权限在具体模块说明       |
-| VIP会员 | vip | 具体权限在具体模块说明  |
+| 角色      | member_type值 | 说明                 |
+|---------|--------------|--------------------|
+| normal  | normal       | 具体权限在具体模块说明        |
+| Pro     | Pro          | 具体权限在具体模块说明       |
+| VIP会员   | vip          | 具体权限在具体模块说明  |
 
 
 ## 角色
@@ -19,18 +19,18 @@
 1. 系统管理[父模块]--控制面板[子模块]--系统设置[子模块]--操作记录[子模块]--AI调用记录[子模块]
 2. 首页管理[父模块]--公告列表[子模块]--规划师列表[子模块]--培训机构列表[子模块]
 3. 权限管理[父模块]--角色列表[子模块]--权限列表[子模块]--管理员列表[子模块]
-4. 用户管理[父模块]--用户列表[子模块]--订单/续费记录[子模块]--推荐佣金列表[子模块]
-5. 院校管理[父模块]--院校列表[子模块]--院校详情[子模块]--院校适应指南[子模块]--院系详情[子模块]--实验室列表[子模块]--学科评估[子模块]
+4. 用户管理[父模块]--用户列表[子模块]--订单/续费记录[子模块]--推荐佣金列表[子模块]--消息通知[子模块]--提现记录[子模块]
+5. 院校管理[父模块]--院校列表[子模块]--校园图册[子模块]--院校适应指南[子模块]--院系详情[子模块]--实验室列表[子模块]--学科评估[子模块]
 6. 资源管理[父模块]--资源列表[子模块]
 7. 专业管理[父模块]--专业列表[子模块]--专业详情[子模块]--考研专业[子模块]
 8. 城市管理[父模块]--城市列表[子模块]
 9. 行业管理[父模块]--行业列表[子模块]
-10. 专业组管理[父模块]--专业组录取列表[子模块]--专业组明细列表[子模块]
+10. 专业组管理[父模块]--专业组录取列表[子模块]--专业组明细列表[子模块]--选科要求列表[子模块]
 11. 算法配置管理[父模块]--建省份改革配置[子模块]--院校标签字典[子模块]--一分一段位次[子模块]--批次分数线[子模块]
 12. 算法约束模块[父模块]--约束字典[子模块]--专业约束关联[子模块]--安全系数[子模块]
 13. 特殊通道模块[父模块]--特殊招生通道列表[子模块]--通道详情[子模块]--通道-大学[子模块]--强基计划列表[子模块]
 14. 竞赛证书管理[父模块]--科研竞赛列表[子模块]--职业技能证书列表[子模块]
-15. 企业管理[父模块]--企业列表[子模块]--企业岗位列表[子模块]
+15. 企业管理[父模块]--企业列表[子模块]--企业行业关联[子模块]
 16. 公务员考试管理[父模块]--公务员考试列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
 17. 事业编管理[父模块]--岗位列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
 18. 部队文职管理[父模块]--岗位列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
@@ -41,6 +41,7 @@
 23. 基层服务管理[父模块]--岗位列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
 24. 社区工作管理[父模块]--岗位列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
 25. 公益性岗位管理[父模块]--岗位列表[子模块]--公告列表[子模块]--备考指南列表[子模块]
+
 
 ## 技术栈
 - 后端：Spring Boot 3.x + MyBatis-Plus + Spring Security + Spring AI
@@ -89,10 +90,20 @@ com.haifeng.admin/
 └── vo/{模块名}/XxxListVO.java
 （注：admin端绝不包含entity和mapper文件夹）
 com.haifeng.common/
+├── annotation/                    ← 自定义注解（@RequireLogin @RequirePro @RequireVip @OperationLog）
+├── aspect/                        ← AOP切面（权限校验、操作日志）
+├── config/                        ← 通用配置（MyBatis-Plus、Redis等）
+├── constant/                      ← 常量定义（RedisKey等）
+├── dto/auth/                      ← 认证相关DTO（两端共用：LoginDTO、RefreshTokenDTO）
+├── dto/common/                    ← 公共基类（BasePageQueryDTO）
 ├── entity/{模块名}/Xxx.java       ← 核心约束：所有Entity在这里
+├── enums/                         ← 枚举（状态、类型等）
+├── exception/                     ← 自定义异常（BusinessException）
 ├── mapper/{模块名}/XxxMapper.java ← 核心约束：所有Mapper在这里
-├── enums/XxxEnum.java
-└── util/XxxUtil.java
+├── response/                      ← 统一响应（R<T>、ResultCode）
+├── security/                      ← 安全相关（JWT过滤器、SecurityUtil）
+├── util/                          ← 工具类（JwtUtil、SnowflakeIdGenerator）
+└── vo/auth/                       ← 认证相关VO（两端共用：TokenVO）
 
 ### 结构示例
 com.haifeng.admin/
@@ -188,6 +199,25 @@ com.haifeng.admin/
 ├── dto/{模块名}/{子模块名}/XxxAddDTO.java
 └── vo/{模块名}/{子模块名}/XxxListVO.java
 
+
+### DTO/VO 归属原则（重要）
+
+**核心规则：common 只放两端共用的内容，单端专用的放各自模块**
+
+| 情况 | 归属 | 示例 |
+|------|------|------|
+| 认证相关（两端登录都用） | common/dto/auth/ 或 common/vo/auth/ | LoginDTO, TokenVO |
+| 公共基类 | common/dto/common/ | BasePageQueryDTO |
+| 只有admin用 | haifeng-admin/dto/{模块}/ | RoleAddDTO, AdminQueryDTO |
+| 只有app用 | haifeng-app/dto/{模块}/ | RegisterDTO |
+
+**为什么这样设计？**
+- 如果 AdminRoleDTO 放 common，app 模块也能 import，破坏模块边界
+- 就算字段相同，admin 和 app 的 DTO 也要分开定义（未来可能各自演进）
+
+
+
+
 ## 规范
 
 ### VO命名规范
@@ -205,7 +235,7 @@ XxxCardVO      卡片展示（首页/推荐）
 - **参数校验**：所有抛出的 `MethodArgumentNotValidException` 必须在 `GlobalExceptionHandler` 中被捕获，并将具体的字段校验错误信息提取后，封装成统一响应格式的 `msg` 返回。
 
 ### skills使用技巧
-1. 在进行复杂的需求分析的时候，使用：superpowers的brainstorming
+1. 在进行明确需求时使用：superpowers的brainstorming
 2. 系统性调试使用superpowers的systematic-debugging
 3. 测试驱动开发用：superpowers的test-driven-development
 4. 计划编写与执行用：superpowers的writing-plans / executing-plans
@@ -252,7 +282,7 @@ log.error("查询用户失败，userId={}", id, e)  ← e要带上！
 ## AOP规范
 
 ### 已有AOP切面（haifeng-common中）
-- 权限校验切面：处理 @RequireLogin @RequireVip 注解
+- 权限校验切面：处理 @RequireLogin @RequirePro @RequireVip 注解
 - 操作日志切面：管理员的增删改操作自动记录到 sys_operation_log
 
 ### 操作日志AOP（重要）
@@ -308,7 +338,8 @@ public R<Void> add(@Valid @RequestBody UniversityAddDTO dto) {
 1001  用户不存在
 1002  密码错误
 1003  会员已过期
-1004  权限不足（非VIP）
+1004  权限不足（需要专业版及以上）
+1005  权限不足（需要旗舰版）
 
 ## 安全规范
 - 密码：BCrypt加密，禁止明文
@@ -341,7 +372,8 @@ haifeng:limit:api:{ip}:{path}      # 接口限流
 ## 注意事项
 - ID全部用雪花算法生成，禁用数据库自增
 - 所有表必须有 created_at / updated_at
-- 软删除用 is_deleted = false，禁止物理删除（特殊情况注释说明）
+- 软删除用 is_deleted = false/status=0
+- 允许硬删除和软删除，软删除- 软删除用 is_deleted = false/status=0
 - 金额全部用 DECIMAL(10,2)，禁止float
 - 时间字段统一用 TIMESTAMPTZ（带时区）
 

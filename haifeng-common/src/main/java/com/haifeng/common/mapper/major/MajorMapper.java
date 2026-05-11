@@ -14,4 +14,10 @@ public interface MajorMapper extends BaseMapper<Major> {
 
     @Select("SELECT COUNT(*) > 0 FROM t_major WHERE major_code = #{majorCode}")
     boolean existsByMajorCode(@Param("majorCode") String majorCode);
+
+    @Select("SELECT * FROM t_major WHERE major_name = #{majorName} AND status = 1 LIMIT 1")
+    Major findByMajorName(@Param("majorName") String majorName);
+
+    @Select("SELECT major_code FROM t_major WHERE major_name = #{majorName} AND status = 1 LIMIT 1")
+    String selectCodeByName(@Param("majorName") String majorName);
 }

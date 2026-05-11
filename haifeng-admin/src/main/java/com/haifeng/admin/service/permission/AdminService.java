@@ -18,4 +18,6 @@ public interface AdminService {
     void update(Long id, AdminUpdateDTO dto);
 
     void delete(Long id);
+
+    void toggleStatus(Long id);
 }

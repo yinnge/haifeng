@@ -148,4 +148,30 @@ public class NotificationServiceImpl implements NotificationService {
 
         log.info("发送通知成功: memberId={}, type={}", memberId, type.getValue());
     }
+
+    @Override
+    public void hardDelete(Long id) {
+        MemberNotification notification = memberNotificationMapper.selectByIdIgnoreDeleted(id);
+        if (notification == null) {
+            throw new BusinessException(404, "通知不存在");
+        }
+
+        memberNotificationMapper.hardDeleteById(id);
+        log.info("硬删除通知成功: notificationId={}", id);
+    }
+
+    @Override
+    public void restore(Long id) {
+        MemberNotification notification = memberNotificationMapper.selectByIdIgnoreDeleted(id);
+        if (notification == null) {
+            throw new BusinessException(404, "通知不存在");
+        }
+
+        if (!notification.getDeleted()) {
+            throw new BusinessException(400, "该通知未被禁用，无需恢复");
+        }
+
+        memberNotificationMapper.restoreById(id, OffsetDateTime.now());
+        log.info("恢复通知成功: notificationId={}", id);
+    }
 }

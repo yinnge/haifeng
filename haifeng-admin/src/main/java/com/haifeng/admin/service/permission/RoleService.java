@@ -20,5 +20,7 @@ public interface RoleService {
 
     void delete(Long id);
 
+    void toggleStatus(Long id);
+
     void bindModules(Long id, RoleModuleBindDTO dto);
 }

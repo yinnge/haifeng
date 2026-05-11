@@ -63,10 +63,10 @@ public class PlannerController {
     }
 
     /**
-     * 删除规划师
+     * 硬删除规划师
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "首页管理", action = "删除规划师")
+    @OperationLog(module = "首页管理", action = "硬删除规划师")
     public R<Void> delete(@PathVariable Long id) {
         plannerService.delete(id);
         return R.ok();

@@ -14,4 +14,8 @@ public interface WithdrawService {
     void process(Long id, WithdrawProcessDTO dto);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }

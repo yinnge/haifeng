@@ -1,4 +1,4 @@
-package com.haifeng.common.dto;
+package com.haifeng.common.dto.common;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

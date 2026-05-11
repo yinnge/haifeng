@@ -26,12 +26,32 @@ public class CommissionController {
     }
 
     /**
-     * 删除佣金记录
+     * 删除佣金记录（软删除/禁用）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "用户管理", action = "删除佣金记录")
+    @OperationLog(module = "用户管理", action = "禁用佣金记录")
     public R<Void> delete(@PathVariable Long id) {
         commissionService.delete(id);
+        return R.ok();
+    }
+
+    /**
+     * 硬删除佣金记录（物理删除）
+     */
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "用户管理", action = "硬删除佣金记录")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        commissionService.hardDelete(id);
+        return R.ok();
+    }
+
+    /**
+     * 恢复佣金记录
+     */
+    @PutMapping("/{id}/restore")
+    @OperationLog(module = "用户管理", action = "恢复佣金记录")
+    public R<Void> restore(@PathVariable Long id) {
+        commissionService.restore(id);
         return R.ok();
     }
 }

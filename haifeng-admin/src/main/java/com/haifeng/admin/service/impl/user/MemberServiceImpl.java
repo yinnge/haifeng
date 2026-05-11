@@ -173,13 +173,19 @@ public class MemberServiceImpl implements MemberService {
             orderType = OrderType.RENEWAL;
         }
 
-        // 5. 更新用户表
+        // 5. 计算金额（如果未传入，则自动计算）
+        BigDecimal finalAmount = dto.getAmount();
+        if (finalAmount == null) {
+            finalAmount = calculateAmount(dto.getTargetType(), dto.getDurationMonths());
+        }
+
+        // 6. 更新用户表
         member.setMemberType(dto.getTargetType());
         member.setExpireAt(newExpireAt);
         member.setUpdatedAt(now);
         memberMapper.updateById(member);
 
-        // 6. 创建订单记录
+        // 7. 创建订单记录
         Long orderId = SnowflakeIdGenerator.nextId();
         Long operatorId = SecurityUtil.getCurrentAdminId();
         String operatorName = SecurityUtil.getCurrentUser() != null ? SecurityUtil.getCurrentUser().getUsername() : null;
@@ -196,7 +202,7 @@ public class MemberServiceImpl implements MemberService {
                 .beforeType(currentType)
                 .afterType(targetType)
                 .durationMonths(dto.getDurationMonths())
-                .amount(dto.getAmount())
+                .amount(finalAmount)
                 .beforeExpireAt(beforeExpireAt)
                 .afterExpireAt(newExpireAt)
                 .operatorId(operatorId)
@@ -208,12 +214,12 @@ public class MemberServiceImpl implements MemberService {
                 .build();
         orderMapper.insert(order);
 
-        // 7. 处理佣金（如有推荐人）
+        // 8. 处理佣金（如有推荐人）
         if (member.getReferrerId() != null) {
             processCommission(member, order, dto.getTargetType());
         }
 
-        // 8. 发送通知
+        // 9. 发送通知
         NotificationType notificationType = orderType == OrderType.NEW
                 ? NotificationType.MEMBER_ACTIVATION_SUCCESS
                 : NotificationType.MEMBER_RENEWED;
@@ -224,11 +230,40 @@ public class MemberServiceImpl implements MemberService {
                 newExpireAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
         notificationService.sendNotification(member.getId(), notificationType, title, content, orderId);
 
-        log.info("会员开通/续费成功: userId={}, orderType={}, targetType={}, orderId={}",
-                id, orderType.getValue(), dto.getTargetType(), orderId);
+        log.info("会员开通/续费成功: userId={}, orderType={}, targetType={}, orderId={}, amount={}",
+                id, orderType.getValue(), dto.getTargetType(), orderId, finalAmount);
 
-        // 9. 返回订单ID
+        // 10. 返回订单ID
         return orderId;
+    }
+
+    /**
+     * 根据会员类型和时长自动计算金额
+     * 公式：(年价格 / 12) * 月数
+     */
+    private BigDecimal calculateAmount(String targetType, Integer durationMonths) {
+        SystemSettings settings = settingsMapper.selectOne(
+                new LambdaQueryWrapper<SystemSettings>().last("LIMIT 1"));
+        if (settings == null) {
+            throw new BusinessException(500, "系统设置不存在，无法计算金额");
+        }
+
+        Integer yearPrice;
+        if ("vip".equals(targetType)) {
+            yearPrice = settings.getVipPrice();
+        } else {
+            yearPrice = settings.getProPrice();
+        }
+
+        if (yearPrice == null || yearPrice <= 0) {
+            throw new BusinessException(500, "会员价格未设置");
+        }
+
+        // (年价格 / 12) * 月数，保留2位小数
+        return new BigDecimal(yearPrice)
+                .divide(new BigDecimal(12), 4, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal(durationMonths))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

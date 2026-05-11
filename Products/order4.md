@@ -7,9 +7,18 @@
 ### 功能清单
 | 子模块 | 功能 |
 |--------|------|
-| 公告管理 | 公告列表、详情、新增、修改、状态切换、删除 |
-| 规划师管理 | 规划师列表、详情、新增、修改、状态切换、删除 |
-| 培训机构管理 | 机构列表、详情、新增、修改、状态切换、删除 |
+| 公告管理 | 公告列表、详情、新增、修改、禁用/启用（状态切换）、硬删除 |
+| 规划师管理 | 规划师列表、详情、新增、修改、禁用/启用（状态切换）、硬删除 |
+| 培训机构管理 | 机构列表、详情、新增、修改、禁用/启用（状态切换）、硬删除 |
+
+### 删除机制说明
+| 操作 | HTTP方法 | 路径 | 说明 |
+|------|----------|------|------|
+| 硬删除 | DELETE | `/{id}` | 物理删除记录，数据不可恢复 |
+| 禁用/启用 | PUT | `/{id}/status` | status=0禁用，status=1启用（软删除可恢复） |
+| 详情 | GET | `/{id}` | 查看详情 |
+
+前端列表每行应显示三个按钮：删除（硬删除）、禁用/启用、详情
 
 ---
 
@@ -202,7 +211,7 @@ Authorization: Bearer {accessToken}
 
 ---
 
-#### 1.6 删除公告
+#### 1.6 硬删除公告
 ```
 DELETE /api/v1/admin/home/announcement/{id}
 Authorization: Bearer {accessToken}
@@ -222,6 +231,10 @@ Authorization: Bearer {accessToken}
   "timestamp": 1714300000000
 }
 ```
+
+**业务说明：** 物理删除记录，数据不可恢复。如需保留数据，请使用状态切换接口（1.5）将status设为0（下架/禁用）。
+
+**操作日志：** 此接口自动记录操作日志
 
 ---
 
@@ -449,7 +462,7 @@ Authorization: Bearer {accessToken}
 
 ---
 
-#### 2.6 删除规划师
+#### 2.6 硬删除规划师
 ```
 DELETE /api/v1/admin/home/planner/{id}
 Authorization: Bearer {accessToken}
@@ -469,6 +482,10 @@ Authorization: Bearer {accessToken}
   "timestamp": 1714300000000
 }
 ```
+
+**业务说明：** 物理删除记录，数据不可恢复。如需保留数据，请使用状态切换接口（2.5）将status设为0（下架/禁用）。
+
+**操作日志：** 此接口自动记录操作日志
 
 ---
 
@@ -683,7 +700,7 @@ Authorization: Bearer {accessToken}
 
 ---
 
-#### 3.6 删除培训机构
+#### 3.6 硬删除培训机构
 ```
 DELETE /api/v1/admin/home/institution/{id}
 Authorization: Bearer {accessToken}
@@ -703,6 +720,10 @@ Authorization: Bearer {accessToken}
   "timestamp": 1714300000000
 }
 ```
+
+**业务说明：** 物理删除记录，数据不可恢复。如需保留数据，请使用状态切换接口（3.5）将status设为0（下架/禁用）。
+
+**操作日志：** 此接口自动记录操作日志
 
 ---
 

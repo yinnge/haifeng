@@ -138,10 +138,24 @@ public class ModuleServiceImpl implements ModuleService {
             throw new BusinessException(404, "模块不存在");
         }
 
-        module.setDeleted(true);
+        // 硬删除：从数据库彻底删除
+        moduleMapper.hardDeleteById(id);
+        log.info("硬删除模块成功: {}", module.getModuleName());
+    }
+
+    @Override
+    public void toggleStatus(Long id) {
+        SysModule module = moduleMapper.selectById(id);
+        if (module == null || module.getDeleted()) {
+            throw new BusinessException(404, "模块不存在");
+        }
+
+        // 切换状态：0→1 或 1→0
+        Integer newStatus = module.getStatus() == 1 ? 0 : 1;
+        module.setStatus(newStatus);
         module.setUpdatedAt(OffsetDateTime.now());
         moduleMapper.updateById(module);
-        log.info("删除模块成功: {}", module.getModuleName());
+        log.info("切换模块状态成功: {}, 新状态: {}", module.getModuleName(), newStatus == 1 ? "启用" : "禁用");
     }
 
     private List<ModuleTreeVO> buildTree(List<SysModule> modules) {

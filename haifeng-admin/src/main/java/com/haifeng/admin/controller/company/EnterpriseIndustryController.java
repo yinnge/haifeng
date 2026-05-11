@@ -55,7 +55,7 @@ public class EnterpriseIndustryController {
     @DeleteMapping("/batch")
     @OperationLog(module = "企业-行业关联", action = "批量硬删除关联")
     public R<Void> batchDelete(@Valid @RequestBody EnterpriseIndustryBatchDeleteDTO dto) {
-        enterpriseIndustryService.batchDelete(dto);
+        enterpriseIndustryService.batchDelete(dto.getIds());
         return R.ok();
     }
 

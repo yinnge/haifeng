@@ -16,4 +16,6 @@ public interface ModuleService {
     void update(Long id, ModuleUpdateDTO dto);
 
     void delete(Long id);
+
+    void toggleStatus(Long id);
 }

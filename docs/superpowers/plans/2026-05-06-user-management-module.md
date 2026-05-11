@@ -6,6 +6,12 @@
 
 **Architecture:** 采用单事务同步处理架构，会员开通/续费时在同一事务内完成用户更新、订单创建、佣金计算、通知发送。Entity/Mapper 放 haifeng-common，Controller/Service/DTO/VO 放 haifeng-admin。
 
+**更新说明（2026-05-07）：** 新增硬删除与恢复功能
+- **禁用（软删除）**：设置 `is_deleted = true`，记录保留
+- **硬删除（物理删除）**：永久删除记录，接口 `DELETE /{id}/hard`
+- **恢复**：将已禁用记录恢复，接口 `PUT /{id}/restore`
+- 涉及模块：订单、佣金、通知、提现
+
 **Tech Stack:** Spring Boot 3.x, MyBatis-Plus, PostgreSQL, Flyway, 雪花ID
 
 **设计文档:** `docs/superpowers/specs/2026-05-06-user-management-module-design.md`
@@ -638,10 +644,25 @@ package com.haifeng.common.mapper.user;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.user.MemberOrder;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.time.OffsetDateTime;
 
 @Mapper
 public interface MemberOrderMapper extends BaseMapper<MemberOrder> {
+
+    @Delete("DELETE FROM member_orders WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
+
+    @Select("SELECT * FROM member_orders WHERE id = #{id}")
+    MemberOrder selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Update("UPDATE member_orders SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
+    int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
 }
 ```
 
@@ -652,10 +673,25 @@ package com.haifeng.common.mapper.user;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.user.ReferralCommission;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.time.OffsetDateTime;
 
 @Mapper
 public interface ReferralCommissionMapper extends BaseMapper<ReferralCommission> {
+
+    @Delete("DELETE FROM t_referral_commission WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
+
+    @Select("SELECT * FROM t_referral_commission WHERE id = #{id}")
+    ReferralCommission selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Update("UPDATE t_referral_commission SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
+    int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
 }
 ```
 
@@ -666,10 +702,25 @@ package com.haifeng.common.mapper.user;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.user.MemberNotification;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.time.OffsetDateTime;
 
 @Mapper
 public interface MemberNotificationMapper extends BaseMapper<MemberNotification> {
+
+    @Delete("DELETE FROM t_member_notification WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
+
+    @Select("SELECT * FROM t_member_notification WHERE id = #{id}")
+    MemberNotification selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Update("UPDATE t_member_notification SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
+    int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
 }
 ```
 
@@ -680,10 +731,25 @@ package com.haifeng.common.mapper.user;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.user.WithdrawRecord;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
+
+import java.time.OffsetDateTime;
 
 @Mapper
 public interface WithdrawRecordMapper extends BaseMapper<WithdrawRecord> {
+
+    @Delete("DELETE FROM t_withdraw_record WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
+
+    @Select("SELECT * FROM t_withdraw_record WHERE id = #{id}")
+    WithdrawRecord selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Update("UPDATE t_withdraw_record SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
+    int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
 }
 ```
 
@@ -1120,6 +1186,10 @@ public interface MemberOrderService {
     String getWechatPlaintext(Long id);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }
 ```
 
@@ -1137,6 +1207,10 @@ public interface CommissionService {
     IPage<CommissionListVO> page(CommissionQueryDTO dto);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }
 ```
 
@@ -1158,6 +1232,10 @@ public interface NotificationService {
     int broadcast(NotificationBroadcastDTO dto);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 
     void sendNotification(Long memberId, NotificationType type, String title, String content, Long relatedId);
 }
@@ -1182,6 +1260,10 @@ public interface WithdrawService {
     void process(Long id, WithdrawProcessDTO dto);
 
     void delete(Long id);
+
+    void hardDelete(Long id);
+
+    void restore(Long id);
 }
 ```
 

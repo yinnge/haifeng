@@ -143,15 +143,12 @@ public class InstitutionServiceImpl implements InstitutionService {
     @Override
     public void delete(Long id) {
         Institution institution = institutionMapper.selectById(id);
-        if (institution == null || institution.getDeleted()) {
+        if (institution == null) {
             throw new BusinessException(404, "培训机构不存在");
         }
 
-        institution.setDeleted(true);
-        institution.setUpdatedAt(OffsetDateTime.now());
+        institutionMapper.deleteById(id);
 
-        institutionMapper.updateById(institution);
-
-        log.info("删除培训机构成功: id={}", id);
+        log.info("硬删除培训机构成功: id={}", id);
     }
 }

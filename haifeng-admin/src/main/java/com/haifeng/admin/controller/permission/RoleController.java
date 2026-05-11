@@ -50,6 +50,12 @@ public class RoleController {
         return R.ok();
     }
 
+    @PutMapping("/{id}/toggle-status")
+    public R<Void> toggleStatus(@PathVariable Long id) {
+        roleService.toggleStatus(id);
+        return R.ok();
+    }
+
     @PostMapping("/{id}/modules")
     public R<Void> bindModules(@PathVariable Long id, @Valid @RequestBody RoleModuleBindDTO dto) {
         roleService.bindModules(id, dto);

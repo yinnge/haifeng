@@ -10,5 +10,8 @@ public interface PlannerService {
     Long add(PlannerAddDTO dto);
     void update(Long id, PlannerUpdateDTO dto);
     void updateStatus(Long id, StatusDTO dto);
+    /**
+     * 硬删除规划师
+     */
     void delete(Long id);
 }

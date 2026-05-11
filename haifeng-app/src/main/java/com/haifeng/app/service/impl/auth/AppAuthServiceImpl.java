@@ -4,16 +4,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.haifeng.app.dto.auth.RegisterDTO;
 import com.haifeng.app.service.auth.AppAuthService;
 import com.haifeng.common.constant.RedisKeyConstant;
-import com.haifeng.common.dto.LoginDTO;
-import com.haifeng.common.dto.RefreshTokenDTO;
+import com.haifeng.common.dto.auth.LoginDTO;
+import com.haifeng.common.dto.auth.RefreshTokenDTO;
 import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.service.CaptchaService;
+import com.haifeng.common.util.IpUtil;
 import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SecurityUtil;
+import com.haifeng.common.util.InviteCodeGenerator;
 import com.haifeng.common.util.SnowflakeIdGenerator;
-import com.haifeng.common.vo.TokenVO;
+import com.haifeng.common.vo.auth.TokenVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -37,6 +40,7 @@ public class AppAuthServiceImpl implements AppAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
+    private final CaptchaService captchaService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -99,10 +103,10 @@ public class AppAuthServiceImpl implements AppAuthService {
             member.setReferrerUsername(referrer.getUsername());
         }
 
-        memberMapper.insert(member);
+        // 生成邀请码（基于雪花ID，绝对唯一）
+        member.setInviteCode(InviteCodeGenerator.generate(member.getId()));
 
-        // 重新查询以获取数据库生成的邀请码
-        member = memberMapper.selectById(member.getId());
+        memberMapper.insert(member);
 
         String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, member.getMemberType());
         String refreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
@@ -123,6 +127,11 @@ public class AppAuthServiceImpl implements AppAuthService {
 
     @Override
     public TokenVO login(LoginDTO dto) {
+        // 1. 先验证验证码
+        if (!captchaService.validateCaptcha(dto.getUuid(), dto.getCaptchaCode())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
+        }
+
         Member member = memberMapper.selectOne(
                 new LambdaQueryWrapper<Member>()
                         .eq(Member::getPhone, dto.getPhone())
@@ -154,6 +163,7 @@ public class AppAuthServiceImpl implements AppAuthService {
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
         member.setLastLoginAt(OffsetDateTime.now());
+        member.setLastLoginIp(IpUtil.getClientIp());
         memberMapper.updateById(member);
 
         log.info("用户登录成功: {}", member.getUsername());

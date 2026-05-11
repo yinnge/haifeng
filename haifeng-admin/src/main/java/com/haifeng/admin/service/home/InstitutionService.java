@@ -10,5 +10,8 @@ public interface InstitutionService {
     Long add(InstitutionAddDTO dto);
     void update(Long id, InstitutionUpdateDTO dto);
     void updateStatus(Long id, StatusDTO dto);
+    /**
+     * 硬删除培训机构
+     */
     void delete(Long id);
 }

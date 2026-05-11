@@ -1,6 +1,6 @@
 package com.haifeng.admin.dto.permission;
 
-import com.haifeng.common.dto.BasePageQueryDTO;
+import com.haifeng.common.dto.common.BasePageQueryDTO;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -9,4 +9,6 @@ import lombok.EqualsAndHashCode;
 public class RoleQueryDTO extends BasePageQueryDTO {
 
     private String roleName;
+
+    private Integer status;
 }

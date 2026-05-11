@@ -27,4 +27,9 @@ public class MemberQueryDTO extends BasePageQueryDTO {
      * 账号状态：active/disabled
      */
     private String status;
+
+    /**
+     * 邀请码（模糊查询）
+     */
+    private String inviteCode;
 }

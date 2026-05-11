@@ -63,10 +63,10 @@ public class InstitutionController {
     }
 
     /**
-     * 删除培训机构
+     * 硬删除培训机构
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "首页管理", action = "删除培训机构")
+    @OperationLog(module = "首页管理", action = "硬删除培训机构")
     public R<Void> delete(@PathVariable Long id) {
         institutionService.delete(id);
         return R.ok();

@@ -48,6 +48,8 @@ CREATE TABLE system_settings (
     api_number        INTEGER DEFAULT 3,
     pro_price         INTEGER DEFAULT 199,
     vip_price         INTEGER DEFAULT 599,
+    pro_commission_rate   SMALLINT DEFAULT 10 CHECK (pro_commission_rate >= 0 AND pro_commission_rate <= 100),
+    vip_commission_rate   SMALLINT DEFAULT 15 CHECK (vip_commission_rate >= 0 AND vip_commission_rate <= 100),
     seo_title         VARCHAR(200),
     seo_keywords      VARCHAR(100),
     seo_description   TEXT,
@@ -148,7 +150,7 @@ HASH_SALT=your_random_salt_string
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/list` | 分页查询（phone, memberType, wechatId） |
+| GET | `/list` | 分页查询（phone, memberType, wechatId, inviteCode） |
 | GET | `/{id}` | 获取详情（微信脱敏） |
 | PUT | `/{id}/status` | 修改状态 |
 | GET | `/{id}/wechat` | 查看微信明文（强制记录日志） |

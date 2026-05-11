@@ -48,14 +48,24 @@ GET /api/v1/admin/user/list
 ```
 
 **请求参数：**
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| page | Integer | 否 | 页码，默认1 |
-| size | Integer | 否 | 每页条数，可选：10,20,30,50,100,200,500,1000 |
-| phone | String | 否 | 手机号（模糊查询） |
-| memberType | String | 否 | 会员类型：normal/pro/vip |
-| wechatId | String | 否 | 微信号（等值查询，后端转为盲索引） |
-| status | String | 否 | 账号状态：active/disabled |
+| 字段 | 类型 | 必填 | 查询方式 | 说明 |
+|------|------|------|----------|------|
+| page | Integer | 否 | - | 页码，默认1 |
+| size | Integer | 否 | - | 每页条数，可选：10,20,30,50,100,200,500,1000 |
+| phone | String | 否 | **模糊查询** | 手机号，支持部分匹配 |
+| memberType | String | 否 | **精准查询** | 会员类型：normal/pro/vip |
+| wechatId | String | 否 | **精准查询** | 微信号（输入明文，后端自动转盲索引匹配） |
+| status | String | 否 | **精准查询** | 账号状态：active/disabled |
+| inviteCode | String | 否 | **模糊查询** | 邀请码，支持部分匹配 |
+
+**查询条件汇总：**
+| 查询方式 | 字段 | 说明 |
+|----------|------|------|
+| 模糊查询 | phone | 如输入"138"可匹配"13812345678" |
+| 模糊查询 | inviteCode | 如输入"ABC"可匹配"ABC12345" |
+| 精准查询 | memberType | 必须完全匹配：normal/pro/vip |
+| 精准查询 | status | 必须完全匹配：active/disabled |
+| 精准查询 | wechatId | 输入微信号明文，后端先用SHA-256转盲索引再等值匹配 |
 
 **响应示例：**
 ```json
@@ -191,6 +201,66 @@ Authorization: Bearer {accessToken}
 
 ---
 
+#### 5. 会员开通/升级/续费
+```
+POST /api/v1/admin/user/{id}/upgrade
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 用户ID |
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| targetType | String | 是 | 目标会员类型：pro 或 vip |
+| durationMonths | Integer | 是 | 时长（月），范围：1-120 |
+| amount | BigDecimal | 否 | 金额，不传则自动计算（基于系统设置的年价格按月折算） |
+| remark | String | 否 | 备注 |
+
+**金额计算规则：**
+- 自动计算公式：`(年价格 / 12) × 月数`
+- 年价格来源：系统设置的 `pro_price`（Pro会员）或 `vip_price`（VIP会员）
+- 若手动传入 `amount`，则使用手动值（可用于打折等场景）
+
+**请求示例（自动计算金额）：**
+```json
+{
+  "targetType": "pro",
+  "durationMonths": 12,
+  "remark": "后台手动开通"
+}
+```
+
+**请求示例（手动指定金额，如打折）：**
+```json
+{
+  "targetType": "pro",
+  "durationMonths": 12,
+  "amount": 149.00,
+  "remark": "优惠活动减免50元"
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": 1234567890123456789,
+  "timestamp": 1714300000000
+}
+```
+
+**响应说明：** `data` 返回订单ID（Long类型）
+
+**操作日志：** 此接口自动记录操作日志
+
+---
+
 ### 系统设置接口 (端口: 8081)
 
 #### 1. 获取系统设置
@@ -213,6 +283,8 @@ Authorization: Bearer {accessToken}
     "apiNumber": 3,
     "proPrice": 199,
     "vipPrice": 599,
+    "proCommissionRate": 10,
+    "vipCommissionRate": 15,
     "seoTitle": "海峰未来规划院 - 高考志愿填报专家",
     "seoKeywords": "高考,志愿填报,大学,专业",
     "seoDescription": "海峰未来规划院为您提供专业的高考志愿填报服务",
@@ -254,6 +326,8 @@ Authorization: Bearer {accessToken}
 | apiNumber | Integer | 否 | API调用次数限制（最小1） |
 | proPrice | Integer | 否 | Pro会员价格（不能为负） |
 | vipPrice | Integer | 否 | VIP会员价格（不能为负） |
+| proCommissionRate | Integer | 否 | Pro会员提成比例（0-100） |
+| vipCommissionRate | Integer | 否 | VIP会员提成比例（0-100） |
 | seoTitle | String | 否 | SEO标题（最多200字符） |
 | seoKeywords | String | 否 | SEO关键词（最多100字符） |
 | seoDescription | String | 否 | SEO描述 |
@@ -306,6 +380,172 @@ Authorization: Bearer {accessToken}
 
 ---
 
+### 操作日志接口 (端口: 8081)
+
+> 操作日志用于记录管理员的所有操作行为，通过 `@OperationLog` 注解自动采集并持久化到 `admin_logs` 表。
+
+#### 1. 分页查询操作日志
+```
+GET /api/v1/admin/system/logs/list
+Authorization: Bearer {accessToken}
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认1 |
+| size | Integer | 否 | 每页条数，可选：10,20,30,50,100,200,500,1000 |
+| adminName | String | 否 | 管理员姓名（**模糊查询**） |
+| result | String | 否 | 操作结果：SUCCESS/FAIL |
+| requestMethod | String | 否 | 请求方法：GET/POST/PUT/DELETE |
+
+**模糊查询支持：**
+- `adminName` - 支持模糊匹配，如输入"张"可匹配"张三"、"张小明"等
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 1234567890123456789,
+        "adminName": "admin",
+        "operation": "用户管理 - 修改用户状态",
+        "requestMethod": "PUT",
+        "result": "SUCCESS",
+        "ip": "192.168.1.100",
+        "createdAt": "2026-05-09T14:30:00+08:00"
+      }
+    ],
+    "total": 500,
+    "size": 10,
+    "current": 1,
+    "pages": 50
+  },
+  "timestamp": 1714300000000
+}
+```
+
+**列表展示字段：**
+| 字段 | 说明 |
+|------|------|
+| adminName | 管理员姓名 |
+| operation | 操作描述（格式：模块 - 操作） |
+| requestMethod | 请求方法 |
+| result | 操作结果 |
+| ip | IP地址 |
+| createdAt | 操作时间 |
+
+---
+
+#### 2. 获取操作日志详情
+```
+GET /api/v1/admin/system/logs/{id}
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 日志ID |
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "id": 1234567890123456789,
+    "adminId": 9876543210,
+    "adminName": "admin",
+    "operation": "用户管理 - 修改用户状态",
+    "requestPath": "/api/v1/admin/user/123/status",
+    "requestMethod": "PUT",
+    "requestParams": "{\"status\":\"disabled\"}",
+    "result": "SUCCESS",
+    "errorMsg": null,
+    "ip": "192.168.1.100",
+    "createdAt": "2026-05-09T14:30:00+08:00"
+  },
+  "timestamp": 1714300000000
+}
+```
+
+**详情展示字段（全部）：**
+| 字段 | 说明 |
+|------|------|
+| id | 日志ID |
+| adminId | 管理员ID |
+| adminName | 管理员姓名 |
+| operation | 操作描述 |
+| requestPath | 请求路径 |
+| requestMethod | 请求方法 |
+| requestParams | 请求参数（敏感字段已脱敏） |
+| result | 操作结果 |
+| errorMsg | 错误信息（失败时有值） |
+| ip | IP地址 |
+| createdAt | 操作时间 |
+
+---
+
+#### 3. 批量删除操作日志
+```
+DELETE /api/v1/admin/system/logs/batch
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| type | String | 是 | 删除类型：`ids` / `lastMonth` / `all` |
+| ids | List\<Long\> | 条件 | 要删除的ID列表（type=ids时必填） |
+
+**删除类型说明：**
+| type值 | 说明 |
+|--------|------|
+| ids | 按ID批量删除（需提供ids数组） |
+| lastMonth | 删除一个月前的日志 |
+| all | 删除全部日志 |
+
+**请求示例 - 按ID删除：**
+```json
+{
+  "type": "ids",
+  "ids": [1234567890123456789, 1234567890123456790, 1234567890123456791]
+}
+```
+
+**请求示例 - 删除一个月前：**
+```json
+{
+  "type": "lastMonth"
+}
+```
+
+**请求示例 - 删除全部：**
+```json
+{
+  "type": "all"
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": 150,
+  "timestamp": 1714300000000
+}
+```
+
+**响应说明：** `data` 返回删除的记录数（Integer类型）
+
+---
+
 ## 数据库变更
 
 ### t_member 表新增字段
@@ -320,6 +560,32 @@ Authorization: Bearer {accessToken}
 CREATE INDEX idx_member_wechat_index ON t_member(wechat_id_index) WHERE is_deleted = FALSE;
 ```
 
+### admin_logs 表（已存在，本次完善功能）
+
+> 操作日志表，通过 AOP 切面自动记录管理员操作
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | BIGSERIAL | 主键（雪花算法生成） |
+| admin_id | BIGINT | 管理员ID |
+| admin_name | VARCHAR(50) | 管理员姓名 |
+| operation | VARCHAR(100) | 操作描述（格式：模块 - 操作） |
+| request_path | VARCHAR(200) | 请求路径 |
+| request_method | VARCHAR(10) | 请求方法 |
+| request_params | TEXT | 请求参数（敏感字段已脱敏） |
+| result | VARCHAR(20) | 操作结果：SUCCESS/FAIL |
+| error_msg | TEXT | 错误信息 |
+| ip | VARCHAR(50) | IP地址 |
+| created_at | TIMESTAMPTZ | 创建时间 |
+
+**索引：**
+```sql
+CREATE INDEX idx_admin_logs_admin ON admin_logs(admin_id);
+CREATE INDEX idx_admin_logs_created ON admin_logs(created_at);
+```
+
+---
+
 ### system_settings 表（新建）
 
 | 字段 | 类型 | 说明 |
@@ -332,6 +598,8 @@ CREATE INDEX idx_member_wechat_index ON t_member(wechat_id_index) WHERE is_delet
 | api_number | INTEGER | API调用次数限制，默认3 |
 | pro_price | INTEGER | Pro会员价格，默认199 |
 | vip_price | INTEGER | VIP会员价格，默认599 |
+| pro_commission_rate | SMALLINT | Pro会员提成比例（0-100），默认10 |
+| vip_commission_rate | SMALLINT | VIP会员提成比例（0-100），默认15 |
 | seo_title | VARCHAR(200) | SEO标题 |
 | seo_keywords | VARCHAR(100) | SEO关键词 |
 | seo_description | TEXT | SEO描述 |
@@ -382,11 +650,12 @@ haifeng:
 | util/DesensitizeUtil.java | 数据脱敏工具 |
 | handler/AESEncryptTypeHandler.java | MyBatis-Plus自动加解密 |
 | annotation/OperationLog.java | 操作日志注解 |
-| aspect/OperationLogAspect.java | 操作日志切面 |
+| aspect/OperationLogAspect.java | 操作日志切面（持久化到数据库） |
 | entity/system/SystemSettings.java | 系统设置实体 |
 | entity/system/ContactUrl.java | JSONB映射类 |
 | entity/system/BasicMessage.java | JSONB映射类 |
 | mapper/system/SystemSettingsMapper.java | 系统设置Mapper |
+| mapper/system/AdminLogMapper.java | 操作日志Mapper |
 
 ### haifeng-common 修改
 
@@ -400,6 +669,7 @@ haifeng:
 |------|------|
 | dto/user/MemberQueryDTO.java | 用户查询参数 |
 | dto/user/MemberStatusDTO.java | 状态修改参数 |
+| dto/user/MemberUpgradeDTO.java | 会员升级参数 |
 | vo/user/MemberListVO.java | 用户列表VO |
 | vo/user/MemberDetailVO.java | 用户详情VO |
 | service/user/MemberService.java | 用户管理接口 |
@@ -410,6 +680,13 @@ haifeng:
 | service/system/SystemSettingsService.java | 系统设置接口 |
 | service/impl/system/SystemSettingsServiceImpl.java | 系统设置实现 |
 | controller/system/SystemSettingsController.java | 系统设置Controller |
+| dto/system/AdminLogQueryDTO.java | 操作日志查询参数 |
+| dto/system/AdminLogBatchDeleteDTO.java | 操作日志批量删除参数 |
+| vo/system/AdminLogListVO.java | 操作日志列表VO |
+| vo/system/AdminLogDetailVO.java | 操作日志详情VO |
+| service/system/AdminLogService.java | 操作日志接口 |
+| service/impl/system/AdminLogServiceImpl.java | 操作日志实现 |
+| controller/system/AdminLogController.java | 操作日志Controller |
 
 ### 数据库迁移
 

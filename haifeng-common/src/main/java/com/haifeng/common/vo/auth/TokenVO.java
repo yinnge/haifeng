@@ -1,4 +1,4 @@
-package com.haifeng.common.vo;
+package com.haifeng.common.vo.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

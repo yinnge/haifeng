@@ -42,4 +42,10 @@ public class ModuleController {
         moduleService.delete(id);
         return R.ok();
     }
+
+    @PutMapping("/{id}/toggle-status")
+    public R<Void> toggleStatus(@PathVariable Long id) {
+        moduleService.toggleStatus(id);
+        return R.ok();
+    }
 }
