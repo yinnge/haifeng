@@ -1,0 +1,9 @@
+package com.haifeng.common.mapper.user;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.haifeng.common.entity.user.MemberProfile;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface MemberProfileMapper extends BaseMapper<MemberProfile> {
+}
