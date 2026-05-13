@@ -404,9 +404,11 @@ public class SiteInfoVO {
 
 | 方法 | 路径 | 查询表 | 权限 |
 |-----|------|------|------|
-| GET | `/api/v1/app/search/university` | t_universities | 无需登录 |
-| GET | `/api/v1/app/search/city` | t_city | 无需登录 |
-| GET | `/api/v1/app/search/major` | t_major | 无需登录 |
+| GET | `/api/v1/app/search/university` | t_universities | @RequireLogin |
+| GET | `/api/v1/app/search/city` | t_city | @RequireLogin |
+| GET | `/api/v1/app/search/major` | t_major | @RequireLogin |
+
+> 注：模糊搜索为个人中心资料填写服务，需登录后使用
 
 ### 请求参数
 
@@ -507,21 +509,21 @@ public class SearchResultVO {
 
 ## 权限矩阵
 
-| 接口 | normal | pro | vip |
-|-----|--------|-----|-----|
-| GET /home/site-info | O | O | O |
-| GET /search/* | O | O | O |
-| GET /member/profile | O | O | O |
-| PUT /member/profile | O | O | O |
-| GET /member/info | O | O | O |
-| PUT /member/info | O | O | O |
-| GET /member/wechat | O | O | O |
-| PUT /member/wechat | O | O | O |
-| PUT /member/password | O | O | O |
-| PUT /member/avatar | O | O | O |
-| GET /member/commission | O | O | O |
-| POST /member/withdraw | O | O | O |
-| GET /member/referrer/preview | O | O | O |
-| POST /member/referrer/bind | O | O | O |
+| 接口 | 未登录 | normal | pro | vip |
+|-----|--------|--------|-----|-----|
+| GET /home/site-info | O | O | O | O |
+| GET /search/* | X | O | O | O |
+| GET /member/profile | X | O | O | O |
+| PUT /member/profile | X | O | O | O |
+| GET /member/info | X | O | O | O |
+| PUT /member/info | X | O | O | O |
+| GET /member/wechat | X | O | O | O |
+| PUT /member/wechat | X | O | O | O |
+| PUT /member/password | X | O | O | O |
+| PUT /member/avatar | X | O | O | O |
+| GET /member/commission | X | O | O | O |
+| POST /member/withdraw | X | O | O | O |
+| GET /member/referrer/preview | X | O | O | O |
+| POST /member/referrer/bind | X | O | O | O |
 
-注：O = 允许，个人中心功能对所有已登录用户开放
+注：O = 允许，X = 禁止。仅 /home/site-info 公开访问，其余需登录
