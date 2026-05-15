@@ -11,4 +11,10 @@ public interface UniversityMapper extends BaseMapper<University> {
 
     @Select("SELECT id FROM t_universities WHERE name = #{name} AND status = 1 LIMIT 1")
     Long selectIdByName(@Param("name") String name);
+
+    @Select("SELECT id, name, city_name AS cityName FROM t_universities WHERE name = #{name} AND status = 1 LIMIT 1")
+    University selectIdAndCityByName(@Param("name") String name);
+
+    @Select("SELECT * FROM t_universities WHERE name = #{name} AND status = 1 LIMIT 1")
+    University selectByName(@Param("name") String name);
 }
