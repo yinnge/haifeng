@@ -23,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
+
 import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -107,8 +110,80 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     @Override
     public IPage<AdmissionMajorPageVO> pageMajors(AdmissionMajorQueryDTO dto) {
-        // Task 9 实现
-        return null;
+        // 1. 查询当前专业组
+        AdmissionGroup group = admissionGroupMapper.selectById(dto.getGroupId());
+        if (group == null || Boolean.TRUE.equals(group.getIsDeleted())) {
+            throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
+        }
+
+        // 2. SQL1: 分页查询专业明细
+        Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
+        LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId())
+               .orderByAsc(AdmissionMajorScore::getMajorCode);
+
+        IPage<AdmissionMajorScore> majorPage = admissionMajorScoreMapper.selectPage(page, wrapper);
+
+        if (majorPage.getRecords().isEmpty()) {
+            return new Page<AdmissionMajorPageVO>(dto.getPage(), dto.getSize()).setTotal(0);
+        }
+
+        // 3. SQL2: IN批量查历史数据
+        List<String> majorCodes = majorPage.getRecords().stream()
+                .map(AdmissionMajorScore::getMajorCode)
+                .collect(Collectors.toList());
+
+        Short minYear = (short) (Year.now().getValue() - 4);
+        List<Map<String, Object>> historyList = admissionMajorScoreMapper.selectHistoryByMajorCodes(
+                group.getUniversityId(), majorCodes, minYear);
+
+        // 按 major_code 分组
+        Map<String, List<Map<String, Object>>> historyMap = historyList.stream()
+                .collect(Collectors.groupingBy(m -> (String) m.get("major_code")));
+
+        // 4. 组装 VO
+        List<AdmissionMajorPageVO> voList = majorPage.getRecords().stream()
+                .map(major -> buildMajorVO(major, historyMap))
+                .collect(Collectors.toList());
+
+        Page<AdmissionMajorPageVO> result = new Page<>(dto.getPage(), dto.getSize());
+        result.setRecords(voList);
+        result.setTotal(majorPage.getTotal());
+        return result;
+    }
+
+    private AdmissionMajorPageVO buildMajorVO(AdmissionMajorScore major,
+                                              Map<String, List<Map<String, Object>>> historyMap) {
+        List<Map<String, Object>> history = historyMap.getOrDefault(major.getMajorCode(), Collections.emptyList());
+        List<YearScoreVO> historyScores = history.stream()
+                .limit(5)
+                .map(this::mapToYearScoreVO)
+                .collect(Collectors.toList());
+
+        return AdmissionMajorPageVO.builder()
+                .id(major.getId())
+                .majorCode(major.getMajorCode())
+                .majorName(major.getMajorName())
+                .educationLevel(major.getEducationLevel())
+                .duration(major.getDuration())
+                .tuition(major.getTuition())
+                .description(major.getDescription())
+                .constraints(major.getConstraints())
+                .historyScores(historyScores)
+                .build();
+    }
+
+    private YearScoreVO mapToYearScoreVO(Map<String, Object> map) {
+        return YearScoreVO.builder()
+                .year(map.get("year") != null ? ((Number) map.get("year")).shortValue() : null)
+                .minScore(map.get("min_score") != null ? ((Number) map.get("min_score")).intValue() : null)
+                .minRank(map.get("min_rank") != null ? ((Number) map.get("min_rank")).intValue() : null)
+                .avgScore(map.get("avg_score") != null ? new java.math.BigDecimal(map.get("avg_score").toString()) : null)
+                .avgRank(map.get("avg_rank") != null ? ((Number) map.get("avg_rank")).intValue() : null)
+                .maxScore(map.get("max_score") != null ? ((Number) map.get("max_score")).intValue() : null)
+                .maxRank(map.get("max_rank") != null ? ((Number) map.get("max_rank")).intValue() : null)
+                .admissionCount(map.get("admission_count") != null ? ((Number) map.get("admission_count")).intValue() : null)
+                .build();
     }
 
     private String buildUserSubjectsArray(MemberGaokao gaokao) {
