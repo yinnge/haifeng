@@ -18,6 +18,9 @@ import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatchResult;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatcher;
+import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
+import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
+import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 
+import java.math.BigDecimal;
 import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,6 +43,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
     private final AdmissionGroupMapper admissionGroupMapper;
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final SubjectMatcher subjectMatcher;
+    private final SafetyLevelService safetyLevelService;
+    private final ConstraintMatcherService constraintMatcherService;
 
     @Override
     public IPage<AdmissionGroupPageVO> pageGroups(AdmissionGroupQueryDTO dto) {
@@ -82,6 +88,9 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         Map<String, List<AdmissionGroup>> historyMap = historyList.stream()
                 .collect(Collectors.groupingBy(g -> g.getUniversityId() + "_" + g.getGroupCode()));
 
+        // 获取用户约束
+        List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
+
         // 4. 判断会员类型
         String memberType = SecurityUtil.getCurrentMemberType();
         boolean isPremium = "pro".equals(memberType) || "vip".equals(memberType);
@@ -98,7 +107,7 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                         .masked(true)
                         .build());
             } else {
-                voList.add(buildGroupVO(group, historyMap, gaokao));
+                voList.add(buildGroupVO(group, historyMap, gaokao, userConstraints));
             }
         }
 
@@ -141,9 +150,29 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         Map<String, List<Map<String, Object>>> historyMap = historyList.stream()
                 .collect(Collectors.groupingBy(m -> (String) m.get("major_code")));
 
+        // 获取用户档案和约束
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
+        List<String> userConstraints = gaokao != null
+                ? constraintMatcherService.matchConstraints(gaokao)
+                : Collections.emptyList();
+
+        // 查询历史专业组数据
+        Short historyMinYear = (short) (Year.now().getValue() - 4);
+        List<GroupKey> keys = Collections.singletonList(
+                new GroupKey(group.getUniversityId(), group.getGroupCode())
+        );
+        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(keys, historyMinYear);
+
         // 4. 组装 VO
+        final MemberGaokao finalGaokao = gaokao;
+        final AdmissionGroup finalGroup = group;
+        final List<AdmissionGroup> finalHistoryGroups = historyGroups;
+        final List<String> finalUserConstraints = userConstraints;
+
         List<AdmissionMajorPageVO> voList = majorPage.getRecords().stream()
-                .map(major -> buildMajorVO(major, historyMap))
+                .map(major -> buildMajorVO(major, historyMap, finalGaokao, finalGroup,
+                        finalHistoryGroups, finalUserConstraints))
                 .collect(Collectors.toList());
 
         Page<AdmissionMajorPageVO> result = new Page<>(dto.getPage(), dto.getSize());
@@ -153,15 +182,32 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
     }
 
     private AdmissionMajorPageVO buildMajorVO(AdmissionMajorScore major,
-                                              Map<String, List<Map<String, Object>>> historyMap) {
+                                              Map<String, List<Map<String, Object>>> historyMap,
+                                              MemberGaokao gaokao,
+                                              AdmissionGroup group,
+                                              List<AdmissionGroup> historyGroups,
+                                              List<String> userConstraints) {
         List<Map<String, Object>> history = historyMap.getOrDefault(major.getMajorCode(), Collections.emptyList());
         List<YearScoreVO> historyScores = history.stream()
                 .limit(5)
                 .map(this::mapToYearScoreVO)
                 .collect(Collectors.toList());
 
+        // 计算安全系数
+        SafetyCalcResult safetyResult;
+        if (gaokao != null) {
+            safetyResult = safetyLevelService.calculateMajorSafety(
+                    gaokao, major, group, historyGroups, userConstraints
+            );
+        } else {
+            safetyResult = SafetyCalcResult.noData();
+        }
+
         return AdmissionMajorPageVO.builder()
                 .id(major.getId())
+                .safetyLevel(safetyResult.getSafetyLevel())
+                .levelShort(safetyResult.getLevelShort())
+                .safetyDescription(safetyResult.getSafetyDescription())
                 .majorCode(major.getMajorCode())
                 .majorName(major.getMajorName())
                 .educationLevel(major.getEducationLevel())
@@ -200,7 +246,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     private AdmissionGroupPageVO buildGroupVO(AdmissionGroup group,
                                                Map<String, List<AdmissionGroup>> historyMap,
-                                               MemberGaokao gaokao) {
+                                               MemberGaokao gaokao,
+                                               List<String> userConstraints) {
         // 选科匹配
         SubjectMatchResult matchResult = subjectMatcher.match(gaokao, group);
 
@@ -212,9 +259,41 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .map(this::toYearScoreVO)
                 .collect(Collectors.toList());
 
+        // 计算专业组安全系数 = max(所有专业明细的安全系数)
+        BigDecimal maxSafetyLevel = BigDecimal.ZERO;
+        String levelShort = "禁";
+        String safetyDescription = "";
+
+        // 查询该组下所有专业明细
+        List<AdmissionMajorScore> majors = admissionMajorScoreMapper.selectList(
+                new LambdaQueryWrapper<AdmissionMajorScore>()
+                        .eq(AdmissionMajorScore::getGroupId, group.getId())
+        );
+
+        for (AdmissionMajorScore major : majors) {
+            SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
+                    gaokao, major, group, history, userConstraints
+            );
+            if (result.getSafetyLevel().compareTo(maxSafetyLevel) > 0) {
+                maxSafetyLevel = result.getSafetyLevel();
+                levelShort = result.getLevelShort();
+                safetyDescription = result.getSafetyDescription();
+            }
+        }
+
+        // 如果没有专业明细，使用默认值
+        if (majors.isEmpty()) {
+            maxSafetyLevel = new BigDecimal("0.50");
+            levelShort = "稳";
+            safetyDescription = "暂无专业明细数据";
+        }
+
         return AdmissionGroupPageVO.builder()
                 .id(group.getId())
                 .masked(false)
+                .safetyLevel(maxSafetyLevel)
+                .levelShort(levelShort)
+                .safetyDescription(safetyDescription)
                 .universityName(group.getUniversityName())
                 .cityName(group.getCityName())
                 .enrollmentCode(group.getEnrollmentCode())
