@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.math.BigDecimal;
+
 @Mapper
 public interface ScoreRankMapper extends BaseMapper<ScoreRank> {
 
@@ -14,4 +16,16 @@ public interface ScoreRankMapper extends BaseMapper<ScoreRank> {
 
     @Select("SELECT COUNT(*) FROM t_score_rank WHERE province = #{province} AND year = #{year} AND subject_type = #{subjectType} AND score = #{score}")
     int countByBusinessKey(@Param("province") String province, @Param("year") Short year, @Param("subjectType") String subjectType, @Param("score") Short score);
+
+    @Select("SELECT CASE WHEN cumulative_count > 0 THEN " +
+            "CAST(same_score_count AS DECIMAL) / cumulative_count " +
+            "ELSE NULL END " +
+            "FROM t_score_rank " +
+            "WHERE province = #{province} AND year = #{year} " +
+            "AND subject_type = #{subjectType} AND score = #{score} " +
+            "LIMIT 1")
+    BigDecimal selectDensity(@Param("province") String province,
+                             @Param("year") Short year,
+                             @Param("subjectType") String subjectType,
+                             @Param("score") Integer score);
 }
