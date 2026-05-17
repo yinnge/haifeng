@@ -6,12 +6,14 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.math.BigDecimal;
+
 @Mapper
 public interface SafetyLevelDictMapper extends BaseMapper<SafetyLevelDict> {
 
-    @Select("SELECT COUNT(*) FROM t_safety_level_dict WHERE code = #{code}")
-    int countByCode(@Param("code") String code);
+    @Select("SELECT * FROM t_safety_level_dict WHERE #{coefficient} >= min_coefficient AND #{coefficient} < max_coefficient LIMIT 1")
+    SafetyLevelDict selectByCoefficient(@Param("coefficient") BigDecimal coefficient);
 
-    @Select("SELECT COUNT(*) FROM t_safety_level_dict WHERE code = #{code} AND level != #{excludeLevel}")
-    int countByCodeExclude(@Param("code") String code, @Param("excludeLevel") Short excludeLevel);
+    @Select("SELECT * FROM t_safety_level_dict ORDER BY level ASC")
+    java.util.List<SafetyLevelDict> selectAll();
 }
