@@ -8,6 +8,7 @@ import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * C 端首页 - 规划师（公开接口，无需登录）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/app/home/planners")
 @RequiredArgsConstructor
