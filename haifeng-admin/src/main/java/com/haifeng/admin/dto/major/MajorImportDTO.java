@@ -35,9 +35,6 @@ public class MajorImportDTO {
     @ExcelProperty("授予学位")
     private String degreeAwarded;
 
-    @ExcelProperty("学制")
-    private String studyDuration;
-
     @ExcelProperty("就业率")
     private BigDecimal employmentRate;
 

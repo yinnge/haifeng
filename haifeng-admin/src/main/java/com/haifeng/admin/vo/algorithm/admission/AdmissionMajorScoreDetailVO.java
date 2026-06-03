@@ -12,8 +12,6 @@ public class AdmissionMajorScoreDetailVO {
     private Long majorId;
     private String majorCode;
     private String majorName;
-    private String subjectRequirements;
-    private Short requirementLevel;
     private String educationLevel;
     private String duration;
     private String tuition;

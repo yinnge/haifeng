@@ -1,4 +1,4 @@
-package com.haifeng.admin.service.algorithm.matcher.operator;
+package com.haifeng.common.service.algorithm.matcher.operator;
 
 /**
  * 不为空策略 (IS_NOT_NULL)

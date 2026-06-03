@@ -68,8 +68,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         if (StringUtils.hasText(dto.getProvince())) {
             wrapper.eq(AdmissionGroup::getProvince, dto.getProvince());
         }
-        if (StringUtils.hasText(dto.getSubjectType())) {
-            wrapper.eq(AdmissionGroup::getSubjectType, dto.getSubjectType());
+        if (StringUtils.hasText(dto.getRequirementType())) {
+            wrapper.eq(AdmissionGroup::getRequirementType, dto.getRequirementType());
         }
         if (StringUtils.hasText(dto.getEnrollmentCode())) {
             wrapper.like(AdmissionGroup::getEnrollmentCode, dto.getEnrollmentCode());
@@ -111,29 +111,31 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
     @Override
     public Integer add(AdmissionGroupAddDTO dto) {
-        // 检查大学是否存在
-        validateUniversityExists(dto.getUniversityId());
+        // 通过大学名称查询大学信息（id + cityName）
+        University university = getUniversityByName(dto.getUniversityName());
 
         // 检查唯一约束
         Integer existingId = admissionGroupMapper.selectIdByBusinessKey(
-                dto.getUniversityId(),
+                university.getId(),
                 dto.getYear(),
                 dto.getProvince(),
-                dto.getSubjectType(),
                 dto.getBatch(),
                 dto.getGroupCode()
         );
         if (existingId != null) {
-            throw new BusinessException(400, "该专业组已存在（相同大学、年份、省份、科类、批次、组代码）");
+            throw new BusinessException(400, "该专业组已存在（相同大学、年份、省份、批次、组代码）");
         }
 
         AdmissionGroup entity = new AdmissionGroup();
         BeanUtils.copyProperties(dto, entity);
+        entity.setUniversityId(university.getId());
+        entity.setUniversityName(university.getName());
+        entity.setCityName(university.getCityName());
         entity.setIsDeleted(false);
 
         admissionGroupMapper.insert(entity);
-        log.info("新增专业组成功，id={}, universityId={}, groupCode={}",
-                entity.getId(), entity.getUniversityId(), entity.getGroupCode());
+        log.info("新增专业组成功，id={}, universityName={}, cityName={}, groupCode={}",
+                entity.getId(), entity.getUniversityName(), entity.getCityName(), entity.getGroupCode());
         return entity.getId();
     }
 
@@ -144,24 +146,26 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             throw new BusinessException(404, "专业组不存在");
         }
 
-        // 检查大学是否存在
-        validateUniversityExists(dto.getUniversityId());
+        // 通过大学名称查询大学信息（id + cityName）
+        University university = getUniversityByName(dto.getUniversityName());
 
         // 检查唯一约束（排除自己）
         Integer existingId = admissionGroupMapper.selectIdByBusinessKey(
-                dto.getUniversityId(),
+                university.getId(),
                 dto.getYear(),
                 dto.getProvince(),
-                dto.getSubjectType(),
                 dto.getBatch(),
                 dto.getGroupCode()
         );
         if (existingId != null && !existingId.equals(id)) {
-            throw new BusinessException(400, "该专业组已存在（相同大学、年份、省份、科类、批次、组代码）");
+            throw new BusinessException(400, "该专业组已存在（相同大学、年份、省份、批次、组代码）");
         }
 
         BeanUtils.copyProperties(dto, existing);
         existing.setId(id);
+        existing.setUniversityId(university.getId());
+        existing.setUniversityName(university.getName());
+        existing.setCityName(university.getCityName());
         admissionGroupMapper.updateById(existing);
         log.info("更新专业组成功，id={}", id);
     }
@@ -237,9 +241,10 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
         // ==================== 第一次遍历：校验 ====================
         List<String> errors = new ArrayList<>();
-        Map<String, Long> universityIdCache = new HashMap<>();
-        Set<String> validSubjectTypes = Set.of("理科", "物理类", "文科", "历史类", "不分文理");
+        Map<String, University> universityCache = new HashMap<>();
         Set<String> validBatches = Set.of("本科批", "提前批", "专科批");
+        Set<String> validReqTypes = Set.of("不限", "2选1", "3选1", "必选1", "必选2", "必选3");
+        Set<String> validSubjects = Set.of("物理", "化学", "生物", "历史", "地理", "政治");
         // 用于检查同一专业组内专业代码是否重复
         Map<String, Set<String>> groupMajorCodes = new HashMap<>();
 
@@ -260,10 +265,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 errors.add("第" + rowNum + "行: 省份不能为空");
                 continue;
             }
-            if (!StringUtils.hasText(dto.getSubjectType())) {
-                errors.add("第" + rowNum + "行: 科类不能为空");
-                continue;
-            }
             if (!StringUtils.hasText(dto.getBatch())) {
                 errors.add("第" + rowNum + "行: 批次不能为空");
                 continue;
@@ -282,30 +283,43 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // 枚举值校验
-            if (!validSubjectTypes.contains(dto.getSubjectType())) {
-                errors.add("第" + rowNum + "行: 科类[" + dto.getSubjectType() + "]不合法，只允许：理科/物理类/文科/历史类/不分文理");
-                continue;
-            }
             if (!validBatches.contains(dto.getBatch())) {
                 errors.add("第" + rowNum + "行: 批次[" + dto.getBatch() + "]不合法，只允许：本科批/提前批/专科批");
                 continue;
             }
 
+            // 选科类型校验
+            if (StringUtils.hasText(dto.getRequirementType()) && !validReqTypes.contains(dto.getRequirementType())) {
+                errors.add("第" + rowNum + "行: 选科类型[" + dto.getRequirementType() + "]不合法，只允许：不限/2选1/3选1/必选1/必选2/必选3");
+                continue;
+            }
+
+            // 科目校验
+            if (StringUtils.hasText(dto.getSubjectsStr())) {
+                String[] subjectArr = dto.getSubjectsStr().split("[,，]");
+                for (String subject : subjectArr) {
+                    if (!validSubjects.contains(subject.trim())) {
+                        errors.add("第" + rowNum + "行: 科目[" + subject.trim() + "]不合法，只允许：物理/化学/生物/历史/地理/政治");
+                        continue;
+                    }
+                }
+            }
+
             // 大学名校验
             String uniName = dto.getUniversityName().trim();
-            if (!universityIdCache.containsKey(uniName)) {
-                Long universityId = universityMapper.selectIdByName(uniName);
-                if (universityId == null) {
+            if (!universityCache.containsKey(uniName)) {
+                University university = universityMapper.selectIdAndCityByName(uniName);
+                if (university == null) {
                     errors.add("第" + rowNum + "行: 大学[" + uniName + "]不存在");
                     continue;
                 }
-                universityIdCache.put(uniName, universityId);
+                universityCache.put(uniName, university);
             }
 
             // 同组专业代码重复检查
-            String groupKey = String.format("%s_%d_%s_%s_%s_%s",
+            String groupKey = String.format("%s_%d_%s_%s_%s",
                     uniName, dto.getYear(), dto.getProvince(),
-                    dto.getSubjectType(), dto.getBatch(), dto.getGroupCode());
+                    dto.getBatch(), dto.getGroupCode());
             groupMajorCodes.computeIfAbsent(groupKey, k -> new HashSet<>());
             if (groupMajorCodes.get(groupKey).contains(dto.getMajorCode())) {
                 errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在同一专业组内重复");
@@ -321,9 +335,9 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         // ==================== 第二次遍历：按专业组分组插入 ====================
         Map<String, List<AdmissionImportDTO>> groupedData = new LinkedHashMap<>();
         for (AdmissionImportDTO dto : dataList) {
-            String groupKey = String.format("%s_%d_%s_%s_%s_%s",
+            String groupKey = String.format("%s_%d_%s_%s_%s",
                     dto.getUniversityName().trim(), dto.getYear(), dto.getProvince(),
-                    dto.getSubjectType(), dto.getBatch(), dto.getGroupCode());
+                    dto.getBatch(), dto.getGroupCode());
             groupedData.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(dto);
         }
 
@@ -335,23 +349,37 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             List<AdmissionImportDTO> rows = entry.getValue();
             AdmissionImportDTO firstRow = rows.get(0);
 
-            Long universityId = universityIdCache.get(firstRow.getUniversityName().trim());
+            University university = universityCache.get(firstRow.getUniversityName().trim());
 
             // 查询或创建专业组
             Integer groupId = admissionGroupMapper.selectIdByBusinessKey(
-                    universityId, firstRow.getYear(), firstRow.getProvince(),
-                    firstRow.getSubjectType(), firstRow.getBatch(), firstRow.getGroupCode());
+                    university.getId(), firstRow.getYear(), firstRow.getProvince(),
+                    firstRow.getBatch(), firstRow.getGroupCode());
 
             if (groupId == null) {
+                // 解析科目字符串为列表
+                List<String> subjectsList = new ArrayList<>();
+                if (StringUtils.hasText(firstRow.getSubjectsStr())) {
+                    String[] subjectArr = firstRow.getSubjectsStr().split("[,，]");
+                    for (String s : subjectArr) {
+                        if (StringUtils.hasText(s.trim())) {
+                            subjectsList.add(s.trim());
+                        }
+                    }
+                }
+
                 AdmissionGroup group = AdmissionGroup.builder()
-                        .universityId(universityId)
+                        .universityId(university.getId())
+                        .universityName(university.getName())
+                        .cityName(university.getCityName())
                         .year(firstRow.getYear())
                         .province(firstRow.getProvince())
-                        .subjectType(firstRow.getSubjectType())
                         .batch(firstRow.getBatch())
                         .enrollmentCode(firstRow.getEnrollmentCode())
                         .groupCode(firstRow.getGroupCode())
                         .groupName(firstRow.getGroupCode())
+                        .subjects(subjectsList)
+                        .requirementType(StringUtils.hasText(firstRow.getRequirementType()) ? firstRow.getRequirementType() : "不限")
                         .description(firstRow.getGroupDescription())
                         .isDeleted(false)
                         .createdAt(now)
@@ -368,7 +396,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                         .groupId(groupId)
                         .majorCode(row.getMajorCode())
                         .majorName(row.getMajorName())
-                        .subjectRequirements(row.getSubjectRequirements())
                         .educationLevel(row.getEducationLevel())
                         .tuition(row.getTuition())
                         .description(row.getMajorDescription())
@@ -397,13 +424,18 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         return count;
     }
 
-    private void validateUniversityExists(Long universityId) {
-        LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(University::getId, universityId)
-               .eq(University::getStatus, 1);
-        if (universityMapper.selectCount(wrapper) == 0) {
-            throw new BusinessException(400, "大学不存在或已禁用");
+    /**
+     * 通过大学名称查询大学信息（id + cityName）
+     */
+    private University getUniversityByName(String universityName) {
+        if (!StringUtils.hasText(universityName)) {
+            throw new BusinessException(400, "大学名称不能为空");
         }
+        University university = universityMapper.selectIdAndCityByName(universityName.trim());
+        if (university == null) {
+            throw new BusinessException(400, "大学[" + universityName + "]不存在或已禁用");
+        }
+        return university;
     }
 
     private Map<Long, String> getUniversityNameMap(List<AdmissionGroup> records) {
@@ -427,7 +459,10 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     private AdmissionGroupListVO convertToListVO(AdmissionGroup entity, Map<Long, String> universityNameMap) {
         AdmissionGroupListVO vo = new AdmissionGroupListVO();
         BeanUtils.copyProperties(entity, vo);
-        vo.setUniversityName(universityNameMap.get(entity.getUniversityId()));
+        // 优先使用冗余字段，兼容旧数据
+        if (!StringUtils.hasText(vo.getUniversityName())) {
+            vo.setUniversityName(universityNameMap.get(entity.getUniversityId()));
+        }
         return vo;
     }
 
@@ -435,10 +470,17 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         AdmissionGroupDetailVO vo = new AdmissionGroupDetailVO();
         BeanUtils.copyProperties(entity, vo);
 
-        // 获取大学名称
-        University university = universityMapper.selectById(entity.getUniversityId());
-        if (university != null) {
-            vo.setUniversityName(university.getName());
+        // 兼容旧数据：如果冗余字段为空，从大学表查询
+        if (!StringUtils.hasText(vo.getUniversityName()) || !StringUtils.hasText(vo.getCityName())) {
+            University university = universityMapper.selectById(entity.getUniversityId());
+            if (university != null) {
+                if (!StringUtils.hasText(vo.getUniversityName())) {
+                    vo.setUniversityName(university.getName());
+                }
+                if (!StringUtils.hasText(vo.getCityName())) {
+                    vo.setCityName(university.getCityName());
+                }
+            }
         }
 
         return vo;

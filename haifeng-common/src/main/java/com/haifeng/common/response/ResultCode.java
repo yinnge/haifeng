@@ -23,6 +23,9 @@ public enum ResultCode {
     PRO_REQUIRED(1004, "权限不足（需要专业版及以上）"),
     VIP_REQUIRED(1005, "权限不足（需要旗舰版）"),
     ACCOUNT_LOCKED(1006, "账号已锁定，请30分钟后重试"),
+    GAOKAO_ARCHIVE_NOT_FOUND(1010, "用户高考档案不存在，请先填写档案"),
+    ADMISSION_GROUP_NOT_FOUND(1011, "专业组不存在"),
+    CONSTRAINT_NOT_FOUND(1012, "约束代码不存在"),
     TOTP_REQUIRED(20001, "需进行二次验证");
 
     private final Integer code;

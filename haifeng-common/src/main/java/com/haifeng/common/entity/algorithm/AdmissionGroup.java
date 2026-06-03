@@ -23,11 +23,13 @@ public class AdmissionGroup {
 
     private Long universityId;
 
+    private String universityName;
+
+    private String cityName;
+
     private Short year;
 
     private String province;
-
-    private String subjectType;
 
     private String batch;
 
@@ -37,11 +39,12 @@ public class AdmissionGroup {
 
     private String groupName;
 
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> subjects;
+
+    private String requirementType;
+
     private String description;
-
-    private String subjectRequirements;
-
-    private Short requirementLevel;
 
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> constraints;

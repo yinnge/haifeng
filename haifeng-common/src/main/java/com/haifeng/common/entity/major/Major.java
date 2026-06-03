@@ -35,8 +35,6 @@ public class Major {
 
     private String degreeAwarded;
 
-    private String studyDuration;
-
     private BigDecimal employmentRate;
 
     private Integer salaryMin;

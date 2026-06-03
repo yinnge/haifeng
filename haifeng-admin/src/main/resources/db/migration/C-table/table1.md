@@ -1,6 +1,6 @@
 ## 已实现：
 1. system_settings（系统设置）
-2. 
+2. 用户表 (t_member)
 
 ## 新增表
 
@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS t_member_profile (
     province                VARCHAR(30),                            -- 省份
     city                    VARCHAR(50),                            -- 城市
     major                   VARCHAR(100),                           -- 专业
+    identity                VARCHAR(20),                           -- 身份（如：高中生/大学生/研究生/其他）             BOOLEAN DEFAULT FALSE,                  -- 是否高中毕业
     grade                   VARCHAR(20),                            -- 年级（如：大三、研一）
-    education_level         VARCHAR(20),                            -- 学历层次（如：大学生、研究生）
+   
     
    favorite_count INTEGER DEFAULT 0 NOT NULL,
    view_count     INTEGER DEFAULT 0 NOT NULL,
@@ -66,3 +67,34 @@ COMMENT ON COLUMN t_member_profile.education_level  IS '学历层次（大学生
 
 COMMIT;
 ```
+
+````
+1. system_settings（系统设置）
+
+CREATE TABLE system_settings (
+id                BIGSERIAL PRIMARY KEY,
+site_name         VARCHAR(50),
+site_url          VARCHAR(100),
+site_icp          VARCHAR(100),
+site_description  TEXT,
+api_number        INTEGER DEFAULT 3,
+pro_price         INTEGER DEFAULT 199,
+vip_price         INTEGER DEFAULT 599,
+pro_commission_rate   SMALLINT DEFAULT 10 CHECK (pro_commission_rate >= 0 AND pro_commission_rate <= 100),
+vip_commission_rate   SMALLINT DEFAULT 15 CHECK (vip_commission_rate >= 0 AND vip_commission_rate <= 100),
+seo_title         VARCHAR(200),
+seo_keywords      VARCHAR(100),
+seo_description   TEXT,
+contact_url       JSONB DEFAULT '{}',
+basic_message     JSONB DEFAULT '{}',
+created_at        TIMESTAMPTZ DEFAULT NOW(),
+updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE system_settings IS '系统设置表（单例）';
+COMMENT ON COLUMN system_settings.pro_commission_rate IS 'Pro会员提成比例（0-100），代表0%到100%';
+COMMENT ON COLUMN system_settings.vip_commission_rate IS 'VIP会员提成比例（0-100），代表0%到100%';
+COMMENT ON COLUMN system_settings.contact_url IS 'JSON格式：{wechat, weibo, zhihu, douyin, bilibili}';
+COMMENT ON COLUMN system_settings.basic_message IS 'JSON格式：{address, phone, email, consultationTime}';
+````
+

@@ -67,12 +67,6 @@ public class MajorAddDTO {
     private String degreeAwarded;
 
     /**
-     * 学制
-     */
-    @Size(max = 20, message = "学制长度不能超过20")
-    private String studyDuration;
-
-    /**
      * 就业率
      */
     @DecimalMin(value = "0", message = "就业率不能小于0")

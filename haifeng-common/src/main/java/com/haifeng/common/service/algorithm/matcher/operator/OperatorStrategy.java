@@ -1,4 +1,4 @@
-package com.haifeng.admin.service.algorithm.matcher.operator;
+package com.haifeng.common.service.algorithm.matcher.operator;
 
 /**
  * 运算符策略接口

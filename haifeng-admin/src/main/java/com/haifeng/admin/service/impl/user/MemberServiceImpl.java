@@ -290,6 +290,12 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
 
+        // 2. 检查推荐人是否被禁用
+        if (!referrer.isActive()) {
+            log.warn("推荐人已被禁用，不发放佣金: referrerId={}", referee.getReferrerId());
+            return;
+        }
+
         // 2. 获取佣金比例（pro用proCommissionRate，vip用vipCommissionRate）
         SystemSettings settings = settingsMapper.selectOne(
                 new LambdaQueryWrapper<SystemSettings>().last("LIMIT 1"));

@@ -1,11 +1,11 @@
-package com.haifeng.admin.service.algorithm.matcher;
+package com.haifeng.common.service.algorithm.matcher;
 
-import com.haifeng.admin.service.algorithm.matcher.operator.OperatorStrategy;
-import com.haifeng.admin.service.algorithm.matcher.operator.OperatorStrategyFactory;
 import com.haifeng.common.entity.algorithm.ConstraintDict;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
 import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
+import com.haifeng.common.service.algorithm.matcher.operator.OperatorStrategy;
+import com.haifeng.common.service.algorithm.matcher.operator.OperatorStrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,20 +34,29 @@ public class ConstraintMatcherServiceImpl implements ConstraintMatcherService {
             return Collections.emptyList();
         }
 
-        // 1. 查询用户档案
+        // 查询用户档案
         MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
         if (gaokao == null) {
             log.debug("用户档案不存在，memberId={}", memberId);
             return Collections.emptyList();
         }
 
-        // 2. 查询所有启用的约束
+        return matchConstraints(gaokao);
+    }
+
+    @Override
+    public List<String> matchConstraints(MemberGaokao gaokao) {
+        if (gaokao == null) {
+            return Collections.emptyList();
+        }
+
+        // 查询所有启用的约束
         List<ConstraintDict> constraints = constraintDictMapper.selectActiveList();
         if (constraints == null || constraints.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 3. 遍历匹配
+        // 遍历匹配
         List<String> triggeredCodes = new ArrayList<>();
         for (ConstraintDict constraint : constraints) {
             if (isTriggered(gaokao, constraint)) {
@@ -55,7 +64,7 @@ public class ConstraintMatcherServiceImpl implements ConstraintMatcherService {
             }
         }
 
-        log.debug("约束匹配完成，memberId={}，触发约束数={}", memberId, triggeredCodes.size());
+        log.debug("约束匹配完成，memberId={}，触发约束数={}", gaokao.getMemberId(), triggeredCodes.size());
         return triggeredCodes;
     }
 

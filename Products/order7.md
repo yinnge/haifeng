@@ -29,7 +29,6 @@
 | 专业类 | 文本 | N | 专业所属类别 |
 | 专业标签 | 文本 | N | 专业标签 |
 | 授予学位 | 文本 | N | 如：工学学士 |
-| 学制 | 文本 | N | 如：4年 |
 | 就业率 | 小数 | N | 0-100之间 |
 | 薪资下限 | 整数 | N | 元/月 |
 | 薪资上限 | 整数 | N | 元/月，需≥薪资下限 |
@@ -166,7 +165,6 @@ GET /api/v1/admin/major/1234567890
     "parentCategory": "计算机类",
     "majorTags": "热门",
     "degreeAwarded": "工学学士",
-    "studyDuration": "4年",
     "employmentRate": 95.50,
     "salaryMin": 8000,
     "salaryMax": 15000,

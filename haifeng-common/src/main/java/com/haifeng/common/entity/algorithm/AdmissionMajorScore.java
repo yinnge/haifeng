@@ -29,10 +29,6 @@ public class AdmissionMajorScore {
 
     private String majorName;
 
-    private String subjectRequirements;
-
-    private Short requirementLevel;
-
     private String educationLevel;
 
     private String duration;

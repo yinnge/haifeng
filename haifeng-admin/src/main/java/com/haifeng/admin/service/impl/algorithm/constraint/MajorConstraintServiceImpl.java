@@ -36,7 +36,6 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
     private final MajorConstraintMapper majorConstraintMapper;
     private final MajorMapper majorMapper;
     private final ConstraintDictMapper constraintDictMapper;
-    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Override
     public IPage<MajorConstraintListVO> page(MajorConstraintQueryDTO dto) {
@@ -82,7 +81,7 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
             throw new BusinessException(400, "该专业约束关联已存在");
         }
         MajorConstraint entity = MajorConstraint.builder()
-                .id(snowflakeIdGenerator.nextId())
+                .id(SnowflakeIdGenerator.nextId())
                 .majorCode(majorCode).majorName(dto.getMajorName())
                 .constraintCode(constraintCode).constraintName(dto.getConstraintName())
                 .remark(dto.getRemark()).build();
@@ -170,7 +169,7 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
             String majorCode = majorMapper.selectCodeByName(dto.getMajorName());
             String constraintCode = constraintDictMapper.selectCodeByName(dto.getConstraintName());
             MajorConstraint entity = MajorConstraint.builder()
-                    .id(snowflakeIdGenerator.nextId())
+                    .id(SnowflakeIdGenerator.nextId())
                     .majorCode(majorCode).majorName(dto.getMajorName())
                     .constraintCode(constraintCode).constraintName(dto.getConstraintName())
                     .remark(dto.getRemark()).build();

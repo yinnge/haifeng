@@ -1,4 +1,4 @@
-package com.haifeng.admin.service.algorithm.matcher;
+package com.haifeng.common.service.algorithm.matcher;
 
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import org.springframework.stereotype.Component;

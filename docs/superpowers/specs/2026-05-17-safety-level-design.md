@@ -174,6 +174,7 @@ private static final double[] YEAR_WEIGHTS = {1.0, 0.8, 0.6, 0.4, 0.2};
 // 最近1年权重1.0，依次递减
 ```
 
+
 #### 5.1.3 基础分计算
 
 ```java

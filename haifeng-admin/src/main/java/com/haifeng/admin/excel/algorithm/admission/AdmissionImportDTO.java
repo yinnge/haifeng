@@ -18,9 +18,6 @@ public class AdmissionImportDTO {
     @ExcelProperty("省份")
     private String province;
 
-    @ExcelProperty("科类")
-    private String subjectType;
-
     @ExcelProperty("批次")
     private String batch;
 
@@ -33,15 +30,18 @@ public class AdmissionImportDTO {
     @ExcelProperty("专业组简介")
     private String groupDescription;
 
+    @ExcelProperty("科目")
+    private String subjectsStr;
+
+    @ExcelProperty("选科类型")
+    private String requirementType;
+
     // ==================== 专业明细字段 ====================
     @ExcelProperty("专业代码")
     private String majorCode;
 
     @ExcelProperty("专业名称")
     private String majorName;
-
-    @ExcelProperty("选科要求")
-    private String subjectRequirements;
 
     @ExcelProperty("层次")
     private String educationLevel;

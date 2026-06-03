@@ -149,7 +149,6 @@ public class MajorServiceImpl implements MajorService {
                 .parentCategory(addDTO.getParentCategory())
                 .majorTags(addDTO.getMajorTags())
                 .degreeAwarded(addDTO.getDegreeAwarded())
-                .studyDuration(addDTO.getStudyDuration())
                 .employmentRate(addDTO.getEmploymentRate())
                 .salaryMin(addDTO.getSalaryMin())
                 .salaryMax(addDTO.getSalaryMax())
@@ -201,9 +200,6 @@ public class MajorServiceImpl implements MajorService {
         }
         if (updateDTO.getDegreeAwarded() != null) {
             major.setDegreeAwarded(updateDTO.getDegreeAwarded());
-        }
-        if (updateDTO.getStudyDuration() != null) {
-            major.setStudyDuration(updateDTO.getStudyDuration());
         }
         if (updateDTO.getEmploymentRate() != null) {
             major.setEmploymentRate(updateDTO.getEmploymentRate());
@@ -467,7 +463,6 @@ public class MajorServiceImpl implements MajorService {
                     .parentCategory(dto.getParentCategory())
                     .majorTags(dto.getMajorTags())
                     .degreeAwarded(dto.getDegreeAwarded())
-                    .studyDuration(dto.getStudyDuration())
                     .employmentRate(dto.getEmploymentRate())
                     .salaryMin(dto.getSalaryMin())
                     .salaryMax(dto.getSalaryMax())

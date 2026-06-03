@@ -1,4 +1,4 @@
-package com.haifeng.admin.service.algorithm.matcher.operator;
+package com.haifeng.common.service.algorithm.matcher.operator;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;

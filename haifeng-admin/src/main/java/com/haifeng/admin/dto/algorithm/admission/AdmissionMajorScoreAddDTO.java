@@ -19,7 +19,6 @@ public class AdmissionMajorScoreAddDTO {
     @NotBlank(message = "专业名称不能为空")
     private String majorName;
 
-    private String subjectRequirements;
     private String educationLevel;
     private String duration;
     private String tuition;

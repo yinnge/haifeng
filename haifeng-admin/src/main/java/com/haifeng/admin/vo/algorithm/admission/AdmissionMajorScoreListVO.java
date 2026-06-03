@@ -10,7 +10,6 @@ public class AdmissionMajorScoreListVO {
     private String majorCode;
     private String majorName;
     private String educationLevel;
-    private String subjectRequirements;
     private Integer admissionCount;
     private Integer minScore;
     private Integer minRank;

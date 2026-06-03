@@ -87,3 +87,32 @@ COMMENT ON COLUMN t_safety_level_dict.name IS '中文名称';
 COMMENT ON COLUMN t_safety_level_dict.name_short IS '简称';
 COMMENT ON COLUMN t_safety_level_dict.min_coefficient IS '系数下界';
 COMMENT ON COLUMN t_safety_level_dict.max_coefficient IS '系数上界';
+
+-- 初始化安全系数等级数据
+INSERT INTO t_safety_level_dict
+    (level, code, name, name_short, min_coefficient, max_coefficient, color, description)
+VALUES
+    (1, 'REACH_HIGH',   '大胆冲刺',   '搏',   0.00, 0.30,
+     '#FF4D4F',
+     '录取概率极低，属于"彩票"志愿。历年数据显示您的位次远低于该校录取位次。' ||
+     '建议最多填1-2个冲刺志愿，且必须搭配稳妥志愿。'),
+
+    (2, 'REACH',        '可以冲击',   '冲',   0.30, 0.50,
+     '#FFA940',
+     '有一定录取可能，但风险较大。适合放在志愿表靠前位置。' ||
+     '如果该校当年报考热度下降或扩招，有希望录取。'),
+
+    (3, 'MATCH',        '较为稳妥',   '稳',   0.50, 0.70,
+     '#FADB14',
+     '录取概率中等偏上，属于"正常发挥"就能录取的范围。' ||
+     '建议作为志愿表的核心区域，多填几个此档位的志愿。'),
+
+    (4, 'SAFE',         '比较安全',   '保',   0.70, 0.85,
+     '#52C41A',
+     '录取概率较高，除非出现大小年极端波动，基本能录取。' ||
+     '建议至少填3-5个此档位的志愿作为安全保障。'),
+
+    (5, 'FLOOR',        '高度保底',   '垫',   0.85, 1.00,
+     '#1890FF',
+     '录取概率极高，几乎确定能录取。用于防止"滑档"（所有志愿都录不上）。' ||
+     '建议至少放1-2个垫底志愿在最后。');

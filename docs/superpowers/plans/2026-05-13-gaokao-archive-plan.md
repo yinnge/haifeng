@@ -20,7 +20,10 @@
 |------|------|
 | `src/main/resources/db/migration/apps_V17__member_gaokao__tables.sql` | 创建 t_member_gaokao 表 |
 
+
+
 ### haifeng-common（实体/Mapper/枚举）
+
 | 文件 | 职责 |
 |------|------|
 | `src/main/java/com/haifeng/common/entity/algorithm/MemberGaokao.java` | 高考档案实体类 |
