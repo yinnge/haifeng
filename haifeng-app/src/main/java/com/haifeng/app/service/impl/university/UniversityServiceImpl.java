@@ -5,9 +5,14 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.university.UniversityQueryDTO;
 import com.haifeng.app.service.university.UniversityService;
+import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
 import com.haifeng.common.entity.university.University;
+import com.haifeng.common.entity.university.UniversityDetail;
+import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,7 @@ public class UniversityServiceImpl implements UniversityService {
     private static final short STATUS_PUBLISHED = 1;
 
     private final UniversityMapper universityMapper;
+    private final UniversityDetailMapper universityDetailMapper;
 
     @Override
     public IPage<UniversityListVO> page(UniversityQueryDTO dto) {
@@ -41,6 +47,55 @@ public class UniversityServiceImpl implements UniversityService {
 
         IPage<University> entityPage = universityMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
+    }
+
+    @Override
+    public UniversityDetailVO detail(Long universityId) {
+        University univ = universityMapper.selectById(universityId);
+        if (univ == null || univ.getStatus() == null || univ.getStatus() != STATUS_PUBLISHED) {
+            log.debug("院校不存在或已下架, universityId={}", universityId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
+        }
+
+        UniversityDetail detail = universityDetailMapper.selectOne(
+                new LambdaQueryWrapper<UniversityDetail>()
+                        .eq(UniversityDetail::getUniversityId, universityId)
+                        .eq(UniversityDetail::getStatus, STATUS_PUBLISHED));
+        if (detail == null) {
+            log.debug("院校详情未配置, universityId={}", universityId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校详情不存在");
+        }
+
+        return UniversityDetailVO.builder()
+                // detail
+                .address(detail.getAddress())
+                .admissionPhone(detail.getAdmissionPhone())
+                .website(detail.getWebsite())
+                .historyGroupScore(detail.getHistoryGroupScore())
+                .scienceGroupScore(detail.getScienceGroupScore())
+                .carouselImages(detail.getCarouselImages())
+                .introduction(detail.getIntroduction())
+                .rankings(detail.getRankings())
+                .abroadRate(detail.getAbroadRate())
+                .genderRatio(detail.getGenderRatio())
+                // university
+                .name(univ.getName())
+                .nameEn(univ.getNameEn())
+                .provinceName(univ.getProvinceName())
+                .cityName(univ.getCityName())
+                .region(univ.getRegion())
+                .category(univ.getCategory())
+                .majorCount(univ.getMajorCount())
+                .educationLevel(univ.getEducationLevel())
+                .nature(univ.getNature())
+                .recommendationRate(univ.getRecommendationRate())
+                .recommendationYear(univ.getRecommendationYear())
+                .hasDoctorate(univ.getHasDoctorate())
+                .hasMaster(univ.getHasMaster())
+                .department(univ.getDepartment())
+                .tags(univ.getTags())
+                .famousUnion(univ.getFamousUnion())
+                .build();
     }
 
     private UniversityListVO toListVO(University e) {
