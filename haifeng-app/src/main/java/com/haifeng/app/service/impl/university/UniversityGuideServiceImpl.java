@@ -25,13 +25,13 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
     @Override
     public UniversityGuideOverviewVO overview(Long universityId) {
-        UniversityGuide guide = loadGuide(universityId);
-
         University univ = universityMapper.selectById(universityId);
         if (univ == null || univ.getStatus() == null || univ.getStatus() != STATUS_PUBLISHED) {
             log.debug("院校不存在或已下架, universityId={}", universityId);
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
+
+        UniversityGuide guide = loadGuide(universityId);
 
         return UniversityGuideOverviewVO.builder()
                 .customTags(guide.getCustomTags())

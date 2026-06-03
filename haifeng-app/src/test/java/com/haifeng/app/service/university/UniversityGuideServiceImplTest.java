@@ -132,7 +132,6 @@ class UniversityGuideServiceImplTest {
 
     @Test
     void overview_universityMissing_throws404() {
-        when(guideMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(sampleGuide());
         when(universityMapper.selectById(100L)).thenReturn(null);
 
         assertThatThrownBy(() -> service.overview(100L))
