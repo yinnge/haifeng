@@ -98,3 +98,8 @@ docker-compose.override.yml
 # Application specific
 /logs/
 *.pid
+
+# Local Claude / project docs (not for repo)
+CLAUDE.md
+CLAUDE-admin.md
+CLAUDE-C.md
