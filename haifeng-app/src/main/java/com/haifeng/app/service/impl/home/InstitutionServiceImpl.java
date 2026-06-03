@@ -1,0 +1,105 @@
+package com.haifeng.app.service.impl.home;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.app.dto.home.InstitutionQueryDTO;
+import com.haifeng.app.service.home.InstitutionService;
+import com.haifeng.app.vo.home.InstitutionDetailVO;
+import com.haifeng.app.vo.home.InstitutionListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
+import com.haifeng.common.dto.common.PageCacheDTO;
+import com.haifeng.common.entity.home.Institution;
+import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.home.InstitutionMapper;
+import com.haifeng.common.response.ResultCode;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class InstitutionServiceImpl implements InstitutionService {
+
+    private static final short STATUS_PUBLISHED = 1;
+
+    private final InstitutionMapper institutionMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public IPage<InstitutionListVO> page(InstitutionQueryDTO dto) {
+        int pageNo = dto.getPage();
+        int size = dto.getSize();
+
+        String cacheKey = RedisKeyConstant.getInstitutionListKey(pageNo, size);
+
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof PageCacheDTO) {
+            log.debug("培训机构列表缓存命中, key={}", cacheKey);
+            return toPage((PageCacheDTO<InstitutionListVO>) cached);
+        }
+        log.debug("培训机构列表缓存未命中, key={}", cacheKey);
+
+        Page<Institution> page = new Page<>(pageNo, size);
+        LambdaQueryWrapper<Institution> wrapper = new LambdaQueryWrapper<Institution>()
+                .eq(Institution::getStatus, STATUS_PUBLISHED)
+                .orderByAsc(Institution::getSortOrder)
+                .orderByDesc(Institution::getId);
+
+        IPage<Institution> entityPage = institutionMapper.selectPage(page, wrapper);
+        IPage<InstitutionListVO> voPage = entityPage.convert(this::toListVO);
+
+        PageCacheDTO<InstitutionListVO> toCache = new PageCacheDTO<>(
+                voPage.getRecords(), voPage.getTotal(), voPage.getCurrent(), voPage.getSize());
+        redisTemplate.opsForValue().set(cacheKey, toCache,
+                RedisKeyConstant.HOME_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+
+        return voPage;
+    }
+
+    @Override
+    public InstitutionDetailVO detail(Long id) {
+        String cacheKey = RedisKeyConstant.getInstitutionDetailKey(id);
+
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof InstitutionDetailVO) {
+            log.debug("培训机构详情缓存命中, key={}", cacheKey);
+            return (InstitutionDetailVO) cached;
+        }
+        log.debug("培训机构详情缓存未命中, key={}", cacheKey);
+
+        Institution entity = institutionMapper.selectById(id);
+        if (entity == null || entity.getStatus() == null || entity.getStatus() != STATUS_PUBLISHED) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "培训机构不存在");
+        }
+
+        InstitutionDetailVO vo = new InstitutionDetailVO();
+        BeanUtils.copyProperties(entity, vo);
+
+        redisTemplate.opsForValue().set(cacheKey, vo,
+                RedisKeyConstant.HOME_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        return vo;
+    }
+
+    private InstitutionListVO toListVO(Institution entity) {
+        InstitutionListVO vo = new InstitutionListVO();
+        BeanUtils.copyProperties(entity, vo);
+        return vo;
+    }
+
+    private IPage<InstitutionListVO> toPage(PageCacheDTO<InstitutionListVO> cached) {
+        Page<InstitutionListVO> page = new Page<>(cached.getCurrent(), cached.getSize(), cached.getTotal());
+        page.setRecords(cached.getRecords() == null
+                ? Collections.emptyList()
+                : cached.getRecords().stream().collect(Collectors.toList()));
+        return page;
+    }
+}
