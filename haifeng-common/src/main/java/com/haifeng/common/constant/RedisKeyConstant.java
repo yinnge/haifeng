@@ -99,4 +99,69 @@ public final class RedisKeyConstant {
     public static String getAdminPreAuthKey(String token) {
         return ADMIN_PRE_AUTH_PREFIX + token;
     }
+
+    /**
+     * 首页 - 公告缓存
+     */
+    public static final String HOME_ANNOUNCEMENT_LIST_PREFIX   = "haifeng:app:home:announcement:list:";
+    public static final String HOME_ANNOUNCEMENT_DETAIL_PREFIX = "haifeng:app:home:announcement:detail:";
+
+    /**
+     * 首页 - 规划师缓存
+     */
+    public static final String HOME_PLANNER_LIST_PREFIX   = "haifeng:app:home:planner:list:";
+    public static final String HOME_PLANNER_DETAIL_PREFIX = "haifeng:app:home:planner:detail:";
+
+    /**
+     * 首页 - 培训机构缓存
+     */
+    public static final String HOME_INSTITUTION_LIST_PREFIX   = "haifeng:app:home:institution:list:";
+    public static final String HOME_INSTITUTION_DETAIL_PREFIX = "haifeng:app:home:institution:detail:";
+
+    /**
+     * 首页模块缓存 TTL（分钟）
+     */
+    public static final long HOME_CACHE_TTL_MINUTES = 30L;
+
+    /**
+     * 公告列表缓存 Key
+     */
+    public static String getAnnouncementListKey(int page, int size, String tag) {
+        return HOME_ANNOUNCEMENT_LIST_PREFIX + "p=" + page + ":s=" + size + ":tag=" + (tag == null ? "" : tag);
+    }
+
+    /**
+     * 公告详情缓存 Key
+     */
+    public static String getAnnouncementDetailKey(Long id) {
+        return HOME_ANNOUNCEMENT_DETAIL_PREFIX + id;
+    }
+
+    /**
+     * 规划师列表缓存 Key
+     */
+    public static String getPlannerListKey(int page, int size, String region) {
+        return HOME_PLANNER_LIST_PREFIX + "p=" + page + ":s=" + size + ":region=" + (region == null ? "" : region);
+    }
+
+    /**
+     * 规划师详情缓存 Key
+     */
+    public static String getPlannerDetailKey(Long id) {
+        return HOME_PLANNER_DETAIL_PREFIX + id;
+    }
+
+    /**
+     * 培训机构列表缓存 Key
+     */
+    public static String getInstitutionListKey(int page, int size) {
+        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size;
+    }
+
+    /**
+     * 培训机构详情缓存 Key
+     */
+    public static String getInstitutionDetailKey(Long id) {
+        return HOME_INSTITUTION_DETAIL_PREFIX + id;
+    }
 }
