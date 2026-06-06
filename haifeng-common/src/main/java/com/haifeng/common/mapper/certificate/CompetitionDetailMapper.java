@@ -13,6 +13,14 @@ public interface CompetitionDetailMapper extends BaseMapper<CompetitionDetail> {
     @Select("SELECT * FROM t_competition_detail WHERE competition_id = #{competitionId}")
     CompetitionDetail findByCompetitionId(@Param("competitionId") Long competitionId);
 
+    /**
+     * 根据 competitionId 查询未软删除的竞赛详情
+     * Service 层任务2接口2 专用
+     */
+    @Select("SELECT * FROM t_competition_detail " +
+            "WHERE competition_id = #{competitionId} AND is_deleted = FALSE")
+    CompetitionDetail findActiveByCompetitionId(@Param("competitionId") Long competitionId);
+
     @Delete("DELETE FROM t_competition_detail WHERE competition_id = #{competitionId}")
     int deleteByCompetitionId(@Param("competitionId") Long competitionId);
 }
