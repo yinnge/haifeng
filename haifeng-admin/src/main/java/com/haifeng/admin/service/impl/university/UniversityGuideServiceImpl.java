@@ -24,10 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 /**
  * 院校适应指南Service实现类
@@ -39,6 +42,41 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
     private final UniversityGuideMapper universityGuideMapper;
     private final UniversityMapper universityMapper;
+
+    private static final Map<Integer, String> SHEET_TO_FIELD = new LinkedHashMap<>();
+    private static final Map<String, BiConsumer<UniversityGuide, Map<String, Object>>> JSONB_SETTERERS = new HashMap<>();
+
+    static {
+        SHEET_TO_FIELD.put(1, "classDormSocial");
+        SHEET_TO_FIELD.put(2, "financialAid");
+        SHEET_TO_FIELD.put(3, "lifeServices");
+        SHEET_TO_FIELD.put(4, "dormitoryServices");
+        SHEET_TO_FIELD.put(5, "campusSecurity");
+        SHEET_TO_FIELD.put(6, "campusEvents");
+        SHEET_TO_FIELD.put(7, "campusFacilities");
+        SHEET_TO_FIELD.put(8, "campusTransportation");
+        SHEET_TO_FIELD.put(9, "studentOrganizations");
+        SHEET_TO_FIELD.put(10, "academicSupportResources");
+        SHEET_TO_FIELD.put(11, "healthServices");
+        SHEET_TO_FIELD.put(12, "academicGuidance");
+        SHEET_TO_FIELD.put(13, "majorTransferConstriction");
+        SHEET_TO_FIELD.put(14, "majorTransferGuidelines");
+
+        JSONB_SETTERERS.put("classDormSocial", UniversityGuide::setClassDormSocial);
+        JSONB_SETTERERS.put("financialAid", UniversityGuide::setFinancialAid);
+        JSONB_SETTERERS.put("lifeServices", UniversityGuide::setLifeServices);
+        JSONB_SETTERERS.put("dormitoryServices", UniversityGuide::setDormitoryServices);
+        JSONB_SETTERERS.put("campusSecurity", UniversityGuide::setCampusSecurity);
+        JSONB_SETTERERS.put("campusEvents", UniversityGuide::setCampusEvents);
+        JSONB_SETTERERS.put("campusFacilities", UniversityGuide::setCampusFacilities);
+        JSONB_SETTERERS.put("campusTransportation", UniversityGuide::setCampusTransportation);
+        JSONB_SETTERERS.put("studentOrganizations", UniversityGuide::setStudentOrganizations);
+        JSONB_SETTERERS.put("academicSupportResources", UniversityGuide::setAcademicSupportResources);
+        JSONB_SETTERERS.put("healthServices", UniversityGuide::setHealthServices);
+        JSONB_SETTERERS.put("academicGuidance", UniversityGuide::setAcademicGuidance);
+        JSONB_SETTERERS.put("majorTransferConstriction", UniversityGuide::setMajorTransferConstriction);
+        JSONB_SETTERERS.put("majorTransferGuidelines", UniversityGuide::setMajorTransferGuidelines);
+    }
 
     @Override
     public IPage<UniversityGuideListVO> page(UniversityGuideQueryDTO dto) {
@@ -295,84 +333,176 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             throw new BusinessException(400, "请上传Excel文件");
         }
 
-        List<UniversityGuideExcelDTO> dataList;
         try {
-            dataList = EasyExcel.read(file.getInputStream())
-                    .head(UniversityGuideExcelDTO.class)
-                    .sheet()
-                    .doReadSync();
+            byte[] fileBytes = file.getBytes();
+
+            // Step 1: Read Sheet0 - main data
+            List<UniversityGuideExcelDTO> mainDataList;
+            try (InputStream is = new ByteArrayInputStream(fileBytes)) {
+                mainDataList = EasyExcel.read(is)
+                        .head(UniversityGuideExcelDTO.class)
+                        .sheet(0)
+                        .doReadSync();
+            }
+
+            if (mainDataList == null || mainDataList.isEmpty()) {
+                throw new BusinessException(400, "Sheet0中没有任何数据");
+            }
+
+            // Step 2: Read Sheet1-14 - JSONB data
+            Map<String, Map<String, Map<String, List<String>>>> jsonbDataMap = buildJsonbDataMap(fileBytes);
+
+            // Step 3: Process each row from Sheet0
+            List<String> errors = new ArrayList<>();
+            OffsetDateTime now = OffsetDateTime.now();
+            int successCount = 0;
+
+            for (int i = 0; i < mainDataList.size(); i++) {
+                int rowNum = i + 2;
+                UniversityGuideExcelDTO dto = mainDataList.get(i);
+
+                if (!StringUtils.hasText(dto.getUniversityName())) {
+                    errors.add("第" + rowNum + "行: 院校名称不能为空");
+                    continue;
+                }
+
+                University university = universityMapper.selectOne(
+                        new LambdaQueryWrapper<University>()
+                                .eq(University::getName, dto.getUniversityName())
+                                .ne(University::getStatus, (short) 0));
+
+                if (university == null) {
+                    errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                    continue;
+                }
+
+                UniversityGuide existingGuide = universityGuideMapper.selectOne(
+                        new LambdaQueryWrapper<UniversityGuide>()
+                                .eq(UniversityGuide::getUniversityId, university.getId())
+                                .ne(UniversityGuide::getStatus, (short) 0));
+
+                Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(dto.getUniversityName());
+
+                if (existingGuide != null) {
+                    existingGuide.setCustomTags(dto.getCustomTags());
+                    existingGuide.setRemark(dto.getRemark());
+                    if (dto.getStatus() != null) {
+                        existingGuide.setStatus(dto.getStatus().shortValue());
+                    }
+                    setJsonbFields(existingGuide, univJsonb);
+                    existingGuide.setUpdatedAt(now);
+                    universityGuideMapper.updateById(existingGuide);
+                } else {
+                    Long id = SnowflakeIdGenerator.nextId();
+                    UniversityGuide guide = UniversityGuide.builder()
+                            .id(id)
+                            .universityId(university.getId())
+                            .customTags(dto.getCustomTags())
+                            .remark(dto.getRemark())
+                            .status(dto.getStatus() != null ? dto.getStatus().shortValue() : (short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    setJsonbFields(guide, univJsonb);
+                    universityGuideMapper.insert(guide);
+                }
+                successCount++;
+            }
+
+            if (!errors.isEmpty()) {
+                String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
+                        successCount, errors.size(), String.join("; ", errors));
+                throw new BusinessException(400, errorMsg);
+            }
+
+            log.info("导入院校适应指南数据成功: 共{}条", successCount);
+
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
         }
+    }
 
-        if (dataList == null || dataList.isEmpty()) {
-            throw new BusinessException(400, "Excel文件中没有数据");
-        }
+    private Map<String, Map<String, Map<String, List<String>>>> buildJsonbDataMap(byte[] fileBytes) {
+        Map<String, Map<String, Map<String, List<String>>>> result = new HashMap<>();
 
-        List<String> errors = new ArrayList<>();
-        OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
+        for (Map.Entry<Integer, String> entry : SHEET_TO_FIELD.entrySet()) {
+            int sheetNo = entry.getKey();
+            String fieldName = entry.getValue();
 
-        for (int i = 0; i < dataList.size(); i++) {
-            int rowNum = i + 2;
-            UniversityGuideExcelDTO dto = dataList.get(i);
-
-            // 校验必填字段
-            if (!StringUtils.hasText(dto.getUniversityName())) {
-                errors.add("第" + rowNum + "行: 院校名称不能为空");
+            List<List<String>> rows;
+            try (InputStream is = new ByteArrayInputStream(fileBytes)) {
+                rows = readSheetRows(is, sheetNo);
+            } catch (Exception e) {
+                log.warn("Sheet{}（{}）读取失败，已跳过: {}", sheetNo, fieldName, e.getMessage());
                 continue;
             }
 
-            // 根据院校名称查找院校
-            LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
-            univWrapper.eq(University::getName, dto.getUniversityName())
-                       .ne(University::getStatus, (short) 0);
-            University university = universityMapper.selectOne(univWrapper);
+            if (rows == null || rows.size() < 2) continue;
 
-            if (university == null) {
-                errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
-                continue;
-            }
+            List<String> headers = rows.get(0);
 
-            // 检查该院校是否已有指南（1:1关系）
-            LambdaQueryWrapper<UniversityGuide> guideWrapper = new LambdaQueryWrapper<>();
-            guideWrapper.eq(UniversityGuide::getUniversityId, university.getId())
-                       .ne(UniversityGuide::getStatus, (short) 0);
-            UniversityGuide existingGuide = universityGuideMapper.selectOne(guideWrapper);
+            for (int i = 1; i < rows.size(); i++) {
+                List<String> row = rows.get(i);
+                if (row == null || row.isEmpty() || !StringUtils.hasText(row.get(0))) continue;
 
-            if (existingGuide != null) {
-                // 更新现有记录
-                existingGuide.setCustomTags(dto.getCustomTags());
-                existingGuide.setRemark(dto.getRemark());
-                if (dto.getStatus() != null) {
-                    existingGuide.setStatus(dto.getStatus().shortValue());
+                String univName = row.get(0).trim();
+                Map<String, Map<String, List<String>>> univData = result.computeIfAbsent(univName, k -> new HashMap<>());
+                Map<String, List<String>> fieldData = univData.computeIfAbsent(fieldName, k -> new LinkedHashMap<>());
+
+                for (int j = 1; j < headers.size() && j < row.size(); j++) {
+                    String header = safeStr(headers.get(j));
+                    String value = safeStr(row.get(j));
+                    if (!header.isEmpty() && !value.isEmpty()) {
+                        List<String> items = Arrays.stream(value.split(","))
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .collect(Collectors.toList());
+                        fieldData.put(header, items);
+                    }
                 }
-                existingGuide.setUpdatedAt(now);
-                universityGuideMapper.updateById(existingGuide);
-            } else {
-                // 新建指南记录
-                Long id = SnowflakeIdGenerator.nextId();
-                UniversityGuide guide = UniversityGuide.builder()
-                        .id(id)
-                        .universityId(university.getId())
-                        .customTags(dto.getCustomTags())
-                        .remark(dto.getRemark())
-                        .status(dto.getStatus() != null ? dto.getStatus().shortValue() : (short) 1)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-                universityGuideMapper.insert(guide);
             }
-            successCount++;
         }
 
-        if (!errors.isEmpty()) {
-            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
-                    successCount, errors.size(), String.join("; ", errors));
-            throw new BusinessException(400, errorMsg);
-        }
+        return result;
+    }
 
-        log.info("导入院校适应指南数据成功: 共{}条", successCount);
+    private List<List<String>> readSheetRows(InputStream is, int sheetNo) {
+        try {
+            List<Object> rawRows = EasyExcel.read(is).sheet(sheetNo).doReadSync();
+            List<List<String>> result = new ArrayList<>();
+            for (Object rawRow : rawRows) {
+                if (rawRow instanceof List) {
+                    List<String> row = new ArrayList<>();
+                    for (Object cell : (List<?>) rawRow) {
+                        row.add(cell != null ? cell.toString().trim() : "");
+                    }
+                    result.add(row);
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("读取Sheet{}失败: {}", sheetNo, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private void setJsonbFields(UniversityGuide guide, Map<String, Map<String, List<String>>> jsonbData) {
+        if (jsonbData == null || jsonbData.isEmpty()) return;
+
+        for (Map.Entry<String, Map<String, List<String>>> entry : jsonbData.entrySet()) {
+            String fieldName = entry.getKey();
+            Map<String, List<String>> fieldData = entry.getValue();
+            if (fieldData == null || fieldData.isEmpty()) continue;
+
+            BiConsumer<UniversityGuide, Map<String, Object>> setter = JSONB_SETTERERS.get(fieldName);
+            if (setter != null) {
+                setter.accept(guide, new LinkedHashMap<>(fieldData));
+            }
+        }
+    }
+
+    private static String safeStr(Object obj) {
+        return obj != null ? obj.toString().trim() : "";
     }
 }
