@@ -63,7 +63,7 @@ class InstitutionServiceImplTest {
 
     @Test
     void list_cacheMiss_queriesDbAndWritesCache() {
-        String key = RedisKeyConstant.getInstitutionListKey(1, 10);
+        String key = RedisKeyConstant.getInstitutionListKey(1, 10, null);
         when(valueOps.get(key)).thenReturn(null);
 
         Institution entity = Institution.builder()
@@ -76,6 +76,29 @@ class InstitutionServiceImplTest {
         IPage<InstitutionListVO> result = service.page(new InstitutionQueryDTO());
 
         assertThat(result.getRecords()).hasSize(1);
+        verify(valueOps).set(eq(key), any(PageCacheDTO.class),
+                eq(RedisKeyConstant.HOME_CACHE_TTL_MINUTES), eq(TimeUnit.MINUTES));
+    }
+
+    @Test
+    void list_withName_usesLikeQuery() {
+        String name = "海峰";
+        String key = RedisKeyConstant.getInstitutionListKey(1, 10, name);
+        when(valueOps.get(key)).thenReturn(null);
+
+        Institution entity = Institution.builder()
+                .id(1L).name("海峰志愿规划培训中心").type("职业培训").status((short) 1).deleted(false).build();
+        Page<Institution> page = new Page<>(1, 10);
+        page.setRecords(List.of(entity));
+        page.setTotal(1);
+        when(institutionMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
+
+        InstitutionQueryDTO dto = new InstitutionQueryDTO();
+        dto.setName(name);
+        IPage<InstitutionListVO> result = service.page(dto);
+
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getName()).isEqualTo("海峰志愿规划培训中心");
         verify(valueOps).set(eq(key), any(PageCacheDTO.class),
                 eq(RedisKeyConstant.HOME_CACHE_TTL_MINUTES), eq(TimeUnit.MINUTES));
     }

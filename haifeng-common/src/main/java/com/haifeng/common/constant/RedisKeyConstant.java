@@ -154,8 +154,8 @@ public final class RedisKeyConstant {
     /**
      * 培训机构列表缓存 Key
      */
-    public static String getInstitutionListKey(int page, int size) {
-        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size;
+    public static String getInstitutionListKey(int page, int size, String name) {
+        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size + ":name=" + (name == null ? "" : name);
     }
 
     /**

@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -38,8 +39,9 @@ public class InstitutionServiceImpl implements InstitutionService {
     public IPage<InstitutionListVO> page(InstitutionQueryDTO dto) {
         int pageNo = dto.getPage();
         int size = dto.getSize();
+        String name = dto.getName();
 
-        String cacheKey = RedisKeyConstant.getInstitutionListKey(pageNo, size);
+        String cacheKey = RedisKeyConstant.getInstitutionListKey(pageNo, size, name);
 
         Object cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached instanceof PageCacheDTO) {
@@ -50,9 +52,14 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         Page<Institution> page = new Page<>(pageNo, size);
         LambdaQueryWrapper<Institution> wrapper = new LambdaQueryWrapper<Institution>()
-                .eq(Institution::getStatus, STATUS_PUBLISHED)
-                .orderByAsc(Institution::getSortOrder)
-                .orderByDesc(Institution::getId);
+                .eq(Institution::getStatus, STATUS_PUBLISHED);
+
+        if (StringUtils.hasText(name)) {
+            wrapper.like(Institution::getName, name);
+        }
+
+        wrapper.orderByAsc(Institution::getSortOrder)
+               .orderByDesc(Institution::getId);
 
         IPage<Institution> entityPage = institutionMapper.selectPage(page, wrapper);
         IPage<InstitutionListVO> voPage = entityPage.convert(this::toListVO);
