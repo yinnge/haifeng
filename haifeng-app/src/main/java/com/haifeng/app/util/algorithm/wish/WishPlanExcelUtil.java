@@ -11,9 +11,10 @@ import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy
 import com.haifeng.common.entity.algorithm.wish.WishGroupSnapshot;
 import com.haifeng.common.entity.algorithm.wish.WishMajorSnapshot;
 import com.haifeng.common.entity.algorithm.wish.WishPlan;
+import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.response.ResultCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import org.springframework.stereotype.Component;
 import org.apache.poi.ss.util.CellRangeAddress;
 
 import java.io.OutputStream;
@@ -27,7 +28,6 @@ import java.util.stream.Collectors;
  * 志愿方案Excel导出工具类
  */
 @Slf4j
-@Component
 public class WishPlanExcelUtil {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -49,7 +49,7 @@ public class WishPlanExcelUtil {
         try {
             ExcelWriter excelWriter = EasyExcel.write(outputStream)
                     .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-                    .registerWriteHandler(new WishPlanCellWriteHandler(groups, majorsMap, exportMajors))
+                    .registerWriteHandler(new WishPlanCellWriteHandler())
                     .build();
             WriteSheet writeSheet = EasyExcel.writerSheet("志愿方案").build();
 
@@ -59,7 +59,7 @@ public class WishPlanExcelUtil {
             excelWriter.finish();
         } catch (Exception e) {
             log.error("导出Excel失败", e);
-            throw new RuntimeException("导出Excel失败", e);
+            throw new BusinessException(ResultCode.EXPORT_FAILED);
         }
     }
 
@@ -267,39 +267,22 @@ public class WishPlanExcelUtil {
     }
 
     /**
-     * 自定义CellWriteHandler用于合并单元格
+     * 自定义CellWriteHandler用于合并第一行单元格
      */
     private static class WishPlanCellWriteHandler implements CellWriteHandler {
 
-        private final List<WishGroupSnapshot> groups;
-        private final Map<Integer, List<WishMajorSnapshot>> majorsMap;
-        private final Set<Integer> exportMajors;
-
-        public WishPlanCellWriteHandler(List<WishGroupSnapshot> groups,
-                                        Map<Integer, List<WishMajorSnapshot>> majorsMap,
-                                        Set<Integer> exportMajors) {
-            this.groups = groups;
-            this.majorsMap = majorsMap;
-            this.exportMajors = exportMajors;
-        }
-
         @Override
         public void afterCellDispose(CellWriteHandlerContext context) {
-            WriteSheetHolder writeSheetHolder = context.getWriteSheetHolder();
+            Sheet sheet = context.getWriteSheetHolder().getSheet();
             org.apache.poi.ss.usermodel.Cell cell = context.getCell();
-            Boolean isHead = context.getHead();
 
-            if (cell == null) {
+            if (cell == null || cell.getRowIndex() != 0) {
                 return;
             }
 
-            Sheet sheet = writeSheetHolder.getSheet();
-
-            if (cell.getRowIndex() == 0) {
-                int lastCol = sheet.getRow(0).getLastCellNum();
-                if (lastCol > 0) {
-                    sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, lastCol - 1));
-                }
+            int lastCol = sheet.getRow(0).getLastCellNum();
+            if (lastCol > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, lastCol - 1));
             }
         }
     }
