@@ -5,6 +5,8 @@ import com.haifeng.app.dto.certificate.CertificateListQueryDTO;
 import com.haifeng.app.vo.certificate.CertificateDetailVO;
 import com.haifeng.app.vo.certificate.CertificateListVO;
 
+import java.util.List;
+
 public interface CertificateService {
 
     /** 任务1接口1：证书分页列表（公开，支持 category 精准过滤） */
@@ -12,4 +14,7 @@ public interface CertificateService {
 
     /** 任务1接口2：证书详情（登录） */
     CertificateDetailVO detail(Long certId);
+
+    /** 证书分类列表（公开，去重） */
+    List<String> listCategories();
 }

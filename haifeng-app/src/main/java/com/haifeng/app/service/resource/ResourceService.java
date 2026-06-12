@@ -5,6 +5,8 @@ import com.haifeng.app.dto.resource.ResourceQueryDTO;
 import com.haifeng.app.vo.resource.ResourceListVO;
 import com.haifeng.app.vo.resource.ResourceUrlVO;
 
+import java.util.List;
+
 public interface ResourceService {
 
     /**
@@ -17,4 +19,9 @@ public interface ResourceService {
      * 不存在或已删除 → BusinessException(NOT_FOUND)
      */
     ResourceUrlVO getUrl(Long id);
+
+    /**
+     * 获取所有不重复的分类（用于前端下拉筛选）
+     */
+    List<String> getCategories();
 }

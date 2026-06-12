@@ -162,4 +162,9 @@ public class ResourceServiceImpl implements ResourceService {
 
         log.info("批量硬删除资源成功: 删除数量={}, ids={}", deleted, ids);
     }
+
+    @Override
+    public List<String> getCategories() {
+        return resourceMapper.selectDistinctCategories();
+    }
 }

@@ -11,4 +11,7 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
 
     @Select("SELECT EXISTS(SELECT 1 FROM t_certificate WHERE cert_name = #{certName} AND is_deleted = FALSE)")
     boolean existsByCertName(@Param("certName") String certName);
+
+    @Select("SELECT DISTINCT category FROM t_certificate WHERE is_deleted = FALSE AND category IS NOT NULL ORDER BY category")
+    List<String> listCategories();
 }

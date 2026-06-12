@@ -12,6 +12,9 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class ResourceQueryDTO extends BasePageQueryDTO {
 
+    /** 资源名称模糊查询 */
+    private String resourceName;
+
     /** 资源分类精准匹配 */
     private String category;
 }

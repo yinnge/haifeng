@@ -66,6 +66,11 @@ public class CertificateServiceImpl implements CertificateService {
                 .build();
     }
 
+    @Override
+    public List<String> listCategories() {
+        return certificateMapper.listCategories();
+    }
+
     private CertificateListVO toListVO(Certificate e) {
         return CertificateListVO.builder()
                 .id(e.getId())

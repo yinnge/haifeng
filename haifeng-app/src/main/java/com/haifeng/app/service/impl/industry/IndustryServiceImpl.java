@@ -39,6 +39,11 @@ public class IndustryServiceImpl implements IndustryService {
     private final EnterpriseIndustryMapper enterpriseIndustryMapper;
 
     @Override
+    public List<String> getCategories() {
+        return industryMapper.selectDistinctCategories();
+    }
+
+    @Override
     public IPage<IndustryListVO> page(IndustryQueryDTO dto) {
         Page<Industry> page = new Page<>(dto.getPage(), dto.getSize());
 

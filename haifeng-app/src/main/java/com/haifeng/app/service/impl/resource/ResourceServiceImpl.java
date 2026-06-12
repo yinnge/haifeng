@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,6 +31,7 @@ public class ResourceServiceImpl implements ResourceService {
 
         LambdaQueryWrapper<Resource> wrapper = new LambdaQueryWrapper<Resource>()
                 .eq(Resource::getIsDeleted, false)
+                .like(StringUtils.hasText(dto.getResourceName()), Resource::getResourceName, dto.getResourceName())
                 .eq(StringUtils.hasText(dto.getCategory()), Resource::getCategory, dto.getCategory())
                 .orderByAsc(Resource::getSortOrder)
                 .orderByDesc(Resource::getCreatedAt);
@@ -64,5 +67,10 @@ public class ResourceServiceImpl implements ResourceService {
                 .fileType(e.getFileType())
                 .viewCount(e.getViewCount())
                 .build();
+    }
+
+    @Override
+    public List<String> getCategories() {
+        return resourceMapper.selectDistinctCategories();
     }
 }

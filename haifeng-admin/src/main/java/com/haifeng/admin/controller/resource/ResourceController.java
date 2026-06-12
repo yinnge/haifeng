@@ -87,4 +87,12 @@ public class ResourceController {
         resourceService.batchDelete(ids);
         return R.ok();
     }
+
+    /**
+     * 获取所有不重复的分类（用于前端下拉筛选）
+     */
+    @GetMapping("/categories")
+    public R<List<String>> getCategories() {
+        return R.ok(resourceService.getCategories());
+    }
 }

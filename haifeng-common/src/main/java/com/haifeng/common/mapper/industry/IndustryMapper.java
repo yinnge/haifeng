@@ -11,4 +11,7 @@ public interface IndustryMapper extends BaseMapper<Industry> {
 
     @Select("SELECT EXISTS(SELECT 1 FROM t_industry WHERE industry_name = #{industryName} AND is_deleted = false)")
     boolean existsByIndustryName(@Param("industryName") String industryName);
+
+    @Select("SELECT DISTINCT category FROM t_industry WHERE is_deleted = false AND category IS NOT NULL AND category != '' ORDER BY category")
+    List<String> selectDistinctCategories();
 }

@@ -31,6 +31,12 @@ public class IndustryController {
 
     private final IndustryService industryService;
 
+    /** 获取所有不重复的行业分类，用于前端下拉筛选 */
+    @GetMapping("/categories")
+    public R<List<String>> getCategories() {
+        return R.ok(industryService.getCategories());
+    }
+
     /** 任务 2 接口 1：分页查询行业列表，无需登录 */
     @GetMapping("/list")
     public R<IPage<IndustryListVO>> list(@Valid IndustryQueryDTO dto) {

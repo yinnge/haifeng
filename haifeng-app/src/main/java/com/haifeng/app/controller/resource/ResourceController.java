@@ -5,6 +5,8 @@ import com.haifeng.app.dto.resource.ResourceQueryDTO;
 import com.haifeng.app.service.resource.ResourceService;
 import com.haifeng.app.vo.resource.ResourceListVO;
 import com.haifeng.app.vo.resource.ResourceUrlVO;
+
+import java.util.List;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -37,5 +39,11 @@ public class ResourceController {
     @GetMapping("/{id}/url")
     public R<ResourceUrlVO> getUrl(@PathVariable Long id) {
         return R.ok(resourceService.getUrl(id));
+    }
+
+    /** 获取所有不重复的分类（用于前端下拉筛选） */
+    @GetMapping("/categories")
+    public R<List<String>> getCategories() {
+        return R.ok(resourceService.getCategories());
     }
 }

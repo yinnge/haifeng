@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * C 端证书管理（spec 任务1）
  * 接口1 公开，接口2 需登录
@@ -38,5 +40,11 @@ public class CertificateController {
     @GetMapping("/{certId}/detail")
     public R<CertificateDetailVO> detail(@PathVariable Long certId) {
         return R.ok(certificateService.detail(certId));
+    }
+
+    /** 证书分类列表（公开，去重，前端用作下拉筛选） */
+    @GetMapping("/categories")
+    public R<List<String>> categories() {
+        return R.ok(certificateService.listCategories());
     }
 }

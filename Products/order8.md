@@ -113,7 +113,7 @@ GET /api/v1/admin/city/{id}
     "adminCode": "110000",
     "perCapitaGdp": 19.01,
     "urbanizationRate": 87.50,
-    "ruralPopRatio": 12.50,
+    "ruralPopRatio": 12.50,``
     "agingRate": 21.30,
     "migrantPopRatio": 38.50,
     "gdpGrowthRate": 5.20,

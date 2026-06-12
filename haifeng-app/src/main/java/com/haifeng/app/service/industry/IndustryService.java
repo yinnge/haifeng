@@ -11,6 +11,11 @@ import java.util.List;
 public interface IndustryService {
 
     /**
+     * 获取所有不重复的行业分类，用于前端下拉筛选
+     */
+    List<String> getCategories();
+
+    /**
      * 分页查询行业列表（isDeleted=false）；category EQ；排序 id ASC
      */
     IPage<IndustryListVO> page(IndustryQueryDTO dto);

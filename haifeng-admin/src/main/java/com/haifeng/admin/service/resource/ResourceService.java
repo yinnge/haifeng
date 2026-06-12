@@ -46,4 +46,9 @@ public interface ResourceService {
      * 批量硬删除资源
      */
     void batchDelete(List<Long> ids);
+
+    /**
+     * 获取所有不重复的分类（用于前端下拉筛选）
+     */
+    List<String> getCategories();
 }

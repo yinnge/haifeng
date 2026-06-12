@@ -278,7 +278,7 @@
 ```
 
 ---
-
+``
 #### 1.2 获取院系详情
 
 - **URL:** `GET /api/v1/admin/university/department/{id}`

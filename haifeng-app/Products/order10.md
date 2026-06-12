@@ -2,7 +2,7 @@
 
 ## 功能概述
 
-本模块实现 C 端城市管理、行业管理、资源管理 3 个只读展示模块，共 6 个接口。列表接口无需登录即可访问；城市详情、行业详情、资源 URL 需要登录。所有接口不加 Redis 缓存（实时读库）。
+本模块实现 C 端城市管理、行业管理、资源管理 3 个只读展示模块，共 8 个接口。列表及分类列表接口无需登录即可访问；城市详情、行业详情、资源 URL 需要登录。所有接口不加 Redis 缓存（实时读库）。
 
 | 子模块 | 功能 | 权限要求 |
 |--------|------|----------|
@@ -10,7 +10,9 @@
 | 城市详情 | 关联 t_city_detail 返回完整城市信息 | 登录用户 |
 | 行业列表 | 行业分页列表（分类精准筛选） | 公开访问 |
 | 行业详情 | 关联 t_industry_detail 返回完整行业信息 | 登录用户 |
+| **行业分类列表** | **获取所有不重复的行业分类** | **公开访问** |
 | 资源列表 | 资源分页列表（分类精准筛选） | 公开访问 |
+| 资源分类列表 | 获取所有不重复的资源分类 | 公开访问 |
 | 查看资源 URL | 返回资源链接和提取码，同步浏览计数 +1 | 登录用户 |
 
 ---
@@ -416,9 +418,43 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 
 ---
 
-## 5. 资源列表
+## 5. 行业分类列表
 
-**功能描述**：分页查询学习资源，支持分类精准筛选。无需登录。
+**功能描述**：获取所有不重复的行业分类（category），用于前端下拉筛选。无需登录。
+
+### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/industry/categories` |
+| 权限 | 公开 |
+
+### 请求示例
+
+```http
+GET /api/v1/app/industry/categories
+```
+
+### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": ["信息技术", "金融", "制造业", "医疗健康", "教育培训"],
+  "timestamp": 1717392000000
+}
+```
+
+### 前端使用说明
+
+页面 `onMounted` 时调用此接口，将返回的 `data` 数组直接绑定到 `el-select` 的 `options`，无需硬编码分类选项。
+
+---
+
+## 6. 资源列表
+
+**功能描述**：分页查询学习资源，支持资源名称模糊查询 + 分类精准筛选。无需登录。
 
 ### 接口信息
 
@@ -434,9 +470,10 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 |------|------|------|----------|------|
 | page | Integer | 否 | — | 页码，默认 1 |
 | size | Integer | 否 | — | 每页条数，默认 10 |
+| **resourceName** | String | 否 | **模糊（LIKE）** | 资源名称（如 "高考"、"考研"） |
 | **category** | String | 否 | **精准（=）** | 资源分类（如 "真题"、"教材"、"视频"） |
 
-> 空参数视为不参与筛选，返回全部分类。
+> 空参数视为不参与筛选，返回全部分类。`resourceName` 和 `category` 可同时传入，按 AND 组合。
 
 ### 排序规则
 
@@ -445,7 +482,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 ### 请求示例
 
 ```http
-GET /api/v1/app/resource/list?page=1&size=10&category=真题
+GET /api/v1/app/resource/list?page=1&size=10&resourceName=高考&category=真题
 ```
 
 ### 响应示例
@@ -493,7 +530,41 @@ GET /api/v1/app/resource/list?page=1&size=10&category=真题
 
 ---
 
-## 6. 查看资源 URL
+## 7. 获取资源分类列表
+
+**功能描述**：获取所有不重复的资源分类，用于前端下拉筛选。无需登录。
+
+### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/resource/categories` |
+| 权限 | 公开 |
+
+### 请求示例
+
+```http
+GET /api/v1/app/resource/categories
+```
+
+### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": ["真题", "教材", "视频", "讲义", "模拟卷"],
+  "timestamp": 1717392000000
+}
+```
+
+### 前端使用说明
+
+页面 `onMounted` 时调用此接口，将返回的 `data` 数组直接绑定到 `el-select` 的 `options`，无需硬编码分类选项。
+
+---
+
+## 8. 查看资源 URL
 
 **功能描述**：根据资源 ID 获取资源的百度网盘链接和提取码，同时原子更新浏览计数 +1。需登录。
 
@@ -604,10 +675,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 | 2. 城市详情 | — | `cityId`（path） |
 | 3. 行业列表 | — | `category` |
 | 4. 行业详情 | — | `industryId`（path） |
-| 5. 资源列表 | — | `category` |
-| 6. 查看资源 URL | — | `id`（path） |
+| 5. 行业分类列表 | — | — |
+| 6. 资源列表 | `resourceName` | `category` |
+| 7. 资源分类列表 | — | — |
+| 8. 查看资源 URL | — | `id`（path） |
 
-> 全模块只有 1 个模糊查询字段（城市名称），其余均为精准匹配；多筛选字段同时传入按 AND 组合。
+> 全模块共 2 个模糊查询字段（城市名称、资源名称），其余均为精准匹配；多筛选字段同时传入按 AND 组合。
 
 ---
 
@@ -618,6 +691,8 @@ GET  /api/v1/app/city/list                    [公开]   城市列表（cityName
 GET  /api/v1/app/city/{cityId}/detail         [登录]   城市详情（关联 t_city_detail）
 GET  /api/v1/app/industry/list                [公开]   行业列表（category 精准）
 GET  /api/v1/app/industry/{industryId}/detail [登录]   行业详情（关联 t_industry_detail）
-GET  /api/v1/app/resource/list                [公开]   资源列表（category 精准）
+GET  /api/v1/app/industry/categories          [公开]   行业分类列表（前端下拉用）
+GET  /api/v1/app/resource/list                [公开]   资源列表（resourceName 模糊 + category 精准）
+GET  /api/v1/app/resource/categories          [公开]   资源分类列表（前端下拉用）
 GET  /api/v1/app/resource/{id}/url            [登录]   查看资源 URL + 浏览计数 +1
 ```

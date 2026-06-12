@@ -2,15 +2,16 @@
 
 ## 功能概述
 
-本模块实现 C 端「竞赛证书管理」父模块下的 2 类共 6 个只读接口：
+本模块实现 C 端「竞赛证书管理」父模块下的 2 类共 7 个只读接口：
 
-- **职业技能证书**：证书分页列表（支持分类精准筛选 + 证书名称模糊查询）+ 证书详情
-- **科研竞赛**：竞赛分页列表 + 竞赛详情（包含 JSONB 详情）+ 竞赛→专业列表；并扩展专业模块新增「专业→竞赛列表」反向关联
+- **职业技能证书**：证书分类列表 + 证书分页列表（支持分类精准筛选 + 证书名称模糊查询）+ 证书详情
+- **科研竞赛**：竞赛分页列表 + 竞赛详情（包含 JSONB 详情）+ 竞赛→专业列表；并扩展专业模``块新增「专业→竞赛列表」反向关联
 
 访问权限按子功能分级：列表完全公开；证书详情、竞赛详情需要登录；竞赛↔专业双向关联需要 Pro 及以上会员。所有接口不加 Redis 缓存（实时读库）。
 
 | 子模块 | 功能 | 权限要求 |
 |--------|------|----------|
+| 证书分类 | 证书分类去重列表（category 下拉来源） | 公开访问 |
 | 证书列表 | 证书分页列表（category 精准筛选 + certName 模糊查询） | 公开访问 |
 | 证书详情 | 证书完整信息（含考试要求/安排/官网） | 登录用户 |
 | 竞赛列表 | 竞赛分页列表 | 公开访问 |
@@ -21,11 +22,12 @@
 ### 与已有接口的协同
 
 | 已有接口（order9） | 拿到 id 后调用本模块 |
-|---|---|
+|---|---|---|
 | `GET /api/v1/app/major/list`（公开）| `GET /api/v1/app/major/{majorId}/competitions`（Pro，本模块接口 6）|
 | 本模块接口 1（证书列表）| `GET /api/v1/app/certificate/{certId}/detail`（登录，本模块接口 2）|
 | 本模块接口 3（竞赛列表）| `GET /api/v1/app/competition/{compId}/detail`（登录，本模块接口 4）|
 | 本模块接口 3（竞赛列表）| `GET /api/v1/app/competition/{compId}/majors`（Pro，本模块接口 5）|
+| 本模块接口 7（证书分类）| 前端下拉筛选器数据源，配合接口 1 的 `category` 参数 |
 
 ---
 
@@ -635,11 +637,65 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 
 ---
 
+## 7. 证书分类列表
+
+**功能描述**：返回 `t_certificate` 表所有不重复的 `category` 值（已过滤 `is_deleted = FALSE` 且 `category` 非空），按字典序升序排列。前端用于下拉筛选器数据源。无需登录。
+
+### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/certificate/categories` |
+| 权限 | 公开 |
+| Content-Type | application/x-www-form-urlencoded（query 参数） |
+
+### 请求参数
+
+无。
+
+### 请求示例
+
+```http
+GET /api/v1/app/certificate/categories
+```
+
+### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": ["IT类", "工程类", "语言类", "财会类"],
+  "timestamp": 1717392000000
+}
+```
+
+### 响应字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| data | List\<String\> | 去重后的证书分类列表，按字典序升序 |
+
+### 行为说明
+
+1. `is_deleted = FALSE` 过滤 + `category IS NOT NULL` 过滤
+2. `SELECT DISTINCT category ... ORDER BY category`
+3. 走已有索引 `idx_cert_category`
+4. 无任何分类数据时返回空数组 `[]`
+
+### 错误响应
+
+| 场景 | code | msg |
+|------|------|-----|
+| 正常无数据 | 200 | 返回空数组 `[]` |
+
+---
+
 ## 关联表与索引说明
 
 | 表 | 关键字段 | 索引 | 使用接口 |
 |---|---|---|---|
-| `t_certificate` | `category` | `idx_cert_category` | 接口 1 |
+| `t_certificate` | `category` | `idx_cert_category` | 接口 1、接口 7 |
 | `t_certificate` | `cert_name` | `idx_cert_name_search`（btree pattern_ops）| 接口 1 |
 | `t_competition` | `comp_level` | `idx_comp_level` | 接口 3 |
 | `t_competition_detail` | `competition_id` | `uk_competition_detail_competition_id` UNIQUE | 接口 4 |
@@ -663,14 +719,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 | 4. 竞赛详情 | `compId`（path）| — | — |
 | 5. 竞赛 → 专业 | `compId`（path）| — | `page`、`size` |
 | 6. 专业 → 竞赛 | `majorId`（path）| — | `page`、`size` |
+| 7. 证书分类 | — | — | — |
 
-> 仅证书列表支持业务筛选：`category` 精准 + `certName` 模糊。其余接口仅按 `BasePageQueryDTO` 默认分页。
+> 接口 7 无任何筛选参数，直接返回全量去重分类列表。其余接口仅按 `BasePageQueryDTO` 默认分页。
 
 ---
 
 ## 接口路径速查
 
 ```
+GET  /api/v1/app/certificate/categories                        [公开]   证书分类列表（去重，下拉筛选数据源）
 GET  /api/v1/app/certificate/list                              [公开]   证书列表（category 精准 + certName 模糊）
 GET  /api/v1/app/certificate/{certId}/detail                   [登录]   证书详情
 GET  /api/v1/app/competition/list                              [公开]   竞赛列表
