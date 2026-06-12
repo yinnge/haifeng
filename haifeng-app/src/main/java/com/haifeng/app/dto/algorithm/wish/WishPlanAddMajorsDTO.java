@@ -13,5 +13,5 @@ public class WishPlanAddMajorsDTO {
     private Integer groupId;
 
     @NotEmpty(message = "请选择至少一个专业")
-    private List<Integer> majorIds;
+    private List<Long> majorIds;
 }

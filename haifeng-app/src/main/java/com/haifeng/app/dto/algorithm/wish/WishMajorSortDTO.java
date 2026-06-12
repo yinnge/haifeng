@@ -18,7 +18,7 @@ public class WishMajorSortDTO {
     @Data
     public static class MajorSortItem {
         @NotNull(message = "专业ID不能为空")
-        private Integer majorId;
+        private Long majorId;
 
         @NotNull(message = "排序号不能为空")
         private Integer sortOrder;
