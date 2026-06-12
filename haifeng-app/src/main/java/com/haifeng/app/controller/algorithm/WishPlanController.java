@@ -1,7 +1,9 @@
 package com.haifeng.app.controller.algorithm;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.algorithm.wish.WishGroupExportAllDTO;
 import com.haifeng.app.dto.algorithm.wish.WishGroupSortDTO;
+import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
@@ -82,6 +84,26 @@ public class WishPlanController {
             @PathVariable Integer groupSnapshotId,
             @Valid @RequestBody WishMajorSortDTO dto) {
         wishPlanService.updateMajorSortOrder(planId, groupSnapshotId, dto);
+        return R.ok();
+    }
+
+    @PutMapping("/{planId}/majors/{majorId}/export")
+    @OperationLog(action = "修改专业导出状态")
+    public R<Void> updateMajorExportStatus(
+            @PathVariable Integer planId,
+            @PathVariable Long majorId,
+            @Valid @RequestBody WishMajorExportDTO dto) {
+        wishPlanService.updateMajorExportStatus(planId, majorId, dto);
+        return R.ok();
+    }
+
+    @PutMapping("/{planId}/groups/{groupSnapshotId}/export-all")
+    @OperationLog(action = "批量修改专业组下专业导出状态")
+    public R<Void> batchUpdateMajorExportStatus(
+            @PathVariable Integer planId,
+            @PathVariable Integer groupSnapshotId,
+            @Valid @RequestBody WishGroupExportAllDTO dto) {
+        wishPlanService.batchUpdateMajorExportStatus(planId, groupSnapshotId, dto);
         return R.ok();
     }
 }

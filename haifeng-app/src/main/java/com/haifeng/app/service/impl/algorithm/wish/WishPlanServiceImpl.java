@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.app.dto.algorithm.wish.WishGroupExportAllDTO;
 import com.haifeng.app.dto.algorithm.wish.WishGroupSortDTO;
+import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
@@ -440,6 +442,76 @@ public class WishPlanServiceImpl implements WishPlanService {
                     .set(WishMajorSnapshot::getMajorSortOrder, item.getSortOrder());
             wishMajorSnapshotMapper.update(null, updateWrapper);
         }
+    }
+
+    // ===================== 导出状态 =====================
+
+    private static final String EXPORT_KEY_PREFIX = "haifeng:wish:export:";
+    private static final long EXPORT_KEY_EXPIRE_DAYS = 7;
+
+    @Override
+    public void updateMajorExportStatus(Integer planId, Long majorId, WishMajorExportDTO dto) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 验证专业存在
+        WishMajorSnapshot majorSnapshot = wishMajorSnapshotMapper.selectById(majorId);
+        if (majorSnapshot == null || !majorSnapshot.getPlanId().equals(planId)) {
+            throw new BusinessException(ResultCode.WISH_MAJOR_NOT_FOUND);
+        }
+
+        // 4. 存入Redis
+        String key = EXPORT_KEY_PREFIX + planId;
+        String field = "major:" + majorId + ":isExported";
+        redisTemplate.opsForHash().put(key, field, dto.getIsExported().toString());
+        redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchUpdateMajorExportStatus(Integer planId, Integer groupSnapshotId, WishGroupExportAllDTO dto) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 验证专业组存在
+        WishGroupSnapshot groupSnapshot = wishGroupSnapshotMapper.selectById(groupSnapshotId);
+        if (groupSnapshot == null || !groupSnapshot.getPlanId().equals(planId)) {
+            throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
+        }
+
+        // 4. 查询该专业组下所有专业
+        LambdaQueryWrapper<WishMajorSnapshot> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(WishMajorSnapshot::getPlanId, planId)
+                .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId);
+        List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(queryWrapper);
+
+        // 5. 批量存入Redis
+        String key = EXPORT_KEY_PREFIX + planId;
+        Map<String, String> fieldMap = new HashMap<>();
+        for (WishMajorSnapshot major : majors) {
+            String field = "major:" + major.getId() + ":isExported";
+            fieldMap.put(field, dto.getIsExported().toString());
+        }
+        redisTemplate.opsForHash().putAll(key, fieldMap);
+        redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
     }
 
     // ===================== 私有方法 =====================

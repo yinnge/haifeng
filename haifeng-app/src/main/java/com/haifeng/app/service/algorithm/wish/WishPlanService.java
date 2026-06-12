@@ -1,7 +1,9 @@
 package com.haifeng.app.service.algorithm.wish;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.algorithm.wish.WishGroupExportAllDTO;
 import com.haifeng.app.dto.algorithm.wish.WishGroupSortDTO;
+import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
@@ -51,4 +53,22 @@ public interface WishPlanService {
      * @param dto            排序DTO
      */
     void updateMajorSortOrder(Integer planId, Integer groupSnapshotId, WishMajorSortDTO dto);
+
+    /**
+     * 修改专业导出状态（存Redis）
+     *
+     * @param planId   志愿方案ID
+     * @param majorId  专业ID
+     * @param dto      导出状态DTO
+     */
+    void updateMajorExportStatus(Integer planId, Long majorId, WishMajorExportDTO dto);
+
+    /**
+     * 批量修改专业组下专业导出状态（存Redis）
+     *
+     * @param planId         志愿方案ID
+     * @param groupSnapshotId 专业组快照ID
+     * @param dto            导出状态DTO
+     */
+    void batchUpdateMajorExportStatus(Integer planId, Integer groupSnapshotId, WishGroupExportAllDTO dto);
 }
