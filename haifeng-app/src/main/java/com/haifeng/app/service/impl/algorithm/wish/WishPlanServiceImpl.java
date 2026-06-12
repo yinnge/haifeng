@@ -381,8 +381,20 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 2. 批量更新专业组排序
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 批量更新专业组排序
         for (WishGroupSortDTO.GroupSortItem item : dto.getItems()) {
+            // 验证专业组属于该志愿方案
+            WishGroupSnapshot groupSnapshot = wishGroupSnapshotMapper.selectById(item.getGroupId());
+            if (groupSnapshot == null || !groupSnapshot.getPlanId().equals(planId)) {
+                throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
+            }
+
             LambdaUpdateWrapper<WishGroupSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
             updateWrapper.eq(WishGroupSnapshot::getPlanId, planId)
                     .eq(WishGroupSnapshot::getId, item.getGroupId())
@@ -400,14 +412,27 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 2. 验证专业组存在
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 验证专业组存在
         WishGroupSnapshot groupSnapshot = wishGroupSnapshotMapper.selectById(groupSnapshotId);
         if (groupSnapshot == null || !groupSnapshot.getPlanId().equals(planId)) {
             throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
         }
 
-        // 3. 批量更新专业排序
+        // 4. 批量更新专业排序
         for (WishMajorSortDTO.MajorSortItem item : dto.getItems()) {
+            // 验证专业属于该志愿方案和专业组
+            WishMajorSnapshot majorSnapshot = wishMajorSnapshotMapper.selectById(item.getMajorId());
+            if (majorSnapshot == null || !majorSnapshot.getPlanId().equals(planId) ||
+                !majorSnapshot.getGroupSnapshotId().equals(groupSnapshotId)) {
+                throw new BusinessException(ResultCode.WISH_MAJOR_NOT_FOUND);
+            }
+
             LambdaUpdateWrapper<WishMajorSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
             updateWrapper.eq(WishMajorSnapshot::getPlanId, planId)
                     .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)

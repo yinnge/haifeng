@@ -28,6 +28,7 @@ public enum ResultCode {
     CONSTRAINT_NOT_FOUND(1012, "约束代码不存在"),
     WISH_PLAN_NOT_FOUND(1020, "志愿方案不存在"),
     WISH_GROUP_NOT_FOUND(1021, "志愿方案专业组不存在"),
+    WISH_MAJOR_NOT_FOUND(1022, "志愿方案专业不存在"),
     TOTP_REQUIRED(20001, "需进行二次验证");
 
     private final Integer code;
