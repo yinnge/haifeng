@@ -89,4 +89,11 @@ public interface WishPlanService {
      * @return 下载文件VO
      */
     WishPlanExportFileVO downloadExportFile(Integer planId);
+
+    /**
+     * 保存导出状态到数据库
+     *
+     * @param planId 志愿方案ID
+     */
+    void saveExportStatusToDatabase(Integer planId);
 }

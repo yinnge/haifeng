@@ -121,4 +121,11 @@ public class WishPlanController {
     public R<WishPlanExportFileVO> downloadExportFile(@PathVariable Integer planId) {
         return R.ok(wishPlanService.downloadExportFile(planId));
     }
+
+    @PostMapping("/{planId}/export/save")
+    @OperationLog(action = "保存导出状态到数据库")
+    public R<Void> saveExportStatusToDatabase(@PathVariable Integer planId) {
+        wishPlanService.saveExportStatusToDatabase(planId);
+        return R.ok();
+    }
 }

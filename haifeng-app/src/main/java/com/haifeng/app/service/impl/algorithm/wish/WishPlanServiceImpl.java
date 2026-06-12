@@ -627,6 +627,52 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .build();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveExportStatusToDatabase(Integer planId) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 从Redis获取所有is_exported状态
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
+        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+
+        if (entries.isEmpty()) {
+            return;
+        }
+
+        // 4. 批量更新数据库
+        for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+            String field = entry.getKey().toString();
+            String value = entry.getValue().toString();
+
+            if (field.startsWith("major:") && field.endsWith(":isExported")) {
+                Integer majorId = Integer.parseInt(field.replace("major:", "").replace(":isExported", ""));
+                Boolean isExported = Boolean.parseBoolean(value);
+
+                LambdaUpdateWrapper<WishMajorSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
+                updateWrapper.eq(WishMajorSnapshot::getId, majorId)
+                        .eq(WishMajorSnapshot::getPlanId, planId)
+                        .set(WishMajorSnapshot::getIsExported, isExported);
+                wishMajorSnapshotMapper.update(null, updateWrapper);
+            }
+        }
+
+        // 5. 删除Redis缓存
+        redisTemplate.delete(key);
+
+        log.info("会员 {} 保存导出状态到数据库 planId={}", currentMemberId, planId);
+    }
+
     private Set<Integer> getExportMajors(Integer planId) {
         String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
         Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
