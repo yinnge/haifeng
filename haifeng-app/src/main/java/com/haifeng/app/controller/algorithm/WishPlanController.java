@@ -91,7 +91,7 @@ public class WishPlanController {
     @OperationLog(action = "修改专业导出状态")
     public R<Void> updateMajorExportStatus(
             @PathVariable Integer planId,
-            @PathVariable Long majorId,
+            @PathVariable Integer majorId,
             @Valid @RequestBody WishMajorExportDTO dto) {
         wishPlanService.updateMajorExportStatus(planId, majorId, dto);
         return R.ok();

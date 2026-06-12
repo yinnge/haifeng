@@ -61,7 +61,7 @@ public interface WishPlanService {
      * @param majorId  专业ID
      * @param dto      导出状态DTO
      */
-    void updateMajorExportStatus(Integer planId, Long majorId, WishMajorExportDTO dto);
+    void updateMajorExportStatus(Integer planId, Integer majorId, WishMajorExportDTO dto);
 
     /**
      * 批量修改专业组下专业导出状态（存Redis）

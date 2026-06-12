@@ -446,11 +446,10 @@ public class WishPlanServiceImpl implements WishPlanService {
 
     // ===================== 导出状态 =====================
 
-    private static final String EXPORT_KEY_PREFIX = "haifeng:wish:export:";
     private static final long EXPORT_KEY_EXPIRE_DAYS = 7;
 
     @Override
-    public void updateMajorExportStatus(Integer planId, Long majorId, WishMajorExportDTO dto) {
+    public void updateMajorExportStatus(Integer planId, Integer majorId, WishMajorExportDTO dto) {
         // 1. 验证志愿方案存在
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
         if (wishPlan == null || wishPlan.getDeleted()) {
@@ -470,14 +469,17 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
 
         // 4. 存入Redis
-        String key = EXPORT_KEY_PREFIX + planId;
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
         String field = "major:" + majorId + ":isExported";
-        redisTemplate.opsForHash().put(key, field, dto.getIsExported().toString());
-        redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
+        try {
+            redisTemplate.opsForHash().put(key, field, dto.getIsExported().toString());
+            redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("Redis 写入导出状态失败: key={}, field={}", key, field, e);
+        }
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void batchUpdateMajorExportStatus(Integer planId, Integer groupSnapshotId, WishGroupExportAllDTO dto) {
         // 1. 验证志愿方案存在
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
@@ -504,14 +506,18 @@ public class WishPlanServiceImpl implements WishPlanService {
         List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(queryWrapper);
 
         // 5. 批量存入Redis
-        String key = EXPORT_KEY_PREFIX + planId;
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
         Map<String, String> fieldMap = new HashMap<>();
         for (WishMajorSnapshot major : majors) {
             String field = "major:" + major.getId() + ":isExported";
             fieldMap.put(field, dto.getIsExported().toString());
         }
-        redisTemplate.opsForHash().putAll(key, fieldMap);
-        redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
+        try {
+            redisTemplate.opsForHash().putAll(key, fieldMap);
+            redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("Redis 批量写入导出状态失败: key={}", key, e);
+        }
     }
 
     // ===================== 私有方法 =====================

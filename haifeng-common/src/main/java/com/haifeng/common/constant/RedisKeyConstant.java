@@ -39,6 +39,23 @@ public final class RedisKeyConstant {
     public static final String ADMIN_PRE_AUTH_PREFIX = "haifeng:admin:pre-auth:";
 
     /**
+     * 安全系数 ZSet 缓存
+     * member: groupId, score: safetyLevel (0.00~1.00)
+     */
+    public static final String ALGO_SAFETY_ZSET_PREFIX = "haifeng:algo:safety:zset:";
+
+    /**
+     * 安全系数全量计算分布式锁
+     */
+    public static final String ALGO_SAFETY_LOCK_PREFIX = "haifeng:algo:safety:lock:";
+
+    /**
+     * 志愿方案默认数量限制缓存
+     * value: WishPlanLimitVO (5 个字段: 搏/冲/稳/保/垫)
+     */
+    public static final String WISH_PLAN_DEFAULT_LIMITS_KEY = "haifeng:wish-plan:default-limits";
+
+    /**
      * 获取 RefreshToken 的 Redis Key
      *
      * @param userId   用户ID
@@ -99,6 +116,40 @@ public final class RedisKeyConstant {
     public static String getAdminPreAuthKey(String token) {
         return ADMIN_PRE_AUTH_PREFIX + token;
     }
+
+    /**
+     * 获取安全系数 ZSet 缓存 Key
+     *
+     * @param memberId      用户ID
+     * @param year          高考年份(按用户档案 gaokaoYear 强制带入,避免不同年份缓存串)
+     * @param batch         批次
+     * @param subjectFilter 是否启用选科筛选
+     * @return Redis Key
+     */
+    public static String getAlgoSafetyZSetKey(Long memberId, Short year, String batch, boolean subjectFilter) {
+        return ALGO_SAFETY_ZSET_PREFIX + memberId + ":" + year + ":" + batch + ":" + subjectFilter;
+    }
+
+    /**
+     * 获取安全系数全量计算分布式锁 Key
+     *
+     * @param year 高考年份
+     */
+    public static String getAlgoSafetyLockKey(Long memberId, Short year, String batch, boolean subjectFilter) {
+        return ALGO_SAFETY_LOCK_PREFIX + memberId + ":" + year + ":" + batch + ":" + subjectFilter;
+    }
+
+    /**
+     * 大学 tags 字典缓存
+     * value: List<String>(去重后的全部 tags)
+     */
+    public static final String UNIVERSITY_TAGS_DISTINCT_KEY = "haifeng:university:tags:distinct";
+
+    /**
+     * 志愿方案导出状态缓存
+     * hash key: planId, field: major:{majorId}:isExported
+     */
+    public static final String WISH_EXPORT_PREFIX = "haifeng:wish:export:";
 
     /**
      * 首页 - 公告缓存
