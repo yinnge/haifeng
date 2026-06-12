@@ -6,6 +6,8 @@ import com.haifeng.app.dto.algorithm.wish.WishGroupSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
@@ -71,4 +73,20 @@ public interface WishPlanService {
      * @param dto            导出状态DTO
      */
     void batchUpdateMajorExportStatus(Integer planId, Integer groupSnapshotId, WishGroupExportAllDTO dto);
+
+    /**
+     * 获取导出进度（SSE）
+     *
+     * @param planId 志愿方案ID
+     * @return 导出进度VO
+     */
+    WishPlanExportProgressVO getExportProgress(Integer planId);
+
+    /**
+     * 下载导出文件
+     *
+     * @param planId 志愿方案ID
+     * @return 下载文件VO
+     */
+    WishPlanExportFileVO downloadExportFile(Integer planId);
 }

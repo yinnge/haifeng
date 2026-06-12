@@ -11,6 +11,8 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
@@ -518,6 +520,101 @@ public class WishPlanServiceImpl implements WishPlanService {
         } catch (Exception e) {
             log.warn("Redis 批量写入导出状态失败: key={}", key, e);
         }
+    }
+
+    @Override
+    public WishPlanExportProgressVO getExportProgress(Integer planId) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 查询专业组数量
+        LambdaQueryWrapper<WishGroupSnapshot> groupQuery = new LambdaQueryWrapper<>();
+        groupQuery.eq(WishGroupSnapshot::getPlanId, planId);
+        long totalGroups = wishGroupSnapshotMapper.selectCount(groupQuery);
+
+        // 4. 查询已导出的专业数量
+        Set<Integer> exportMajors = getExportMajors(planId);
+        int completedGroups = 0;
+
+        // 5. 计算进度
+        int percentage = totalGroups > 0 ? (int) (completedGroups * 100 / totalGroups) : 0;
+
+        return WishPlanExportProgressVO.builder()
+                .totalGroups((int) totalGroups)
+                .completedGroups(completedGroups)
+                .percentage(percentage)
+                .status("processing")
+                .message("正在准备导出...")
+                .build();
+    }
+
+    @Override
+    public WishPlanExportFileVO downloadExportFile(Integer planId) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 3. 查询专业组和专业数据
+        LambdaQueryWrapper<WishGroupSnapshot> groupQuery = new LambdaQueryWrapper<>();
+        groupQuery.eq(WishGroupSnapshot::getPlanId, planId)
+                .orderByAsc(WishGroupSnapshot::getGroupSortOrder);
+        List<WishGroupSnapshot> groups = wishGroupSnapshotMapper.selectList(groupQuery);
+
+        Map<Integer, List<WishMajorSnapshot>> majorsMap = new HashMap<>();
+        for (WishGroupSnapshot group : groups) {
+            LambdaQueryWrapper<WishMajorSnapshot> majorQuery = new LambdaQueryWrapper<>();
+            majorQuery.eq(WishMajorSnapshot::getPlanId, planId)
+                    .eq(WishMajorSnapshot::getGroupSnapshotId, group.getId())
+                    .orderByAsc(WishMajorSnapshot::getMajorSortOrder);
+            List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(majorQuery);
+            majorsMap.put(group.getId(), majors);
+        }
+
+        // 4. 获取导出的专业
+        Set<Integer> exportMajors = getExportMajors(planId);
+
+        // 5. 生成Excel文件（简化实现，实际应保存到临时目录）
+        String fileName = wishPlan.getPlanName() + ".xlsx";
+        String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download";
+
+        return WishPlanExportFileVO.builder()
+                .downloadUrl(downloadUrl)
+                .fileName(fileName)
+                .build();
+    }
+
+    private Set<Integer> getExportMajors(Integer planId) {
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
+        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+
+        Set<Integer> exportMajors = new HashSet<>();
+        for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+            String field = entry.getKey().toString();
+            String value = entry.getValue().toString();
+            if (field.startsWith("major:") && field.endsWith(":isExported") && "true".equals(value)) {
+                Integer majorId = Integer.parseInt(field.replace("major:", "").replace(":isExported", ""));
+                exportMajors.add(majorId);
+            }
+        }
+
+        return exportMajors;
     }
 
     // ===================== 私有方法 =====================

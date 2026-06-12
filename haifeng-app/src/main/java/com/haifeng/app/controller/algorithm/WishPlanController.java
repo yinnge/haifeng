@@ -7,12 +7,15 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
+import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanMajorVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -105,5 +108,17 @@ public class WishPlanController {
             @Valid @RequestBody WishGroupExportAllDTO dto) {
         wishPlanService.batchUpdateMajorExportStatus(planId, groupSnapshotId, dto);
         return R.ok();
+    }
+
+    @GetMapping("/{planId}/export/progress")
+    @RequirePro
+    public R<WishPlanExportProgressVO> getExportProgress(@PathVariable Integer planId) {
+        return R.ok(wishPlanService.getExportProgress(planId));
+    }
+
+    @GetMapping("/{planId}/export/download")
+    @RequirePro
+    public R<WishPlanExportFileVO> downloadExportFile(@PathVariable Integer planId) {
+        return R.ok(wishPlanService.downloadExportFile(planId));
     }
 }
