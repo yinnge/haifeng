@@ -17,6 +17,7 @@ import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanMajorVO;
+import com.haifeng.app.util.algorithm.wish.WishPlanExcelUtil;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.algorithm.*;
 import com.haifeng.common.entity.algorithm.wish.WishGroupSnapshot;
@@ -45,6 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -72,6 +76,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     private final ScoreRankMapper scoreRankMapper;
     private final ProvinceConfigMapper provinceConfigMapper;
     private final ProvinceReformMapper provinceReformMapper;
+    private final WishPlanExcelUtil wishPlanExcelUtil;
 
     @Override
     public WishPlanLimitVO getDefaultLimits() {
@@ -541,11 +546,22 @@ public class WishPlanServiceImpl implements WishPlanService {
         groupQuery.eq(WishGroupSnapshot::getPlanId, planId);
         long totalGroups = wishGroupSnapshotMapper.selectCount(groupQuery);
 
-        // 4. 查询已导出的专业数量
+        // 4. 查询已导出的专业
         Set<Integer> exportMajors = getExportMajors(planId);
-        int completedGroups = 0;
 
-        // 5. 计算进度
+        // 5. 计算已完成的专业组数量（包含至少一个导出专业的专业组）
+        int completedGroups = 0;
+        if (!exportMajors.isEmpty()) {
+            LambdaQueryWrapper<WishMajorSnapshot> majorQuery = new LambdaQueryWrapper<>();
+            majorQuery.eq(WishMajorSnapshot::getPlanId, planId)
+                    .in(WishMajorSnapshot::getId, exportMajors)
+                    .select(WishMajorSnapshot::getGroupSnapshotId)
+                    .groupBy(WishMajorSnapshot::getGroupSnapshotId);
+            List<WishMajorSnapshot> completedMajors = wishMajorSnapshotMapper.selectList(majorQuery);
+            completedGroups = completedMajors.size();
+        }
+
+        // 6. 计算进度
         int percentage = totalGroups > 0 ? (int) (completedGroups * 100 / totalGroups) : 0;
 
         return WishPlanExportProgressVO.builder()
@@ -590,9 +606,20 @@ public class WishPlanServiceImpl implements WishPlanService {
         // 4. 获取导出的专业
         Set<Integer> exportMajors = getExportMajors(planId);
 
-        // 5. 生成Excel文件（简化实现，实际应保存到临时目录）
+        // 5. 生成Excel文件到临时目录
         String fileName = wishPlan.getPlanName() + ".xlsx";
-        String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download";
+        String tempDir = System.getProperty("java.io.tmpdir");
+        String filePath = tempDir + File.separator + fileName;
+
+        try (FileOutputStream outputStream = new FileOutputStream(filePath)) {
+            wishPlanExcelUtil.exportToExcel(outputStream, wishPlan, groups, majorsMap, exportMajors);
+        } catch (IOException e) {
+            log.error("生成Excel文件失败", e);
+            throw new BusinessException(ResultCode.EXPORT_FAILED);
+        }
+
+        // 6. 返回文件信息（实际项目中应该返回临时文件的访问URL）
+        String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download?file=" + fileName;
 
         return WishPlanExportFileVO.builder()
                 .downloadUrl(downloadUrl)
