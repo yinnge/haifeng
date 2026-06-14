@@ -37,6 +37,31 @@ public class SystemSettings {
     private Integer vipPrice;
 
     /**
+     * 默认志愿表「搏」档（reach high）数量
+     */
+    private Integer reachHighCount;
+
+    /**
+     * 默认志愿表「冲」档（reach）数量
+     */
+    private Integer reachCount;
+
+    /**
+     * 默认志愿表「稳」档（match）数量
+     */
+    private Integer matchCount;
+
+    /**
+     * 默认志愿表「保」档（safe）数量
+     */
+    private Integer safeCount;
+
+    /**
+     * 默认志愿表「垫」档（floor）数量
+     */
+    private Integer floorCount;
+
+    /**
      * Pro会员提成比例（0-100），代表0%到100%
      */
     private Integer proCommissionRate;

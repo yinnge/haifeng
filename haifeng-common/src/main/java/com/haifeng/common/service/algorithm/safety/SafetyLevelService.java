@@ -4,6 +4,7 @@ import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.entity.algorithm.SafetyLevelDict;
+import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 
 import java.math.BigDecimal;
@@ -26,6 +27,24 @@ public interface SafetyLevelService {
                                           AdmissionGroup group,
                                           List<AdmissionGroup> historyGroups,
                                           List<String> userConstraints);
+
+    /**
+     * 计算专业明细的安全系数（基于预聚合上下文）
+     * 使用 SafetyCalcContext 中预查询的密度、省份配置、专业历史等数据，
+     * 避免在循环中重复查询数据库
+     *
+     * @param gaokao          用户档案
+     * @param major           专业明细
+     * @param group           所属专业组
+     * @param userConstraints 用户触发的约束 codes
+     * @param context         预聚合上下文
+     * @return 计算结果
+     */
+    SafetyCalcResult calculateMajorSafety(MemberGaokao gaokao,
+                                          AdmissionMajorScore major,
+                                          AdmissionGroup group,
+                                          List<String> userConstraints,
+                                          SafetyCalcContext context);
 
     /**
      * 根据系数获取等级信息

@@ -16,4 +16,10 @@ public interface SafetyLevelDictMapper extends BaseMapper<SafetyLevelDict> {
 
     @Select("SELECT * FROM t_safety_level_dict ORDER BY level ASC")
     java.util.List<SafetyLevelDict> selectAll();
+
+    @Select("SELECT COUNT(*) FROM t_safety_level_dict WHERE code = #{code}")
+    int countByCode(@Param("code") String code);
+
+    @Select("SELECT COUNT(*) FROM t_safety_level_dict WHERE code = #{code} AND level != #{excludeLevel}")
+    int countByCodeExclude(@Param("code") String code, @Param("excludeLevel") Short excludeLevel);
 }

@@ -49,6 +49,12 @@ public class AdmissionGroup {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> constraints;
 
+    /**
+     * 约束的可读描述（与 constraints 一一对应或独立列表）
+     */
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> constraintsDescription;
+
     private Integer majorCount;
 
     private Integer categoryCount;
