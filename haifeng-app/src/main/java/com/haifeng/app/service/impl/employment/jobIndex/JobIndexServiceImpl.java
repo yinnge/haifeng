@@ -67,7 +67,7 @@ public class JobIndexServiceImpl implements JobIndexService {
             wrapper.le(JobIndex::getRegDeadline, toEndOfDay(dto.getRegDeadlineEnd()));
         }
 
-        wrapper.orderByDesc(JobIndex::getPublishDate);
+        wrapper.orderByDesc(JobIndex::getPublishDate).last("NULLS LAST");
 
         Page<JobIndex> page = new Page<>(dto.getPage(), dto.getSize());
         jobIndexMapper.selectPage(page, wrapper);
