@@ -3,6 +3,7 @@ package com.haifeng.common.mapper.certificate;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.certificate.Certificate;
 import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
