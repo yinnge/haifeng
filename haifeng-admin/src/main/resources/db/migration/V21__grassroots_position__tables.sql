@@ -11,7 +11,7 @@ BEGIN;
 -- 1. 基层服务项目岗位表 (t_grassroots_project_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_grassroots_project_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 项目分类 ====================
     project_type                VARCHAR(30)     NOT NULL,
@@ -164,7 +164,7 @@ COMMENT ON COLUMN t_grassroots_project_position.content                         
 -- 2. 社区工作者岗位表 (t_community_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_community_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 招聘单位 ====================
     street_office               VARCHAR(200)    NOT NULL,
@@ -308,7 +308,7 @@ COMMENT ON COLUMN t_community_position.content                  IS '详细说明
 -- 3. 公益性岗位表 (t_public_welfare_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_public_welfare_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 开发单位 ====================
     developing_unit             VARCHAR(200)    NOT NULL,

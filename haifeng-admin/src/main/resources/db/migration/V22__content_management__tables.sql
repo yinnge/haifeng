@@ -12,7 +12,7 @@ BEGIN;
 -- 说明：替代 t_civil_methodology + t_institution_guide + 未来军队文职备考
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_exam_guide (
-    id                      SERIAL          PRIMARY KEY,
+    id                      BIGINT          PRIMARY KEY,
 
     -- ==================== 分类 ====================
     guide_category          VARCHAR(30)     NOT NULL,
@@ -106,7 +106,7 @@ COMMENT ON COLUMN t_exam_guide.like_count           IS '点赞数';
 -- 说明：替代 t_recruitment_notice + t_institution_notice + t_military_notice
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_notice (
-    id                      SERIAL          PRIMARY KEY,
+    id                      BIGINT          PRIMARY KEY,
 
     -- ==================== 分类 ====================
     notice_category         VARCHAR(30)     NOT NULL,

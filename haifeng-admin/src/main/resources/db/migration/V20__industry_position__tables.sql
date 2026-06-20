@@ -11,7 +11,7 @@ BEGIN;
 -- 1. 教师招聘岗位表 (t_teacher_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_teacher_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 学校信息 ====================
     school_name                 VARCHAR(200)    NOT NULL,
@@ -158,7 +158,7 @@ COMMENT ON COLUMN t_teacher_position.content                    IS '详细说明
 -- 2. 医疗卫生招聘岗位表 (t_healthcare_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_healthcare_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 机构信息 ====================
     institution_name            VARCHAR(200)    NOT NULL,
@@ -314,7 +314,7 @@ COMMENT ON COLUMN t_healthcare_position.content                     IS '详细�
 -- 3. 银行/金融系统岗位表 (t_finance_position)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_finance_position (
-    id                          SERIAL          PRIMARY KEY,
+    id                          BIGINT          PRIMARY KEY,
 
     -- ==================== 机构信息 ====================
     institution_name            VARCHAR(200)    NOT NULL,
@@ -338,13 +338,13 @@ CREATE TABLE IF NOT EXISTS t_finance_position (
     education_requirement       VARCHAR(30),
     degree_requirement          VARCHAR(30),
     major_requirement           VARCHAR(500),
-    major_preference            TEXT[]          DEFAULT '{}',
+    major_preference            JSONB           DEFAULT '[]'::jsonb,
     age_limit                   INTEGER,
     work_experience             VARCHAR(50),
     recruitment_count           INTEGER,
 
     -- ==================== 金融行业特殊要求 ====================
-    cert_requirements           TEXT[]          DEFAULT '{}',
+    cert_requirements           JSONB           DEFAULT '[]'::jsonb,
     language_requirement        VARCHAR(100),
     computer_requirement        VARCHAR(100),
     other_requirement           TEXT,
@@ -408,8 +408,8 @@ CREATE INDEX idx_fin_pos_category  ON t_finance_position (position_category) WHE
 CREATE INDEX idx_fin_location      ON t_finance_position (province, city) WHERE is_deleted = FALSE;
 CREATE INDEX idx_fin_composite     ON t_finance_position (institution_category, recruitment_type, province) WHERE is_deleted = FALSE;
 CREATE INDEX idx_fin_education     ON t_finance_position (education_requirement) WHERE is_deleted = FALSE;
-CREATE INDEX idx_fin_certs         ON t_finance_position USING gin (cert_requirements) WHERE is_deleted = FALSE;
-CREATE INDEX idx_fin_major_pref    ON t_finance_position USING gin (major_preference) WHERE is_deleted = FALSE;
+CREATE INDEX idx_fin_certs         ON t_finance_position USING gin (cert_requirements jsonb_path_ops) WHERE is_deleted = FALSE;
+CREATE INDEX idx_fin_major_pref    ON t_finance_position USING gin (major_preference jsonb_path_ops) WHERE is_deleted = FALSE;
 CREATE INDEX idx_fin_inst_name     ON t_finance_position USING btree (institution_name varchar_pattern_ops) WHERE is_deleted = FALSE;
 CREATE INDEX idx_fin_pos_name      ON t_finance_position USING btree (position_name varchar_pattern_ops) WHERE is_deleted = FALSE;
 CREATE INDEX idx_fin_salary        ON t_finance_position (salary_min, salary_max) WHERE is_deleted = FALSE;
