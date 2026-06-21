@@ -35,10 +35,6 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
                     .like(PublicWelfarePosition::getDevelopingUnit, dto.getKeyword())
                     .or()
                     .like(PublicWelfarePosition::getEmployingUnit, dto.getKeyword())
-                    .or()
-                    .like(PublicWelfarePosition::getProvince, dto.getKeyword())
-                    .or()
-                    .like(PublicWelfarePosition::getCity, dto.getKeyword())
             );
         }
 
@@ -48,6 +44,17 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
         wrapper.eq(StrUtil.isNotBlank(dto.getDistrict()), PublicWelfarePosition::getDistrict, dto.getDistrict());
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), PublicWelfarePosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), PublicWelfarePosition::getPositionStatus, dto.getPositionStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getHouseholdRequirement()), PublicWelfarePosition::getHouseholdRequirement, dto.getHouseholdRequirement());
+        if (dto.getMaxServiceYears() != null) {
+            wrapper.eq(PublicWelfarePosition::getMaxServiceYears, dto.getMaxServiceYears());
+        }
+
+        if (dto.getAgeRangeMin() != null) {
+            wrapper.apply("age_range IS NOT NULL AND (string_to_array(age_range, '-'))[1]::int >= {0}", dto.getAgeRangeMin());
+        }
+        if (dto.getAgeRangeMax() != null) {
+            wrapper.apply("age_range IS NOT NULL AND (string_to_array(age_range, '-'))[2]::int <= {0}", dto.getAgeRangeMax());
+        }
 
         if (StrUtil.isNotBlank(dto.getTargetGroup())) {
             wrapper.apply("target_group @> ARRAY[{0}]::text[]", dto.getTargetGroup());
@@ -70,8 +77,10 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
                 .educationRequirement(p.getEducationRequirement())
                 .recruitmentCount(p.getRecruitmentCount())
                 .monthlySalary(p.getMonthlySalary())
-                .householdRequirement(p.getHouseholdRequirement())
                 .contractPeriod(p.getContractPeriod())
+                .maxServiceYears(p.getMaxServiceYears())
+                .regStartDate(p.getRegStartDate())
+                .regEndDate(p.getRegEndDate())
                 .build());
     }
 

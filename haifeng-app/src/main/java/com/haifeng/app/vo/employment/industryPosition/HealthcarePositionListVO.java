@@ -33,9 +33,11 @@ public class HealthcarePositionListVO implements Serializable {
 
     private String district;
 
-    private String educationRequirement;
+    private Integer ageLimit;
 
-    private String majorRequirement;
+    private Integer recruitmentCount;
+
+    private String salaryRange;
 
     private String workExperience;
 

@@ -26,7 +26,7 @@ public class HealthcarePositionSearchDTO extends BasePageQueryDTO {
 
     private String district;
 
-    private String educationRequirement;
+    private Integer ageLimit;
 
     private String positionStatus;
 }

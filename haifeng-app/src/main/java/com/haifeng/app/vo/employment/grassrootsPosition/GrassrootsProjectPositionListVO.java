@@ -30,7 +30,5 @@ public class GrassrootsProjectPositionListVO implements Serializable {
     private String majorRequirement;
     private Integer ageLimit;
     private Integer recruitmentCount;
-    private String gradYearRequirement;
-    private String positionStatus;
     private String politicalStatus;
 }

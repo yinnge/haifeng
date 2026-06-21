@@ -34,8 +34,6 @@ public class CivilPositionServiceImpl implements CivilPositionService {
                     .or()
                     .like(CivilPosition::getRecruitingDept, dto.getKeyword())
                     .or()
-                    .like(CivilPosition::getMajorRequirement, dto.getKeyword())
-                    .or()
                     .like(CivilPosition::getWorkLocation, dto.getKeyword())
             );
         }
@@ -44,6 +42,7 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionCode()), CivilPosition::getPositionCode, dto.getPositionCode());
         wrapper.eq(StrUtil.isNotBlank(dto.getDeptCode()), CivilPosition::getDeptCode, dto.getDeptCode());
         wrapper.eq(StrUtil.isNotBlank(dto.getMinEducation()), CivilPosition::getMinEducation, dto.getMinEducation());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), CivilPosition::getMajorRequirement, dto.getMajorRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), CivilPosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), CivilPosition::getPoliticalStatus, dto.getPoliticalStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getExamCategory()), CivilPosition::getExamCategory, dto.getExamCategory());

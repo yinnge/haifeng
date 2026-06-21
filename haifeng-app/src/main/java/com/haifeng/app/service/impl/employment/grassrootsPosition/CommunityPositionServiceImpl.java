@@ -37,12 +37,6 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
                     .like(CommunityPosition::getCommunityName, dto.getKeyword())
                     .or()
                     .like(CommunityPosition::getSupervisingDept, dto.getKeyword())
-                    .or()
-                    .like(CommunityPosition::getDistrict, dto.getKeyword())
-                    .or()
-                    .like(CommunityPosition::getWorkLocation, dto.getKeyword())
-                    .or()
-                    .like(CommunityPosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
@@ -52,8 +46,16 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getCity()), CommunityPosition::getCity, dto.getCity());
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), CommunityPosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), CommunityPosition::getPoliticalStatus, dto.getPoliticalStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), CommunityPosition::getMajorRequirement, dto.getMajorRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getWorkExperience()), CommunityPosition::getWorkExperience, dto.getWorkExperience());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), CommunityPosition::getPositionStatus, dto.getPositionStatus());
+
+        if (dto.getAgeLimitMin() != null) {
+            wrapper.ge(CommunityPosition::getAgeLimit, dto.getAgeLimitMin());
+        }
+        if (dto.getAgeLimitMax() != null) {
+            wrapper.le(CommunityPosition::getAgeLimit, dto.getAgeLimitMax());
+        }
 
         wrapper.orderByDesc(CommunityPosition::getCreatedAt);
 
@@ -73,7 +75,6 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
                 .recruitmentCount(p.getRecruitmentCount())
                 .majorRequirement(p.getMajorRequirement())
                 .workExperience(p.getWorkExperience())
-                .positionStatus(p.getPositionStatus())
                 .build());
     }
 

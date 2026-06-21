@@ -35,19 +35,19 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
                     .like(SelectionPosition::getTargetUnit, dto.getKeyword())
                     .or()
                     .like(SelectionPosition::getWorkLocation, dto.getKeyword())
-                    .or()
-                    .like(SelectionPosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
         wrapper.eq(StrUtil.isNotBlank(dto.getSelectionType()), SelectionPosition::getSelectionType, dto.getSelectionType());
         wrapper.eq(StrUtil.isNotBlank(dto.getYear()), SelectionPosition::getYear, dto.getYear());
         wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), SelectionPosition::getProvince, dto.getProvince());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), SelectionPosition::getMajorRequirement, dto.getMajorRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getUniversityRequirement()), SelectionPosition::getUniversityRequirement, dto.getUniversityRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), SelectionPosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), SelectionPosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), SelectionPosition::getPoliticalStatus, dto.getPoliticalStatus());
         if (dto.getAgeLimit() != null) {
-            wrapper.eq(SelectionPosition::getAgeLimit, dto.getAgeLimit());
+            wrapper.ge(SelectionPosition::getAgeLimit, dto.getAgeLimit());
         }
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), SelectionPosition::getPositionStatus, dto.getPositionStatus());
 

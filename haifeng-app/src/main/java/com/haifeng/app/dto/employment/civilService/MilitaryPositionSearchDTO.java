@@ -14,4 +14,5 @@ public class MilitaryPositionSearchDTO extends BasePageQueryDTO {
     private String educationRequirement;
     private String positionStatus;
     private String workLocation;
+    private String majorRequirement;
 }

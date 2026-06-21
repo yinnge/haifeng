@@ -35,12 +35,11 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
                     .like(MilitaryPosition::getEmployerUnit, dto.getKeyword())
                     .or()
                     .like(MilitaryPosition::getDepartment, dto.getKeyword())
-                    .or()
-                    .like(MilitaryPosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionType()), MilitaryPosition::getPositionType, dto.getPositionType());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), MilitaryPosition::getMajorRequirement, dto.getMajorRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), MilitaryPosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), MilitaryPosition::getPositionStatus, dto.getPositionStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getWorkLocation()), MilitaryPosition::getWorkLocation, dto.getWorkLocation());

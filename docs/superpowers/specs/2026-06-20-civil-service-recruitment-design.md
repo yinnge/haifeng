@@ -1,4 +1,4 @@
-# 体制内招录模块设计文档
+``# 体制内招录模块设计文档
 
 ## 概述
 
@@ -46,12 +46,12 @@ app (dto + vo + service + impl + controller)
 - `keyword` — 模糊搜索，OR 查询所有模糊字段
 - 各精确查询字段 — eq 匹配
 
-| DTO | 模糊字段 (keyword OR) | 精确字段 (eq) |
-|---|---|---|
-| CivilPositionSearchDTO | positionName, recruitingDept, majorRequirement, workLocation | examType, positionCode, deptCode, minEducation, degreeRequirement, politicalStatus, examCategory |
-| InstitutionPositionSearchDTO | positionName, supervisingDept, institution, workLocation | province, examCategory, positionType, educationRequirement, degreeRequirement, positionStatus, specialPosition |
-| MilitaryPositionSearchDTO | positionName, employerUnit, department, majorRequirement | positionType, educationRequirement, positionStatus, workLocation |
-| SelectionPositionSearchDTO | positionName, targetUnit, workLocation, majorRequirement | selectionType, year, province, educationRequirement, degreeRequirement, politicalStatus, ageLimit, positionStatus |
+| DTO | 模糊字段 (keyword OR) | 精确字段 (eq) | 判断查询 |
+|---|---|---|---|---|
+| CivilPositionSearchDTO | positionName, recruitingDept, workLocation | examType, positionCode, deptCode, minEducation, majorRequirement, degreeRequirement, politicalStatus, examCategory | — |
+| InstitutionPositionSearchDTO | positionName, supervisingDept, institution, workLocation | province, examCategory, positionType, educationRequirement, degreeRequirement, positionStatus, specialPosition | ageLimit (ge) |
+| MilitaryPositionSearchDTO | positionName, employerUnit, department | positionType, majorRequirement, educationRequirement, positionStatus, workLocation | — |
+| SelectionPositionSearchDTO | positionName, targetUnit, workLocation | selectionType, year, province, majorRequirement, universityRequirement, educationRequirement, degreeRequirement, politicalStatus, positionStatus | ageLimit (ge) |
 
 #### VO (8 文件)
 

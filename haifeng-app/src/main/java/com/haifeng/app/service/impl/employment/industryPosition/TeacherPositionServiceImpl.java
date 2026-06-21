@@ -33,18 +33,17 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
                     .like(TeacherPosition::getSchoolName, dto.getKeyword())
                     .or()
                     .like(TeacherPosition::getPositionName, dto.getKeyword())
-                    .or()
-                    .like(TeacherPosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
         wrapper.eq(StrUtil.isNotBlank(dto.getSchoolType()), TeacherPosition::getSchoolType, dto.getSchoolType());
         wrapper.eq(StrUtil.isNotBlank(dto.getSchoolNature()), TeacherPosition::getSchoolNature, dto.getSchoolNature());
         wrapper.eq(StrUtil.isNotBlank(dto.getSubject()), TeacherPosition::getSubject, dto.getSubject());
-        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), TeacherPosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), TeacherPosition::getProvince, dto.getProvince());
         wrapper.eq(StrUtil.isNotBlank(dto.getCity()), TeacherPosition::getCity, dto.getCity());
         wrapper.eq(StrUtil.isNotBlank(dto.getDistrict()), TeacherPosition::getDistrict, dto.getDistrict());
+        wrapper.eq(dto.getRecruitmentCount() != null, TeacherPosition::getRecruitmentCount, dto.getRecruitmentCount());
+        wrapper.ge(dto.getAgeLimit() != null, TeacherPosition::getAgeLimit, dto.getAgeLimit());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), TeacherPosition::getPositionStatus, dto.getPositionStatus());
 
         wrapper.orderByDesc(TeacherPosition::getCreatedAt);
@@ -64,6 +63,11 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
                 .city(pos.getCity())
                 .district(pos.getDistrict())
                 .workExperience(pos.getWorkExperience())
+                .recruitmentCount(pos.getRecruitmentCount())
+                .ageLimit(pos.getAgeLimit())
+                .salaryRange(pos.getSalaryRange())
+                .regStartDate(pos.getRegStartDate())
+                .regEndDate(pos.getRegEndDate())
                 .positionStatus(pos.getPositionStatus())
                 .build());
     }

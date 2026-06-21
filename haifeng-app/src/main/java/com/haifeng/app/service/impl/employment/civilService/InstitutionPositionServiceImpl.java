@@ -47,6 +47,9 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), InstitutionPosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), InstitutionPosition::getPositionStatus, dto.getPositionStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getSpecialPosition()), InstitutionPosition::getSpecialPosition, dto.getSpecialPosition());
+        if (dto.getAgeLimit() != null) {
+            wrapper.ge(InstitutionPosition::getAgeLimit, dto.getAgeLimit());
+        }
 
         wrapper.orderByDesc(InstitutionPosition::getCreatedAt);
 

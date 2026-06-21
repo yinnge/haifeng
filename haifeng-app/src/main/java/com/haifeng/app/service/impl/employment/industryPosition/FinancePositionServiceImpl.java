@@ -33,8 +33,6 @@ public class FinancePositionServiceImpl implements FinancePositionService {
                     .like(FinancePosition::getInstitutionName, dto.getKeyword())
                     .or()
                     .like(FinancePosition::getPositionName, dto.getKeyword())
-                    .or()
-                    .like(FinancePosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
@@ -45,7 +43,8 @@ public class FinancePositionServiceImpl implements FinancePositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getRecruitmentType()), FinancePosition::getRecruitmentType, dto.getRecruitmentType());
         wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), FinancePosition::getProvince, dto.getProvince());
         wrapper.eq(StrUtil.isNotBlank(dto.getCity()), FinancePosition::getCity, dto.getCity());
-        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), FinancePosition::getEducationRequirement, dto.getEducationRequirement());
+        wrapper.ge(dto.getAgeLimit() != null, FinancePosition::getAgeLimit, dto.getAgeLimit());
+        wrapper.ge(dto.getSalaryMin() != null, FinancePosition::getSalaryMin, dto.getSalaryMin());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), FinancePosition::getPositionStatus, dto.getPositionStatus());
 
         wrapper.orderByDesc(FinancePosition::getCreatedAt);
@@ -62,15 +61,16 @@ public class FinancePositionServiceImpl implements FinancePositionService {
                 .recruitmentType(pos.getRecruitmentType())
                 .province(pos.getProvince())
                 .city(pos.getCity())
-                .educationRequirement(pos.getEducationRequirement())
-                .degreeRequirement(pos.getDegreeRequirement())
-                .majorRequirement(pos.getMajorRequirement())
                 .ageLimit(pos.getAgeLimit())
                 .workExperience(pos.getWorkExperience())
                 .salaryMin(pos.getSalaryMin())
                 .salaryMax(pos.getSalaryMax())
                 .regStartDate(pos.getRegStartDate())
                 .regEndDate(pos.getRegEndDate())
+                .isRemote(pos.getIsRemote())
+                .workLocation(pos.getWorkLocation())
+                .recruitmentCount(pos.getRecruitmentCount())
+                .positionStatus(pos.getPositionStatus())
                 .build());
     }
 

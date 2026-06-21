@@ -16,6 +16,8 @@ public class SelectionPositionSearchDTO extends BasePageQueryDTO {
     private String educationRequirement;
     private String degreeRequirement;
     private String politicalStatus;
+    private String majorRequirement;
+    private String universityRequirement;
     private Integer ageLimit;
     private String positionStatus;
 }

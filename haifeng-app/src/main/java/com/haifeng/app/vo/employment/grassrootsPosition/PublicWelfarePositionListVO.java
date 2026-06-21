@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -25,6 +26,8 @@ public class PublicWelfarePositionListVO implements Serializable {
     private String educationRequirement;
     private Integer recruitmentCount;
     private String monthlySalary;
-    private String householdRequirement;
     private String contractPeriod;
+    private Integer maxServiceYears;
+    private OffsetDateTime regStartDate;
+    private OffsetDateTime regEndDate;
 }

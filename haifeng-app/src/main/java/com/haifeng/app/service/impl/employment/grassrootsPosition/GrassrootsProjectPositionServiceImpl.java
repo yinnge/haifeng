@@ -44,12 +44,18 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
         wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), GrassrootsProjectPosition::getProvince, dto.getProvince());
         wrapper.eq(StrUtil.isNotBlank(dto.getCity()), GrassrootsProjectPosition::getCity, dto.getCity());
         wrapper.eq(StrUtil.isNotBlank(dto.getCounty()), GrassrootsProjectPosition::getCounty, dto.getCounty());
-        wrapper.eq(StrUtil.isNotBlank(dto.getTownship()), GrassrootsProjectPosition::getTownship, dto.getTownship());
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), GrassrootsProjectPosition::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), GrassrootsProjectPosition::getMajorRequirement, dto.getMajorRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getGradYearRequirement()), GrassrootsProjectPosition::getGradYearRequirement, dto.getGradYearRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), GrassrootsProjectPosition::getPoliticalStatus, dto.getPoliticalStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), GrassrootsProjectPosition::getPositionStatus, dto.getPositionStatus());
+
+        if (dto.getAgeLimitMin() != null) {
+            wrapper.ge(GrassrootsProjectPosition::getAgeLimit, dto.getAgeLimitMin());
+        }
+        if (dto.getAgeLimitMax() != null) {
+            wrapper.le(GrassrootsProjectPosition::getAgeLimit, dto.getAgeLimitMax());
+        }
 
         wrapper.orderByDesc(GrassrootsProjectPosition::getCreatedAt);
 
@@ -73,8 +79,6 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
                 .majorRequirement(p.getMajorRequirement())
                 .ageLimit(p.getAgeLimit())
                 .recruitmentCount(p.getRecruitmentCount())
-                .gradYearRequirement(p.getGradYearRequirement())
-                .positionStatus(p.getPositionStatus())
                 .politicalStatus(p.getPoliticalStatus())
                 .build());
     }

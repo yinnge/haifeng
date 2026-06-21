@@ -138,7 +138,7 @@ GET /api/v1/app/employment/job/{id}/detail
 public class JobIndex implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @TableId(type = IdType.AUTO)  // SERIAL 自增
+    @TableId(type = IdType.ASSIGN_ID)  // 雪花算法
     private Long id;
 
     private String sourceType;
@@ -188,4 +188,4 @@ public interface JobIndexMapper extends BaseMapper<JobIndex> {
 3. **日期范围**：publish_date 和 reg_deadline 支持起止范围查询，只传 start 或只传 end 时仅生效一侧
 4. **排序**：按发布日期倒序排列（NULLS LAST）
 5. **分页**：使用 MyBatis-Plus Page 对象，集成 BasePageQueryDTO
-6. **实体主键**：t_job_index 使用 SERIAL 自增，所以用 IdType.AUTO
+6. **实体主键**：t_job_index 使用雪花算法 ID，所以用 IdType.ASSIGN_ID

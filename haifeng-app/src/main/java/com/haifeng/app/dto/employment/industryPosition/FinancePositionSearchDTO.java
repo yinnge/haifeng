@@ -24,7 +24,9 @@ public class FinancePositionSearchDTO extends BasePageQueryDTO {
 
     private String city;
 
-    private String educationRequirement;
+    private Integer ageLimit;
+
+    private Integer salaryMin;
 
     private String positionStatus;
 }

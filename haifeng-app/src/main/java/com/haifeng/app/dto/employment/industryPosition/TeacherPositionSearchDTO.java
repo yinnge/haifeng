@@ -16,7 +16,9 @@ public class TeacherPositionSearchDTO extends BasePageQueryDTO {
 
     private String subject;
 
-    private String educationRequirement;
+    private Integer recruitmentCount;
+
+    private Integer ageLimit;
 
     private String province;
 

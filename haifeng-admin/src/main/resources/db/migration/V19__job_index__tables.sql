@@ -11,11 +11,11 @@ BEGIN;
 -- 1. 统一岗位索引表 (t_job_index)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS t_job_index (
-    id                      SERIAL          PRIMARY KEY,
+    id                      BIGINT          PRIMARY KEY,
 
     -- ==================== 来源定位 ====================
     source_type             VARCHAR(30)     NOT NULL,
-    source_id               INTEGER         NOT NULL,
+    source_id               BIGINT          NOT NULL,
 
     -- ==================== 展示信息 ====================
     category_label          VARCHAR(50)     NOT NULL,

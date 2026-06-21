@@ -17,4 +17,5 @@ public class InstitutionPositionSearchDTO extends BasePageQueryDTO {
     private String degreeRequirement;
     private String positionStatus;
     private String specialPosition;
+    private Integer ageLimit;
 }

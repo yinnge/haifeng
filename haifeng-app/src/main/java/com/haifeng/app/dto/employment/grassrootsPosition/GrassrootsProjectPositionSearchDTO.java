@@ -16,10 +16,12 @@ public class GrassrootsProjectPositionSearchDTO extends BasePageQueryDTO {
     private String province;
     private String city;
     private String county;
-    private String township;
     private String educationRequirement;
     private String majorRequirement;
     private String gradYearRequirement;
     private String politicalStatus;
     private String positionStatus;
+
+    private Integer ageLimitMin;
+    private Integer ageLimitMax;
 }

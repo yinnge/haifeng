@@ -15,7 +15,11 @@ public class CommunityPositionSearchDTO extends BasePageQueryDTO {
     private String province;
     private String city;
     private String educationRequirement;
+    private String majorRequirement;
     private String politicalStatus;
     private String workExperience;
     private String positionStatus;
+
+    private Integer ageLimitMin;
+    private Integer ageLimitMax;
 }

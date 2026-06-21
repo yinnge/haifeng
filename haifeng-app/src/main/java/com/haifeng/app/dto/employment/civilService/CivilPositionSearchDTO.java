@@ -17,4 +17,5 @@ public class CivilPositionSearchDTO extends BasePageQueryDTO {
     private String degreeRequirement;
     private String politicalStatus;
     private String examCategory;
+    private String majorRequirement;
 }

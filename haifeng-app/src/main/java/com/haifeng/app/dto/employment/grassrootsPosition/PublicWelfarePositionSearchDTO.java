@@ -15,6 +15,11 @@ public class PublicWelfarePositionSearchDTO extends BasePageQueryDTO {
     private String city;
     private String district;
     private String educationRequirement;
+    private String householdRequirement;
+    private Integer maxServiceYears;
     private String positionStatus;
     private String targetGroup;
+
+    private Integer ageRangeMin;
+    private Integer ageRangeMax;
 }

@@ -33,8 +33,6 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
                     .like(HealthcarePosition::getInstitutionName, dto.getKeyword())
                     .or()
                     .like(HealthcarePosition::getPositionName, dto.getKeyword())
-                    .or()
-                    .like(HealthcarePosition::getMajorRequirement, dto.getKeyword())
             );
         }
 
@@ -46,7 +44,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
         wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), HealthcarePosition::getProvince, dto.getProvince());
         wrapper.eq(StrUtil.isNotBlank(dto.getCity()), HealthcarePosition::getCity, dto.getCity());
         wrapper.eq(StrUtil.isNotBlank(dto.getDistrict()), HealthcarePosition::getDistrict, dto.getDistrict());
-        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), HealthcarePosition::getEducationRequirement, dto.getEducationRequirement());
+        wrapper.ge(dto.getAgeLimit() != null, HealthcarePosition::getAgeLimit, dto.getAgeLimit());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), HealthcarePosition::getPositionStatus, dto.getPositionStatus());
 
         wrapper.orderByDesc(HealthcarePosition::getCreatedAt);
@@ -64,8 +62,9 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
                 .province(pos.getProvince())
                 .city(pos.getCity())
                 .district(pos.getDistrict())
-                .educationRequirement(pos.getEducationRequirement())
-                .majorRequirement(pos.getMajorRequirement())
+                .ageLimit(pos.getAgeLimit())
+                .recruitmentCount(pos.getRecruitmentCount())
+                .salaryRange(pos.getSalaryRange())
                 .workExperience(pos.getWorkExperience())
                 .positionStatus(pos.getPositionStatus())
                 .build());

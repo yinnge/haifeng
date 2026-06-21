@@ -32,12 +32,6 @@ public class FinancePositionListVO implements Serializable {
 
     private String city;
 
-    private String educationRequirement;
-
-    private String degreeRequirement;
-
-    private String majorRequirement;
-
     private Integer ageLimit;
 
     private String workExperience;
@@ -49,4 +43,12 @@ public class FinancePositionListVO implements Serializable {
     private OffsetDateTime regStartDate;
 
     private OffsetDateTime regEndDate;
+
+    private Boolean isRemote;
+
+    private String workLocation;
+
+    private Integer recruitmentCount;
+
+    private String positionStatus;
 }
