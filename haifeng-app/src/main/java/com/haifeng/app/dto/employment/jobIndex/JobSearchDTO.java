@@ -38,4 +38,6 @@ public class JobSearchDTO extends BasePageQueryDTO {
     private LocalDate regDeadlineEnd;
 
     private String positionStatus;
+
+    private String categoryLabel;
 }

@@ -46,6 +46,7 @@ public class JobIndexServiceImpl implements JobIndexService {
         wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), JobIndex::getEducationRequirement, dto.getEducationRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getRecruitmentType()), JobIndex::getRecruitmentType, dto.getRecruitmentType());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), JobIndex::getPositionStatus, dto.getPositionStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getCategoryLabel()), JobIndex::getCategoryLabel, dto.getCategoryLabel());
 
         if (dto.getSalaryMin() != null) {
             wrapper.ge(JobIndex::getSalaryMax, dto.getSalaryMin());
