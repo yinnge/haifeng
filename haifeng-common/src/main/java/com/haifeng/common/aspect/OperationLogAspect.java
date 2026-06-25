@@ -21,6 +21,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,6 +29,9 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class OperationLogAspect {
+
+    private static final String MASKED_VALUE = "***";
+    private static final Pattern API_KEY_PARAM_PATTERN = Pattern.compile("(?i)(apiKey|api_key)(\\s*[=:]\\s*)([^,}\\s]+)");
 
     private final AdminLogMapper adminLogMapper;
     private final ObjectMapper objectMapper;
@@ -141,13 +145,10 @@ public class OperationLogAspect {
                     .map(arg -> {
                         try {
                             String json = objectMapper.writeValueAsString(arg);
-                            // 脱敏处理：隐藏密码、token等敏感字段
-                            json = json.replaceAll("\"password\"\\s*:\\s*\"[^\"]*\"", "\"password\":\"***\"");
-                            json = json.replaceAll("\"token\"\\s*:\\s*\"[^\"]*\"", "\"token\":\"***\"");
-                            json = json.replaceAll("\"wechatId\"\\s*:\\s*\"[^\"]*\"", "\"wechatId\":\"***\"");
+                            json = redactSensitiveFields(json);
                             return json;
                         } catch (Exception e) {
-                            return arg.toString();
+                            return redactSensitiveFields(arg.toString());
                         }
                     })
                     .collect(Collectors.joining(", "));
@@ -160,5 +161,27 @@ public class OperationLogAspect {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String redactSensitiveFields(String value) {
+        if (value == null) {
+            return null;
+        }
+        String redacted = value;
+        // 脱敏处理：隐藏密码、token、API Key等敏感字段
+        redacted = maskSensitiveJsonField(redacted, "password");
+        redacted = maskSensitiveJsonField(redacted, "token");
+        redacted = maskSensitiveJsonField(redacted, "wechatId");
+        redacted = maskSensitiveJsonField(redacted, "apiKey");
+        redacted = maskSensitiveJsonField(redacted, "api_key");
+        return maskSensitiveRequestParam(redacted);
+    }
+
+    private String maskSensitiveJsonField(String json, String fieldName) {
+        return json.replaceAll("\"" + fieldName + "\"\\s*:\\s*\"[^\"]*\"", "\"" + fieldName + "\":\"" + MASKED_VALUE + "\"");
+    }
+
+    private String maskSensitiveRequestParam(String value) {
+        return API_KEY_PARAM_PATTERN.matcher(value).replaceAll("$1$2" + MASKED_VALUE);
     }
 }

@@ -13,6 +13,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.ai.AiQuotaService;
 import com.haifeng.common.service.ai.ApiKeyPool;
+import com.haifeng.common.service.ai.dto.ModelProviderConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
@@ -54,29 +55,29 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private Flux<ServerSentEvent<String>> doStream(Long userId, AiChatRequestDTO request) {
-        List<String> keys = keyPool.orderedFallback(userId);
-        String body = buildRequestBody(request.getMessages());
+        List<ModelProviderConfig> providers = keyPool.orderedFallback(userId);
 
-        return tryKey(keys, 0, body)
+        return tryProvider(providers, 0, request)
                 .map(this::extractDeltaContent)
                 .map(content -> ServerSentEvent.<String>builder().data(content).build());
     }
 
     /**
-     * 顺序尝试 keys[index]；该 key 失败则标记并递归到下一个；
+     * 顺序尝试 providers[index]；该 provider 失败则标记并递归到下一个；
      * 全部失败则发出 AI_ALL_KEYS_FAILED 错误。
      */
-    private Flux<String> tryKey(List<String> keys, int index, String body) {
-        if (index >= keys.size()) {
+    private Flux<String> tryProvider(List<ModelProviderConfig> providers, int index, AiChatRequestDTO request) {
+        if (index >= providers.size()) {
             return Flux.error(new BusinessException(ResultCode.AI_ALL_KEYS_FAILED));
         }
-        String key = keys.get(index);
-        return callDeepSeekRaw(key, body)
+        ModelProviderConfig provider = providers.get(index);
+        String body = buildRequestBody(request.getMessages(), provider.getModelName());
+        return callDeepSeekRaw(provider.getApiKey(), body)
                 .onErrorResume(err -> {
-                    log.warn("DeepSeek call failed with key ...{}: {}",
-                            maskKey(key), err.getMessage());
-                    keyPool.markUnhealthy(key);
-                    return tryKey(keys, index + 1, body);
+                    log.warn("DeepSeek call failed with provider id={}, key ...{}: {}",
+                            provider.getId(), maskKey(provider.getApiKey()), err.getMessage());
+                    keyPool.markUnhealthy(provider);
+                    return tryProvider(providers, index + 1, request);
                 });
     }
 
@@ -95,9 +96,9 @@ public class AiChatServiceImpl implements AiChatService {
                 .bodyToFlux(String.class);
     }
 
-    private String buildRequestBody(List<ChatMessage> messages) {
+    private String buildRequestBody(List<ChatMessage> messages, String modelName) {
         ObjectNode root = MAPPER.createObjectNode();
-        root.put("model", properties.getModel());
+        root.put("model", modelName);
         root.put("stream", true);
         root.put("max_tokens", properties.getMaxTokens());
         root.put("temperature", properties.getTemperature());

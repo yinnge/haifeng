@@ -5,6 +5,7 @@ import com.haifeng.app.vo.algorithm.pdf.ChatMessage;
 import com.haifeng.common.config.DeepSeekProperties;
 import com.haifeng.common.service.ai.AiQuotaService;
 import com.haifeng.common.service.ai.ApiKeyPool;
+import com.haifeng.common.service.ai.dto.ModelProviderConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.codec.ServerSentEvent;
@@ -17,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 class AiChatServiceImplTest {
@@ -38,6 +40,8 @@ class AiChatServiceImplTest {
     static class TestableImpl extends AiChatServiceImpl {
         private final List<Flux<String>> queue;
         private final AtomicInteger calls = new AtomicInteger(0);
+        private final java.util.List<String> keys = new java.util.ArrayList<>();
+        private final java.util.List<String> bodies = new java.util.ArrayList<>();
 
         TestableImpl(ApiKeyPool keyPool, AiQuotaService quotaService,
                      WebClient webClient, DeepSeekProperties properties,
@@ -48,9 +52,20 @@ class AiChatServiceImplTest {
 
         @Override
         protected Flux<String> callDeepSeekRaw(String key, String body) {
+            keys.add(key);
+            bodies.add(body);
             int idx = calls.getAndIncrement();
             return queue.get(Math.min(idx, queue.size() - 1));
         }
+    }
+
+    private ModelProviderConfig provider(Long id, String apiKey, String modelName) {
+        return ModelProviderConfig.builder()
+                .id(id)
+                .apiKey(apiKey)
+                .modelName(modelName)
+                .providerName("deepseek")
+                .build();
     }
 
     @Test
@@ -71,7 +86,10 @@ class AiChatServiceImplTest {
 
     @Test
     void firstKeySucceeds_streamsAndDoesNotMarkUnhealthy() {
-        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList("k1", "k2"));
+        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList(
+                provider(1L, "key-1", "deepseek-chat"),
+                provider(2L, "key-2", "deepseek-reasoner")
+        ));
 
         TestableImpl service = new TestableImpl(keyPool, quotaService, webClient, properties,
                 Collections.singletonList(
@@ -90,12 +108,17 @@ class AiChatServiceImplTest {
                 .expectNext("[DONE]")
                 .verifyComplete();
 
-        verify(keyPool, never()).markUnhealthy(anyString());
+        assertThat(service.keys).containsExactly("key-1");
+        assertThat(service.bodies.get(0)).contains("\"model\":\"deepseek-chat\"");
+        verify(keyPool, never()).markUnhealthy(any(ModelProviderConfig.class));
     }
 
     @Test
     void firstKeyFails_fallbackToSecond() {
-        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList("k1", "k2"));
+        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList(
+                provider(1L, "key-1", "deepseek-chat"),
+                provider(2L, "key-2", "deepseek-reasoner")
+        ));
 
         TestableImpl service = new TestableImpl(keyPool, quotaService, webClient, properties,
                 Arrays.asList(
@@ -111,12 +134,37 @@ class AiChatServiceImplTest {
                 .expectNext("[DONE]")
                 .verifyComplete();
 
-        verify(keyPool).markUnhealthy("k1");
+        assertThat(service.keys).containsExactly("key-1", "key-2");
+        assertThat(service.bodies.get(0)).contains("\"model\":\"deepseek-chat\"");
+        assertThat(service.bodies.get(1)).contains("\"model\":\"deepseek-reasoner\"");
+        verify(keyPool).markUnhealthy(argThat(provider -> provider != null && provider.getId().equals(1L)));
+    }
+
+    @Test
+    void emptyProviders_throwsBusinessException() {
+        when(keyPool.orderedFallback(1L)).thenReturn(Collections.emptyList());
+
+        TestableImpl service = new TestableImpl(keyPool, quotaService, webClient, properties,
+                Collections.singletonList(Flux.empty()));
+
+        AiChatRequestDTO dto = new AiChatRequestDTO();
+        dto.setMessages(Collections.singletonList(new ChatMessage("user", "hi")));
+
+        StepVerifier.create(service.streamChat(1L, dto))
+                .expectErrorMatches(t -> t instanceof com.haifeng.common.exception.BusinessException
+                        && ((com.haifeng.common.exception.BusinessException) t).getCode() == 1041)
+                .verify();
+
+        assertThat(service.keys).isEmpty();
+        verify(keyPool, never()).markUnhealthy(any(ModelProviderConfig.class));
     }
 
     @Test
     void allKeysFail_throwsBusinessException() {
-        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList("k1", "k2"));
+        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList(
+                provider(1L, "key-1", "deepseek-chat"),
+                provider(2L, "key-2", "deepseek-reasoner")
+        ));
 
         TestableImpl service = new TestableImpl(keyPool, quotaService, webClient, properties,
                 Arrays.asList(
@@ -132,7 +180,8 @@ class AiChatServiceImplTest {
                         && ((com.haifeng.common.exception.BusinessException) t).getCode() == 1041)
                 .verify();
 
-        verify(keyPool).markUnhealthy("k1");
-        verify(keyPool).markUnhealthy("k2");
+        assertThat(service.keys).containsExactly("key-1", "key-2");
+        verify(keyPool).markUnhealthy(argThat(provider -> provider != null && provider.getId().equals(1L)));
+        verify(keyPool).markUnhealthy(argThat(provider -> provider != null && provider.getId().equals(2L)));
     }
 }

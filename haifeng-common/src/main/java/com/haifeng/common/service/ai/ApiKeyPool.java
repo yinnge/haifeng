@@ -1,11 +1,15 @@
 package com.haifeng.common.service.ai;
 
 import com.haifeng.common.config.DeepSeekProperties;
+import com.haifeng.common.entity.system.ModelProvider;
+import com.haifeng.common.mapper.system.ModelProviderMapper;
+import com.haifeng.common.service.ai.dto.ModelProviderConfig;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,82 +18,125 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * API key 池：
- * - 一致性哈希按 userId 选 key（命中缓存）
- * - markUnhealthy 进入 Redis 冷却
- * - pickKey 跳过冷却中的 key；全部冷却时仍返回首选
- * - orderedFallback 返回首选 + 其余顺序 key（流式调用失败重试用）
+ * - 每次从数据库读取启用的 DeepSeek 模型供应商配置，保证后台调整无需重启
+ * - 按 userId 取模生成稳定的回退顺序
+ * - markUnhealthy 按模型供应商 id 写入 Redis 冷却
+ * - orderedFallback/pickProvider 跳过冷却中的供应商；全部冷却时返回空
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApiKeyPool {
 
-    private static final String COOLDOWN_KEY_PREFIX = "ai:key:cooldown:";
+    private static final String DEEPSEEK_PROVIDER = "deepseek";
+    private static final String COOLDOWN_KEY_PREFIX = "ai:model-provider:cooldown:";
 
     private final DeepSeekProperties properties;
     private final RedisTemplate<String, Object> redisTemplate;
-
-    private List<String> keys;
+    private final ModelProviderMapper modelProviderMapper;
 
     @PostConstruct
     public void init() {
-        List<String> raw = properties.getApiKeys();
-        if (raw == null || raw.isEmpty()) {
-            throw new IllegalStateException(
-                    "deepseek.api-keys is empty; please set DEEPSEEK_API_KEYS in env or application.yml");
-        }
-        List<String> filtered = new ArrayList<>();
-        for (String k : raw) {
-            if (k != null && !k.isBlank()) {
-                filtered.add(k.trim());
-            }
-        }
-        if (filtered.isEmpty()) {
-            throw new IllegalStateException("deepseek.api-keys contains only blanks");
-        }
-        this.keys = Collections.unmodifiableList(filtered);
-        log.info("ApiKeyPool initialized with {} keys", keys.size());
+        log.info("ApiKeyPool initialized with database-backed model provider configs");
     }
 
+    public ModelProviderConfig pickProvider(Long userId) {
+        List<ModelProviderConfig> providers = orderedFallback(userId);
+        if (providers.isEmpty()) {
+            return null;
+        }
+        return providers.get(0);
+    }
+
+    /**
+     * Legacy convenience method for callers that still need only the API key.
+     */
     public String pickKey(Long userId) {
-        int n = keys.size();
-        int firstIdx = indexFor(userId);
-        for (int i = 0; i < n; i++) {
-            String candidate = keys.get((firstIdx + i) % n);
-            if (!isCoolingDown(candidate)) {
-                return candidate;
-            }
+        ModelProviderConfig provider = pickProvider(userId);
+        return provider == null ? null : provider.getApiKey();
+    }
+
+    public void markUnhealthy(ModelProviderConfig provider) {
+        if (provider == null || provider.getId() == null) {
+            log.warn("Skip marking model provider unhealthy because provider/id is missing");
+            return;
         }
-        return keys.get(firstIdx);
-    }
-
-    public void markUnhealthy(String key) {
         redisTemplate.opsForValue().set(
-                COOLDOWN_KEY_PREFIX + key,
+                cooldownKey(provider.getId()),
                 "1",
-                properties.getKeyCooldownSeconds().longValue(),
+                cooldownSeconds(),
                 TimeUnit.SECONDS);
-        log.warn("ApiKey marked unhealthy: ...{}", maskKey(key));
+        log.warn("Model provider marked unhealthy: id={}, model={}, key=...{}",
+                provider.getId(), provider.getModelName(), maskKey(provider.getApiKey()));
     }
 
-    public List<String> orderedFallback(Long userId) {
-        int n = keys.size();
-        int firstIdx = indexFor(userId);
-        List<String> ordered = new ArrayList<>(n);
+    public List<ModelProviderConfig> orderedFallback(Long userId) {
+        List<ModelProviderConfig> providers = loadEnabledProviders();
+        if (providers.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        int n = providers.size();
+        int firstIdx = indexFor(userId, n);
+        List<ModelProviderConfig> ordered = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            ordered.add(keys.get((firstIdx + i) % n));
+            ModelProviderConfig provider = providers.get((firstIdx + i) % n);
+            if (!isCoolingDown(provider)) {
+                ordered.add(provider);
+            }
         }
         return ordered;
     }
 
-    private int indexFor(Long userId) {
-        long uid = userId == null ? 0L : userId;
-        return (int) Math.floorMod(uid, keys.size());
+    public boolean isCoolingDown(ModelProviderConfig provider) {
+        return provider != null && isCoolingDown(provider.getId());
     }
 
-    private boolean isCoolingDown(String key) {
-        Boolean has = redisTemplate.hasKey(COOLDOWN_KEY_PREFIX + key);
+    public boolean isCoolingDown(Long providerId) {
+        if (providerId == null) {
+            return false;
+        }
+        Boolean has = redisTemplate.hasKey(cooldownKey(providerId));
         return Boolean.TRUE.equals(has);
+    }
+
+    private List<ModelProviderConfig> loadEnabledProviders() {
+        List<ModelProvider> records = modelProviderMapper.findEnabledByProvider(DEEPSEEK_PROVIDER);
+        if (records == null || records.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ModelProviderConfig> providers = new ArrayList<>();
+        for (ModelProvider record : records) {
+            if (record == null
+                    || !StringUtils.hasText(record.getApiKey())
+                    || !StringUtils.hasText(record.getModelName())) {
+                continue;
+            }
+            providers.add(ModelProviderConfig.builder()
+                    .id(record.getId())
+                    .apiKey(record.getApiKey().trim())
+                    .modelName(record.getModelName().trim())
+                    .providerName(StringUtils.hasText(record.getProviderName())
+                            ? record.getProviderName().trim()
+                            : DEEPSEEK_PROVIDER)
+                    .build());
+        }
+        return providers;
+    }
+
+    private int indexFor(Long userId, int size) {
+        long uid = userId == null ? 0L : userId;
+        return (int) Math.floorMod(uid, size);
+    }
+
+    private String cooldownKey(Long providerId) {
+        return COOLDOWN_KEY_PREFIX + providerId;
+    }
+
+    private long cooldownSeconds() {
+        Integer configured = properties.getKeyCooldownSeconds();
+        return configured == null ? 300L : configured.longValue();
     }
 
     private String maskKey(String key) {
