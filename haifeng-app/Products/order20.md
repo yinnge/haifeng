@@ -40,7 +40,7 @@ Authorization: Bearer <access_token>
 | 分页 | 是（继承 BasePageQueryDTO） |
 
 ### 1.1.2 请求参数
-
+``
 | 参数 | 类型 | 必填 | 查询方式 | 说明 |
 |------|------|------|----------|------|
 | page | Integer | 否 | - | 页码，默认 1 |
@@ -55,11 +55,14 @@ Authorization: Bearer <access_token>
 | recruitmentCount | Integer | 否 | 精确 = | 招聘人数 |
 | ageLimit | Integer | 否 | 判断 >= | 年龄上限（查询条件：`age_limit >= ageLimit`） |
 | positionStatus | String | 否 | 精确 = | 状态：招聘中/已结束/即将开始 |
+| educationRequirement | String | 否 | 精确 = | 学历要求：不限/大专/本科/硕士/博士 |
+| degreeRequirement | String | 否 | 精确 = | 学位要求 |
+| majorRequirement | String | 否 | 精确 = | 专业要求 |
 
 ### 1.1.3 查询逻辑说明
 
 1. **模糊查询**：`keyword` 同时匹配 `school_name` 或 `position_name`（OR 关系，LIKE %v%）
-2. **精确查询**：`schoolType`、`schoolNature`、`subject`、`province`、`city`、`district`、`recruitmentCount`、`positionStatus` 各自精确匹配
+2. **精确查询**：`schoolType`、`schoolNature`、`subject`、`province`、`city`、`district`、`recruitmentCount`、`positionStatus`、`educationRequirement`、`degreeRequirement`、`majorRequirement` 各自精确匹配
 3. **判断查询**：`ageLimit` 使用 `>=` 条件
 4. **所有条件之间为 AND 关系**
 5. **软删除过滤**：`is_deleted = false`
@@ -85,6 +88,9 @@ Authorization: Bearer <access_token>
 | regStartDate | OffsetDateTime | 报名开始日期 |
 | regEndDate | OffsetDateTime | 报名截止日期 |
 | positionStatus | String | 岗位状态 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| majorRequirement | String | 专业要求 |
 
 ### 1.1.5 请求示例
 
@@ -118,7 +124,10 @@ Host: api.haifeng.com
         "salaryRange": "8k-12k",
         "regStartDate": "2026-07-01T00:00:00+08:00",
         "regEndDate": "2026-07-20T23:59:59+08:00",
-        "positionStatus": "招聘中"
+        "positionStatus": "招聘中",
+        "educationRequirement": "本科",
+        "degreeRequirement": "学士",
+        "majorRequirement": "数学与应用数学、学科教学（数学）"
       }
     ],
     "total": 42,
@@ -250,6 +259,200 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ---
 
+## 1.3 教师招聘备考指南
+
+公开接口，无需登录，根据 `guide_category=teacher` 预设条件查询备考指南。
+
+### 1.3.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/teacher/exam-guide/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 1.3.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 1.3.3 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'teacher'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 1.3.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| guideCategory | String | 指南分类（teacher） |
+| guideType | String | 指南类型 |
+| title | String | 标题 |
+| subtitle | String | 副标题 |
+| coverImage | String | 封面图 |
+| iconClass | String | 图标样式 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| tags | String | 标签 |
+| difficultyLevel | String | 难度等级 |
+| targetAudience | String | 目标受众 |
+| authorName | String | 作者姓名 |
+| authorTitle | String | 作者职称 |
+| isTop | Boolean | 是否置顶 |
+| isRecommended | Boolean | 是否推荐 |
+| sortOrder | Integer | 排序号 |
+| viewCount | Integer | 浏览量 |
+| likeCount | Integer | 点赞量 |
+
+### 1.3.5 请求示例
+
+```http
+GET /api/v1/app/employment/teacher/exam-guide/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 1.3.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 400001,
+        "guideCategory": "teacher",
+        "guideType": "笔试指南",
+        "title": "2026年教师招聘备考攻略",
+        "subtitle": "教综+学科专业知识全面解析",
+        "coverImage": "https://example.com/cover/teacher-guide.png",
+        "iconClass": "icon-teacher",
+        "summary": "涵盖教育综合知识和学科专业知识的备考策略",
+        "content": "<p>2026年教师招聘备考攻略...</p>",
+        "tags": "教师招聘,备考,教综",
+        "difficultyLevel": "中级",
+        "targetAudience": "应届毕业生",
+        "authorName": "王老师",
+        "authorTitle": "高级教师",
+        "isTop": true,
+        "isRecommended": true,
+        "sortOrder": 1,
+        "viewCount": 12580,
+        "likeCount": 836
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
+
+---
+
+## 1.4 教师招聘公告
+
+公开接口，无需登录，根据 `notice_category=teacher` 预设条件查询公告。
+
+### 1.4.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/teacher/notice/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 1.4.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 1.4.3 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'teacher'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 1.4.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| noticeCategory | String | 公告分类（teacher） |
+| noticeType | String | 公告类型 |
+| title | String | 标题 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| province | String | 省份 |
+| city | String | 城市 |
+| tags | String | 标签 |
+| year | Integer | 年份 |
+| source | String | 来源 |
+| sourceUrl | String | 来源链接 |
+| publishDate | OffsetDateTime | 发布日期 |
+| publishUnit | String | 发布单位 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名截止日期 |
+| examTime | OffsetDateTime | 考试时间 |
+| recruitmentCount | Integer | 招聘人数 |
+| isTop | Boolean | 是否置顶 |
+| isImportant | Boolean | 是否重要 |
+| viewCount | Integer | 浏览量 |
+
+### 1.4.5 请求示例
+
+```http
+GET /api/v1/app/employment/teacher/notice/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 1.4.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 500001,
+        "noticeCategory": "teacher",
+        "noticeType": "招聘公告",
+        "title": "广州市教育局2026年公开招聘教师公告",
+        "summary": "广州市教育局直属学校公开招聘教师500名",
+        "content": "<p>根据《广东省事业单位公开招聘人员办法》...</p>",
+        "province": "广东",
+        "city": "广州",
+        "tags": "教师招聘,编制,广州",
+        "year": 2026,
+        "source": "广州市教育局",
+        "sourceUrl": "https://example.com/notice/001",
+        "publishDate": "2026-06-01T10:00:00+08:00",
+        "publishUnit": "广州市教育局",
+        "regStartDate": "2026-07-01T00:00:00+08:00",
+        "regEndDate": "2026-07-20T23:59:59+08:00",
+        "examTime": "2026-08-01T09:00:00+08:00",
+        "recruitmentCount": 500,
+        "isTop": true,
+        "isImportant": true,
+        "viewCount": 25680
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
+
+---
+
 # 二、医疗卫生（HealthcarePosition）
 
 ## 2.1 医疗卫生列表
@@ -281,6 +484,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | district | String | 否 | 精确 = | 区/县 |
 | ageLimit | Integer | 否 | 判断 >= | 年龄上限（查询条件：`age_limit >= ageLimit`） |
 | positionStatus | String | 否 | 精确 = | 状态：招聘中/已结束/即将开始 |
+| educationRequirement | String | 否 | 精确 = | 学历要求：不限/大专/本科/硕士/博士 |
+| degreeRequirement | String | 否 | 精确 = | 学位要求 |
+| majorRequirement | String | 否 | 精确 = | 专业要求 |
 
 ### 2.1.3 查询逻辑说明
 
@@ -308,6 +514,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | salaryRange | String | 薪资待遇 |
 | workExperience | String | 工作经验 |
 | positionStatus | String | 岗位状态 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| majorRequirement | String | 专业要求 |
 
 ### 2.1.5 请求示例
 
@@ -338,7 +547,10 @@ Host: api.haifeng.com
         "recruitmentCount": 10,
         "salaryRange": "8k-15k",
         "workExperience": "不限",
-        "positionStatus": "招聘中"
+        "positionStatus": "招聘中",
+        "educationRequirement": "本科",
+        "degreeRequirement": "学士",
+        "majorRequirement": "护理学"
       }
     ],
     "total": 28,
@@ -472,6 +684,200 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ---
 
+## 2.3 医疗卫生备考指南
+
+公开接口，无需登录，根据 `guide_category=healthcare` 预设条件查询备考指南。
+
+### 2.3.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/healthcare/exam-guide/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 2.3.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 2.3.3 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'healthcare'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 2.3.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| guideCategory | String | 指南分类（healthcare） |
+| guideType | String | 指南类型 |
+| title | String | 标题 |
+| subtitle | String | 副标题 |
+| coverImage | String | 封面图 |
+| iconClass | String | 图标样式 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| tags | String | 标签 |
+| difficultyLevel | String | 难度等级 |
+| targetAudience | String | 目标受众 |
+| authorName | String | 作者姓名 |
+| authorTitle | String | 作者职称 |
+| isTop | Boolean | 是否置顶 |
+| isRecommended | Boolean | 是否推荐 |
+| sortOrder | Integer | 排序号 |
+| viewCount | Integer | 浏览量 |
+| likeCount | Integer | 点赞量 |
+
+### 2.3.5 请求示例
+
+```http
+GET /api/v1/app/employment/healthcare/exam-guide/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 2.3.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 410001,
+        "guideCategory": "healthcare",
+        "guideType": "笔试指南",
+        "title": "2026年医疗卫生招聘备考攻略",
+        "subtitle": "医学基础知识+专业知识全面解析",
+        "coverImage": "https://example.com/cover/healthcare-guide.png",
+        "iconClass": "icon-healthcare",
+        "summary": "涵盖医学基础知识和各专业知识的备考策略",
+        "content": "<p>2026年医疗卫生招聘备考攻略...</p>",
+        "tags": "医疗卫生,备考,医学基础",
+        "difficultyLevel": "中级",
+        "targetAudience": "医学类应届毕业生",
+        "authorName": "张教授",
+        "authorTitle": "主任医师",
+        "isTop": true,
+        "isRecommended": true,
+        "sortOrder": 1,
+        "viewCount": 9880,
+        "likeCount": 652
+      }
+    ],
+    "total": 4,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
+
+---
+
+## 2.4 医疗卫生公告
+
+公开接口，无需登录，根据 `notice_category=healthcare` 预设条件查询公告。
+
+### 2.4.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/healthcare/notice/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 2.4.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 2.4.3 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'healthcare'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 2.4.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| noticeCategory | String | 公告分类（healthcare） |
+| noticeType | String | 公告类型 |
+| title | String | 标题 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| province | String | 省份 |
+| city | String | 城市 |
+| tags | String | 标签 |
+| year | Integer | 年份 |
+| source | String | 来源 |
+| sourceUrl | String | 来源链接 |
+| publishDate | OffsetDateTime | 发布日期 |
+| publishUnit | String | 发布单位 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名截止日期 |
+| examTime | OffsetDateTime | 考试时间 |
+| recruitmentCount | Integer | 招聘人数 |
+| isTop | Boolean | 是否置顶 |
+| isImportant | Boolean | 是否重要 |
+| viewCount | Integer | 浏览量 |
+
+### 2.4.5 请求示例
+
+```http
+GET /api/v1/app/employment/healthcare/notice/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 2.4.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 510001,
+        "noticeCategory": "healthcare",
+        "noticeType": "招聘公告",
+        "title": "广东省卫生健康委2026年公开招聘公告",
+        "summary": "广东省卫生健康委直属单位公开招聘医护人才2000名",
+        "content": "<p>根据《广东省事业单位公开招聘人员办法》...</p>",
+        "province": "广东",
+        "city": "广州",
+        "tags": "医疗卫生,编制,广东",
+        "year": 2026,
+        "source": "广东省卫生健康委",
+        "sourceUrl": "https://example.com/notice/002",
+        "publishDate": "2026-06-15T10:00:00+08:00",
+        "publishUnit": "广东省卫生健康委",
+        "regStartDate": "2026-07-01T00:00:00+08:00",
+        "regEndDate": "2026-07-25T23:59:59+08:00",
+        "examTime": "2026-08-15T09:00:00+08:00",
+        "recruitmentCount": 2000,
+        "isTop": true,
+        "isImportant": true,
+        "viewCount": 32150
+      }
+    ],
+    "total": 6,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
+
+---
+
 # 三、银行/金融（FinancePosition）
 
 ## 3.1 银行/金融列表
@@ -503,6 +909,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | ageLimit | Integer | 否 | 判断 >= | 年龄上限（查询条件：`age_limit >= ageLimit`） |
 | salaryMin | Integer | 否 | 判断 >= | 最低月薪（查询条件：`salary_min >= salaryMin`） |
 | positionStatus | String | 否 | 精确 = | 状态：招聘中/已结束/即将开始 |
+| educationRequirement | String | 否 | 精确 = | 学历要求：不限/大专/本科/硕士/博士 |
+| degreeRequirement | String | 否 | 精确 = | 学位要求 |
+| majorRequirement | String | 否 | 精确 = | 专业要求 |
 
 ### 3.1.3 查询逻辑说明
 
@@ -534,6 +943,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | workLocation | String | 详细工作地点 |
 | recruitmentCount | Integer | 招聘人数 |
 | positionStatus | String | 岗位状态 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| majorRequirement | String | 专业要求 |
 
 ### 3.1.5 请求示例
 
@@ -568,7 +980,10 @@ Host: api.haifeng.com
         "isRemote": false,
         "workLocation": "广州市天河区",
         "recruitmentCount": 5,
-        "positionStatus": "招聘中"
+        "positionStatus": "招聘中",
+        "educationRequirement": "本科",
+        "degreeRequirement": "学士",
+        "majorRequirement": "计算机科学与技术、软件工程"
       }
     ],
     "total": 35,
@@ -705,6 +1120,200 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 |------|-----|
 | 404 | 岗位不存在 |
 | 401 | 未登录或Token已过期 |
+
+---
+
+## 3.3 银行/金融备考指南
+
+公开接口，无需登录，根据 `guide_category=finance` 预设条件查询备考指南。
+
+### 3.3.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/finance/exam-guide/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 3.3.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 3.3.3 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'finance'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 3.3.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| guideCategory | String | 指南分类（finance） |
+| guideType | String | 指南类型 |
+| title | String | 标题 |
+| subtitle | String | 副标题 |
+| coverImage | String | 封面图 |
+| iconClass | String | 图标样式 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| tags | String | 标签 |
+| difficultyLevel | String | 难度等级 |
+| targetAudience | String | 目标受众 |
+| authorName | String | 作者姓名 |
+| authorTitle | String | 作者职称 |
+| isTop | Boolean | 是否置顶 |
+| isRecommended | Boolean | 是否推荐 |
+| sortOrder | Integer | 排序号 |
+| viewCount | Integer | 浏览量 |
+| likeCount | Integer | 点赞量 |
+
+### 3.3.5 请求示例
+
+```http
+GET /api/v1/app/employment/finance/exam-guide/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 3.3.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 420001,
+        "guideCategory": "finance",
+        "guideType": "笔试指南",
+        "title": "2026年银行系统招聘备考攻略",
+        "subtitle": "EPI+综合知识+英语全面解析",
+        "coverImage": "https://example.com/cover/finance-guide.png",
+        "iconClass": "icon-finance",
+        "summary": "涵盖EPI、综合知识、英语和性格测试的备考策略",
+        "content": "<p>2026年银行系统招聘备考攻略...</p>",
+        "tags": "银行招聘,备考,EPI",
+        "difficultyLevel": "中级",
+        "targetAudience": "经管类应届毕业生",
+        "authorName": "李老师",
+        "authorTitle": "金融培训专家",
+        "isTop": true,
+        "isRecommended": true,
+        "sortOrder": 1,
+        "viewCount": 15680,
+        "likeCount": 1023
+      }
+    ],
+    "total": 6,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
+
+---
+
+## 3.4 银行/金融公告
+
+公开接口，无需登录，根据 `notice_category=finance` 预设条件查询公告。
+
+### 3.4.1 接口信息
+
+| 项目 | 值 |
+|------|-----|
+| URL | `GET /api/v1/app/employment/finance/notice/list` |
+| 权限 | 公开 |
+| 分页 | 是（继承 BasePageQueryDTO） |
+
+### 3.4.2 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认 1 |
+| size | Integer | 否 | 每页条数，默认 10，可选值：10/20/30/50/100 |
+
+### 3.4.3 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'finance'`
+2. **软删除过滤**：`is_deleted = false`
+
+### 3.4.4 返回字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键 ID |
+| noticeCategory | String | 公告分类（finance） |
+| noticeType | String | 公告类型 |
+| title | String | 标题 |
+| summary | String | 摘要 |
+| content | String | 内容（支持HTML） |
+| province | String | 省份 |
+| city | String | 城市 |
+| tags | String | 标签 |
+| year | Integer | 年份 |
+| source | String | 来源 |
+| sourceUrl | String | 来源链接 |
+| publishDate | OffsetDateTime | 发布日期 |
+| publishUnit | String | 发布单位 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名截止日期 |
+| examTime | OffsetDateTime | 考试时间 |
+| recruitmentCount | Integer | 招聘人数 |
+| isTop | Boolean | 是否置顶 |
+| isImportant | Boolean | 是否重要 |
+| viewCount | Integer | 浏览量 |
+
+### 3.4.5 请求示例
+
+```http
+GET /api/v1/app/employment/finance/notice/list?page=1&size=10 HTTP/1.1
+Host: api.haifeng.com
+```
+
+### 3.4.6 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 520001,
+        "noticeCategory": "finance",
+        "noticeType": "招聘公告",
+        "title": "中国工商银行2027年度校园招聘公告",
+        "summary": "中国工商银行2027年度校园招聘正式启动",
+        "content": "<p>中国工商银行2027年度校园招聘公告...</p>",
+        "province": "广东",
+        "city": "广州",
+        "tags": "银行招聘,校招,工商银行",
+        "year": 2026,
+        "source": "中国工商银行",
+        "sourceUrl": "https://job.icbc.com.cn/notice/003",
+        "publishDate": "2026-08-20T10:00:00+08:00",
+        "publishUnit": "中国工商银行总行",
+        "regStartDate": "2026-09-01T00:00:00+08:00",
+        "regEndDate": "2026-10-10T23:59:59+08:00",
+        "examTime": "2026-10-25T14:00:00+08:00",
+        "recruitmentCount": 20000,
+        "isTop": true,
+        "isImportant": true,
+        "viewCount": 58600
+      }
+    ],
+    "total": 8,
+    "page": 1,
+    "size": 10
+  },
+  "timestamp": 1715580000000
+}
+```
 
 ---
 

@@ -2,11 +2,13 @@
 
 ## 概述
 
-为 haifeng-app 端实现体制内招录信息的查询展示，包含 4 类职位：公务员、事业编、部队文职、选调生。每类提供分页列表（无需登录）和详情（需登录）接口。
+为 haifeng-app 端实现体制内招录信息的查询展示，包含 4 类职位：公务员、事业编、部队文职、选调生。每类提供分页列表（无需登录）、详情（需登录）、备考指南（无需登录）、公告（无需登录）接口。
+
+备考指南和公告为内容管理模块的子模块，通过 `guide_category` / `notice_category` 字段与各职位类型关联。
 
 ## 数据表
 
-Flyway 迁移文件 `V23__civil_service__tables.sql` 已定义 4 张表：
+Flyway 迁移文件 `V23__civil_service__tables.sql` 已定义 4 张职位表：
 
 | 表 | 实体 | 说明 |
 |---|---|---|
@@ -14,6 +16,13 @@ Flyway 迁移文件 `V23__civil_service__tables.sql` 已定义 4 张表：
 | `t_institution_position` | InstitutionPosition | 事业编职位 |
 | `t_military_position` | MilitaryPosition | 部队文职岗位 |
 | `t_selection_position` | SelectionPosition | 选调生岗位 |
+
+Flyway 迁移文件 `V22__content_management__tables.sql` 已定义 2 张内容管理表：
+
+| 表 | 实体 | 说明 |
+|---|---|---|
+| `t_exam_guide` | ExamGuide | 统一备考指南（guide_category 区分：civil/institution/military/selection 等） |
+| `t_notice` | Notice | 统一公告（notice_category 区分：civil/institution/military/selection 等） |
 
 ## 架构
 
@@ -24,11 +33,17 @@ common (entity + mapper) ← app 依赖
 app (dto + vo + service + impl + controller)
 ```
 
-路径规则：`{模块}/{子模块}` = `employment/civilService`
+路径规则：`{模块}/{子模块}` = `employment/civilService` 或 `employment/contentManagement/{子模块}`
 
 ## 详细设计
 
-### haifeng-common (8 文件)
+### haifeng-common (10 文件)
+
+**Content Management Entity:**
+- `ExamGuide` — `t_exam_guide` 实体
+- `Notice` — `t_notice` 实体
+- `ExamGuideMapper` — 空接口继承 `BaseMapper<ExamGuide>`
+- `NoticeMapper` — 空接口继承 `BaseMapper<Notice>`
 
 **Entity** — 字段对应表结构（下划线转小驼峰）：
 - `@TableName` 指定表名，`autoResultMap = true`
@@ -38,7 +53,7 @@ app (dto + vo + service + impl + controller)
 
 **Mapper** — 空接口继承 `BaseMapper<T>`，加 `@Mapper`
 
-### haifeng-app (20 文件)
+### haifeng-app (32 文件)
 
 #### DTO (4 文件)
 
@@ -75,6 +90,16 @@ XxxDetailVO detail(Long id);
 - `page()`: 构建 `LambdaQueryWrapper` → `eq(isDeleted=false)` → `and(w -> w.like().or()...)` 处理 keyword → 各 `eq()` 精确字段 → `orderByDesc(createdAt)` → `mapper.selectPage(page, wrapper)` → `page.convert(...)`
 - `detail()`: `selectById` → null 检查 → 抛 `BusinessException(NOT_FOUND)` → 返回 DetailVO
 
+#### Content Management 模块 (app 端)
+
+| 层 | 文件 | 路径规则 |
+|---|---|---|
+| DTO | ExamGuideQueryDTO / NoticeQueryDTO | `dto/employment/contentManagement/examGuide/` / `dto/employment/contentManagement/notice/` |
+| VO | ExamGuideListVO / ExamGuideDetailVO / NoticeListVO / NoticeDetailVO | `vo/employment/contentManagement/examGuide/` / `vo/employment/contentManagement/notice/` |
+| Service | ExamGuideService / NoticeService | `service/employment/contentManagement/examGuide/` / `service/employment/contentManagement/notice/` |
+| Impl | ExamGuideServiceImpl / NoticeServiceImpl | `service/impl/employment/contentManagement/examGuide/` / `service/impl/employment/contentManagement/notice/` |
+| Controller | ExamGuideController / NoticeController | `controller/employment/contentManagement/examGuide/` / `controller/employment/contentManagement/notice/` |
+
 #### Controller (4 文件)
 
 ```java
@@ -82,14 +107,16 @@ XxxDetailVO detail(Long id);
 
 @GetMapping("/list")              → 无登录
 @RequireLogin @GetMapping("/{id}/detail") → 需登录
+@GetMapping("/exam-guide")        → 无登录（返回备考指南，按 guide_category 过滤）
+@GetMapping("/notice")            → 无登录（返回公告，按 notice_category 过滤）
 ```
 
-| Controller | 路径 resource |
-|---|---|
-| CivilPositionController | `position` |
-| InstitutionPositionController | `institution` |
-| MilitaryPositionController | `military` |
-| SelectionPositionController | `selection` |
+| Controller | 路径 resource | guide_category | notice_category |
+|---|---|---|---|
+| CivilPositionController | `position` | `civil` | `civil` |
+| InstitutionPositionController | `institution` | `institution` | `institution` |
+| MilitaryPositionController | `military` | `military` | `military` |
+| SelectionPositionController | `selection` | `selection` | `selection` |
 
 ## API 端点汇总
 
@@ -97,14 +124,22 @@ XxxDetailVO detail(Long id);
 |---|---|---|---|
 | GET | `/api/v1/app/employment/civil-service/position/list` | 否 | 公务员分页 |
 | GET | `/api/v1/app/employment/civil-service/position/{id}/detail` | 是 | 公务员详情 |
+| GET | `/api/v1/app/employment/civil-service/position/exam-guide` | 否 | 公务员备考指南 |
+| GET | `/api/v1/app/employment/civil-service/position/notice` | 否 | 公务员考试公告 |
 | GET | `/api/v1/app/employment/civil-service/institution/list` | 否 | 事业编分页 |
 | GET | `/api/v1/app/employment/civil-service/institution/{id}/detail` | 是 | 事业编详情 |
+| GET | `/api/v1/app/employment/civil-service/institution/exam-guide` | 否 | 事业编备考指南 |
+| GET | `/api/v1/app/employment/civil-service/institution/notice` | 否 | 事业编公告 |
 | GET | `/api/v1/app/employment/civil-service/military/list` | 否 | 部队文职分页 |
 | GET | `/api/v1/app/employment/civil-service/military/{id}/detail` | 是 | 部队文职详情 |
+| GET | `/api/v1/app/employment/civil-service/military/exam-guide` | 否 | 部队文职备考指南 |
+| GET | `/api/v1/app/employment/civil-service/military/notice` | 否 | 部队文职公告 |
 | GET | `/api/v1/app/employment/civil-service/selection/list` | 否 | 选调生分页 |
 | GET | `/api/v1/app/employment/civil-service/selection/{id}/detail` | 是 | 选调生详情 |
+| GET | `/api/v1/app/employment/civil-service/selection/exam-guide` | 否 | 选调生备考指南 |
+| GET | `/api/v1/app/employment/civil-service/selection/notice` | 否 | 选调生公告 |
 
-## 文件清单 (28 文件)
+## 文件清单 (32 文件)
 
 ```
 haifeng-common/
@@ -120,33 +155,65 @@ haifeng-common/
     SelectionPositionMapper.java
 
 haifeng-app/
-  dto/employment/civilService/
-    CivilPositionSearchDTO.java
-    InstitutionPositionSearchDTO.java
-    MilitaryPositionSearchDTO.java
-    SelectionPositionSearchDTO.java
-  vo/employment/civilService/
-    CivilPositionListVO.java
-    CivilPositionDetailVO.java
-    InstitutionPositionListVO.java
-    InstitutionPositionDetailVO.java
-    MilitaryPositionListVO.java
-    MilitaryPositionDetailVO.java
-    SelectionPositionListVO.java
-    SelectionPositionDetailVO.java
-  service/employment/civilService/
-    CivilPositionService.java
-    InstitutionPositionService.java
-    MilitaryPositionService.java
-    SelectionPositionService.java
-  service/impl/employment/civilService/
-    CivilPositionServiceImpl.java
-    InstitutionPositionServiceImpl.java
-    MilitaryPositionServiceImpl.java
-    SelectionPositionServiceImpl.java
-  controller/employment/civilService/
-    CivilPositionController.java
-    InstitutionPositionController.java
-    MilitaryPositionController.java
-    SelectionPositionController.java
+  dto/employment/
+    civilService/
+      CivilPositionSearchDTO.java
+      InstitutionPositionSearchDTO.java
+      MilitaryPositionSearchDTO.java
+      SelectionPositionSearchDTO.java
+    contentManagement/
+      examGuide/
+        ExamGuideQueryDTO.java
+      notice/
+        NoticeQueryDTO.java
+  vo/employment/
+    civilService/
+      CivilPositionListVO.java
+      CivilPositionDetailVO.java
+      InstitutionPositionListVO.java
+      InstitutionPositionDetailVO.java
+      MilitaryPositionListVO.java
+      MilitaryPositionDetailVO.java
+      SelectionPositionListVO.java
+      SelectionPositionDetailVO.java
+    contentManagement/
+      examGuide/
+        ExamGuideListVO.java
+        ExamGuideDetailVO.java
+      notice/
+        NoticeListVO.java
+        NoticeDetailVO.java
+  service/employment/
+    civilService/
+      CivilPositionService.java
+      InstitutionPositionService.java
+      MilitaryPositionService.java
+      SelectionPositionService.java
+    contentManagement/
+      examGuide/
+        ExamGuideService.java
+      notice/
+        NoticeService.java
+  service/impl/employment/
+    civilService/
+      CivilPositionServiceImpl.java
+      InstitutionPositionServiceImpl.java
+      MilitaryPositionServiceImpl.java
+      SelectionPositionServiceImpl.java
+    contentManagement/
+      examGuide/
+        ExamGuideServiceImpl.java
+      notice/
+        NoticeServiceImpl.java
+  controller/employment/
+    civilService/
+      CivilPositionController.java
+      InstitutionPositionController.java
+      MilitaryPositionController.java
+      SelectionPositionController.java
+    contentManagement/
+      examGuide/
+        ExamGuideController.java
+      notice/
+        NoticeController.java
 ```

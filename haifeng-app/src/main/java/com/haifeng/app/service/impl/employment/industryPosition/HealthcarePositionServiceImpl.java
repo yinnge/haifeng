@@ -46,6 +46,9 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
         wrapper.eq(StrUtil.isNotBlank(dto.getDistrict()), HealthcarePosition::getDistrict, dto.getDistrict());
         wrapper.ge(dto.getAgeLimit() != null, HealthcarePosition::getAgeLimit, dto.getAgeLimit());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), HealthcarePosition::getPositionStatus, dto.getPositionStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), HealthcarePosition::getEducationRequirement, dto.getEducationRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), HealthcarePosition::getDegreeRequirement, dto.getDegreeRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), HealthcarePosition::getMajorRequirement, dto.getMajorRequirement());
 
         wrapper.orderByDesc(HealthcarePosition::getCreatedAt);
 
@@ -67,6 +70,9 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
                 .salaryRange(pos.getSalaryRange())
                 .workExperience(pos.getWorkExperience())
                 .positionStatus(pos.getPositionStatus())
+                .educationRequirement(pos.getEducationRequirement())
+                .degreeRequirement(pos.getDegreeRequirement())
+                .majorRequirement(pos.getMajorRequirement())
                 .build());
     }
 

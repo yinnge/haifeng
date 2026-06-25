@@ -7,5 +7,6 @@ import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideListVO
 
 public interface ExamGuideService {
     IPage<ExamGuideListVO> page(ExamGuideQueryDTO dto);
+    IPage<ExamGuideDetailVO> pageDetail(ExamGuideQueryDTO dto);
     ExamGuideDetailVO detail(Long id);
 }

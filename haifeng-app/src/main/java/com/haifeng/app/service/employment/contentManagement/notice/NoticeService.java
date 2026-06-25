@@ -7,5 +7,6 @@ import com.haifeng.app.vo.employment.contentManagement.notice.NoticeListVO;
 
 public interface NoticeService {
     IPage<NoticeListVO> page(NoticeQueryDTO dto);
+    IPage<NoticeDetailVO> pageDetail(NoticeQueryDTO dto);
     NoticeDetailVO detail(Long id);
 }

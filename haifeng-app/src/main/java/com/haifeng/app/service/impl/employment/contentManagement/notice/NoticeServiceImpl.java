@@ -76,6 +76,69 @@ public class NoticeServiceImpl implements NoticeService {
     }
 
     @Override
+    public IPage<NoticeDetailVO> pageDetail(NoticeQueryDTO dto) {
+        LambdaQueryWrapper<Notice> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Notice::getIsDeleted, false);
+
+        if (StrUtil.isNotBlank(dto.getTitle()) || StrUtil.isNotBlank(dto.getSummary()) || StrUtil.isNotBlank(dto.getSource())) {
+            wrapper.and(w -> {
+                boolean hasPrev = false;
+                if (StrUtil.isNotBlank(dto.getTitle())) {
+                    w.like(Notice::getTitle, dto.getTitle());
+                    hasPrev = true;
+                }
+                if (StrUtil.isNotBlank(dto.getSummary())) {
+                    if (hasPrev) { w.or(); }
+                    w.like(Notice::getSummary, dto.getSummary());
+                    hasPrev = true;
+                }
+                if (StrUtil.isNotBlank(dto.getSource())) {
+                    if (hasPrev) { w.or(); }
+                    w.like(Notice::getSource, dto.getSource());
+                }
+            });
+        }
+
+        wrapper.eq(StrUtil.isNotBlank(dto.getNoticeCategory()), Notice::getNoticeCategory, dto.getNoticeCategory());
+        wrapper.eq(StrUtil.isNotBlank(dto.getNoticeType()), Notice::getNoticeType, dto.getNoticeType());
+        wrapper.eq(StrUtil.isNotBlank(dto.getProvince()), Notice::getProvince, dto.getProvince());
+        wrapper.eq(StrUtil.isNotBlank(dto.getCity()), Notice::getCity, dto.getCity());
+        wrapper.eq(StrUtil.isNotBlank(dto.getYear()), Notice::getYear, dto.getYear());
+
+        wrapper.orderByDesc(Notice::getIsTop);
+        wrapper.orderByDesc(Notice::getPublishDate).last("NULLS LAST");
+
+        Page<Notice> page = new Page<>(dto.getPage(), dto.getSize());
+        noticeMapper.selectPage(page, wrapper);
+
+        return page.convert(notice -> NoticeDetailVO.builder()
+                .id(notice.getId())
+                .noticeCategory(notice.getNoticeCategory())
+                .noticeType(notice.getNoticeType())
+                .title(notice.getTitle())
+                .summary(notice.getSummary())
+                .content(notice.getContent())
+                .province(notice.getProvince())
+                .city(notice.getCity())
+                .tags(notice.getTags())
+                .year(notice.getYear())
+                .source(notice.getSource())
+                .sourceUrl(notice.getSourceUrl())
+                .publishDate(notice.getPublishDate())
+                .publishUnit(notice.getPublishUnit())
+                .regStartDate(notice.getRegStartDate())
+                .regEndDate(notice.getRegEndDate())
+                .examTime(notice.getExamTime())
+                .recruitmentCount(notice.getRecruitmentCount())
+                .isTop(notice.getIsTop())
+                .isImportant(notice.getIsImportant())
+                .viewCount(notice.getViewCount())
+                .createdAt(notice.getCreatedAt())
+                .updatedAt(notice.getUpdatedAt())
+                .build());
+    }
+
+    @Override
     public NoticeDetailVO detail(Long id) {
         Notice notice = noticeMapper.selectById(id);
         if (notice == null || Boolean.TRUE.equals(notice.getIsDeleted())) {

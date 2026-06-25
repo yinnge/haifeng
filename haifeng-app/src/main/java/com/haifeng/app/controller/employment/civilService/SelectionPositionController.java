@@ -2,9 +2,15 @@ package com.haifeng.app.controller.employment.civilService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.employment.civilService.SelectionPositionSearchDTO;
+import com.haifeng.app.dto.employment.contentManagement.examGuide.ExamGuideQueryDTO;
+import com.haifeng.app.dto.employment.contentManagement.notice.NoticeQueryDTO;
 import com.haifeng.app.service.employment.civilService.SelectionPositionService;
+import com.haifeng.app.service.employment.contentManagement.examGuide.ExamGuideService;
+import com.haifeng.app.service.employment.contentManagement.notice.NoticeService;
 import com.haifeng.app.vo.employment.civilService.SelectionPositionDetailVO;
 import com.haifeng.app.vo.employment.civilService.SelectionPositionListVO;
+import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideDetailVO;
+import com.haifeng.app.vo.employment.contentManagement.notice.NoticeDetailVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -22,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class SelectionPositionController {
 
     private final SelectionPositionService selectionPositionService;
+    private final ExamGuideService examGuideService;
+    private final NoticeService noticeService;
 
     @GetMapping("/list")
     public R<IPage<SelectionPositionListVO>> list(@Valid SelectionPositionSearchDTO dto) {
@@ -32,5 +40,17 @@ public class SelectionPositionController {
     @GetMapping("/{id}/detail")
     public R<SelectionPositionDetailVO> detail(@PathVariable Long id) {
         return R.ok(selectionPositionService.detail(id));
+    }
+
+    @GetMapping("/exam-guide")
+    public R<IPage<ExamGuideDetailVO>> examGuide(@Valid ExamGuideQueryDTO dto) {
+        dto.setGuideCategory("selection");
+        return R.ok(examGuideService.pageDetail(dto));
+    }
+
+    @GetMapping("/notice")
+    public R<IPage<NoticeDetailVO>> notice(@Valid NoticeQueryDTO dto) {
+        dto.setNoticeCategory("selection");
+        return R.ok(noticeService.pageDetail(dto));
     }
 }

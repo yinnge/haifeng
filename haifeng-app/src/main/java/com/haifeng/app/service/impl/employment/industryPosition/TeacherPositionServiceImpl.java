@@ -45,6 +45,9 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
         wrapper.eq(dto.getRecruitmentCount() != null, TeacherPosition::getRecruitmentCount, dto.getRecruitmentCount());
         wrapper.ge(dto.getAgeLimit() != null, TeacherPosition::getAgeLimit, dto.getAgeLimit());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), TeacherPosition::getPositionStatus, dto.getPositionStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), TeacherPosition::getEducationRequirement, dto.getEducationRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), TeacherPosition::getDegreeRequirement, dto.getDegreeRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), TeacherPosition::getMajorRequirement, dto.getMajorRequirement());
 
         wrapper.orderByDesc(TeacherPosition::getCreatedAt);
 
@@ -69,6 +72,9 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
                 .regStartDate(pos.getRegStartDate())
                 .regEndDate(pos.getRegEndDate())
                 .positionStatus(pos.getPositionStatus())
+                .educationRequirement(pos.getEducationRequirement())
+                .degreeRequirement(pos.getDegreeRequirement())
+                .majorRequirement(pos.getMajorRequirement())
                 .build());
     }
 

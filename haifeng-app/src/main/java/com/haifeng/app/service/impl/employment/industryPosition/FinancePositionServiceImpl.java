@@ -46,6 +46,9 @@ public class FinancePositionServiceImpl implements FinancePositionService {
         wrapper.ge(dto.getAgeLimit() != null, FinancePosition::getAgeLimit, dto.getAgeLimit());
         wrapper.ge(dto.getSalaryMin() != null, FinancePosition::getSalaryMin, dto.getSalaryMin());
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), FinancePosition::getPositionStatus, dto.getPositionStatus());
+        wrapper.eq(StrUtil.isNotBlank(dto.getEducationRequirement()), FinancePosition::getEducationRequirement, dto.getEducationRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), FinancePosition::getDegreeRequirement, dto.getDegreeRequirement());
+        wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), FinancePosition::getMajorRequirement, dto.getMajorRequirement());
 
         wrapper.orderByDesc(FinancePosition::getCreatedAt);
 
@@ -71,6 +74,9 @@ public class FinancePositionServiceImpl implements FinancePositionService {
                 .workLocation(pos.getWorkLocation())
                 .recruitmentCount(pos.getRecruitmentCount())
                 .positionStatus(pos.getPositionStatus())
+                .educationRequirement(pos.getEducationRequirement())
+                .degreeRequirement(pos.getDegreeRequirement())
+                .majorRequirement(pos.getMajorRequirement())
                 .build());
     }
 

@@ -1,4 +1,4 @@
-# 招聘内容管理 API 文档
+``# 招聘内容管理 API 文档
 
 ## 概述
 
@@ -199,18 +199,18 @@ Authorization: Bearer <access_token>
 
 #### 请求参数（Query String）
 
-| 参数 | 类型 | 必须 | 查询方式 | 说明 |
-|------|------|------|----------|------|
-| page | Integer | 否 | - | 页码，默认1 |
-| size | Integer | 否 | - | 每页条数，默认10 |
-| title | String | 否 | 模糊 LIKE | 公告标题 |
-| summary | String | 否 | 模糊 LIKE | 摘要 |
-| source | String | 否 | 模糊 LIKE | 发布来源 |
-| noticeCategory | String | 否 | 精确 EQ | 公告类别 |
-| noticeType | String | 否 | 精确 EQ | 公告类型 |
-| province | String | 否 | 精确 EQ | 省份 |
-| city | String | 否 | 精确 EQ | 城市 |
-| year | String | 否 | 精确 EQ | 年份 |
+| 参数 | 类型        | 必须 | 查询方式 | 说明 |
+|------|-----------|------|----------|------|
+| page | Integer   | 否 | - | 页码，默认1 |
+| size | Integer   | 否 | - | 每页条数，默认10 |
+| title | String    | 否 | 模糊 LIKE | 公告标题 |
+| summary | String    | 否 | 模糊 LIKE | 摘要 |
+| source | 1\ String | 否 | 模糊 LIKE | 发布来源 |
+| noticeCategory | String    | 否 | 精确 EQ | 公告类别 |
+| noticeType | String    | 否 | 精确 EQ | 公告类型 |
+| province | String    | 否 | 精确 EQ | 省份 |
+| city | String    | 否 | 精确 EQ | 城市 |
+| year | String    | 否 | 精确 EQ | 年份 |
 
 > **查询逻辑**:
 > - 基础条件：`is_deleted = false`

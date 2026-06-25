@@ -59,6 +59,8 @@ vo/employment/grassrootsPosition/
 |------|------|------|------|
 | GET | `/api/v1/app/employment/grassroots/project/list` | ❌ | 分页列表 |
 | GET | `/api/v1/app/employment/grassroots/project/{id}/detail` | ✅ @RequireLogin | 详情 |
+| GET | `/api/v1/app/employment/grassroots/project/exam-guide/list` | ❌ | 备考指南（guide_category=grassroots） |
+| GET | `/api/v1/app/employment/grassroots/project/notice/list` | ❌ | 公告（notice_category=grassroots） |
 
 **列表查询字段：**
 - 模糊：position_name, organizing_dept, service_unit
@@ -75,6 +77,8 @@ vo/employment/grassrootsPosition/
 |------|------|------|------|
 | GET | `/api/v1/app/employment/grassroots/community/list` | ❌ | 分页列表 |
 | GET | `/api/v1/app/employment/grassroots/community/{id}/detail` | ✅ @RequireLogin | 详情 |
+| GET | `/api/v1/app/employment/grassroots/community/exam-guide/list` | ❌ | 备考指南（guide_category=community） |
+| GET | `/api/v1/app/employment/grassroots/community/notice/list` | ❌ | 公告（notice_category=community） |
 
 **列表查询字段：**
 - 模糊：position_name, street_office, community_name, supervising_dept
@@ -89,6 +93,8 @@ vo/employment/grassrootsPosition/
 |------|------|------|------|
 | GET | `/api/v1/app/employment/grassroots/welfare/list` | ❌ | 分页列表 |
 | GET | `/api/v1/app/employment/grassroots/welfare/{id}/detail` | ✅ @RequireLogin | 详情 |
+| GET | `/api/v1/app/employment/grassroots/welfare/exam-guide/list` | ❌ | 备考指南（guide_category=public_welfare） |
+| GET | `/api/v1/app/employment/grassroots/welfare/notice/list` | ❌ | 公告（notice_category=public_welfare） |
 
 **列表查询字段：**
 - 模糊：position_name, developing_unit, employing_unit
@@ -99,6 +105,7 @@ vo/employment/grassrootsPosition/
 
 ## 数据流
 
+### 岗位列表/详情
 ```
 Controller (DTO @Valid)
   → Service (LambdaQueryWrapper<Entity> 拼装条件)
@@ -108,9 +115,18 @@ Controller (DTO @Valid)
       → 转 DetailVO
 ```
 
+### 备考指南 / 公告（复用 contentManagement 服务）
+```
+Controller (注入 ExamGuideService / NoticeService)
+  → 设置 guideCategory / noticeCategory 硬编码到 DTO
+    → ExamGuideService.pageDetail(dto)
+    → NoticeService.pageDetail(dto)
+```
+
 ## 关键约束
-1. 所有列表接口无需登录（DTO无token校验）
-2. 所有详情接口需 @RequireLogin
+1. 所有列表接口（含 exam-guide/notice）无需登录
+2. 所有详情接口（岗位详情）需 @RequireLogin
 3. 软删除过滤：wrapper.eq(Entity::getIsDeleted, false)
 4. 模糊查询 + 精准查询 是 AND 关系
 5. 三个模块互不依赖，各自独立
+6. 备考指南/公告接口复用 haifeng-app 中 contentManagement 模块的 ExamGuideService / NoticeService，每个 controller 通过硬编码 guideCategory / noticeCategory 过滤各自模块数据

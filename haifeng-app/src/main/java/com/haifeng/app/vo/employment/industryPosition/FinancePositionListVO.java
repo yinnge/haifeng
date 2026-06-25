@@ -51,4 +51,10 @@ public class FinancePositionListVO implements Serializable {
     private Integer recruitmentCount;
 
     private String positionStatus;
+
+    private String educationRequirement;
+
+    private String degreeRequirement;
+
+    private String majorRequirement;
 }

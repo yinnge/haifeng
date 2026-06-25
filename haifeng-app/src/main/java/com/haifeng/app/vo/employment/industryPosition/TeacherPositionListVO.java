@@ -49,4 +49,10 @@ public class TeacherPositionListVO implements Serializable {
     private OffsetDateTime regEndDate;
 
     private String positionStatus;
+
+    private String educationRequirement;
+
+    private String degreeRequirement;
+
+    private String majorRequirement;
 }
