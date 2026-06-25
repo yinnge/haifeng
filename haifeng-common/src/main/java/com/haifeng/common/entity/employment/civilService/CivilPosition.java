@@ -54,6 +54,8 @@ public class CivilPosition implements Serializable {
     private String regStatus;
     private Integer applicantCount;
 
+    private Integer sortOrder;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

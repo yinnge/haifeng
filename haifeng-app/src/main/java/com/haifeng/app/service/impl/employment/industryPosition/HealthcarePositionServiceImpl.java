@@ -50,7 +50,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), HealthcarePosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), HealthcarePosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(HealthcarePosition::getCreatedAt);
+        wrapper.orderByDesc(HealthcarePosition::getSortOrder, HealthcarePosition::getCreatedAt);
 
         Page<HealthcarePosition> page = new Page<>(dto.getPage(), dto.getSize());
         healthcarePositionMapper.selectPage(page, wrapper);

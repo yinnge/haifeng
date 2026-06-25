@@ -47,7 +47,7 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), CivilPosition::getPoliticalStatus, dto.getPoliticalStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getExamCategory()), CivilPosition::getExamCategory, dto.getExamCategory());
 
-        wrapper.orderByDesc(CivilPosition::getCreatedAt);
+        wrapper.orderByDesc(CivilPosition::getSortOrder, CivilPosition::getCreatedAt);
 
         Page<CivilPosition> page = new Page<>(dto.getPage(), dto.getSize());
         civilPositionMapper.selectPage(page, wrapper);

@@ -46,6 +46,7 @@ GET /api/v1/app/employment/grassroots/project/list
 | ageLimitMax | Integer | 否 | 年龄上限（<=） | 范围 |
 
 > 模糊查询 + 精准查询 为 AND 关系。
+> **排序规则**：按 `sort_order` 降序（值越大优先级越高），相同 `sort_order` 的按 `created_at` 降序。
 
 #### 响应参数
 
@@ -436,6 +437,7 @@ GET /api/v1/app/employment/grassroots/community/list
 | ageLimitMax | Integer | 否 | 年龄上限（<=） | 范围 |
 
 > 模糊查询 + 精准查询 为 AND 关系。
+> **排序规则**：按 `sort_order` 降序（值越大优先级越高），相同 `sort_order` 的按 `created_at` 降序。
 
 #### 响应参数
 
@@ -713,6 +715,7 @@ GET /api/v1/app/employment/grassroots/welfare/list
 | ageRangeMax | Integer | 否 | 年龄上限（<=） | 范围 |
 
 > 注意：targetGroup 字段为 TEXT[] 数组类型，精确匹配时需要传入数组中的元素值。
+> **排序规则**：按 `sort_order` 降序（值越大优先级越高），相同 `sort_order` 的按 `created_at` 降序。
 
 #### 响应参数
 
@@ -993,8 +996,9 @@ GET /api/v1/app/employment/grassroots/welfare/notice/list
 4. **范围查询**：`age_limit`/`age_range` 字段支持上下界范围查询
 5. **查询组合**：模糊条件与精准条件之间为 **AND** 关系，同类型条件之间也为 **AND** 关系
 6. **分页参数**：`size` 可选值：10、20、30、50、100，未传则默认 10
-7. **统一响应格式**：符合项目 `R<T>` 规范，code=200 表示成功
-8. **ID 说明**：所有 ID 使用雪花算法生成
+7. **排序规则**：分页列表默认按 `sort_order` 降序（值越大优先级越高），相同 `sort_order` 的按 `created_at` 降序
+8. **统一响应格式**：符合项目 `R<T>` 规范，code=200 表示成功
+9. **ID 说明**：所有 ID 使用雪花算法生成
 
 ### 4.3 错误码
 

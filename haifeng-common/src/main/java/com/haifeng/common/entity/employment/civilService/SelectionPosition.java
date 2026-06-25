@@ -58,6 +58,8 @@ public class SelectionPosition implements Serializable {
     private String officialLink;
     private String content;
 
+    private Integer sortOrder;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

@@ -49,7 +49,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), TeacherPosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), TeacherPosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(TeacherPosition::getCreatedAt);
+        wrapper.orderByDesc(TeacherPosition::getSortOrder, TeacherPosition::getCreatedAt);
 
         Page<TeacherPosition> page = new Page<>(dto.getPage(), dto.getSize());
         teacherPositionMapper.selectPage(page, wrapper);

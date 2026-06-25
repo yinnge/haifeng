@@ -51,6 +51,8 @@ public class InstitutionPosition implements Serializable {
     private String positionTag;
     private String tagText;
 
+    private Integer sortOrder;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

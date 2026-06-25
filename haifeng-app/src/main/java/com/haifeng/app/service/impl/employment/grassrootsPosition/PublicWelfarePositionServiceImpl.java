@@ -60,6 +60,7 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
             wrapper.apply("target_group @> ARRAY[{0}]::text[]", dto.getTargetGroup());
         }
 
+        wrapper.orderByDesc(PublicWelfarePosition::getSortOrder);
         wrapper.orderByDesc(PublicWelfarePosition::getCreatedAt);
 
         Page<PublicWelfarePosition> page = new Page<>(dto.getPage(), dto.getSize());

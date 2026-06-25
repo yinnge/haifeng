@@ -51,7 +51,7 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
         }
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), SelectionPosition::getPositionStatus, dto.getPositionStatus());
 
-        wrapper.orderByDesc(SelectionPosition::getCreatedAt);
+        wrapper.orderByDesc(SelectionPosition::getSortOrder, SelectionPosition::getCreatedAt);
 
         Page<SelectionPosition> page = new Page<>(dto.getPage(), dto.getSize());
         selectionPositionMapper.selectPage(page, wrapper);

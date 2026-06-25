@@ -103,6 +103,8 @@ public class FinancePosition implements Serializable {
 
     private String content;
 
+    private Integer sortOrder;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

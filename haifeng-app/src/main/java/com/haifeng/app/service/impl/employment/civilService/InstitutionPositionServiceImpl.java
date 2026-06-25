@@ -51,7 +51,7 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
             wrapper.ge(InstitutionPosition::getAgeLimit, dto.getAgeLimit());
         }
 
-        wrapper.orderByDesc(InstitutionPosition::getCreatedAt);
+        wrapper.orderByDesc(InstitutionPosition::getSortOrder, InstitutionPosition::getCreatedAt);
 
         Page<InstitutionPosition> page = new Page<>(dto.getPage(), dto.getSize());
         institutionPositionMapper.selectPage(page, wrapper);
