@@ -38,11 +38,11 @@ CREATE TABLE IF NOT EXISTS t_exam_guide (
     -- ==================== 展示控制 ====================
     is_top                  BOOLEAN         DEFAULT FALSE,
     is_recommended          BOOLEAN         DEFAULT FALSE,
-    sort_order              INTEGER         DEFAULT 0,
     view_count              INTEGER         DEFAULT 0,
     like_count              INTEGER         DEFAULT 0,
 
     -- ==================== 审计字段 ====================
+    sort_order              INTEGER         DEFAULT 0,
     is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS t_notice (
     view_count              INTEGER         DEFAULT 0,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),

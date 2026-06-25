@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS t_civil_position (
     applicant_count             INTEGER         DEFAULT 0,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -168,6 +169,7 @@ CREATE TABLE IF NOT EXISTS t_institution_position (
     tag_text                    VARCHAR(50),
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -267,6 +269,7 @@ CREATE TABLE IF NOT EXISTS t_military_position (
     qualifications              TEXT[]          DEFAULT '{}',
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -365,6 +368,7 @@ CREATE TABLE IF NOT EXISTS t_selection_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),

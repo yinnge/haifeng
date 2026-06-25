@@ -21,6 +21,10 @@ public class SystemSettingsVO {
 
     private Integer apiNumber;
 
+    private String providerName;
+
+    private String modelName;
+
     private Integer proPrice;
 
     private Integer vipPrice;

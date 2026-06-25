@@ -281,6 +281,8 @@ Authorization: Bearer {accessToken}
     "siteIcp": "京ICP备12345678号",
     "siteDescription": "专业的高考志愿填报平台",
     "apiNumber": 3,
+    "providerName": "openai",
+    "modelName": "gpt-4",
     "proPrice": 199,
     "vipPrice": 599,
     "proCommissionRate": 10,
@@ -380,7 +382,76 @@ Authorization: Bearer {accessToken}
 
 ---
 
-### 操作日志接口 (端口: 8081)
+#### 3. 获取所有启用的服务商列表
+```
+GET /api/v1/admin/system/settings/providers
+Authorization: Bearer {accessToken}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": ["openai", "deepseek", "zhipu"],
+  "timestamp": 1714300000000
+}
+```
+
+**响应说明：** `data` 返回去重后的服务商名称列表，只包含状态为启用的服务商
+
+**操作日志：** 此接口自动记录操作日志
+
+---
+
+#### 4. 更新系统设置中的服务商和模型
+```
+PUT /api/v1/admin/system/settings/provider-model
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| providerName | String | 是 | 服务商名称，必须是已启用的服务商 |
+| modelName | String | 是 | 模型名称，必须是该服务商下的有效模型 |
+
+**验证规则：**
+1. `providerName` 不能为空，必须存在于 `t_model_provider` 表中且状态为启用
+2. `modelName` 不能为空，必须是该服务商下的有效模型
+3. 如果服务商不存在或未启用，返回错误："所选服务商不存在或未启用"
+4. 如果模型不属于所选服务商，返回错误："该模型不属于所选服务商"
+
+**请求示例：**
+```json
+{
+  "providerName": "openai",
+  "modelName": "gpt-4"
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null,
+  "timestamp": 1714300000000
+}
+```
+
+**错误响应示例：**
+```json
+{
+  "code": 400,
+  "msg": "所选服务商不存在或未启用",
+  "data": null,
+  "timestamp": 1714300000000
+}
+```
+
+**操作日志：** 此接口自动记录操作日志 (端口: 8081)
 
 > 操作日志用于记录管理员的所有操作行为，通过 `@OperationLog` 注解自动采集并持久化到 `admin_logs` 表。
 
@@ -596,6 +667,8 @@ CREATE INDEX idx_admin_logs_created ON admin_logs(created_at);
 | site_icp | VARCHAR(100) | ICP备案号 |
 | site_description | TEXT | 网站描述 |
 | api_number | INTEGER | API调用次数限制，默认3 |
+| provider_name | VARCHAR(50) | AI服务商名称 |
+| model_name | VARCHAR(100) | AI模型名称 |
 | pro_price | INTEGER | Pro会员价格，默认199 |
 | vip_price | INTEGER | VIP会员价格，默认599 |
 | pro_commission_rate | SMALLINT | Pro会员提成比例（0-100），默认10 |
@@ -635,6 +708,7 @@ haifeng:
 - 修改用户状态
 - 查看用户微信明文
 - 更新系统设置
+- 更新服务商和模型
 
 ---
 
@@ -676,6 +750,7 @@ haifeng:
 | service/impl/user/MemberServiceImpl.java | 用户管理实现 |
 | controller/user/MemberController.java | 用户管理Controller |
 | dto/system/SystemSettingsUpdateDTO.java | 设置更新参数 |
+| dto/system/ProviderModelUpdateDTO.java | 服务商和模型更新参数 |
 | vo/system/SystemSettingsVO.java | 设置VO |
 | service/system/SystemSettingsService.java | 系统设置接口 |
 | service/impl/system/SystemSettingsServiceImpl.java | 系统设置实现 |
