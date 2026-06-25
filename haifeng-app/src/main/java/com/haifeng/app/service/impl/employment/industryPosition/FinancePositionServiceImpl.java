@@ -50,7 +50,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), FinancePosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), FinancePosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(FinancePosition::getCreatedAt);
+        wrapper.orderByDesc(FinancePosition::getSortOrder, FinancePosition::getCreatedAt);
 
         Page<FinancePosition> page = new Page<>(dto.getPage(), dto.getSize());
         financePositionMapper.selectPage(page, wrapper);

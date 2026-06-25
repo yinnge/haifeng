@@ -66,6 +66,7 @@ Authorization: Bearer <access_token>
 3. **判断查询**：`ageLimit` 使用 `>=` 条件
 4. **所有条件之间为 AND 关系**
 5. **软删除过滤**：`is_deleted = false`
+6. **排序规则**：按 `sort_order DESC, created_at DESC` 排序（优先展示运营手动置顶的高优先级岗位）
 
 ### 1.1.4 返回字段（TeacherPositionListVO）
 
@@ -495,6 +496,7 @@ Host: api.haifeng.com
 3. **判断查询**：`ageLimit` 使用 `>=` 条件
 4. **所有条件之间为 AND 关系**
 5. **软删除过滤**：`is_deleted = false`
+6. **排序规则**：按 `sort_order DESC, created_at DESC` 排序（优先展示运营手动置顶的高优先级岗位）
 
 ### 2.1.4 返回字段（HealthcarePositionListVO）
 
@@ -920,6 +922,7 @@ Host: api.haifeng.com
 3. **判断查询**：`ageLimit` 使用 `>=` 条件，`salaryMin` 使用 `>=` 条件
 4. **所有条件之间为 AND 关系**
 5. **软删除过滤**：`is_deleted = false`
+6. **排序规则**：按 `sort_order DESC, created_at DESC` 排序（优先展示运营手动置顶的高优先级岗位）
 
 ### 3.1.4 返回字段（FinancePositionListVO）
 

@@ -79,7 +79,7 @@
 > - 模糊字段（positionName, recruitingDept, workLocation）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
 > - 精确字段（examType, positionCode, deptCode, minEducation, majorRequirement, degreeRequirement, politicalStatus, examCategory）：多个精确字段之间用 **AND** 连接
 > - 模糊与精确之间用 **AND** 连接
-> - 排序：`created_at DESC`
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
 
 #### 响应数据（CivilPositionListVO）
 
@@ -365,7 +365,7 @@ GET /api/v1/app/employment/civil-service/position/notice?page=1&size=10&year=202
 > - 精确字段（province, examCategory, positionType, educationRequirement, degreeRequirement, positionStatus, specialPosition）：多个精确字段之间用 **AND** 连接
 > - ageLimit：使用 `>=` 范围查询
 > - 模糊与精确之间用 **AND** 连接
-> - 排序：`created_at DESC`
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
 
 #### 响应数据（InstitutionPositionListVO）
 
@@ -585,7 +585,7 @@ GET /api/v1/app/employment/civil-service/institution/notice?page=1&size=10
 > - 模糊字段（positionName, employerUnit, department）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
 > - 精确字段（positionType, workLocation, majorRequirement, educationRequirement, positionStatus）：多个精确字段之间用 **AND** 连接
 > - 模糊与精确之间用 **AND** 连接
-> - 排序：`created_at DESC`
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
 
 #### 响应数据（MilitaryPositionListVO）
 
@@ -777,7 +777,7 @@ GET /api/v1/app/employment/civil-service/military/notice?page=1&size=10
 > - 精确字段（selectionType, year, province, majorRequirement, universityRequirement, educationRequirement, degreeRequirement, politicalStatus, positionStatus）：多个精确字段之间用 **AND** 连接
 > - ageLimit：使用 `>=` 范围查询
 > - 模糊与精确之间用 **AND** 连接
-> - 排序：`created_at DESC`
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
 
 #### 响应数据（SelectionPositionListVO）
 

@@ -39,6 +39,8 @@ public class MilitaryPosition implements Serializable {
     private String[] responsibilities;
     private String[] qualifications;
 
+    private Integer sortOrder;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

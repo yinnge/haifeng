@@ -57,6 +57,7 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
             wrapper.le(CommunityPosition::getAgeLimit, dto.getAgeLimitMax());
         }
 
+        wrapper.orderByDesc(CommunityPosition::getSortOrder);
         wrapper.orderByDesc(CommunityPosition::getCreatedAt);
 
         Page<CommunityPosition> page = new Page<>(dto.getPage(), dto.getSize());

@@ -57,6 +57,7 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
             wrapper.le(GrassrootsProjectPosition::getAgeLimit, dto.getAgeLimitMax());
         }
 
+        wrapper.orderByDesc(GrassrootsProjectPosition::getSortOrder);
         wrapper.orderByDesc(GrassrootsProjectPosition::getCreatedAt);
 
         Page<GrassrootsProjectPosition> page = new Page<>(dto.getPage(), dto.getSize());

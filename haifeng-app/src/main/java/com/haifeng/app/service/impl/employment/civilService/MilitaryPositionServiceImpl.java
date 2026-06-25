@@ -44,7 +44,7 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), MilitaryPosition::getPositionStatus, dto.getPositionStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getWorkLocation()), MilitaryPosition::getWorkLocation, dto.getWorkLocation());
 
-        wrapper.orderByDesc(MilitaryPosition::getCreatedAt);
+        wrapper.orderByDesc(MilitaryPosition::getSortOrder, MilitaryPosition::getCreatedAt);
 
         Page<MilitaryPosition> page = new Page<>(dto.getPage(), dto.getSize());
         militaryPositionMapper.selectPage(page, wrapper);
