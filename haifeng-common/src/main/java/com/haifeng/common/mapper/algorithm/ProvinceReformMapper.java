@@ -11,4 +11,7 @@ public interface ProvinceReformMapper extends BaseMapper<ProvinceReform> {
 
     @Select("SELECT id FROM t_province_reform WHERE province = #{province} LIMIT 1")
     Long selectIdByProvince(@Param("province") String province);
+
+    @Select("SELECT reform_year FROM t_province_reform WHERE province = #{province} LIMIT 1")
+    Short selectReformYearByProvince(@Param("province") String province);
 }

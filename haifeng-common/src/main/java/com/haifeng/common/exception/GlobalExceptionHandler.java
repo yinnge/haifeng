@@ -34,6 +34,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * AI 配额超额 - 返回 HTTP 429
+     */
+    @ExceptionHandler(QuotaExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public R<Void> handleQuotaExceededException(QuotaExceededException e) {
+        log.warn("AI 调用次数超额: {}", e.getMsg());
+        return R.fail(e.getCode(), e.getMsg());
+    }
+
+    /**
      * 参数校验异常 - @Valid
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)

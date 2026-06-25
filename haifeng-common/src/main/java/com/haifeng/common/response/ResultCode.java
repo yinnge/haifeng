@@ -26,6 +26,12 @@ public enum ResultCode {
     GAOKAO_ARCHIVE_NOT_FOUND(1010, "用户高考档案不存在，请先填写档案"),
     ADMISSION_GROUP_NOT_FOUND(1011, "专业组不存在"),
     CONSTRAINT_NOT_FOUND(1012, "约束代码不存在"),
+    WISH_PLAN_NOT_FOUND(1020, "志愿方案不存在"),
+    WISH_GROUP_NOT_FOUND(1021, "志愿方案专业组不存在"),
+    WISH_MAJOR_NOT_FOUND(1022, "志愿方案专业不存在"),
+    EXPORT_FAILED(1030, "导出失败"),
+    AI_QUOTA_EXCEEDED(1040, "今日 AI 调用次数已用完"),
+    AI_ALL_KEYS_FAILED(1041, "AI 服务暂不可用，请稍后再试"),
     TOTP_REQUIRED(20001, "需进行二次验证");
 
     private final Integer code;

@@ -6,3 +6,12 @@ spring:
 
 server:
   port: ${APP_PORT:8080}
+
+deepseek:
+  base-url: https://api.deepseek.com
+  model: deepseek-v4-flash
+  api-keys: ${DEEPSEEK_API_KEYS:}
+  max-tokens: 4096
+  temperature: 1.0
+  key-cooldown-seconds: 300
+  timeout-seconds: 60
