@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS t_grassroots_project_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -218,6 +219,7 @@ CREATE TABLE IF NOT EXISTS t_community_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -366,6 +368,7 @@ CREATE TABLE IF NOT EXISTS t_public_welfare_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),

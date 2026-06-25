@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS t_teacher_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -211,6 +212,7 @@ CREATE TABLE IF NOT EXISTS t_healthcare_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -372,6 +374,7 @@ CREATE TABLE IF NOT EXISTS t_finance_position (
     content                     TEXT,
 
     -- ==================== 审计字段 ====================
+    sort_order                   INTEGER         DEFAULT 0,
     is_deleted                  BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),

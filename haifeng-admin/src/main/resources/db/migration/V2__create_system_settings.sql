@@ -8,6 +8,8 @@ CREATE TABLE system_settings (
     site_icp          VARCHAR(100),
     site_description  TEXT,
     api_number        INTEGER DEFAULT 3,
+    provider_name     VARCHAR(50),
+    model_name        VARCHAR(100),
     pro_price         INTEGER DEFAULT 199,
     vip_price         INTEGER DEFAULT 599,
     reach_high_count  INTEGER NOT NULL DEFAULT 1,
