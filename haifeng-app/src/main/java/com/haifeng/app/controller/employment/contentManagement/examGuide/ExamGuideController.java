@@ -7,12 +7,14 @@ import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideDetail
 import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
+import java.util.List;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
@@ -26,6 +28,13 @@ public class ExamGuideController {
     @GetMapping("/list")
     public R<IPage<ExamGuideListVO>> list(@Valid ExamGuideQueryDTO dto) {
         return R.ok(examGuideService.page(dto));
+    }
+
+    @GetMapping("/list-by-type")
+    public R<List<ExamGuideDetailVO>> listByType(
+            @RequestParam String guideCategory,
+            @RequestParam(defaultValue = "备考攻略") String guideType) {
+        return R.ok(examGuideService.listByCategoryAndType(guideCategory, guideType));
     }
 
     @RequireLogin
