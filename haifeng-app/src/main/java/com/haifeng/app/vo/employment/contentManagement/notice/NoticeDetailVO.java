@@ -58,6 +58,8 @@ public class NoticeDetailVO implements Serializable {
 
     private Integer viewCount;
 
+    private Integer sortOrder;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

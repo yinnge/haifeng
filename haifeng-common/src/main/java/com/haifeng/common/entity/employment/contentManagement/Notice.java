@@ -63,6 +63,8 @@ public class Notice implements Serializable {
 
     private Boolean isImportant;
 
+    private Integer sortOrder;
+
     private Integer viewCount;
 
     private Boolean isDeleted;

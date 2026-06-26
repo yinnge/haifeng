@@ -2,15 +2,9 @@ package com.haifeng.app.controller.employment.civilService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.employment.civilService.MilitaryPositionSearchDTO;
-import com.haifeng.app.dto.employment.contentManagement.examGuide.ExamGuideQueryDTO;
-import com.haifeng.app.dto.employment.contentManagement.notice.NoticeQueryDTO;
 import com.haifeng.app.service.employment.civilService.MilitaryPositionService;
-import com.haifeng.app.service.employment.contentManagement.examGuide.ExamGuideService;
-import com.haifeng.app.service.employment.contentManagement.notice.NoticeService;
 import com.haifeng.app.vo.employment.civilService.MilitaryPositionDetailVO;
 import com.haifeng.app.vo.employment.civilService.MilitaryPositionListVO;
-import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideDetailVO;
-import com.haifeng.app.vo.employment.contentManagement.notice.NoticeDetailVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -28,8 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class MilitaryPositionController {
 
     private final MilitaryPositionService militaryPositionService;
-    private final ExamGuideService examGuideService;
-    private final NoticeService noticeService;
 
     @GetMapping("/list")
     public R<IPage<MilitaryPositionListVO>> list(@Valid MilitaryPositionSearchDTO dto) {
@@ -40,17 +32,5 @@ public class MilitaryPositionController {
     @GetMapping("/{id}/detail")
     public R<MilitaryPositionDetailVO> detail(@PathVariable Long id) {
         return R.ok(militaryPositionService.detail(id));
-    }
-
-    @GetMapping("/exam-guide")
-    public R<IPage<ExamGuideDetailVO>> examGuide(@Valid ExamGuideQueryDTO dto) {
-        dto.setGuideCategory("military");
-        return R.ok(examGuideService.pageDetail(dto));
-    }
-
-    @GetMapping("/notice")
-    public R<IPage<NoticeDetailVO>> notice(@Valid NoticeQueryDTO dto) {
-        dto.setNoticeCategory("military");
-        return R.ok(noticeService.pageDetail(dto));
     }
 }

@@ -227,26 +227,27 @@ GET /api/v1/app/employment/grassroots/project/{id}/detail
 
 ### 1.3 备考指南查询
 
-> 无需登录，根据 `guide_category = 'grassroots'` 过滤
+> 无需登录。跳转至统一备考指南模块，按 `guide_category = 'grassroots'` 预设过滤，支持按 `guide_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/project/exam-guide/list
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=grassroots
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| subtitle | String | 否 | 副标题 (LIKE) |
-| guideType | String | 否 | 指南类型 (=) |
-| difficultyLevel | String | 否 | 难度等级 (=) |
-| authorTitle | String | 否 | 作者职称/头衔 (LIKE) |
-| authorName | String | 否 | 作者姓名 (LIKE) |
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
 
-> 注意：`guideCategory` 由服务端硬编码为 `grassroots`，前端无需传入。
+> `guideCategory` 由服务端硬编码为 `grassroots`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'grassroots'`
+2. **精确查询**：`guide_type = ?`（按传入 guideType，默认 `'备考攻略'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -254,37 +255,33 @@ GET /api/v1/app/employment/grassroots/project/exam-guide/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "guideCategory": "grassroots",
-        "guideType": "备考指南",
-        "title": "三支一扶备考攻略",
-        "subtitle": "2026年最新政策解读",
-        "coverImage": "https://example.com/cover.jpg",
-        "iconClass": "icon-grassroots",
-        "summary": "本文详细介绍三支一扶考试内容及备考策略",
-        "content": "<p>详细内容HTML</p>",
-        "tags": ["三支一扶", "支教", "备考"],
-        "difficultyLevel": "中级",
-        "targetAudience": "应届毕业生",
-        "authorName": "张老师",
-        "authorTitle": "资深公考讲师",
-        "isTop": false,
-        "isRecommended": true,
-        "sortOrder": 1,
-        "viewCount": 1200,
-        "likeCount": 86
-      }
-    ],
-    "total": 50,
-    "page": 1,
-    "size": 10
-  },
+  "data": [
+    {
+      "id": "雪花ID",
+      "guideCategory": "grassroots",
+      "guideType": "备考攻略",
+      "title": "三支一扶备考攻略",
+      "subtitle": "2026年最新政策解读",
+      "coverImage": "https://example.com/cover.jpg",
+      "iconClass": "icon-grassroots",
+      "summary": "本文详细介绍三支一扶考试内容及备考策略",
+      "content": "<p>详细内容HTML</p>",
+      "tags": ["三支一扶", "支教", "备考"],
+      "difficultyLevel": "中级",
+      "targetAudience": "应届毕业生",
+      "authorName": "张老师",
+      "authorTitle": "资深公考讲师",
+      "isTop": false,
+      "isRecommended": true,
+      "sortOrder": 1,
+      "viewCount": 1200,
+      "likeCount": 86,
+      "createdAt": "2026-06-01T10:00:00+08:00",
+      "updatedAt": "2026-06-01T10:00:00+08:00"
+    }
+  ],
   "timestamp": 1718000000000
 }
-```
 
 #### 返回字段
 
@@ -309,32 +306,34 @@ GET /api/v1/app/employment/grassroots/project/exam-guide/list
 | sortOrder | Integer | 排序号 |
 | viewCount | Integer | 浏览量 |
 | likeCount | Integer | 点赞数 |
+| createdAt | OffsetDateTime | 创建时间 |
+| updatedAt | OffsetDateTime | 更新时间 |
 
 ---
 
 ### 1.4 公告表查询
 
-> 无需登录，根据 `notice_category = 'grassroots'` 过滤
+> 无需登录。跳转至统一公告模块，按 `notice_category = 'grassroots'` 预设过滤，支持按 `notice_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/project/notice/list
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=grassroots
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| summary | String | 否 | 摘要 (LIKE) |
-| source | String | 否 | 来源 (LIKE) |
-| noticeType | String | 否 | 公告类型 (=) |
-| province | String | 否 | 省份 (=) |
-| city | String | 否 | 城市 (=) |
-| year | String | 否 | 年份 (=) |
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
 
-> 注意：`noticeCategory` 由服务端硬编码为 `grassroots`，前端无需传入。
+> `noticeCategory` 由服务端硬编码为 `grassroots`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'grassroots'`
+2. **精确查询**：`notice_type = ?`（按传入 noticeType，默认 `'招聘公告'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -342,38 +341,35 @@ GET /api/v1/app/employment/grassroots/project/notice/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "noticeCategory": "grassroots",
-        "noticeType": "招募公告",
-        "title": "2026年广东省三支一扶招募公告",
-        "summary": "广东省2026年三支一扶计划招募公告",
-        "content": "<p>公告详细内容HTML</p>",
-        "province": "广东省",
-        "city": "广州市",
-        "tags": ["三支一扶", "广东"],
-        "year": "2026",
-        "source": "广东省人社厅",
-        "sourceUrl": "https://example.com/notice",
-        "publishDate": "2026-05-01T00:00:00+08:00",
-        "publishUnit": "广东省人力资源和社会保障厅",
-        "regStartDate": "2026-06-01T00:00:00+08:00",
-        "regEndDate": "2026-06-20T23:59:59+08:00",
-        "examTime": "2026-07-15T09:00:00+08:00",
-        "recruitmentCount": 3000,
-        "isTop": true,
-        "isImportant": true,
-        "viewCount": 5000
-      }
-    ],
-    "total": 30,
-    "page": 1,
-    "size": 10
-  },
-  "timestamp": 1718000000000
-}
+  "data": [
+    {
+      "id": "雪花ID",
+      "noticeCategory": "grassroots",
+      "noticeType": "招聘公告",
+      "title": "2026年广东省三支一扶招募公告",
+      "summary": "广东省2026年三支一扶计划招募公告",
+      "content": "<p>公告详细内容HTML</p>",
+      "province": "广东省",
+      "city": "广州市",
+      "tags": ["三支一扶", "广东"],
+      "year": "2026",
+      "source": "广东省人社厅",
+      "sourceUrl": "https://example.com/notice",
+      "publishDate": "2026-05-01T00:00:00+08:00",
+      "publishUnit": "广东省人力资源和社会保障厅",
+      "regStartDate": "2026-06-01T00:00:00+08:00",
+      "regEndDate": "2026-06-20T23:59:59+08:00",
+      "examTime": "2026-07-15T09:00:00+08:00",
+      "recruitmentCount": 3000,
+      "isTop": true,
+      "isImportant": true,
+      "sortOrder": 100,
+      "viewCount": 5000,
+      "createdAt": "2026-05-01T00:00:00+08:00",
+      "updatedAt": "2026-05-01T00:00:00+08:00"
+    }
+  ],
+  "timestamp": 1718000000000}
 ```
 
 #### 返回字段
@@ -400,7 +396,10 @@ GET /api/v1/app/employment/grassroots/project/notice/list
 | recruitmentCount | Integer | 招募人数 |
 | isTop | Boolean | 是否置顶 |
 | isImportant | Boolean | 是否重要 |
+| sortOrder | Integer | 排序权重 |
 | viewCount | Integer | 浏览量 |
+| createdAt | OffsetDateTime | 创建时间 |
+| updatedAt | OffsetDateTime | 更新时间 |
 
 ---
 
@@ -548,26 +547,27 @@ GET /api/v1/app/employment/grassroots/community/{id}/detail
 
 ### 2.3 备考指南查询
 
-> 无需登录，根据 `guide_category = 'community'` 过滤
+> 无需登录。跳转至统一备考指南模块，按 `guide_category = 'community'` 预设过滤，支持按 `guide_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/community/exam-guide/list
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=community
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| subtitle | String | 否 | 副标题 (LIKE) |
-| guideType | String | 否 | 指南类型 (=) |
-| difficultyLevel | String | 否 | 难度等级 (=) |
-| authorTitle | String | 否 | 作者职称/头衔 (LIKE) |
-| authorName | String | 否 | 作者姓名 (LIKE) |
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
 
-> 注意：`guideCategory` 由服务端硬编码为 `community`，前端无需传入。
+> `guideCategory` 由服务端硬编码为 `community`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'community'`
+2. **精确查询**：`guide_type = ?`（按传入 guideType，默认 `'备考攻略'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -575,37 +575,33 @@ GET /api/v1/app/employment/grassroots/community/exam-guide/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "guideCategory": "community",
-        "guideType": "备考指南",
-        "title": "社区工作者考试备考指南",
-        "subtitle": "2026年最新考情分析",
-        "coverImage": "https://example.com/cover.jpg",
-        "iconClass": "icon-community",
-        "summary": "社区工作者考试内容及备考策略详解",
-        "content": "<p>详细内容HTML</p>",
-        "tags": ["社区工作者", "备考"],
-        "difficultyLevel": "初级",
-        "targetAudience": "求职者",
-        "authorName": "李老师",
-        "authorTitle": "社区工作培训师",
-        "isTop": false,
-        "isRecommended": true,
-        "sortOrder": 1,
-        "viewCount": 800,
-        "likeCount": 56
-      }
-    ],
-    "total": 30,
-    "page": 1,
-    "size": 10
-  },
+  "data": [
+    {
+      "id": "雪花ID",
+      "guideCategory": "community",
+      "guideType": "备考攻略",
+      "title": "社区工作者考试备考指南",
+      "subtitle": "2026年最新考情分析",
+      "coverImage": "https://example.com/cover.jpg",
+      "iconClass": "icon-community",
+      "summary": "社区工作者考试内容及备考策略详解",
+      "content": "<p>详细内容HTML</p>",
+      "tags": ["社区工作者", "备考"],
+      "difficultyLevel": "初级",
+      "targetAudience": "求职者",
+      "authorName": "李老师",
+      "authorTitle": "社区工作培训师",
+      "isTop": false,
+      "isRecommended": true,
+      "sortOrder": 1,
+      "viewCount": 800,
+      "likeCount": 56,
+      "createdAt": "2026-06-01T10:00:00+08:00",
+      "updatedAt": "2026-06-01T10:00:00+08:00"
+    }
+  ],
   "timestamp": 1718000000000
 }
-```
 
 #### 返回字段
 
@@ -615,27 +611,27 @@ GET /api/v1/app/employment/grassroots/community/exam-guide/list
 
 ### 2.4 公告表查询
 
-> 无需登录，根据 `notice_category = 'community'` 过滤
+> 无需登录。跳转至统一公告模块，按 `notice_category = 'community'` 预设过滤，支持按 `notice_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/community/notice/list
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=community
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| summary | String | 否 | 摘要 (LIKE) |
-| source | String | 否 | 来源 (LIKE) |
-| noticeType | String | 否 | 公告类型 (=) |
-| province | String | 否 | 省份 (=) |
-| city | String | 否 | 城市 (=) |
-| year | String | 否 | 年份 (=) |
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
 
-> 注意：`noticeCategory` 由服务端硬编码为 `community`，前端无需传入。
+> `noticeCategory` 由服务端硬编码为 `community`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'community'`
+2. **精确查询**：`notice_type = ?`（按传入 noticeType，默认 `'招聘公告'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -643,38 +639,35 @@ GET /api/v1/app/employment/grassroots/community/notice/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "noticeCategory": "community",
-        "noticeType": "招聘公告",
-        "title": "2026年广州市社区专职工作者招聘公告",
-        "summary": "广州市2026年社区专职工作者招聘",
-        "content": "<p>公告详细内容HTML</p>",
-        "province": "广东省",
-        "city": "广州市",
-        "tags": ["社区工作者", "广州"],
-        "year": "2026",
-        "source": "广州市民政局",
-        "sourceUrl": "https://example.com/notice",
-        "publishDate": "2026-05-15T00:00:00+08:00",
-        "publishUnit": "广州市民政局",
-        "regStartDate": "2026-06-01T00:00:00+08:00",
-        "regEndDate": "2026-06-15T23:59:59+08:00",
-        "examTime": "2026-07-01T09:00:00+08:00",
-        "recruitmentCount": 500,
-        "isTop": true,
-        "isImportant": true,
-        "viewCount": 3000
-      }
-    ],
-    "total": 20,
-    "page": 1,
-    "size": 10
-  },
-  "timestamp": 1718000000000
-}
+  "data": [
+    {
+      "id": "雪花ID",
+      "noticeCategory": "community",
+      "noticeType": "招聘公告",
+      "title": "2026年广州市社区专职工作者招聘公告",
+      "summary": "广州市2026年社区专职工作者招聘",
+      "content": "<p>公告详细内容HTML</p>",
+      "province": "广东省",
+      "city": "广州市",
+      "tags": ["社区工作者", "广州"],
+      "year": "2026",
+      "source": "广州市民政局",
+      "sourceUrl": "https://example.com/notice",
+      "publishDate": "2026-05-15T00:00:00+08:00",
+      "publishUnit": "广州市民政局",
+      "regStartDate": "2026-06-01T00:00:00+08:00",
+      "regEndDate": "2026-06-15T23:59:59+08:00",
+      "examTime": "2026-07-01T09:00:00+08:00",
+      "recruitmentCount": 500,
+      "isTop": true,
+      "isImportant": true,
+      "sortOrder": 100,
+      "viewCount": 3000,
+      "createdAt": "2026-05-15T00:00:00+08:00",
+      "updatedAt": "2026-05-15T00:00:00+08:00"
+    }
+  ],
+  "timestamp": 1718000000000}
 ```
 
 #### 返回字段
@@ -834,26 +827,27 @@ GET /api/v1/app/employment/grassroots/welfare/{id}/detail
 
 ### 3.3 备考指南查询
 
-> 无需登录，根据 `guide_category = 'public_welfare'` 过滤
+> 无需登录。跳转至统一备考指南模块，按 `guide_category = 'public_welfare'` 预设过滤，支持按 `guide_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/welfare/exam-guide/list
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=public_welfare
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| subtitle | String | 否 | 副标题 (LIKE) |
-| guideType | String | 否 | 指南类型 (=) |
-| difficultyLevel | String | 否 | 难度等级 (=) |
-| authorTitle | String | 否 | 作者职称/头衔 (LIKE) |
-| authorName | String | 否 | 作者姓名 (LIKE) |
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
 
-> 注意：`guideCategory` 由服务端硬编码为 `public_welfare`，前端无需传入。
+> `guideCategory` 由服务端硬编码为 `public_welfare`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`guide_category = 'public_welfare'`
+2. **精确查询**：`guide_type = ?`（按传入 guideType，默认 `'备考攻略'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -861,37 +855,33 @@ GET /api/v1/app/employment/grassroots/welfare/exam-guide/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "guideCategory": "public_welfare",
-        "guideType": "备考指南",
-        "title": "公益性岗位报考指南",
-        "subtitle": "2026年最新政策解读",
-        "coverImage": "https://example.com/cover.jpg",
-        "iconClass": "icon-welfare",
-        "summary": "公益性岗位报考条件及待遇详解",
-        "content": "<p>详细内容HTML</p>",
-        "tags": ["公益性岗位", "报考"],
-        "difficultyLevel": "初级",
-        "targetAudience": "就业困难人员",
-        "authorName": "王老师",
-        "authorTitle": "就业指导师",
-        "isTop": false,
-        "isRecommended": true,
-        "sortOrder": 1,
-        "viewCount": 600,
-        "likeCount": 42
-      }
-    ],
-    "total": 20,
-    "page": 1,
-    "size": 10
-  },
+  "data": [
+    {
+      "id": "雪花ID",
+      "guideCategory": "public_welfare",
+      "guideType": "备考攻略",
+      "title": "公益性岗位报考指南",
+      "subtitle": "2026年最新政策解读",
+      "coverImage": "https://example.com/cover.jpg",
+      "iconClass": "icon-welfare",
+      "summary": "公益性岗位报考条件及待遇详解",
+      "content": "<p>详细内容HTML</p>",
+      "tags": ["公益性岗位", "报考"],
+      "difficultyLevel": "初级",
+      "targetAudience": "就业困难人员",
+      "authorName": "王老师",
+      "authorTitle": "就业指导师",
+      "isTop": false,
+      "isRecommended": true,
+      "sortOrder": 1,
+      "viewCount": 600,
+      "likeCount": 42,
+      "createdAt": "2026-06-01T10:00:00+08:00",
+      "updatedAt": "2026-06-01T10:00:00+08:00"
+    }
+  ],
   "timestamp": 1718000000000
 }
-```
 
 #### 返回字段
 
@@ -901,27 +891,27 @@ GET /api/v1/app/employment/grassroots/welfare/exam-guide/list
 
 ### 3.4 公告表查询
 
-> 无需登录，根据 `notice_category = 'public_welfare'` 过滤
+> 无需登录。跳转至统一公告模块，按 `notice_category = 'public_welfare'` 预设过滤，支持按 `notice_type` 切换查询。
 
 ```
-GET /api/v1/app/employment/grassroots/welfare/notice/list
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=public_welfare
 ```
 
 #### 请求参数 (Query)
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| page | Integer | 否 | 页码，默认 1 |
-| size | Integer | 否 | 每页条数，默认 10，可选 10/20/30/50/100 |
-| title | String | 否 | 标题 (LIKE) |
-| summary | String | 否 | 摘要 (LIKE) |
-| source | String | 否 | 来源 (LIKE) |
-| noticeType | String | 否 | 公告类型 (=) |
-| province | String | 否 | 省份 (=) |
-| city | String | 否 | 城市 (=) |
-| year | String | 否 | 年份 (=) |
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
 
-> 注意：`noticeCategory` 由服务端硬编码为 `public_welfare`，前端无需传入。
+> `noticeCategory` 由服务端硬编码为 `public_welfare`，前端无需传入。
+
+#### 查询逻辑说明
+
+1. **预设过滤**：`notice_category = 'public_welfare'`
+2. **精确查询**：`notice_type = ?`（按传入 noticeType，默认 `'招聘公告'`）
+3. **软删除过滤**：`is_deleted = false`
+4. **排序规则**：按 `sort_order DESC NULLS LAST, created_at DESC`
+5. **不分页**：全量返回匹配记录
 
 #### 响应参数
 
@@ -929,38 +919,35 @@ GET /api/v1/app/employment/grassroots/welfare/notice/list
 {
   "code": 200,
   "msg": "success",
-  "data": {
-    "records": [
-      {
-        "id": "雪花ID",
-        "noticeCategory": "public_welfare",
-        "noticeType": "招聘公告",
-        "title": "2026年某区公益性岗位招聘公告",
-        "summary": "某区2026年公益性岗位招聘",
-        "content": "<p>公告详细内容HTML</p>",
-        "province": "广东省",
-        "city": "广州市",
-        "tags": ["公益性岗位", "广州"],
-        "year": "2026",
-        "source": "某区人社局",
-        "sourceUrl": "https://example.com/notice",
-        "publishDate": "2026-05-20T00:00:00+08:00",
-        "publishUnit": "某区人力资源和社会保障局",
-        "regStartDate": "2026-06-01T00:00:00+08:00",
-        "regEndDate": "2026-06-10T23:59:59+08:00",
-        "examTime": null,
-        "recruitmentCount": 200,
-        "isTop": false,
-        "isImportant": true,
-        "viewCount": 1500
-      }
-    ],
-    "total": 15,
-    "page": 1,
-    "size": 10
-  },
-  "timestamp": 1718000000000
-}
+  "data": [
+    {
+      "id": "雪花ID",
+      "noticeCategory": "public_welfare",
+      "noticeType": "招聘公告",
+      "title": "2026年某区公益性岗位招聘公告",
+      "summary": "某区2026年公益性岗位招聘",
+      "content": "<p>公告详细内容HTML</p>",
+      "province": "广东省",
+      "city": "广州市",
+      "tags": ["公益性岗位", "广州"],
+      "year": "2026",
+      "source": "某区人社局",
+      "sourceUrl": "https://example.com/notice",
+      "publishDate": "2026-05-20T00:00:00+08:00",
+      "publishUnit": "某区人力资源和社会保障局",
+      "regStartDate": "2026-06-01T00:00:00+08:00",
+      "regEndDate": "2026-06-10T23:59:59+08:00",
+      "examTime": null,
+      "recruitmentCount": 200,
+      "isTop": false,
+      "isImportant": true,
+      "sortOrder": 100,
+      "viewCount": 1500,
+      "createdAt": "2026-05-20T00:00:00+08:00",
+      "updatedAt": "2026-05-20T00:00:00+08:00"
+    }
+  ],
+  "timestamp": 1718000000000}
 ```
 
 #### 返回字段
@@ -977,18 +964,35 @@ GET /api/v1/app/employment/grassroots/welfare/notice/list
 |------|------|------|------|
 | GET | `/api/v1/app/employment/grassroots/project/list` | ❌ | 基层服务项目-分页列表 |
 | GET | `/api/v1/app/employment/grassroots/project/{id}/detail` | ✅ @RequireLogin | 基层服务项目-详情 |
-| GET | `/api/v1/app/employment/grassroots/project/exam-guide/list` | ❌ | 基层服务项目-备考指南 |
-| GET | `/api/v1/app/employment/grassroots/project/notice/list` | ❌ | 基层服务项目-公告表 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=grassroots` | ❌ | 基层服务项目-备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=grassroots` | ❌ | 基层服务项目-公告表 |
 | GET | `/api/v1/app/employment/grassroots/community/list` | ❌ | 社区工作者-分页列表 |
 | GET | `/api/v1/app/employment/grassroots/community/{id}/detail` | ✅ @RequireLogin | 社区工作者-详情 |
-| GET | `/api/v1/app/employment/grassroots/community/exam-guide/list` | ❌ | 社区工作者-备考指南 |
-| GET | `/api/v1/app/employment/grassroots/community/notice/list` | ❌ | 社区工作者-公告表 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=community` | ❌ | 社区工作者-备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=community` | ❌ | 社区工作者-公告表 |
 | GET | `/api/v1/app/employment/grassroots/welfare/list` | ❌ | 公益性岗位-分页列表 |
 | GET | `/api/v1/app/employment/grassroots/welfare/{id}/detail` | ✅ @RequireLogin | 公益性岗位-详情 |
-| GET | `/api/v1/app/employment/grassroots/welfare/exam-guide/list` | ❌ | 公益性岗位-备考指南 |
-| GET | `/api/v1/app/employment/grassroots/welfare/notice/list` | ❌ | 公益性岗位-公告表 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=public_welfare` | ❌ | 公益性岗位-备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=public_welfare` | ❌ | 公益性岗位-公告表 |
 
-### 4.2 公共约束
+### 4.2 备考指南类型枚举
+
+#### guideType（指南类型）
+
+| 值 | 说明 |
+|----|------|
+| 备考攻略 | 备考攻略 |
+| 科目指导 | 科目指导 |
+| 真题解析 | 真题解析 |
+| 面试技巧 | 面试技巧 |
+| 时事热点 | 时事热点 |
+| 经验分享 | 经验分享 |
+| 政策解读 | 政策解读 |
+| 学习计划 | 学习计划 |
+
+---
+
+### 4.3 公共约束
 
 1. **软删除过滤**：所有查询均自动过滤 `is_deleted = false`
 2. **模糊查询**：支持 `position_name`、`organizing_dept`、`service_unit` 等字段的 LIKE 匹配
@@ -1040,3 +1044,21 @@ haifeng-app/vo/employment/grassrootsPosition/
 ├── PublicWelfarePositionListVO.java
 └── PublicWelfarePositionDetailVO.java
 ```
+
+### 4.5 公告类型枚举
+
+#### noticeType（公告类型）
+
+| 值 | 说明 |
+|----|------|
+| 招聘公告 | 招聘公告 |
+| 招录公告 | 招录公告 |
+| 补录公告 | 补录公告 |
+| 调剂公告 | 调剂公告 |
+| 成绩公示 | 成绩公示 |
+| 面试通知 | 面试通知 |
+| 体检通知 | 体检通知 |
+| 录用公示 | 录用公示 |
+| 报名指南 | 报名指南 |
+| 考试大纲 | 考试大纲 |
+| 政策解读 | 政策解读 |

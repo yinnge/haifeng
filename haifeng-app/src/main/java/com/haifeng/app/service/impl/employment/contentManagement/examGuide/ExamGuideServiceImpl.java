@@ -9,6 +9,7 @@ import com.haifeng.app.service.employment.contentManagement.examGuide.ExamGuideS
 import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideDetailVO;
 import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideListVO;
 import com.haifeng.common.entity.employment.contentManagement.ExamGuide;
+import java.util.List;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.employment.contentManagement.ExamGuideMapper;
 import com.haifeng.common.response.ResultCode;
@@ -129,6 +130,45 @@ public class ExamGuideServiceImpl implements ExamGuideService {
             log.warn("备考指南不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
+        return ExamGuideDetailVO.builder()
+                .id(guide.getId())
+                .guideCategory(guide.getGuideCategory())
+                .guideType(guide.getGuideType())
+                .title(guide.getTitle())
+                .subtitle(guide.getSubtitle())
+                .coverImage(guide.getCoverImage())
+                .iconClass(guide.getIconClass())
+                .summary(guide.getSummary())
+                .content(guide.getContent())
+                .tags(guide.getTags())
+                .difficultyLevel(guide.getDifficultyLevel())
+                .targetAudience(guide.getTargetAudience())
+                .authorName(guide.getAuthorName())
+                .authorTitle(guide.getAuthorTitle())
+                .isTop(guide.getIsTop())
+                .isRecommended(guide.getIsRecommended())
+                .sortOrder(guide.getSortOrder())
+                .viewCount(guide.getViewCount())
+                .likeCount(guide.getLikeCount())
+                .createdAt(guide.getCreatedAt())
+                .updatedAt(guide.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    public List<ExamGuideDetailVO> listByCategoryAndType(String guideCategory, String guideType) {
+        LambdaQueryWrapper<ExamGuide> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ExamGuide::getIsDeleted, false);
+        wrapper.eq(ExamGuide::getGuideCategory, guideCategory);
+        wrapper.eq(StrUtil.isNotBlank(guideType), ExamGuide::getGuideType, guideType);
+        wrapper.orderByDesc(ExamGuide::getSortOrder).last("NULLS LAST");
+        wrapper.orderByDesc(ExamGuide::getCreatedAt);
+
+        List<ExamGuide> list = examGuideMapper.selectList(wrapper);
+        return list.stream().map(this::convertToDetailVO).toList();
+    }
+
+    private ExamGuideDetailVO convertToDetailVO(ExamGuide guide) {
         return ExamGuideDetailVO.builder()
                 .id(guide.getId())
                 .guideCategory(guide.getGuideCategory())
