@@ -47,7 +47,6 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (StringUtils.hasText(queryDTO.getCompLevel())) {
             wrapper.eq(Competition::getCompLevel, queryDTO.getCompLevel());
         }
-
         wrapper.orderByDesc(Competition::getCreatedAt);
 
         IPage<Competition> result = competitionMapper.selectPage(page, wrapper);

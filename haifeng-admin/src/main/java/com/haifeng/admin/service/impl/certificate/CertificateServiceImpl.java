@@ -46,7 +46,6 @@ public class CertificateServiceImpl implements CertificateService {
         if (StringUtils.hasText(queryDTO.getCertLevel())) {
             wrapper.eq(Certificate::getCertLevel, queryDTO.getCertLevel());
         }
-
         wrapper.orderByDesc(Certificate::getCreatedAt);
 
         IPage<Certificate> result = certificateMapper.selectPage(page, wrapper);
