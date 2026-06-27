@@ -6,14 +6,12 @@ import com.haifeng.app.service.algorithm.GaokaoArchiveService;
 import com.haifeng.app.vo.algorithm.*;
 import com.haifeng.common.entity.algorithm.BatchScoreLine;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
-import com.haifeng.common.entity.algorithm.ProvinceReform;
 import com.haifeng.common.entity.algorithm.ScoreRank;
 import com.haifeng.common.enums.ReformModelEnum;
-import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.BatchScoreLineMapper;
 import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
-import com.haifeng.common.mapper.algorithm.ProvinceReformMapper;
 import com.haifeng.common.mapper.algorithm.ScoreRankMapper;
+import com.haifeng.common.service.algorithm.ProvinceReformService;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +29,7 @@ import java.util.stream.Collectors;
 public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
 
     private final MemberGaokaoMapper memberGaokaoMapper;
-    private final ProvinceReformMapper provinceReformMapper;
+    private final ProvinceReformService provinceReformService;
     private final ScoreRankMapper scoreRankMapper;
     private final BatchScoreLineMapper batchScoreLineMapper;
 
@@ -126,13 +124,11 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     public Long saveArchive(GaokaoArchiveSaveDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
-        // 校验改革模式
-        if (!ReformModelEnum.isValid(dto.getReformModel())) {
-            throw new BusinessException(400, "改革模式无效");
-        }
+        // 以服务端 ProvinceReform 表为准，自动确定改革模式，前端不提供此字段
+        String reformModel = provinceReformService.getReformModel(
+                dto.getGaokaoProvince(), dto.getGaokaoYear());
 
-        // 处理传统文理模式的科目映射
-        processTraditionalSubjects(dto);
+        processTraditionalSubjects(dto, reformModel);
 
         MemberGaokao existing = memberGaokaoMapper.selectOne(
                 new LambdaQueryWrapper<MemberGaokao>()
@@ -141,6 +137,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
 
         MemberGaokao entity = convertToEntity(dto);
         entity.setMemberId(memberId);
+        entity.setReformModel(reformModel);
 
         // 自动计算线差
         if (dto.getScore() != null && dto.getBatchLineScore() != null) {
@@ -183,31 +180,10 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     // ==================== 私有方法 ====================
 
     /**
-     * 判断改革模式
+     * 判断改革模式（委托给 ProvinceReformService）
      */
     private String determineReformModel(String province, Integer gaokaoYear) {
-        List<ProvinceReform> reforms = provinceReformMapper.selectList(
-                new LambdaQueryWrapper<ProvinceReform>()
-                        .eq(ProvinceReform::getProvince, province)
-                        .orderByAsc(ProvinceReform::getReformYear)
-        );
-
-        if (reforms.isEmpty()) {
-            return ReformModelEnum.TRADITIONAL.getValue();
-        }
-
-        // 倒序遍历，找到第一个 reformYear <= gaokaoYear 的配置
-        for (int i = reforms.size() - 1; i >= 0; i--) {
-            ProvinceReform reform = reforms.get(i);
-            if (reform.getReformYear() == null) {
-                return ReformModelEnum.TRADITIONAL.getValue();
-            }
-            if (gaokaoYear >= reform.getReformYear()) {
-                return reform.getReformModel();
-            }
-        }
-
-        return ReformModelEnum.TRADITIONAL.getValue();
+        return provinceReformService.getReformModel(province, gaokaoYear.shortValue());
     }
 
     /**
@@ -236,8 +212,8 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
      * 文科 → 政治、历史、地理
      * 理科 → 物理、化学、生物
      */
-    private void processTraditionalSubjects(GaokaoArchiveSaveDTO dto) {
-        if (!ReformModelEnum.TRADITIONAL.getValue().equals(dto.getReformModel())) {
+    private void processTraditionalSubjects(GaokaoArchiveSaveDTO dto, String reformModel) {
+        if (!ReformModelEnum.TRADITIONAL.getValue().equals(reformModel)) {
             return;
         }
 
@@ -275,7 +251,6 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .gaokaoProvince(dto.getGaokaoProvince())
                 .score(dto.getScore())
                 .rank(dto.getRank())
-                .reformModel(dto.getReformModel())
                 .subjectType(dto.getSubjectType())
                 .secondSubjectType(dto.getSecondSubjectType())
                 .thirdSubjectType(dto.getThirdSubjectType())

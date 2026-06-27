@@ -33,6 +33,7 @@ import com.haifeng.common.mapper.algorithm.wish.WishMajorSnapshotMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.service.algorithm.ProvinceReformService;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
 import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcContext;
@@ -75,7 +76,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     private final ConstraintDictMapper constraintDictMapper;
     private final ScoreRankMapper scoreRankMapper;
     private final ProvinceConfigMapper provinceConfigMapper;
-    private final ProvinceReformMapper provinceReformMapper;
+    private final ProvinceReformService provinceReformService;
     private final WishPlanExcelUtil wishPlanExcelUtil;
 
     @Override
@@ -830,7 +831,7 @@ public class WishPlanServiceImpl implements WishPlanService {
 
     private Short queryReformYear(MemberGaokao gaokao) {
         if (gaokao == null || gaokao.getGaokaoProvince() == null) return null;
-        return provinceReformMapper.selectReformYearByProvince(gaokao.getGaokaoProvince());
+        return provinceReformService.getEarliestReformYear(gaokao.getGaokaoProvince());
     }
 
     // ===================== 缓存工具 =====================
