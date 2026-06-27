@@ -31,9 +31,6 @@ public class GaokaoArchiveSaveDTO {
     @Min(value = 1, message = "位次必须大于0")
     private Integer rank;
 
-    @NotBlank(message = "改革模式不能为空")
-    private String reformModel;
-
     @NotBlank(message = "第一科目不能为空")
     @Size(max = 20, message = "第一科目最多20个字符")
     private String subjectType;

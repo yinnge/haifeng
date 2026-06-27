@@ -1,25 +1,46 @@
 package com.haifeng.common.service.algorithm.safety.calculator;
 
 import com.haifeng.common.entity.algorithm.ConstraintDict;
+import com.haifeng.common.entity.algorithm.GaokaoConfig;
 import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
+import com.haifeng.common.mapper.algorithm.GaokaoConfigMapper;
 import com.haifeng.common.service.algorithm.safety.dto.ConstraintWeightResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ConstraintWeightCalculator {
 
-    private static final BigDecimal WEIGHT_SOFT_GROUP = new BigDecimal("0.6");
-    private static final BigDecimal WEIGHT_SOFT_BOTH = new BigDecimal("0.3");
+    private BigDecimal WEIGHT_SOFT_GROUP;
+    private BigDecimal WEIGHT_SOFT_BOTH;
 
     private final ConstraintDictMapper constraintDictMapper;
+    private final GaokaoConfigMapper gaokaoConfigMapper;
+
+    @PostConstruct
+    void init() {
+        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
+        if (config == null) {
+            log.error("gaokao_config 表无数据，无法初始化 ConstraintWeightCalculator");
+            throw new IllegalStateException("gaokao_config 表无数据，无法初始化 ConstraintWeightCalculator");
+        }
+        WEIGHT_SOFT_GROUP = config.getWeightSoftGroup();
+        WEIGHT_SOFT_BOTH = config.getWeightSoftBoth();
+        if (WEIGHT_SOFT_GROUP == null || WEIGHT_SOFT_BOTH == null) {
+            log.error("gaokao_config.weight_soft_group / weight_soft_both 为 NULL");
+            throw new IllegalStateException("gaokao_config.weight_soft_group / weight_soft_both 为 NULL");
+        }
+    }
 
     /**
      * 计算约束权重

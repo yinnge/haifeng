@@ -1,34 +1,67 @@
 package com.haifeng.common.service.algorithm.safety.calculator;
 
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
+import com.haifeng.common.entity.algorithm.GaokaoConfig;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.entity.algorithm.ProvinceConfig;
+import com.haifeng.common.mapper.algorithm.GaokaoConfigMapper;
+import com.haifeng.common.service.algorithm.ProvinceReformService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ScoreBasedCalculator {
 
+    private final ProvinceReformService provinceReformService;
+    private final GaokaoConfigMapper gaokaoConfigMapper;
+
     // 年份权重：最近1年权重1.0，依次递减
-    private static final double[] YEAR_WEIGHTS = {1.0, 0.8, 0.6, 0.4, 0.2};
+    private double[] YEAR_WEIGHTS;
 
     // 默认参数
-    private static final double DEFAULT_DENSITY_K = 0.15;
-    private static final double DEFAULT_LINE_STEEPNESS = 2.8;
-    private static final double DEFAULT_RANK_STEEPNESS = 2.4;
+    private double DEFAULT_DENSITY_K;
+    private double DEFAULT_LINE_STEEPNESS;
+    private double DEFAULT_RANK_STEEPNESS;
 
     // 新高考权重
-    private static final double NEW_GAOKAO_LINE_WEIGHT = 0.42;
-    private static final double NEW_GAOKAO_RANK_WEIGHT = 0.50;
+    private double NEW_GAOKAO_LINE_WEIGHT;
+    private double NEW_GAOKAO_RANK_WEIGHT;
 
     // 旧高考权重
-    private static final double OLD_GAOKAO_LINE_WEIGHT = 0.62;
-    private static final double OLD_GAOKAO_RANK_WEIGHT = 0.30;
+    private double OLD_GAOKAO_LINE_WEIGHT;
+    private double OLD_GAOKAO_RANK_WEIGHT;
+
+    @PostConstruct
+    void init() {
+        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
+        if (config == null) {
+            log.error("gaokao_config 表无数据，无法初始化 ScoreBasedCalculator");
+            throw new IllegalStateException("gaokao_config 表无数据，无法初始化 ScoreBasedCalculator");
+        }
+        if (config.getYearWeights() == null || config.getYearWeights().isEmpty()) {
+            log.error("gaokao_config.year_weights 为空");
+            throw new IllegalStateException("gaokao_config.year_weights 为空");
+        }
+        List<BigDecimal> yw = config.getYearWeights();
+        YEAR_WEIGHTS = new double[yw.size()];
+        for (int i = 0; i < yw.size(); i++) {
+            YEAR_WEIGHTS[i] = yw.get(i).doubleValue();
+        }
+        DEFAULT_DENSITY_K = config.getDefaultDensityK().doubleValue();
+        DEFAULT_LINE_STEEPNESS = config.getDefaultLineSteepness().doubleValue();
+        DEFAULT_RANK_STEEPNESS = config.getDefaultRankSteepness().doubleValue();
+        NEW_GAOKAO_LINE_WEIGHT = config.getNewGaokaoLineWeight().doubleValue();
+        NEW_GAOKAO_RANK_WEIGHT = config.getNewGaokaoRankWeight().doubleValue();
+        OLD_GAOKAO_LINE_WEIGHT = config.getOldGaokaoLineWeight().doubleValue();
+        OLD_GAOKAO_RANK_WEIGHT = config.getOldGaokaoRankWeight().doubleValue();
+    }
 
     /**
      * 计算基础分
@@ -56,7 +89,7 @@ public class ScoreBasedCalculator {
                 ? provinceConfig.getRankSteepness().doubleValue() : DEFAULT_RANK_STEEPNESS;
 
         // 判断新旧高考
-        boolean isNewGaokao = isNewGaokao(gaokao.getSubjectType());
+        boolean isNewGaokao = isNewGaokao(gaokao.getGaokaoProvince(), gaokao.getGaokaoYear());
         double lineWeight = isNewGaokao ? NEW_GAOKAO_LINE_WEIGHT : OLD_GAOKAO_LINE_WEIGHT;
         double rankWeight = isNewGaokao ? NEW_GAOKAO_RANK_WEIGHT : OLD_GAOKAO_RANK_WEIGHT;
 
@@ -153,16 +186,16 @@ public class ScoreBasedCalculator {
         }
 
         // 4. 数据质量修正
-        double qualityMod = calcQualityMod(validYears, volatility, isNewGaokao, historyGroups, currentYear);
+        double qualityMod = calcQualityMod(validYears, volatility, isNewGaokao, historyGroups,
+                currentYear, gaokao.getGaokaoProvince());
         result = pullToCenter(result, 1.0 - qualityMod);
 
         // Clamp
         return Math.min(Math.max(result, 0.01), 0.99);
     }
 
-    private boolean isNewGaokao(String subjectType) {
-        return "物理类".equals(subjectType) || "历史类".equals(subjectType)
-                || "物理".equals(subjectType) || "历史".equals(subjectType);
+    private boolean isNewGaokao(String province, Short gaokaoYear) {
+        return provinceReformService.isNewGaokao(province, gaokaoYear);
     }
 
     private double asymmetricSigmoid(double ratio, double steepness) {
@@ -236,7 +269,8 @@ public class ScoreBasedCalculator {
     }
 
     private double calcQualityMod(int yearCount, double volatility, boolean isNewGaokao,
-                                   List<AdmissionGroup> history, int currentYear) {
+                                   List<AdmissionGroup> history, int currentYear,
+                                   String province) {
         double mod = 1.0;
 
         // 年份数量
@@ -251,8 +285,8 @@ public class ScoreBasedCalculator {
                     int ago = currentYear - g.getYear();
                     return ago >= 1 && ago <= 5;
                 })
-                .filter(g -> isNewGaokao(g.getSubjects() != null && !g.getSubjects().isEmpty()
-                        ? "物理类" : "理科")) // 简化判断
+                .filter(g -> g.getYear() != null
+                        && provinceReformService.isNewGaokao(province, g.getYear()))
                 .count();
         double newRatio = yearCount > 0 ? (double) newCount / yearCount : 0;
 
