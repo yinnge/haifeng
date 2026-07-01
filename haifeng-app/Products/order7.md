@@ -1,9 +1,8 @@
-# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园图册）
+gi# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园图册 / 通道关联）
 
 ## 功能概述
 
-本模块实现 C 端院校管理 4 类只读展示接口。访问权限按子功能分级：列表完全公开；详情、图册、5 个适应指南分类需要登录；适应指南"学业规划类"需要 Pro 及以上会员。所有接口不加 Redis 缓存（实时读库）。
-
+本模块实现 C 端院校管理 5 类只读展示接口。访问权限按子功能分级：列表、通道关联完全公开；详情、图册、适应指南需要登录；适应指南"学业规划类"需要 Pro 及以上会员。所有接口不加 Redis 缓存（实时读库）。
 | 子模块 | 功能 | 权限要求 |
 |--------|------|----------|
 | 院校列表 | 院校分页列表（多条件筛选 + 名称模糊） | 公开访问 |
@@ -15,6 +14,7 @@
 | 适应指南 · 权益与安全类 | 资助、安全、医疗 | 登录用户 |
 | 适应指南 · 周边生活类 | 周边生活服务 | 登录用户 |
 | 校园图册 | 按院校分页查询图册（可按类型筛选） | 登录用户 |
+| 通道-大学关联 | 按大学查询关联的特殊招生通道 | 公开访问 |
 
 ---
 
@@ -481,6 +481,134 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 
 ---
 
+## 5. 通道-大学关联
+
+**功能描述**：查询某大学关联的特殊招生通道列表，并提供全量通道下拉选项。无需登录，仅返回 `is_active = true` 的数据。
+
+### 5.1 大学关联通道分页
+
+**功能描述**：按 `university_id` 分页查询该大学注册的特殊招生通道列表。
+
+#### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/university/{universityId}/channels` |
+| 权限 | 公开 |
+| Content-Type | application/x-www-form-urlencoded（query 参数） |
+
+#### 请求参数
+
+| 参数 | 位置 | 类型 | 必填 | 查询方式 | 说明 |
+|------|------|------|------|----------|------|
+| universityId | Path | Long | 是 | **精准（=）** | 院校 ID |
+| page | Query | Integer | 否 | — | 页码，默认 1 |
+| size | Query | Integer | 否 | — | 每页条数，默认 10 |
+| channelName | Query | String | 否 | **模糊（LIKE）** | 通道名称 |
+| regionTag | Query | String | 否 | **精准（=）** | 地区标签（如 "香港"、"澳门"），需为合法省份名 |
+
+> `regionTag` 参数值需通过 `ProvinceEnum` 校验，不合法返回 400。
+
+#### 排序规则
+
+`sort_order ASC, id DESC`
+
+#### 请求示例
+
+```http
+GET /api/v1/app/university/1001/channels?page=1&size=10&regionTag=香港
+```
+
+#### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "channelCode": "HONGKONG_ZHAOSHENG",
+        "channelName": "香港高校招生",
+        "year": 2025,
+        "regionTag": "香港",
+        "signupStart": "2025-03-01T00:00:00+08:00",
+        "signupEnd": "2025-06-30T23:59:59+08:00"
+      }
+    ],
+    "total": 1,
+    "size": 10,
+    "current": 1,
+    "pages": 1
+  },
+  "timestamp": 1717392000000
+}
+```
+
+#### 响应字段（VO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| channelCode | String | 通道代码 |
+| channelName | String | 通道名称 |
+| year | Short | 招生年份 |
+| regionTag | String | 地区标签（如 "香港"、"澳门"） |
+| signupStart | OffsetDateTime | 报名开始时间（ISO-8601 带时区） |
+| signupEnd | OffsetDateTime | 报名截止时间（ISO-8601 带时区） |
+
+### 5.2 通道下拉选项
+
+**功能描述**：返回所有活跃通道的代码和名称（去重），供前端下拉选择器使用。
+
+#### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/university/channel-options` |
+| 权限 | 公开 |
+
+#### 请求示例
+
+```http
+GET /api/v1/app/university/channel-options
+```
+
+#### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "channelCode": "HONGKONG_ZHAOSHENG",
+      "channelName": "香港高校招生"
+    },
+    {
+      "channelCode": "QIANGLIJIHUA",
+      "channelName": "强基计划"
+    }
+  ],
+  "timestamp": 1717392000000
+}
+```
+
+#### 响应字段（VO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| channelCode | String | 通道代码（用作 value） |
+| channelName | String | 通道名称（用作 label） |
+
+### 错误响应
+
+| 场景 | code | msg |
+|------|------|-----|
+| regionTag 不合法 | 400 | 省份参数不合法 |
+| 参数校验失败（如 channelCode 为空、size<10） | 400 | 字段级校验信息 |
+
+---
+
 ## 模糊查询 vs 精准查询字段总览
 
 | 接口 | 模糊查询字段 | 精准查询字段 |
@@ -489,8 +617,10 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 | 2. 院校详情 | — | `universityId`（path） |
 | 3.1–3.6 指南 6 接口 | — | `universityId`（path） |
 | 4. 校园图册 | — | `universityId`（path）、`imageType` |
+| 5.1 通道-大学关联 | `channelName` | `universityId`（path）、`regionTag` |
+| 5.2 通道下拉选项 | — | — |
 
-> 全模块只有 1 个模糊查询字段（院校名称），其余均为精准匹配；多筛选字段同时传入按 AND 组合。
+> 多筛选字段同时传入按 AND 组合。
 
 ---
 
@@ -506,4 +636,6 @@ GET  /api/v1/app/university/guides/{id}/social                [登录]   指南 
 GET  /api/v1/app/university/guides/{id}/safety                [登录]   指南 · 权益与安全类
 GET  /api/v1/app/university/guides/{id}/life                  [登录]   指南 · 周边生活类
 GET  /api/v1/app/university/{id}/gallery                      [登录]   校园图册（按 imageType 筛选）
+GET  /api/v1/app/university/{id}/channels                     [公开]   通道-大学关联（按 universityId + regionTag 筛选）
+GET  /api/v1/app/university/channel-options                   [公开]   通道下拉选项
 ```
