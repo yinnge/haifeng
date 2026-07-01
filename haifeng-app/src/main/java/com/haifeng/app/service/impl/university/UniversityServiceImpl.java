@@ -3,13 +3,18 @@ package com.haifeng.app.service.impl.university;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.app.dto.university.UniversityChannelQueryDTO;
 import com.haifeng.app.dto.university.UniversityQueryDTO;
 import com.haifeng.app.service.university.UniversityService;
+import com.haifeng.app.vo.university.ChannelOptionVO;
+import com.haifeng.app.vo.university.UniversityChannelListVO;
 import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
+import com.haifeng.common.entity.special.SpecialChannelUniversity;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.entity.university.UniversityDetail;
 import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.special.SpecialChannelUniversityMapper;
 import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
@@ -17,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -27,6 +34,7 @@ public class UniversityServiceImpl implements UniversityService {
 
     private final UniversityMapper universityMapper;
     private final UniversityDetailMapper universityDetailMapper;
+    private final SpecialChannelUniversityMapper specialChannelUniversityMapper;
 
     @Override
     public IPage<UniversityListVO> page(UniversityQueryDTO dto) {
@@ -96,6 +104,38 @@ public class UniversityServiceImpl implements UniversityService {
                 .tags(univ.getTags())
                 .famousUnion(univ.getFamousUnion())
                 .build();
+    }
+
+    @Override
+    public IPage<UniversityChannelListVO> pageChannels(Long universityId, UniversityChannelQueryDTO dto) {
+        Page<SpecialChannelUniversity> page = new Page<>(dto.getPage(), dto.getSize());
+        LambdaQueryWrapper<SpecialChannelUniversity> wrapper = new LambdaQueryWrapper<SpecialChannelUniversity>()
+                .eq(SpecialChannelUniversity::getIsActive, true)
+                .eq(SpecialChannelUniversity::getUniversityId, universityId)
+                .like(StringUtils.hasText(dto.getChannelName()), SpecialChannelUniversity::getChannelName, dto.getChannelName())
+                .eq(StringUtils.hasText(dto.getRegionTag()), SpecialChannelUniversity::getRegionTag, dto.getRegionTag())
+                .orderByAsc(SpecialChannelUniversity::getSortOrder)
+                .orderByDesc(SpecialChannelUniversity::getId);
+        return specialChannelUniversityMapper.selectPage(page, wrapper).convert(e ->
+                UniversityChannelListVO.builder()
+                        .channelCode(e.getChannelCode())
+                        .channelName(e.getChannelName())
+                        .year(e.getYear())
+                        .regionTag(e.getRegionTag())
+                        .signupStart(e.getSignupStart())
+                        .signupEnd(e.getSignupEnd())
+                        .build());
+    }
+
+    @Override
+    public List<ChannelOptionVO> listChannelOptions() {
+        List<SpecialChannelUniversity> list = specialChannelUniversityMapper.selectDistinctActiveChannels();
+        return list.stream()
+                .map(e -> ChannelOptionVO.builder()
+                        .channelCode(e.getChannelCode())
+                        .channelName(e.getChannelName())
+                        .build())
+                .toList();
     }
 
     private UniversityListVO toListVO(University e) {

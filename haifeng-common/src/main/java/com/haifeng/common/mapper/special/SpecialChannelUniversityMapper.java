@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 @Mapper
 public interface SpecialChannelUniversityMapper extends BaseMapper<SpecialChannelUniversity> {
 
@@ -14,4 +16,7 @@ public interface SpecialChannelUniversityMapper extends BaseMapper<SpecialChanne
 
     @Select("SELECT COUNT(*) FROM t_special_channel_university WHERE channel_code = #{channelCode} AND university_id = #{universityId} AND year = #{year} AND id != #{excludeId}")
     int countByUniqueExclude(@Param("channelCode") String channelCode, @Param("universityId") Long universityId, @Param("year") Short year, @Param("excludeId") Long excludeId);
+
+    @Select("SELECT DISTINCT channel_code, channel_name FROM t_special_channel_university WHERE is_active = TRUE ORDER BY channel_name")
+    List<SpecialChannelUniversity> selectDistinctActiveChannels();
 }

@@ -1,8 +1,11 @@
 package com.haifeng.app.controller.university;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.university.UniversityChannelQueryDTO;
 import com.haifeng.app.dto.university.UniversityQueryDTO;
 import com.haifeng.app.service.university.UniversityService;
+import com.haifeng.app.vo.university.ChannelOptionVO;
+import com.haifeng.app.vo.university.UniversityChannelListVO;
 import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
 import com.haifeng.common.annotation.RequireLogin;
@@ -14,6 +17,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * C 端院校管理 - 列表（公开）+ 详情（登录）
@@ -37,5 +42,17 @@ public class UniversityController {
     @GetMapping("/{universityId}/detail")
     public R<UniversityDetailVO> detail(@PathVariable Long universityId) {
         return R.ok(universityService.detail(universityId));
+    }
+
+    @GetMapping("/{universityId}/channels")
+    public R<IPage<UniversityChannelListVO>> channels(
+            @PathVariable Long universityId,
+            @Valid UniversityChannelQueryDTO dto) {
+        return R.ok(universityService.pageChannels(universityId, dto));
+    }
+
+    @GetMapping("/channel-options")
+    public R<List<ChannelOptionVO>> channelOptions() {
+        return R.ok(universityService.listChannelOptions());
     }
 }
