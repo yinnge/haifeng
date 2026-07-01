@@ -6,8 +6,8 @@
 
 | 子模块 | 说明 | 删除方式 |
 |--------|------|----------|
-| 专业组录取列表 | 管理专业组汇总信息 | 软删除 |
-| 专业组明细列表 | 管理专业组内各专业录取明细 | 硬删除 |
+| 专业组录取列表 | 管理专业组汇总信息 | 软删除（禁用）+ 硬删除 |
+| 专业组明细列表 | 管理专业组内各专业录取明细 | 软删除（禁用）+ 硬删除 |
 
 **选科要求字段说明：**
 - `subjects`：科目数组，如 `["物理", "化学"]`
@@ -400,6 +400,7 @@ GET /api/v1/admin/algorithm/admission/major-score/page
 | majorCode | String | 否 | 模糊查询 | 专业代码 |
 | majorName | String | 否 | 模糊查询 | 专业名称 |
 | educationLevel | String | 否 | 精确匹配 | 层次 |
+| isDeleted | Boolean | 否 | 精确匹配 | 是否已删除，默认false |
 
 **响应**
 ```json
@@ -417,7 +418,8 @@ GET /api/v1/admin/algorithm/admission/major-score/page
         "admissionCount": 10,
         "minScore": 685,
         "minRank": 450,
-        "avgScore": 690.5
+        "avgScore": 690.5,
+        "isDeleted": false
       }
     ],
     "total": 100,
@@ -464,6 +466,7 @@ GET /api/v1/admin/algorithm/admission/major-score/{id}
     "maxScore": 700,
     "maxRank": 300,
     "constraints": ["色盲色弱不宜"],
+    "isDeleted": false,
     "createdAt": "2026-05-09T10:00:00+08:00",
     "updatedAt": "2026-05-09T10:00:00+08:00"
   },
@@ -556,14 +559,43 @@ Content-Type: application/json
 }
 ```
 
-### 2.5 删除专业明细
+### 2.5 修改专业明细状态（软删除/恢复）
+
+**请求**
+```
+PUT /api/v1/admin/algorithm/admission/major-score/{id}/status?isDeleted=true
+```
+
+**说明**：用于"禁用 / 启用"专业明细。软删除后该明细不会出现在 App 端志愿查询结果中，可随时恢复。
+
+**Path参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Integer | 是 | 专业明细ID |
+
+**Query参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| isDeleted | Boolean | 是 | true=软删除（禁用），false=恢复（启用） |
+
+**响应**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null,
+  "timestamp": 1715241600000
+}
+```
+
+### 2.6 删除专业明细（硬删除）
 
 **请求**
 ```
 DELETE /api/v1/admin/algorithm/admission/major-score/{id}
 ```
 
-**说明**：删除后会触发数据库触发器自动更新所属专业组的聚合字段
+**说明**：物理删除，无法恢复。删除后会触发数据库触发器自动更新所属专业组的聚合字段。如只需临时下架，请使用 2.5 软删除接口。
 
 **Path参数**
 | 参数 | 类型 | 必填 | 说明 |
@@ -580,13 +612,15 @@ DELETE /api/v1/admin/algorithm/admission/major-score/{id}
 }
 ```
 
-### 2.6 批量删除专业明细
+### 2.7 批量删除专业明细（硬删除）
 
 **请求**
 ```
 DELETE /api/v1/admin/algorithm/admission/major-score/batch
 Content-Type: application/json
 ```
+
+**说明**：批量物理删除，无法恢复。
 
 **Body参数**
 ```json

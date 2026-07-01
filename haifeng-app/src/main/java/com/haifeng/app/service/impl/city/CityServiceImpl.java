@@ -81,6 +81,20 @@ public class CityServiceImpl implements CityService {
                 .build();
     }
 
+    @Override
+    public CityDetailVO detailByName(String cityName) {
+        City city = cityMapper.selectOne(
+                new LambdaQueryWrapper<City>()
+                        .eq(City::getCityName, cityName)
+                        .eq(City::getIsDeleted, false)
+                        .last("LIMIT 1"));
+        if (city == null) {
+            log.debug("城市不存在, cityName={}", cityName);
+            throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
+        }
+        return detail(city.getId());
+    }
+
     private CityListVO toListVO(City e) {
         return CityListVO.builder()
                 .id(e.getId())

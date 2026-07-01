@@ -13,6 +13,7 @@ public interface AdmissionMajorScoreService {
     AdmissionMajorScoreDetailVO detail(Integer id);
     Integer add(AdmissionMajorScoreAddDTO dto);
     void update(Integer id, AdmissionMajorScoreAddDTO dto);
+    void updateStatus(Integer id, Boolean isDeleted);
     void delete(Integer id);
     void batchDelete(List<Integer> ids);
 }

@@ -26,7 +26,6 @@ import java.util.List;
 public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService {
 
     private final SpecialChannelUniversityMapper specialChannelUniversityMapper;
-    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Override
     public IPage<SpecialChannelUnivListVO> page(SpecialChannelUnivQueryDTO dto) {
@@ -60,7 +59,7 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         }
         SpecialChannelUniversity entity = new SpecialChannelUniversity();
         BeanUtils.copyProperties(dto, entity);
-        entity.setId(snowflakeIdGenerator.nextId());
+        entity.setId(SnowflakeIdGenerator.nextId());
         entity.setIsActive(true);
         entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         specialChannelUniversityMapper.insert(entity);

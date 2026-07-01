@@ -6,12 +6,15 @@ import com.haifeng.app.dto.algorithm.wish.WishGroupSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
+import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
+import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanMajorVO;
+import com.haifeng.common.entity.algorithm.wish.WishGroupSnapshot;
 
 import java.util.List;
 
@@ -96,4 +99,33 @@ public interface WishPlanService {
      * @param planId 志愿方案ID
      */
     void saveExportStatusToDatabase(Integer planId);
+
+    /**
+     * 查询专业组快照（PDF导出用）
+     * <p>用于获取该专业组关联的 university_id 与 city_name。
+     *
+     * @param groupSnapshotId 专业组快照ID
+     * @return 专业组快照；不存在抛 {@code WISH_GROUP_NOT_FOUND}
+     */
+    WishGroupSnapshot getExportGroupSnapshot(Integer groupSnapshotId);
+
+    /**
+     * 查询专业组下可导出的专业列表（PDF导出用）
+     * <p>仅返回 is_exported=true 的专业，按 major_sort_order 升序，已过滤空 major_id。
+     * 每项携带 major_id、safety_level、level_short 及 history_scores 快照。
+     *
+     * @param groupSnapshotId 专业组快照ID
+     * @return 可导出专业列表
+     */
+    List<WishExportMajorVO> getExportableMajorIds(Integer groupSnapshotId);
+
+    /**
+     * 取志愿表下所有"有可导出专业"的专业组上下文（PDF导出用）
+     * <p>按 group_sort_order 升序；复用 {@link #getExportableMajorIds(Integer)}，
+     * 若某专业组的可导出专业为空（即所有专业 is_exported=false）则被过滤，不返回。
+     *
+     * @param planId 志愿方案ID
+     * @return 可导出的专业组上下文列表
+     */
+    List<ExportGroupContextVO> getExportGroupContexts(Integer planId);
 }

@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS t_admission_major_score (
     avg_score               NUMERIC(6,2),
     avg_rank                INTEGER,
     constraints             TEXT[]          DEFAULT '{}',
+    is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
@@ -113,10 +114,10 @@ CREATE TABLE IF NOT EXISTS t_admission_major_score (
 );
 
 -- 索引
-CREATE INDEX idx_ams_group ON t_admission_major_score (group_id);
-CREATE INDEX idx_ams_major ON t_admission_major_score (major_id);
-CREATE INDEX idx_ams_major_code ON t_admission_major_score (major_code);
-CREATE INDEX idx_ams_min_score ON t_admission_major_score (min_score);
+CREATE INDEX idx_ams_group ON t_admission_major_score (group_id) WHERE is_deleted = FALSE;
+CREATE INDEX idx_ams_major ON t_admission_major_score (major_id) WHERE is_deleted = FALSE;
+CREATE INDEX idx_ams_major_code ON t_admission_major_score (major_code) WHERE is_deleted = FALSE;
+CREATE INDEX idx_ams_min_score ON t_admission_major_score (min_score) WHERE is_deleted = FALSE;
 CREATE INDEX idx_ams_constraints_gin ON t_admission_major_score USING GIN (constraints);
 
 -- 注释
@@ -138,6 +139,7 @@ COMMENT ON COLUMN t_admission_major_score.max_rank IS '最高分对应位次';
 COMMENT ON COLUMN t_admission_major_score.avg_score IS '平均分';
 COMMENT ON COLUMN t_admission_major_score.avg_rank IS '平均位次';
 COMMENT ON COLUMN t_admission_major_score.constraints IS '约束条件数组';
+COMMENT ON COLUMN t_admission_major_score.is_deleted IS '是否删除：FALSE=正常，TRUE=已删除';
 COMMENT ON COLUMN t_admission_major_score.created_at IS '创建时间';
 COMMENT ON COLUMN t_admission_major_score.updated_at IS '更新时间';
 
@@ -186,7 +188,8 @@ BEGIN
         v_avg_score,
         v_avg_rank
     FROM t_admission_major_score
-    WHERE group_id = p_group_id;
+    WHERE group_id = p_group_id
+      AND is_deleted = FALSE;
 
     UPDATE t_admission_group
     SET

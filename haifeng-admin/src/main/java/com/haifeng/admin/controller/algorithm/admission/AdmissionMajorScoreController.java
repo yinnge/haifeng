@@ -44,6 +44,13 @@ public class AdmissionMajorScoreController {
         return R.ok();
     }
 
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "专业录取明细管理", action = "修改专业明细状态")
+    public R<Void> updateStatus(@PathVariable Integer id, @RequestParam Boolean isDeleted) {
+        admissionMajorScoreService.updateStatus(id, isDeleted);
+        return R.ok();
+    }
+
     @DeleteMapping("/{id}")
     @OperationLog(module = "专业录取明细管理", action = "删除专业明细")
     public R<Void> delete(@PathVariable Integer id) {

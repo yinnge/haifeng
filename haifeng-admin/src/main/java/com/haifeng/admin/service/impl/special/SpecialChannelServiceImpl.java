@@ -27,7 +27,6 @@ import java.util.List;
 public class SpecialChannelServiceImpl implements SpecialChannelService {
 
     private final SpecialChannelMapper specialChannelMapper;
-    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Override
     public IPage<SpecialChannelListVO> page(SpecialChannelQueryDTO dto) {
@@ -67,7 +66,7 @@ public class SpecialChannelServiceImpl implements SpecialChannelService {
         }
         SpecialChannel entity = new SpecialChannel();
         BeanUtils.copyProperties(dto, entity);
-        entity.setId(snowflakeIdGenerator.nextId());
+        entity.setId(SnowflakeIdGenerator.nextId());
         entity.setIsActive(true);
         entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         specialChannelMapper.insert(entity);

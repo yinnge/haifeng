@@ -11,6 +11,8 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
+import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
+import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
@@ -672,6 +674,60 @@ public class WishPlanServiceImpl implements WishPlanService {
         redisTemplate.delete(key);
 
         log.info("会员 {} 保存导出状态到数据库 planId={}", currentMemberId, planId);
+    }
+
+    @Override
+    public WishGroupSnapshot getExportGroupSnapshot(Integer groupSnapshotId) {
+        WishGroupSnapshot groupSnapshot = wishGroupSnapshotMapper.selectById(groupSnapshotId);
+        if (groupSnapshot == null) {
+            throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
+        }
+        return groupSnapshot;
+    }
+
+    @Override
+    public List<WishExportMajorVO> getExportableMajorIds(Integer groupSnapshotId) {
+        List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(
+                new LambdaQueryWrapper<WishMajorSnapshot>()
+                        .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)
+                        .eq(WishMajorSnapshot::getIsExported, true)
+                        .orderByAsc(WishMajorSnapshot::getMajorSortOrder));
+        return majors.stream()
+                .filter(m -> m.getMajorId() != null)
+                .map(m -> WishExportMajorVO.builder()
+                        .majorId(m.getMajorId())
+                        .safetyLevel(m.getSafetyLevel())
+                        .levelShort(m.getLevelShort())
+                        .historyScores(m.getHistoryScores())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ExportGroupContextVO> getExportGroupContexts(Integer planId) {
+        List<WishGroupSnapshot> groups = wishGroupSnapshotMapper.selectList(
+                new LambdaQueryWrapper<WishGroupSnapshot>()
+                        .eq(WishGroupSnapshot::getPlanId, planId)
+                        .orderByAsc(WishGroupSnapshot::getGroupSortOrder));
+
+        List<ExportGroupContextVO> result = new ArrayList<>();
+        for (WishGroupSnapshot g : groups) {
+            List<WishExportMajorVO> exportableMajors = getExportableMajorIds(g.getId());
+            if (CollectionUtils.isEmpty(exportableMajors)) {
+                // 该专业组下所有专业 is_exported=false，跳过（不进入 AI 分析）
+                continue;
+            }
+            result.add(ExportGroupContextVO.builder()
+                    .groupSnapshotId(g.getId())
+                    .universityId(g.getUniversityId())
+                    .cityName(g.getCityName())
+                    .groupSortOrder(g.getGroupSortOrder())
+                    .groupCode(g.getGroupCode())
+                    .groupName(g.getGroupName())
+                    .exportableMajors(exportableMajors)
+                    .build());
+        }
+        return result;
     }
 
     private Set<Integer> getExportMajors(Integer planId) {

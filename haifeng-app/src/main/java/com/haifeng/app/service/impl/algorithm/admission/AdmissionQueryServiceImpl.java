@@ -129,6 +129,7 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId())
+               .eq(AdmissionMajorScore::getIsDeleted, false)
                .orderByAsc(AdmissionMajorScore::getMajorCode);
 
         IPage<AdmissionMajorScore> majorPage = admissionMajorScoreMapper.selectPage(page, wrapper);
@@ -268,6 +269,7 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         List<AdmissionMajorScore> majors = admissionMajorScoreMapper.selectList(
                 new LambdaQueryWrapper<AdmissionMajorScore>()
                         .eq(AdmissionMajorScore::getGroupId, group.getId())
+                        .eq(AdmissionMajorScore::getIsDeleted, false)
         );
 
         for (AdmissionMajorScore major : majors) {

@@ -2,7 +2,7 @@
 *.class
 CLAUDE.md
 CLAUDE-admin.md
-
+AGENTS.md
 # Log files
 *.log
 logs/

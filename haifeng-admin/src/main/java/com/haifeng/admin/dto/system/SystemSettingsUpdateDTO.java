@@ -21,8 +21,14 @@ public class SystemSettingsUpdateDTO {
 
     private String siteDescription;
 
-    @Min(value = 1, message = "API调用次数最小为1")
-    private Integer apiNumber;
+    @Min(value = 1, message = "大学API调用次数最小为1")
+    private Integer universityApiNumber;
+
+    @Min(value = 1, message = "专业API调用次数最小为1")
+    private Integer majorApiNumber;
+
+    @Min(value = 1, message = "城市API调用次数最小为1")
+    private Integer cityApiNumber;
 
     @Min(value = 0, message = "Pro会员价格不能为负")
     private Integer proPrice;

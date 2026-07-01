@@ -14,4 +14,5 @@ public class AdmissionMajorScoreListVO {
     private Integer minScore;
     private Integer minRank;
     private BigDecimal avgScore;
+    private Boolean isDeleted;
 }

@@ -54,6 +54,8 @@ public class AdmissionMajorScore {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> constraints;
 
+    private Boolean isDeleted;
+
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
 
