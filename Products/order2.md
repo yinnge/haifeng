@@ -280,7 +280,9 @@ Authorization: Bearer {accessToken}
     "siteUrl": "https://haifeng.com",
     "siteIcp": "京ICP备12345678号",
     "siteDescription": "专业的高考志愿填报平台",
-    "apiNumber": 3,
+    "universityApiNumber": 1,
+    "majorApiNumber": 1,
+    "cityApiNumber": 1,
     "providerName": "openai",
     "modelName": "gpt-4",
     "proPrice": 199,
@@ -325,7 +327,9 @@ Authorization: Bearer {accessToken}
 | siteUrl | String | 否 | 网站Logo URL（最多100字符） |
 | siteIcp | String | 否 | ICP备案号（最多100字符） |
 | siteDescription | String | 否 | 网站描述 |
-| apiNumber | Integer | 否 | API调用次数限制（最小1） |
+| universityApiNumber | Integer | 否 | 大学API调用次数限制（最小1），默认1 |
+| majorApiNumber | Integer | 否 | 专业API调用次数限制（最小1），默认1 |
+| cityApiNumber | Integer | 否 | 城市API调用次数限制（最小1），默认1 |
 | proPrice | Integer | 否 | Pro会员价格（不能为负） |
 | vipPrice | Integer | 否 | VIP会员价格（不能为负） |
 | proCommissionRate | Integer | 否 | Pro会员提成比例（0-100） |
@@ -666,7 +670,9 @@ CREATE INDEX idx_admin_logs_created ON admin_logs(created_at);
 | site_url | VARCHAR(100) | 网站Logo URL |
 | site_icp | VARCHAR(100) | ICP备案号 |
 | site_description | TEXT | 网站描述 |
-| api_number | INTEGER | API调用次数限制，默认3 |
+| university_api_number | INTEGER | 大学API调用次数限制，默认1 |
+| major_api_number | INTEGER | 专业API调用次数限制，默认1 |
+| city_api_number | INTEGER | 城市API调用次数限制，默认1 |
 | provider_name | VARCHAR(50) | AI服务商名称 |
 | model_name | VARCHAR(100) | AI模型名称 |
 | pro_price | INTEGER | Pro会员价格，默认199 |

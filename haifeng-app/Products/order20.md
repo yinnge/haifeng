@@ -1048,11 +1048,11 @@ Host: api.haifeng.com
 | educationRequirement | String | 学历要求 |
 | degreeRequirement | String | 学位要求 |
 | majorRequirement | String | 专业要求 |
-| majorPreference | List\<String\> | 优先专业列表（JSONB） |
+| majorPreference | List\<String\> | 优先专业列表 |
 | ageLimit | Integer | 年龄上限 |
 | workExperience | String | 工作经验要求 |
 | recruitmentCount | Integer | 招聘人数 |
-| certRequirements | List\<String\> | 证书要求列表（JSONB） |
+| certRequirements | List\<String\> | 证书要求列表 |
 | languageRequirement | String | 语言要求 |
 | computerRequirement | String | 计算机要求 |
 | otherRequirement | String | 其他要求 |

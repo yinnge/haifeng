@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +19,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName(value = "t_finance_position", autoResultMap = true)
+@TableName("t_finance_position")
 public class FinancePosition implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -57,7 +57,7 @@ public class FinancePosition implements Serializable {
 
     private String majorRequirement;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> majorPreference;
 
     private Integer ageLimit;
@@ -66,7 +66,7 @@ public class FinancePosition implements Serializable {
 
     private Integer recruitmentCount;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> certRequirements;
 
     private String languageRequirement;

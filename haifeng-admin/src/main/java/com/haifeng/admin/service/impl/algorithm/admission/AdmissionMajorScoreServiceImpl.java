@@ -48,6 +48,13 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
             wrapper.eq(AdmissionMajorScore::getEducationLevel, dto.getEducationLevel());
         }
 
+        // 默认查询未删除的记录
+        if (dto.getIsDeleted() != null) {
+            wrapper.eq(AdmissionMajorScore::getIsDeleted, dto.getIsDeleted());
+        } else {
+            wrapper.eq(AdmissionMajorScore::getIsDeleted, false);
+        }
+
         wrapper.orderByAsc(AdmissionMajorScore::getMajorCode)
                .orderByAsc(AdmissionMajorScore::getId);
 
@@ -103,6 +110,16 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         existing.setId(id);
         admissionMajorScoreMapper.updateById(existing);
         log.info("更新专业录取明细成功，id={}", id);
+    }
+
+    @Override
+    public void updateStatus(Integer id, Boolean isDeleted) {
+        AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(404, "专业录取明细不存在");
+        }
+        admissionMajorScoreMapper.updateIsDeletedById(id, isDeleted);
+        log.info("更新专业明细状态成功，id={}，isDeleted={}", id, isDeleted);
     }
 
     @Override

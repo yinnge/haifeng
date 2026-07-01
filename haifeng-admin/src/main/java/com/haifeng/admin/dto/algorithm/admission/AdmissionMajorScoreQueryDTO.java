@@ -11,4 +11,5 @@ public class AdmissionMajorScoreQueryDTO extends BasePageQueryDTO {
     private String majorCode;
     private String majorName;
     private String educationLevel;
+    private Boolean isDeleted;
 }

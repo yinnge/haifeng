@@ -30,7 +30,20 @@ public class SystemSettings {
 
     private String siteDescription;
 
-    private Integer apiNumber;
+    /**
+     * 默认大学API调用次数
+     */
+    private Integer universityApiNumber;
+
+    /**
+     * 默认专业API调用次数
+     */
+    private Integer majorApiNumber;
+
+    /**
+     * 默认城市API调用次数
+     */
+    private Integer cityApiNumber;
 
     private String providerName;
 
