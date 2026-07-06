@@ -24,6 +24,12 @@ public class ModelProviderQueryDTO extends BasePageQueryDTO {
     private String modelName;
 
     /**
+     * 类型
+     */
+    @Size(max = 50, message = "类型长度不能超过50")
+    private String type;
+
+    /**
      * 状态：0-禁用，1-启用
      */
     @Min(value = 0, message = "状态值最小为0")

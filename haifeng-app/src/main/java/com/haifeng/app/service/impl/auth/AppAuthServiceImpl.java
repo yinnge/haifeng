@@ -1,6 +1,9 @@
 package com.haifeng.app.service.impl.auth;
 
+import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.app.dto.auth.ForgotPasswordResetDTO;
+import com.haifeng.app.dto.auth.ForgotPasswordSendCodeDTO;
 import com.haifeng.app.dto.auth.RegisterDTO;
 import com.haifeng.app.service.auth.AppAuthService;
 import com.haifeng.common.constant.RedisKeyConstant;
@@ -11,10 +14,12 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.CaptchaService;
+import com.haifeng.common.service.SmsService;
+import com.haifeng.common.util.DesensitizeUtil;
+import com.haifeng.common.util.InviteCodeGenerator;
 import com.haifeng.common.util.IpUtil;
 import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SecurityUtil;
-import com.haifeng.common.util.InviteCodeGenerator;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.haifeng.common.vo.auth.TokenVO;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +46,7 @@ public class AppAuthServiceImpl implements AppAuthService {
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
     private final CaptchaService captchaService;
+    private final SmsService smsService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -235,5 +241,132 @@ public class AppAuthServiceImpl implements AppAuthService {
         redisTemplate.delete(redisKey);
 
         log.info("用户登出成功: {}", memberId);
+    }
+
+    @Override
+    public void forgotPasswordSendCode(ForgotPasswordSendCodeDTO dto) {
+        if (!captchaService.validateCaptcha(dto.getUuid(), dto.getCaptchaCode())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
+        }
+
+        String phone = dto.getPhone();
+
+        Member member = memberMapper.selectOne(
+                new LambdaQueryWrapper<Member>()
+                        .eq(Member::getPhone, phone)
+                        .eq(Member::getDeleted, false)
+        );
+        if (member == null) {
+            log.info("发送短信验证码-手机号未注册（假装成功），phone={}",
+                    DesensitizeUtil.desensitizePhone(phone));
+            return;
+        }
+
+        String coolKey = RedisKeyConstant.SMS_SEND_COOL + phone;
+        Boolean isCooled = redisTemplate.opsForValue().setIfAbsent(coolKey, "1", 60, TimeUnit.SECONDS);
+        if (Boolean.FALSE.equals(isCooled)) {
+            log.warn("短信发送被限流，phone={}, 原因=冷却中",
+                    DesensitizeUtil.desensitizePhone(phone));
+            throw new BusinessException(ResultCode.TOO_MANY_REQUESTS, "发送过于频繁，请60秒后重试");
+        }
+
+        String dateStr = java.time.LocalDate.now().toString().replace("-", "");
+        String limitKey = RedisKeyConstant.SMS_SEND_LIMIT + dateStr + ":" + phone;
+        Long sendCount = redisTemplate.opsForValue().increment(limitKey);
+        if (sendCount != null && sendCount == 1) {
+            long secondsUntilEndOfDay = java.time.Duration.between(
+                    java.time.LocalDateTime.now(),
+                    java.time.LocalDate.now().plusDays(1).atStartOfDay()
+            ).getSeconds();
+            redisTemplate.expire(limitKey, secondsUntilEndOfDay, TimeUnit.SECONDS);
+        }
+        if (sendCount != null && sendCount > 5) {
+            log.warn("短信发送被限流，phone={}, 原因=日限达上限",
+                    DesensitizeUtil.desensitizePhone(phone));
+            throw new BusinessException(ResultCode.TOO_MANY_REQUESTS, "今日短信发送次数已达上限");
+        }
+
+        String clientIp = IpUtil.getClientIp();
+        String ipLimitKey = RedisKeyConstant.getLimitApiKey(clientIp,
+                "/api/v1/app/auth/forgot-password/send-code");
+        Long ipCount = redisTemplate.opsForValue().increment(ipLimitKey);
+        if (ipCount != null && ipCount == 1) {
+            redisTemplate.expire(ipLimitKey, 60, TimeUnit.SECONDS);
+        }
+        if (ipCount != null && ipCount > 10) {
+            log.warn("短信发送被限流，IP={}, 原因=IP请求过于频繁", clientIp);
+            throw new BusinessException(ResultCode.TOO_MANY_REQUESTS, "请求过于频繁，请稍后重试");
+        }
+
+        String code = RandomUtil.randomNumbers(6);
+        try {
+            smsService.sendSmsCode(phone, code);
+        } catch (BusinessException e) {
+            redisTemplate.delete(coolKey);
+            throw e;
+        }
+
+        String codeKey = RedisKeyConstant.SMS_CODE + phone;
+        redisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
+    }
+
+    @Override
+    public void forgotPasswordReset(ForgotPasswordResetDTO dto) {
+        String phone = dto.getPhone();
+
+        Member member = memberMapper.selectOne(
+                new LambdaQueryWrapper<Member>()
+                        .eq(Member::getPhone, phone)
+                        .eq(Member::getDeleted, false)
+        );
+        if (member == null) {
+            log.warn("密码重置失败，手机号不存在: {}", DesensitizeUtil.desensitizePhone(phone));
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        String codeKey = RedisKeyConstant.SMS_CODE + phone;
+        String storedCode = redisTemplate.opsForValue().get(codeKey);
+        if (storedCode == null) {
+            log.warn("密码重置失败，验证码已过期，phone={}",
+                    DesensitizeUtil.desensitizePhone(phone));
+            throw new BusinessException(ResultCode.SMS_CODE_EXPIRED);
+        }
+
+        if (!storedCode.equals(dto.getCode())) {
+            String failKey = RedisKeyConstant.SMS_VERIFY_FAIL + phone;
+            Long failCount = redisTemplate.opsForValue().increment(failKey);
+            if (failCount != null && failCount == 1) {
+                redisTemplate.expire(failKey, 30, TimeUnit.MINUTES);
+            }
+
+            log.warn("短信验证码校验失败，phone={}, 已失败次数={}",
+                    DesensitizeUtil.desensitizePhone(phone), failCount);
+
+            if (failCount != null && failCount >= 5) {
+                redisTemplate.expire(failKey, 30, TimeUnit.MINUTES);
+                redisTemplate.delete(codeKey);
+                log.warn("短信验证码锁定，phone={}", DesensitizeUtil.desensitizePhone(phone));
+                throw new BusinessException(ResultCode.SMS_CODE_LOCKED);
+            }
+
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误");
+        }
+
+        redisTemplate.delete(codeKey);
+        redisTemplate.delete(RedisKeyConstant.SMS_VERIFY_FAIL + phone);
+
+        if (passwordEncoder.matches(dto.getPassword(), member.getPassword())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "新密码不能与原密码相同");
+        }
+
+        member.setPassword(passwordEncoder.encode(dto.getPassword()));
+        member.setUpdatedAt(java.time.OffsetDateTime.now());
+        memberMapper.updateById(member);
+
+        String refreshKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.delete(refreshKey);
+
+        log.info("密码重置成功，memberId={}, phone={}",
+                member.getId(), DesensitizeUtil.desensitizePhone(phone));
     }
 }

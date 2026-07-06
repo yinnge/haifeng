@@ -39,6 +39,9 @@ public class SecurityConfig {
             "/api/v1/*/auth/refresh",
             "/api/v1/*/auth/captcha",
             "/api/v1/*/auth/login/totp",
+            // 忘记密码
+            "/api/v1/app/auth/forgot-password/send-code",
+            "/api/v1/app/auth/forgot-password/reset",
             // Actuator
             "/actuator/**",
             // Swagger

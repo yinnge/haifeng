@@ -104,7 +104,7 @@ public class ApiKeyPool {
     }
 
     private List<ModelProviderConfig> loadEnabledProviders() {
-        List<ModelProvider> records = modelProviderMapper.findAllEnabled();
+        List<ModelProvider> records = modelProviderMapper.findAllEnabledByType("model");
         if (records == null || records.isEmpty()) {
             return Collections.emptyList();
         }

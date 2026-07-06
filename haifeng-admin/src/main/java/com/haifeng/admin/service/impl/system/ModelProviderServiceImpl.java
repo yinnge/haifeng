@@ -26,7 +26,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class ModelProviderServiceImpl implements ModelProviderService {
 
-    private static final String NOT_FOUND_MESSAGE = "模型供应商配置不存在";
+    private static final String NOT_FOUND_MESSAGE = "服务商配置不存在";
 
     private final ModelProviderMapper modelProviderMapper;
 
@@ -42,6 +42,10 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         String modelName = trimToNull(dto.getModelName());
         if (modelName != null) {
             wrapper.like(ModelProvider::getModelName, modelName);
+        }
+        String type = trimToNull(dto.getType());
+        if (type != null) {
+            wrapper.eq(ModelProvider::getType, type);
         }
         if (dto.getStatus() != null) {
             wrapper.eq(ModelProvider::getStatus, dto.getStatus());
@@ -66,14 +70,16 @@ public class ModelProviderServiceImpl implements ModelProviderService {
                 .apiKey(dto.getApiKey())
                 .modelName(dto.getModelName())
                 .providerName(providerName)
+                .type(dto.getType())
+                .description(dto.getDescription())
                 .status(dto.getStatus() != null ? dto.getStatus() : 1)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
 
         modelProviderMapper.insert(modelProvider);
-        log.info("新增模型供应商配置成功: id={}, providerName={}, modelName={}",
-                modelProvider.getId(), providerName, dto.getModelName());
+        log.info("新增服务商配置成功: id={}, providerName={}, type={}, modelName={}",
+                modelProvider.getId(), providerName, dto.getType(), dto.getModelName());
         return toVO(modelProvider);
     }
 
@@ -86,21 +92,26 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         String providerName = normalizeProviderName(dto.getProviderName());
         modelProvider.setModelName(dto.getModelName());
         modelProvider.setProviderName(providerName);
+        if (StringUtils.hasText(dto.getType())) {
+            modelProvider.setType(dto.getType());
+        }
+        if (dto.getDescription() != null) {
+            modelProvider.setDescription(dto.getDescription());
+        }
         if (dto.getStatus() != null) {
             modelProvider.setStatus(dto.getStatus());
         }
         modelProvider.setUpdatedAt(OffsetDateTime.now());
 
         modelProviderMapper.updateById(modelProvider);
-        log.info("更新模型供应商配置成功: id={}, providerName={}, modelName={}",
-                id, providerName, dto.getModelName());
+        log.info("更新服务商配置成功: id={}, providerName={}, modelName={}", id, providerName, dto.getModelName());
     }
 
     @Override
     public void delete(Long id) {
         getExisting(id);
         modelProviderMapper.deleteById(id);
-        log.info("删除模型供应商配置成功: id={}", id);
+        log.info("删除服务商配置成功: id={}", id);
     }
 
     @Override
@@ -110,7 +121,7 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         modelProvider.setUpdatedAt(OffsetDateTime.now());
 
         modelProviderMapper.updateById(modelProvider);
-        log.info("更新模型供应商配置状态成功: id={}, status={}", id, dto.getStatus());
+        log.info("更新服务商配置状态成功: id={}, status={}", id, dto.getStatus());
     }
 
     private ModelProvider getExisting(Long id) {

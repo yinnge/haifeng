@@ -32,7 +32,11 @@ public enum ResultCode {
     EXPORT_FAILED(1030, "导出失败"),
     AI_QUOTA_EXCEEDED(1040, "今日 AI 调用次数已用完"),
     AI_ALL_KEYS_FAILED(1041, "AI 服务暂不可用，请稍后再试"),
-    TOTP_REQUIRED(20001, "需进行二次验证");
+    TOTP_REQUIRED(20001, "需进行二次验证"),
+
+    SMS_SEND_FAILED(1400, "短信发送失败"),
+    SMS_CODE_EXPIRED(1401, "验证码已过期或不存在"),
+    SMS_CODE_LOCKED(1402, "验证码错误次数过多，已锁定30分钟");
 
     private final Integer code;
     private final String msg;
