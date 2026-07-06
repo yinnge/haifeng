@@ -145,6 +145,83 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
+    @Override
+    public String chatSync(Long userId, List<ChatMessage> messages) {
+        List<ModelProviderConfig> providers = keyPool.orderedFallback(userId);
+        if (providers.isEmpty()) {
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED);
+        }
+        return tryProviderSync(providers, 0, messages);
+    }
+
+    private String tryProviderSync(List<ModelProviderConfig> providers, int index, List<ChatMessage> messages) {
+        if (index >= providers.size()) {
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED);
+        }
+        ModelProviderConfig provider = providers.get(index);
+        String body = buildSyncRequestBody(messages, provider.getModelName());
+        try {
+            String response = callDeepSeekSync(provider.getApiKey(), body);
+            return extractSyncContent(response);
+        } catch (Exception err) {
+            log.warn("DeepSeek sync call failed with provider id={}, key ...{}: {}",
+                    provider.getId(), maskKey(provider.getApiKey()), err.getMessage());
+            keyPool.markUnhealthy(provider);
+            return tryProviderSync(providers, index + 1, messages);
+        }
+    }
+
+    /**
+     * 非流式 HTTP 调用——返回完整 JSON 响应体。
+     */
+    protected String callDeepSeekSync(String key, String body) {
+        return webClient.post()
+                .uri(CHAT_PATH)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + key)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+    }
+
+    private String buildSyncRequestBody(List<ChatMessage> messages, String modelName) {
+        ObjectNode root = MAPPER.createObjectNode();
+        root.put("model", modelName);
+        root.put("stream", false);
+        root.put("max_tokens", properties.getMaxTokens());
+        root.put("temperature", properties.getTemperature());
+
+        ArrayNode arr = root.putArray("messages");
+        for (ChatMessage m : messages) {
+            ObjectNode n = arr.addObject();
+            n.put("role", m.getRole());
+            n.put("content", m.getContent());
+        }
+        try {
+            return MAPPER.writeValueAsString(root);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ResultCode.INTERNAL_ERROR);
+        }
+    }
+
+    /**
+     * 从非流式响应 JSON 中提取 choices[0].message.content
+     */
+    private String extractSyncContent(String response) {
+        if (response == null || response.isBlank()) {
+            return "";
+        }
+        try {
+            JsonNode node = MAPPER.readTree(response);
+            JsonNode content = node.path("choices").path(0).path("message").path("content");
+            return content.isMissingNode() || content.isNull() ? "" : content.asText("");
+        } catch (Exception e) {
+            log.error("Failed to parse sync AI response: {}", response, e);
+            return "";
+        }
+    }
+
     private String maskKey(String key) {
         if (key == null || key.length() < 6) return "***";
         return key.substring(key.length() - 4);
