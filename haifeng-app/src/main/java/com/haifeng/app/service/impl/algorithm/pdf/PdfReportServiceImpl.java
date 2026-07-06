@@ -5,11 +5,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.dto.algorithm.pdf.PdfRecordQueryDTO;
-import com.haifeng.app.service.algorithm.GaokaoArchiveService;
 import com.haifeng.app.service.algorithm.pdf.AiChatService;
 import com.haifeng.app.service.algorithm.pdf.PdfReportService;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
-import com.haifeng.app.vo.algorithm.GaokaoArchiveVO;
 import com.haifeng.app.vo.algorithm.pdf.*;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.common.entity.algorithm.pdf.PdfReport;
@@ -47,13 +45,12 @@ public class PdfReportServiceImpl implements PdfReportService {
     private final AiChatService aiChatService;
     private final AiQuotaService quotaService;
     private final WishPlanService wishPlanService;
-    private final GaokaoArchiveService gaokaoArchiveService;
     private final ObjectMapper objectMapper;
     private final WishPlanMapper wishPlanMapper;
 
     @Override
     public Flux<ServerSentEvent<String>> generateReport(Long userId, Integer planId) {
-        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
+        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().multicast().onBackpressureBuffer();
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -87,6 +84,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                 .build();
         pdfReportMapper.insert(report);
         Integer recordId = report.getId();
+        log.info("PDF report generation started, userId={}, planId={}, recordId={}", userId, planId, recordId);
         sink.tryEmitNext(sseEvent("{\"stage\":\"quota_checked\",\"recordId\":" + recordId + "}"));
 
         // 3. 查 wish_plan → 存 plan_snapshot
@@ -153,6 +151,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         report.setReduceResult(reduceJson);
         report.setStatus(PdfReportStatus.SUCCESS);
         pdfReportMapper.updateById(report);
+        log.info("PDF report generation completed, recordId={}, planId={}", recordId, planId);
 
         // 9. 完成
         sink.tryEmitNext(sseEvent("{\"stage\":\"done\",\"recordId\":" + recordId + "}"));
@@ -192,8 +191,11 @@ public class PdfReportServiceImpl implements PdfReportService {
             }, executor));
         }
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        executor.shutdown();
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } finally {
+            executor.shutdown();
+        }
 
         sink.tryEmitNext(sseEvent("{\"stage\":\"map_done\"}"));
 
@@ -329,6 +331,7 @@ public class PdfReportServiceImpl implements PdfReportService {
     }
 
     private void updateReportFailed(Integer recordId, String reason) {
+        log.warn("PDF report marked as failed, recordId={}, reason={}", recordId, reason);
         PdfReport update = new PdfReport();
         update.setId(recordId);
         update.setStatus(PdfReportStatus.FAILED);
@@ -354,7 +357,8 @@ public class PdfReportServiceImpl implements PdfReportService {
         return text.replace("\\", "\\\\")
                    .replace("\"", "\\\"")
                    .replace("\n", "\\n")
-                   .replace("\r", "\\r");
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
     }
 
     // ===================== 历史记录查询 =====================

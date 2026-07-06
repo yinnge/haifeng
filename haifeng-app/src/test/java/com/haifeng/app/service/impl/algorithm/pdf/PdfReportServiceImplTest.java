@@ -11,8 +11,6 @@ import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
 import com.haifeng.common.entity.algorithm.pdf.PdfReport;
 import com.haifeng.common.service.ai.AiQuotaService;
-import com.haifeng.app.service.algorithm.GaokaoArchiveService;
-import com.haifeng.app.vo.algorithm.GaokaoArchiveVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +33,6 @@ class PdfReportServiceImplTest {
     private AiChatService aiChatService = mock(AiChatService.class);
     private AiQuotaService quotaService = mock(AiQuotaService.class);
     private WishPlanService wishPlanService = mock(WishPlanService.class);
-    private GaokaoArchiveService gaokaoArchiveService = mock(GaokaoArchiveService.class);
     private WishPlanMapper wishPlanMapper = mock(WishPlanMapper.class);
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -45,7 +42,7 @@ class PdfReportServiceImplTest {
     void setup() {
         service = new PdfReportServiceImpl(
                 pdfReportMapper, aiChatService, quotaService,
-                wishPlanService, gaokaoArchiveService, objectMapper, wishPlanMapper);
+                wishPlanService, objectMapper, wishPlanMapper);
     }
 
     @Test
@@ -107,13 +104,6 @@ class PdfReportServiceImplTest {
                 .thenReturn(Collections.singletonList(group1));
         when(aiChatService.chatSync(eq(1L), anyList()))
                 .thenReturn("北交大自动化不错");
-        when(gaokaoArchiveService.getMyArchive())
-                .thenReturn(GaokaoArchiveVO.builder()
-                        .gaokaoYear((short) 2026)
-                        .gaokaoProvince("北京")
-                        .score(615)
-                        .rank(8500)
-                        .build());
 
         Flux<ServerSentEvent<String>> flux = service.generateReport(1L, 100);
 
@@ -163,13 +153,6 @@ class PdfReportServiceImplTest {
                 .thenThrow(new com.haifeng.common.exception.BusinessException(
                         com.haifeng.common.response.ResultCode.AI_ALL_KEYS_FAILED))
                 .thenReturn("全局分析结果");
-        when(gaokaoArchiveService.getMyArchive())
-                .thenReturn(GaokaoArchiveVO.builder()
-                        .gaokaoYear((short) 2026)
-                        .gaokaoProvince("北京")
-                        .score(615)
-                        .rank(8500)
-                        .build());
 
         Flux<ServerSentEvent<String>> flux = service.generateReport(1L, 100);
 
