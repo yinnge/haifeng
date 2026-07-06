@@ -182,7 +182,7 @@ public class AiChatServiceImpl implements AiChatService {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofSeconds(properties.getTimeoutSeconds()));
     }
 
     private String buildSyncRequestBody(List<ChatMessage> messages, String modelName) {
@@ -193,6 +193,7 @@ public class AiChatServiceImpl implements AiChatService {
         root.put("temperature", properties.getTemperature());
 
         ArrayNode arr = root.putArray("messages");
+        // 不预置空 system 消息（与 buildRequestBody 不同），因为 Map/Reduce 调用方会在 messages 中自带 system prompt
         for (ChatMessage m : messages) {
             ObjectNode n = arr.addObject();
             n.put("role", m.getRole());
