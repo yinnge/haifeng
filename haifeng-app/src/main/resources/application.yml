@@ -15,3 +15,8 @@ deepseek:
   temperature: 1.0
   key-cooldown-seconds: 300
   timeout-seconds: 60
+
+submail:
+  appid: ${SUBMAIL_APPID}
+  appkey: ${SUBMAIL_APPKEY}
+  sign: 【海峰规划】

@@ -152,6 +152,14 @@ public final class RedisKeyConstant {
     public static final String WISH_EXPORT_PREFIX = "haifeng:wish:export:";
 
     /**
+     * 短信验证码
+     */
+    public static final String SMS_CODE = "haifeng:sms:code:";
+    public static final String SMS_SEND_COOL = "haifeng:sms:send:cool:";
+    public static final String SMS_SEND_LIMIT = "haifeng:sms:send:limit:";
+    public static final String SMS_VERIFY_FAIL = "haifeng:sms:verify:fail:";
+
+    /**
      * 首页 - 公告缓存
      */
     public static final String HOME_ANNOUNCEMENT_LIST_PREFIX   = "haifeng:app:home:announcement:list:";

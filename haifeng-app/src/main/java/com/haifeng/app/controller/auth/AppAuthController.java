@@ -1,5 +1,7 @@
 package com.haifeng.app.controller.auth;
 
+import com.haifeng.app.dto.auth.ForgotPasswordResetDTO;
+import com.haifeng.app.dto.auth.ForgotPasswordSendCodeDTO;
 import com.haifeng.app.dto.auth.RegisterDTO;
 import com.haifeng.app.service.auth.AppAuthService;
 import com.haifeng.common.dto.auth.LoginDTO;
@@ -51,6 +53,18 @@ public class AppAuthController {
     @PostMapping("/logout")
     public R<Void> logout() {
         appAuthService.logout();
+        return R.ok();
+    }
+
+    @PostMapping("/forgot-password/send-code")
+    public R<Void> forgotPasswordSendCode(@Valid @RequestBody ForgotPasswordSendCodeDTO dto) {
+        appAuthService.forgotPasswordSendCode(dto);
+        return R.ok();
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public R<Void> forgotPasswordReset(@Valid @RequestBody ForgotPasswordResetDTO dto) {
+        appAuthService.forgotPasswordReset(dto);
         return R.ok();
     }
 }
