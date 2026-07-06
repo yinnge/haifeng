@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.algorithm.pdf;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.enums.PdfReportStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,18 +27,15 @@ public class PdfReport {
     private Integer planId;
 
     /** 0=生成中, 1=成功, 2=失败 */
-    private Short status;
+    private PdfReportStatus status;
 
     /** Map 阶段逐校 AI 简评 JSONB 数组 */
-    @TableField(typeHandler = JacksonTypeHandler.class)
     private String mapResults;
 
     /** Reduce 阶段全局研判 JSONB */
-    @TableField(typeHandler = JacksonTypeHandler.class)
     private String reduceResult;
 
     /** 封面页数据快照 JSONB */
-    @TableField(typeHandler = JacksonTypeHandler.class)
     private String planSnapshot;
 
     private String failReason;
