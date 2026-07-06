@@ -12,7 +12,7 @@ import java.util.List;
 public interface ModelProviderMapper extends BaseMapper<ModelProvider> {
 
     @Select("""
-            SELECT id, api_key, model_name, provider_name, status, created_at, updated_at
+            SELECT id, api_key, model_name, provider_name, type, description, status, created_at, updated_at
             FROM t_model_provider
             WHERE status = 1
             ORDER BY id ASC
@@ -20,11 +20,30 @@ public interface ModelProviderMapper extends BaseMapper<ModelProvider> {
     List<ModelProvider> findAllEnabled();
 
     @Select("""
-            SELECT id, api_key, model_name, provider_name, status, created_at, updated_at
+            SELECT id, api_key, model_name, provider_name, type, description, status, created_at, updated_at
             FROM t_model_provider
             WHERE provider_name = #{providerName}
               AND status = 1
             ORDER BY id ASC
             """)
     List<ModelProvider> findEnabledByProvider(@Param("providerName") String providerName);
+
+    @Select("""
+            SELECT id, api_key, model_name, provider_name, type, description, status, created_at, updated_at
+            FROM t_model_provider
+            WHERE type = #{type}
+              AND status = 1
+            ORDER BY id ASC
+            """)
+    List<ModelProvider> findAllEnabledByType(@Param("type") String type);
+
+    @Select("""
+            SELECT id, api_key, model_name, provider_name, type, description, status, created_at, updated_at
+            FROM t_model_provider
+            WHERE provider_name = #{providerName}
+              AND type = #{type}
+              AND status = 1
+            ORDER BY id ASC
+            """)
+    List<ModelProvider> findEnabledByProviderAndType(@Param("providerName") String providerName, @Param("type") String type);
 }

@@ -21,6 +21,12 @@ public class ModelProviderUpdateDTO {
     @Size(max = 50, message = "供应商名称长度不能超过50")
     private String providerName;
 
+    @Size(max = 50, message = "类型长度不能超过50")
+    private String type;
+
+    @Size(max = 255, message = "描述长度不能超过255")
+    private String description;
+
     @Min(value = 0, message = "状态值最小为0")
     @Max(value = 1, message = "状态值最大为1")
     private Integer status;

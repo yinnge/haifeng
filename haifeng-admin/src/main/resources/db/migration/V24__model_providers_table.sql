@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS t_model_provider (
     api_key         TEXT            NOT NULL,
     model_name      VARCHAR(100)    NOT NULL,
     provider_name   VARCHAR(50)     NOT NULL,
+    type            VARCHAR(50)     NOT NULL DEFAULT 'model',
+    description     VARCHAR(255),
     status          SMALLINT        NOT NULL DEFAULT 1,
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -38,11 +40,13 @@ END
 $$;
 
 -- 注释
-COMMENT ON TABLE  t_model_provider               IS '模型服务商配置表：存储 AI 模型服务商、模型名称和 API Key 配置';
+COMMENT ON TABLE  t_model_provider               IS '服务商配置表：存储 AI 模型/短信等服务商、模型名称和 API Key 配置';
 COMMENT ON COLUMN t_model_provider.id            IS '主键ID';
 COMMENT ON COLUMN t_model_provider.api_key       IS 'API Key 密钥';
-COMMENT ON COLUMN t_model_provider.model_name    IS '模型名称';
+COMMENT ON COLUMN t_model_provider.model_name    IS '模型名称/服务标识';
 COMMENT ON COLUMN t_model_provider.provider_name IS '服务商名称';
+COMMENT ON COLUMN t_model_provider.type          IS '类型：model=AI模型，message=短信';
+COMMENT ON COLUMN t_model_provider.description   IS '描述说明';
 COMMENT ON COLUMN t_model_provider.status        IS '状态：0=禁用，1=启用';
 COMMENT ON COLUMN t_model_provider.created_at    IS '创建时间';
 COMMENT ON COLUMN t_model_provider.updated_at    IS '更新时间';

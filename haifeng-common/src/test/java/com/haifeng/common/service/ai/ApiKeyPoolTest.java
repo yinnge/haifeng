@@ -42,7 +42,7 @@ class ApiKeyPoolTest {
     }
 
     private ApiKeyPool buildPool(List<ModelProvider> providers, SystemSettings settings) {
-        when(modelProviderMapper.findAllEnabled()).thenReturn(providers);
+        when(modelProviderMapper.findAllEnabledByType("model")).thenReturn(providers);
         when(settingsMapper.selectById(1L)).thenReturn(settings);
         ApiKeyPool pool = new ApiKeyPool(properties, redisTemplate, modelProviderMapper, settingsMapper);
         pool.init();
@@ -88,14 +88,14 @@ class ApiKeyPoolTest {
         List<ModelProviderConfig> first = pool.orderedFallback(0L);
         assertThat(first).extracting(ModelProviderConfig::getId).containsExactly(1L);
 
-        when(modelProviderMapper.findAllEnabled()).thenReturn(Arrays.asList(
+        when(modelProviderMapper.findAllEnabledByType("model")).thenReturn(Arrays.asList(
                 provider(1L, "key-1", "deepseek-chat"),
                 provider(2L, "key-2", "deepseek-reasoner")
         ));
 
         List<ModelProviderConfig> second = pool.orderedFallback(0L);
         assertThat(second).extracting(ModelProviderConfig::getId).containsExactly(1L, 2L);
-        verify(modelProviderMapper, times(2)).findAllEnabled();
+        verify(modelProviderMapper, times(2)).findAllEnabledByType("model");
     }
 
     @Test
@@ -158,7 +158,7 @@ class ApiKeyPoolTest {
         assertThat(ordered).hasSize(1);
         assertThat(ordered.get(0).getProviderName()).isEqualTo("openai");
         assertThat(ordered.get(0).getModelName()).isEqualTo("gpt-4o-mini");
-        verify(modelProviderMapper, atLeastOnce()).findAllEnabled();
+        verify(modelProviderMapper, atLeastOnce()).findAllEnabledByType("model");
         verify(modelProviderMapper, never()).findEnabledByProvider("deepseek");
     }
 

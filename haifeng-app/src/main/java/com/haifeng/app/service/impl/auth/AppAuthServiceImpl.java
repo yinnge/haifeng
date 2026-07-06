@@ -355,6 +355,10 @@ public class AppAuthServiceImpl implements AppAuthService {
         redisTemplate.delete(codeKey);
         redisTemplate.delete(RedisKeyConstant.SMS_VERIFY_FAIL + phone);
 
+        if (passwordEncoder.matches(dto.getPassword(), member.getPassword())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "新密码不能与原密码相同");
+        }
+
         member.setPassword(passwordEncoder.encode(dto.getPassword()));
         member.setUpdatedAt(java.time.OffsetDateTime.now());
         memberMapper.updateById(member);

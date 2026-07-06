@@ -147,7 +147,7 @@ class ModelProviderServiceImplTest {
 
         assertThatThrownBy(() -> modelProviderService.detail(99L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("模型供应商配置不存在")
+                .hasMessage("服务商配置不存在")
                 .extracting("code")
                 .isEqualTo(404);
     }
@@ -185,7 +185,7 @@ class ModelProviderServiceImplTest {
 
         assertThatThrownBy(() -> modelProviderService.update(88L, dto))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("模型供应商配置不存在")
+                .hasMessage("服务商配置不存在")
                 .extracting("code")
                 .isEqualTo(404);
         verify(modelProviderMapper, never()).updateById(any(ModelProvider.class));
@@ -282,7 +282,7 @@ class ModelProviderServiceImplTest {
 
         assertThatThrownBy(() -> modelProviderService.delete(77L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("模型供应商配置不存在")
+                .hasMessage("服务商配置不存在")
                 .extracting("code")
                 .isEqualTo(404);
         verify(modelProviderMapper, never()).deleteById(any(Long.class));
@@ -305,7 +305,7 @@ class ModelProviderServiceImplTest {
 
         assertThatThrownBy(() -> modelProviderService.updateStatus(66L, dto))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("模型供应商配置不存在")
+                .hasMessage("服务商配置不存在")
                 .extracting("code")
                 .isEqualTo(404);
         verify(modelProviderMapper, never()).updateById(any(ModelProvider.class));

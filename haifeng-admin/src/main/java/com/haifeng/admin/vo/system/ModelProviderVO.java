@@ -15,6 +15,10 @@ public class ModelProviderVO {
 
     private String providerName;
 
+    private String type;
+
+    private String description;
+
     private Integer status;
 
     private OffsetDateTime createdAt;
