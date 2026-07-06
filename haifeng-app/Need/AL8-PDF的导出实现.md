@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
 ## 总需求
 
 用户将志愿表等信息导出成PDF，接入大模型分析数据，来引导用户该选择什么专业
-
+需实现三个接口，
 ### 本次需求
 
 注册接口成对应的工具类，设计多智能体编排，先调用大模型返回结果，之后再将md转成pdf的事情
@@ -117,32 +117,113 @@ CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
 4. 多智能体协作导出pdf【Thymeleaf + CSS 强行分页(前面是宏观分析，后面是汇总表，最后是“一个专业明细是一页”)】【后续实现】
 5. 利用 OpenHTMLtoPDF 直接接收处理好的 HTML，一键转为 PDF 字节流，完美支持 A4 尺寸及 CSS 分页逻辑 。【后续实现】
 
-##### 任务一【实现一个接口】
-pdf只允许导出一个专业组和对应的专业明细和对应的多个专业，大学和城市信息
-1. 前端会返回一个快照专业组的id
-2. 你需要将查询t_wish_group_snapshot【WishPlanService.getExportGroupSnapshot(Integer groupSnapshotId) 】
-3. 调用之前写好的service，
-（1）package com.haifeng.app.service.impl.university;
-- public UniversityDetailVO detail(Long universityId) {
-（2）package com.haifeng.app.service.impl.city;CityServiceImpl【CityService.detailByName(String cityName)
-  】
-- public CityDetailVO detail(Long cityId) {
-4. 前端会返回一个id你需要查询t_wish_major_snapshot的group_snapshot_id字段【 WishPlanService.getExportableMajorIds(Integer groupSnapshotId)】，查出关联的多个major_id
-将每一个major的id都调用
-（3）package com.haifeng.app.service.impl.major;的MajorServiceImpl
-- public MajorDetailVO detail(Long majorId)
+##### 任务一【删除多余接口】
+**路径：** D:\exeProject\ideaProjects\Project-HaiFeng\haifeng-app\src\main\java\com\haifeng\app\controller\algorithm\pdf\PdfPlanController.java
+**任务：** 这下面有四个接口，变成一个接口，我们需要返回一个pdf的接口就够了，把其他的给删除，以及关联的service等给删除
+**原因：** 因为家长买你的账，不是为了看三份割裂的说明书，而是为了看一个“顶级规划师”把这三个维度交叉在一起给出的终极博弈结论（例如：“某大学虽然学校牌子响，但你考这个分数只能进它的夕阳专业，且该城市目前面临支柱产业转型，强烈建议降一档学校，去另一个处于风口产业城市的强王牌专业”）。
 
-##### 任务二【接口调用service】
+##### 任务二【理解整体框架】
+用户已经有了每个专业的录取分数表，但是静态的，我们需要ai综合分析出城市，大学，专业的程度，结合用户资料，来判断哪个合适，生成PDF
+
+解决方案：基于 Map-Reduce（分片提炼 $\rightarrow$ 全局统筹）的“全景志愿档案”为了兼顾“长文本上下文限制”、“Token防爆炸”和“全局宏观对比”，我们不能把所有原始数据一次性全倒给AI。我们要采用“两步走”的漏斗模型。
+第一步：Map 阶段（分片诊断——解决“Token爆炸与精细度”问题）不要一次性调用AI去分析所有大学。Java 在串行循环拉取每一所大学和对应专业组的数据时，针对单所大学进行一次极轻量的AI调用：给AI的硬上下文：只有这一所大学、这个城市、这5个专业的名字，以及 调用AI自身的能力的知识 带回来的最新产业大势。
+彻底不给AI看5年的分数、位次、招生人数等死数据。让AI返回什么：不要让它长篇大论，用 Prompt 限制它只吐出 300字以内的“院校专业组地缘客观研判”（纯文字，例如：“该校软件工程在华东大厂认可度极高，但城市落户门槛今年提高，结合行业降本增效大势，建议非卷王体质慎选”）。结果：Java 拿着这个AI生成的 300字简评，和这所学校的所有分数、概率 DTO 绑定在一起，形成一个精炼的 UniversityReportDTO。
+
+##### 任务三 【Reduce阶段】
+第二步：Reduce 阶段（全局博弈——解决“综合考虑与对比”问题）
+当所有单所大学的 300字简评被提炼出来后，我们让“总控首席专家智能体”登场，做最后的全局大对比。
+
+如何防止Token爆炸？
+在调用最后这个总控AI时，把那长达5年的录取分数大表、几十行的招生人数、繁琐的数据库字段全部扔掉！（因为这些死数据，一会儿直接由 Java 填进 HTML 表格里 ，根本不需要AI去数数和对比）。
+
+只喂给总控AI高浓度的“大牌堆”：
+
+JSON
+[
+{"大学": "北京交通大学", "城市": "北京", "专业": ["自动化", "智能芯片"], "录取概率": "78% (稳)", "AI片诊断结论": "北交大自动化依托轨交红利保研率高，但传统工科在京就业卷..."},
+{"大学": "上海理工大学", "城市": "上海", "专业": ["计算机", "软件工程"], "录取概率": "92% (保)", "AI片诊断结论": "地处上海集成电路高地，专业红利吃满，但学校双非光环略弱..."}
+]
+让总控AI最终输出什么？
+总控AI面对这个被你脱水、过滤、高浓度提炼后的“黄金大牌堆”，它不需要去看几万字的原始数字，上下文只占用了极少的 Token。它唯一的任务就是施展大模型的“推理、总结、权衡”圣光，为你产出整份报告中最值钱的灵魂章节：
+
+志愿表 SWOT 全局象限分析（分析哪些属于“高风险高收益”，哪些属于“性价比之王”）。
+
+城市地域红利 VS 学校名气光环的博弈辩证逻辑。
+
+最终的“海枫强烈推荐填报梯队顺序”（它会综合考虑概率、城市、行业，给出一个排兵布阵的专家建议）。
+
+##### 了解事项
+页眉、页脚、页码、版权声明怎么做？
+在 W3C 标准中，有一种专门控制打印排版的 CSS 规范叫 Paged Media（分页媒体）。OpenHTMLtoPDF 完美支持它。你只需要在 HTML 的 <style> 标签里写几行描述性的 CSS：
+
+告诉它：全盘统一规定，页面的右下角（@bottom-right）自动显示页码；页面的正下方（@bottom-center）固定显示文案“海枫未来规划院@版权所有” 。
+
+打印引擎在渲染时，只要发现这一页到了 A4 纸的底部，它在切页的同时，会自动在每一页的那个固定屁股位置，把你的版权和页码“盖章”上去，完全不需要你在 Java 里去算坐标 。
+
+封面第一页和第 2 页、第 3 页怎么精准割开？
+
+利用 CSS 的 page-break-after: always;（强制后分页） 。
+
+你的 HTML 结构就像搭积木一样：
 
 
-1. 前端会传1个专业组ID，调用getExportGroupSnapshot返回university_id + city_name
-2. 拿到数据分开调用university和city的service，返回dto数据
-3. 这些数据是生成PDF的第2页
+块盒子 1：封面内容（放大 LOGO，炫酷的标题，介绍文案）。在这个盒子的 CSS 里加上 page-break-after: always;。打印引擎读到这，就会硬生生把纸切断，哪怕封面只有三个字，后面也绝对留白，剩下的数据强行塞进第 2 页 。
+块盒子 2：大学数据大表。同样加上分页符。【举例】
+块盒子 3：城市数据大表。同样加上分页符。【举例】
+关于首尾页没有页眉页脚的特权：你可以用 CSS 选择器（如 @page :first）单独规定：第一页（封面）把页眉页脚的边距设为 0，且不显示任何页码。这样，封面就是一个干净完整的纯美观封面了。
 
+**注意**： logo的url：https://img.imgos.cn/cdn/21/20260513/852338961e39f515618e03596c4b2e71.png
 
-#### 注意点
-1. ai要求sse流式输出【以实现】，前端左边返回流式的数据，右边返回已生成PDF，请查看【后续实现导出pdf】
-2. 注册工具类是service不是接口，让jvm去做处理
+##### PDF生成格式
+
+利用前面提到的 Thymeleaf + CSS 强行分页（page-break-after: always;） ，我们把这份统一的 PDF 档案设计成“总—分—总”的完美长卷：
+
+📊 第 1 页：专属封面（静态 HTML - 零 AI 成本）
+高大上的海枫未来规划院品牌 Logo 与版权页眉页脚 。
+
+考生的基本高考画像（2026年、XX省、物理类、615分、位次8500） 。
+
+🧠 第 2 🚀 3 页：全局宏观全景研判（灵魂核心 - 总控 AI 产出的结果）
+把总控AI在 Reduce 阶段 产出的全局对比、SWOT 象限图、AI大势总结 、以及最终的填报梯队建议，用漂亮的 Markdown 转 HTML 组件（Flexmark）优雅地渲染在这里 。
+
+家长一翻开报告，前两页直接看到高价值的“大师级总括结论”。
+
+📐 第 4 页：全盘静态明细汇总大表（静态数据 - 零 AI 成本）
+Java 利用 Thymeleaf 的 th:each 循环，直接把用户选中的所有大学、专业、你自己算法算出的录取概率，生成一张规整、紧凑的汇总 Table。不让 AI 参与，样式绝对不会乱。
+
+🔍 第 5 页及以后：一页一校的“解剖麻雀式”深度透视（Map 阶段的动静结合）
+由于使用了强制分页 ，每一页只解剖一所大学【超过就下一页】：
+
+上半页（死数据大表 - Java 渲染）：展示该大学详尽的硬实力指标（推免率、博硕士点） ，以及该组下所有专业近5年的录取最低分、招生人数、最低位次大表格 。
+下半页（动态灵魂 - 单校 Micro-AI 评语）：紧接着大表下方，展示该校该专业在该城市的 300 字深度行业与地缘研判。
+
+【页数不够换页继续】
+
+##### 需要用之前的service
+1. 用户信息
+package com.haifeng.app.service.impl.algorithm;
+public GaokaoArchiveVO getMyArchive() 
+2. 城市详情
+package com.haifeng.app.service.impl.city;
+   public CityDetailVO detail(Long cityId)
+3. 院校
+package com.haifeng.app.service.impl.university;
+public UniversityDetailVO detail(Long universityId)
+4. 专业
+package com.haifeng.app.service.impl.university;
+public UniversityDetailVO detail(Long universityId)
+5. 专业组与专业明细【前端会展示这些分页的数据，然后呢，会返回必要的id】
+在：package com.haifeng.app.service.algorithm.wish;WishPlanService
+有对应的方法：WishGroupSnapshot getExportGroupSnapshot(Integer groupSnapshotId);等
+6. 最后将对象转换成JSONB，后续为给ai
+**提示：** 
+1. 可以看一下vo等看有哪些返回字段
+2. 可以根据字段写和拼接一些固定好的字符串返回静态数据
+
+#### 注意事项
+1. 每个专业的近五年数据在：专业明细WishExportMajorVO里面的historyScores
+2. WishExportMajorVO里面的安全系数，说白了类似于录取概率，safetyLevel和levelShort对应。他是我通过算法经过位次，最低分，CV修正等算法算出来的，越大录取概率越大，ai可以作为参考
+
 
 
 #### 说明
