@@ -19,9 +19,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * AI 调用配额：
- * - INCR pdf:ai:quota:{userId}:{yyyyMMdd}（首次写入时设 TTL 到当日 23:59:59）
+ * PDF 生成配额：
+ * - INCR pdf:report:quota:{userId}:{yyyyMMdd}（首次写入时设 TTL 到当日 23:59:59）
  * - 上限来源：system_settings.university_api_number（缓存 Redis 5 分钟，默认 1）
+ * - 含义：每天可生成 PDF 报告的次数（1 次 PDF = 1 额度，内部 N+1 次 AI 调用不另计）
  * - 超额抛 QuotaExceededException（HTTP 429）
  */
 @Slf4j
@@ -29,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class AiQuotaService {
 
-    private static final String QUOTA_KEY_PREFIX = "pdf:ai:quota:";
+    private static final String QUOTA_KEY_PREFIX = "pdf:report:quota:";
     private static final String UNIVERSITY_API_NUMBER_CACHE_KEY = "sys:university_api_number";
     private static final long UNIVERSITY_API_NUMBER_CACHE_TTL_MIN = 5L;
     private static final int DEFAULT_UNIVERSITY_API_NUMBER = 1;
@@ -49,7 +50,7 @@ public class AiQuotaService {
         }
 
         if (current > limit) {
-            log.warn("AI quota exceeded for userId={}, current={}, limit={}", userId, current, limit);
+            log.warn("PDF report quota exceeded for userId={}, current={}, limit={}", userId, current, limit);
             throw new QuotaExceededException();
         }
     }
