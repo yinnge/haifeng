@@ -1,24 +1,20 @@
 package com.haifeng.app.controller.algorithm.pdf;
 
-import com.haifeng.app.dto.algorithm.pdf.AiChatRequestDTO;
-import com.haifeng.app.service.algorithm.pdf.AiChatService;
-import com.haifeng.app.service.algorithm.pdf.PdfPlanService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.algorithm.pdf.PdfRecordQueryDTO;
+import com.haifeng.app.service.algorithm.pdf.PdfReportService;
+import com.haifeng.app.vo.algorithm.pdf.PdfRecordDetailVO;
+import com.haifeng.app.vo.algorithm.pdf.PdfRecordListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireVip;
-import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.response.R;
-import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 @Validated
@@ -29,45 +25,32 @@ import reactor.core.publisher.Flux;
 @RequireVip
 public class PdfPlanController {
 
-    private final AiChatService aiChatService;
-    private final PdfPlanService pdfPlanService;
+    private final PdfReportService pdfReportService;
 
-    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> chatStream(@Valid @RequestBody AiChatRequestDTO dto) {
+    /**
+     * 生成 PDF 报告（SSE 流式返回进度）
+     */
+    @PostMapping(value = "/generate/{planId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> generateReport(@PathVariable Integer planId) {
         Long userId = SecurityUtil.getCurrentMemberId();
-        if (userId == null) {
-            throw new BusinessException(ResultCode.UNAUTHORIZED);
-        }
-        return aiChatService.streamChat(userId, dto);
+        return pdfReportService.generateReport(userId, planId);
     }
 
     /**
-     * 大学维度 PDF 导出
-     * <p>前端需先调 {@code POST /api/v1/app/algorithm/wish-plan/{planId}/export/save} 持久化 is_exported 状态。
+     * 历史报告记录列表（分页）
      */
-    @PostMapping("/plan/{planId}/university")
-    public R<Object> exportUniversity(@PathVariable Integer planId) {
-        // TODO 任务二：SSE 流式返回 + PDF 生成（接入多智能体编排）
-        return R.ok(pdfPlanService.exportUniversityPdf(planId));
+    @GetMapping("/records")
+    public R<IPage<PdfRecordListVO>> pageRecords(@Valid PdfRecordQueryDTO dto) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        return R.ok(pdfReportService.pageRecords(userId, dto));
     }
 
     /**
-     * 城市维度 PDF 导出
-     * <p>前端需先调 {@code POST /api/v1/app/algorithm/wish-plan/{planId}/export/save} 持久化 is_exported 状态。
+     * 报告记录详情
      */
-    @PostMapping("/plan/{planId}/city")
-    public R<Object> exportCity(@PathVariable Integer planId) {
-        // TODO 任务二：SSE 流式返回 + PDF 生成（接入多智能体编排）
-        return R.ok(pdfPlanService.exportCityPdf(planId));
-    }
-
-    /**
-     * 专业维度 PDF 导出
-     * <p>前端需先调 {@code POST /api/v1/app/algorithm/wish-plan/{planId}/export/save} 持久化 is_exported 状态。
-     */
-    @PostMapping("/plan/{planId}/major")
-    public R<Object> exportMajor(@PathVariable Integer planId) {
-        // TODO 任务二：SSE 流式返回 + PDF 生成（接入多智能体编排）
-        return R.ok(pdfPlanService.exportMajorPdf(planId));
+    @GetMapping("/records/{recordId}")
+    public R<PdfRecordDetailVO> getRecordDetail(@PathVariable Integer recordId) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        return R.ok(pdfReportService.getRecordDetail(userId, recordId));
     }
 }
