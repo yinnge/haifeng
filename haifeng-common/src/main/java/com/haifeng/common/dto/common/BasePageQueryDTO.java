@@ -11,6 +11,6 @@ public class BasePageQueryDTO {
     private Integer page = 1;
 
     @Min(value = 10, message = "每页最小10条")
-    @Max(value = 1000, message = "每页最大1000条")
+    @Max(value = 100, message = "每页最大100条")
     private Integer size = 10;
 }

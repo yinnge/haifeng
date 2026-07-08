@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Validated
 @RestController
-@RequestMapping("/api/v1/app/university")
+@RequestMapping("/api/v1/app/university/gallery")
 @RequiredArgsConstructor
 public class CampusGalleryController {
 
     private final CampusGalleryService galleryService;
 
     @RequireLogin
-    @GetMapping("/{universityId}/gallery")
+    @GetMapping("/{universityId}")
     public R<IPage<CampusGalleryListVO>> gallery(
             @PathVariable Long universityId,
             @Valid CampusGalleryQueryDTO dto) {

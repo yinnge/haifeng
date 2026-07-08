@@ -88,7 +88,6 @@ public class AppAuthServiceImpl implements AppAuthService {
         }
 
         // 创建会员
-        OffsetDateTime now = OffsetDateTime.now();
         Member member = Member.builder()
                 .id(SnowflakeIdGenerator.nextId())
                 .username(dto.getUsername())
@@ -100,8 +99,6 @@ public class AppAuthServiceImpl implements AppAuthService {
                 .commissionTotalEarned(BigDecimal.ZERO)
                 .commissionTotalPaid(BigDecimal.ZERO)
                 .deleted(false)
-                .createdAt(now)
-                .updatedAt(now)
                 .build();
 
         if (referrer != null) {
@@ -360,7 +357,6 @@ public class AppAuthServiceImpl implements AppAuthService {
         }
 
         member.setPassword(passwordEncoder.encode(dto.getPassword()));
-        member.setUpdatedAt(java.time.OffsetDateTime.now());
         memberMapper.updateById(member);
 
         String refreshKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);

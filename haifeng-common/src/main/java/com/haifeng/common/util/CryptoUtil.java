@@ -79,12 +79,16 @@ public class CryptoUtil {
     }
 
     /**
-     * 补齐密钥到 16 位
+     * 填充密钥到有效 AES 密钥长度（16/24/32 字节）
      */
     private static byte[] padKey(String key) {
         byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-        byte[] paddedKey = new byte[16];
-        System.arraycopy(keyBytes, 0, paddedKey, 0, Math.min(keyBytes.length, 16));
-        return paddedKey;
+        int len = keyBytes.length;
+        if (len != 16 && len != 24 && len != 32) {
+            len = 16;
+        }
+        byte[] result = new byte[len];
+        System.arraycopy(keyBytes, 0, result, 0, Math.min(keyBytes.length, len));
+        return result;
     }
 }

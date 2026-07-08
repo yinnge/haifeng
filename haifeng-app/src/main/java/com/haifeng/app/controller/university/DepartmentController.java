@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Validated
 @RestController
-@RequestMapping("/api/v1/app/university")
+@RequestMapping("/api/v1/app/university/departments")
 @RequiredArgsConstructor
 public class DepartmentController {
 
@@ -29,7 +29,7 @@ public class DepartmentController {
 
     /** spec §3.3：按 universityId 分页查询院系列表 */
     @RequireLogin
-    @GetMapping("/{universityId}/departments")
+    @GetMapping("/{universityId}")
     public R<IPage<DepartmentListVO>> list(
             @PathVariable Long universityId,
             @Valid DepartmentQueryDTO dto) {
@@ -38,7 +38,7 @@ public class DepartmentController {
 
     /** spec §3.4：按院系 id 查询其分析报告 */
     @RequireLogin
-    @GetMapping("/departments/{departmentId}/report")
+    @GetMapping("/{departmentId}/report")
     public R<DepartmentReportVO> report(@PathVariable Long departmentId) {
         return R.ok(departmentService.report(departmentId));
     }
