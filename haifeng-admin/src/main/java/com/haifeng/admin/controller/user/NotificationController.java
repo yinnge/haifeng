@@ -6,14 +6,19 @@ import com.haifeng.admin.dto.user.NotificationQueryDTO;
 import com.haifeng.admin.service.user.NotificationService;
 import com.haifeng.admin.vo.user.NotificationListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理 - 通知消息查询与系统公告群发
+ */
 @RestController
 @RequestMapping("/api/v1/admin/user/notification")
 @RequiredArgsConstructor
+@RequireAdminModule("user_notification")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -31,8 +36,9 @@ public class NotificationController {
      */
     @PostMapping("/broadcast")
     @OperationLog(module = "用户管理", action = "群发系统公告")
-    public R<Integer> broadcast(@Valid @RequestBody NotificationBroadcastDTO dto) {
-        return R.ok(notificationService.broadcast(dto));
+    public R<String> broadcast(@Valid @RequestBody NotificationBroadcastDTO dto) {
+        notificationService.broadcast(dto);
+        return R.ok("群发任务已提交");
     }
 
     /**

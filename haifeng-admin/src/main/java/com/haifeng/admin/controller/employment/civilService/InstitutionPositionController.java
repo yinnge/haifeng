@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.civilService.InstitutionPositionServ
 import com.haifeng.admin.vo.employment.civilService.InstitutionPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.InstitutionPositionListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +17,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 体制内招录 - 事业编职位管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/civil-service/institution-position")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_civil_institution")
 public class InstitutionPositionController {
 
     private final InstitutionPositionService institutionPositionService;

@@ -45,6 +45,13 @@ public class CityServiceImpl implements CityService {
 
         LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
 
+        // 删除状态筛选（默认只查未删除的）
+        if (dto.getIsDeleted() != null) {
+            wrapper.eq(City::getIsDeleted, dto.getIsDeleted());
+        } else {
+            wrapper.eq(City::getIsDeleted, false);
+        }
+
         // 城市名称模糊查询
         if (StringUtils.hasText(dto.getCityName())) {
             wrapper.like(City::getCityName, dto.getCityName());
@@ -56,10 +63,6 @@ public class CityServiceImpl implements CityService {
         // 所属地区模糊查询
         if (StringUtils.hasText(dto.getRegion())) {
             wrapper.like(City::getRegion, dto.getRegion());
-        }
-        // 删除状态筛选
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(City::getIsDeleted, dto.getIsDeleted());
         }
 
         // 按省份升序，城市名称升序
@@ -83,7 +86,7 @@ public class CityServiceImpl implements CityService {
     public CityDetailVO detail(Long id) {
         // 查询主表
         City city = cityMapper.selectById(id);
-        if (city == null) {
+        if (city == null || city.getIsDeleted()) {
             throw new BusinessException(404, "城市不存在");
         }
 
@@ -208,6 +211,7 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, CityUpdateDTO dto) {
         City city = cityMapper.selectById(id);
         if (city == null) {
@@ -227,9 +231,6 @@ public class CityServiceImpl implements CityService {
         city.setKeyCollegeCount(dto.getKeyCollegeCount());
         city.setResidentPopulation(dto.getResidentPopulation());
         city.setGdp(dto.getGdp());
-        if (dto.getIsDeleted() != null) {
-            city.setIsDeleted(dto.getIsDeleted());
-        }
         city.setUpdatedAt(OffsetDateTime.now());
 
         cityMapper.updateById(city);
@@ -246,6 +247,7 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateDetail(Long id, CityDetailUpdateDTO dto) {
         // 先检查城市是否存在
         City city = cityMapper.selectById(id);
@@ -286,9 +288,6 @@ public class CityServiceImpl implements CityService {
         detail.setTransportation(dto.getTransportation());
         detail.setMedical(dto.getMedical());
         detail.setCulture(dto.getCulture());
-        if (dto.getIsDeleted() != null) {
-            detail.setIsDeleted(dto.getIsDeleted());
-        }
         detail.setUpdatedAt(OffsetDateTime.now());
 
         cityDetailMapper.updateById(detail);
@@ -297,6 +296,7 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, CityStatusDTO dto) {
         City city = cityMapper.selectById(id);
         if (city == null) {
@@ -323,7 +323,7 @@ public class CityServiceImpl implements CityService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         City city = cityMapper.selectById(id);
-        if (city == null) {
+        if (city == null || city.getIsDeleted()) {
             throw new BusinessException(404, "城市不存在");
         }
 
@@ -346,13 +346,8 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(400, "请选择要删除的城市");
         }
 
-        // 删除所有关联的详情记录
-        for (Long cityId : ids) {
-            CityDetail detail = cityDetailMapper.findByCityId(cityId);
-            if (detail != null) {
-                cityDetailMapper.deleteById(detail.getId());
-            }
-        }
+        // 批量删除详情记录
+        cityDetailMapper.deleteByCityIds(ids);
 
         // 批量删除主表记录
         int deleted = cityMapper.deleteBatchIds(ids);
@@ -441,12 +436,8 @@ public class CityServiceImpl implements CityService {
 
             // 批量插入
             if (!cities.isEmpty()) {
-                for (City city : cities) {
-                    cityMapper.insert(city);
-                }
-                for (CityDetail detail : cityDetails) {
-                    cityDetailMapper.insert(detail);
-                }
+                cityMapper.batchInsert(cities);
+                cityDetailMapper.batchInsert(cityDetails);
                 log.info("导入城市主表成功，数量={}", cities.size());
             }
 

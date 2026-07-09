@@ -11,12 +11,14 @@ class ModelProviderConfigTest {
         ModelProviderConfig config = ModelProviderConfig.builder()
                 .id(1L)
                 .apiKey("test-api-key")
+                .baseUrl("https://api.deepseek.com")
                 .modelName("deepseek-chat")
                 .providerName("deepseek")
                 .build();
 
         assertThat(config.getId()).isEqualTo(1L);
         assertThat(config.getApiKey()).isEqualTo("test-api-key");
+        assertThat(config.getBaseUrl()).isEqualTo("https://api.deepseek.com");
         assertThat(config.getModelName()).isEqualTo("deepseek-chat");
         assertThat(config.getProviderName()).isEqualTo("deepseek");
     }

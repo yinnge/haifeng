@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -32,7 +33,13 @@ public class CertificateServiceImpl implements CertificateService {
         Page<Certificate> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<Certificate> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Certificate::getIsDeleted, false);
+
+        // 按软删除状态过滤（默认只查未删除的）
+        if (queryDTO.getIsDeleted() != null) {
+            wrapper.eq(Certificate::getIsDeleted, queryDTO.getIsDeleted());
+        } else {
+            wrapper.eq(Certificate::getIsDeleted, false);
+        }
 
         // 按证书名称模糊查询
         if (StringUtils.hasText(queryDTO.getCertName())) {
@@ -45,6 +52,10 @@ public class CertificateServiceImpl implements CertificateService {
         // 按等级精确查询
         if (StringUtils.hasText(queryDTO.getCertLevel())) {
             wrapper.eq(Certificate::getCertLevel, queryDTO.getCertLevel());
+        }
+        // 按适用专业模糊查询
+        if (StringUtils.hasText(queryDTO.getApplicableMajor())) {
+            wrapper.like(Certificate::getApplicableMajor, queryDTO.getApplicableMajor());
         }
         wrapper.orderByDesc(Certificate::getCreatedAt);
 
@@ -63,6 +74,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long addCertificate(CertificateAddDTO addDTO) {
         // 检查证书名称是否重复
         if (certificateMapper.existsByCertName(addDTO.getCertName())) {
@@ -79,6 +91,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateCertificate(CertificateUpdateDTO updateDTO) {
         Certificate existing = certificateMapper.selectById(updateDTO.getId());
         if (existing == null || existing.getIsDeleted()) {
@@ -99,6 +112,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void softDeleteCertificate(Long id) {
         Certificate certificate = certificateMapper.selectById(id);
         if (certificate == null || certificate.getIsDeleted()) {
@@ -111,6 +125,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void hardDeleteCertificate(Long id) {
         Certificate certificate = certificateMapper.selectById(id);
         if (certificate == null) {
@@ -122,6 +137,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void batchHardDeleteCertificates(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return;

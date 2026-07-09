@@ -16,14 +16,17 @@
 |------|----------|------|------|
 | 软删除 | DELETE | `/soft/{id}` | 设置is_deleted=true，数据保留可恢复 |
 | 硬删除 | DELETE | `/hard/{id}` | 物理删除记录，数据不可恢复 |
-| 批量硬删除 | DELETE | `/batch` | 批量物理删除记录 |
+| 批量硬删除 | POST | `/batch/delete` | 批量物理删除记录（请求体传ids） |
+
+竞赛-专业关联的删除均为软删除（设置 is_deleted=true）。
 
 前端列表每行应显示：详情、软删除、硬删除按钮；顶部显示批量删除按钮
 
 ### 关联关系说明
 - **竞赛 ↔ 竞赛详情**：一对一关系，新增/更新/删除同步进行，使用事务保证一致性
 - **竞赛 ↔ 专业**：多对多关系，通过t_competition_major关联表实现
-- **级联删除**：硬删除竞赛时，自动删除关联的竞赛详情和竞赛-专业关联记录
+- **级联软删除**：软删除竞赛时，同时软删除竞赛详情和竞赛-专业关联记录，恢复竞赛后关联数据可还原
+- **级联硬删除**：硬删除竞赛时，物理删除关联的竞赛详情和竞赛-专业关联记录，数据不可恢复
 
 ---
 
@@ -50,6 +53,8 @@ GET /api/v1/admin/certificate/list
 | certName | String | 否 | 证书名称模糊查询 |
 | category | String | 否 | 证书分类精确查询 |
 | certLevel | String | 否 | 证书等级精确查询 |
+| applicableMajor | String | 否 | 适用专业模糊查询 |
+| isDeleted | Boolean | 否 | 是否已删除，不传默认只查未删除的 |
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数，默认10 |
 
@@ -265,7 +270,7 @@ Authorization: Bearer {accessToken}
 
 ### 1.7 批量硬删除证书
 ```
-DELETE /api/v1/admin/certificate/batch
+POST /api/v1/admin/certificate/batch/delete
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
@@ -307,6 +312,7 @@ GET /api/v1/admin/competition/list
 |------|------|------|------|
 | compName | String | 否 | 竞赛名称模糊查询 |
 | compLevel | String | 否 | 竞赛级别精确查询 |
+| isDeleted | Boolean | 否 | 是否已删除，不传默认只查未删除的 |
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数，默认10 |
 
@@ -490,7 +496,7 @@ Authorization: Bearer {accessToken}
 |------|------|------|------|
 | id | Long | 是 | 竞赛ID |
 
-**业务说明：** 同时软删除竞赛主表和详情表记录。
+**业务说明：** 同时软删除竞赛主表、详情表和竞赛-专业关联记录。恢复竞赛后关联数据可还原。
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -515,7 +521,7 @@ Authorization: Bearer {accessToken}
 
 ### 2.7 批量硬删除竞赛
 ```
-DELETE /api/v1/admin/competition/batch
+POST /api/v1/admin/competition/batch/delete
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
@@ -712,13 +718,15 @@ Authorization: Bearer {accessToken}
 }
 ```
 
+**业务说明：** 软删除关联记录（设置is_deleted=true），数据保留可恢复。
+
 **操作日志：** 此接口自动记录操作日志
 
 ---
 
 ### 3.6 批量删除关联
 ```
-DELETE /api/v1/admin/competition-major/batch
+POST /api/v1/admin/competition-major/batch/delete
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
@@ -739,6 +747,8 @@ Authorization: Bearer {accessToken}
   "timestamp": 1715300000000
 }
 ```
+
+**业务说明：** 批量软删除关联记录（设置is_deleted=true），数据保留可恢复。
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -815,7 +825,9 @@ Authorization: Bearer {accessToken}
 | major_id | BIGINT | 专业ID |
 | competition_name | VARCHAR(200) | 竞赛名称（冗余） |
 | major_name | VARCHAR(100) | 专业名称（冗余） |
+| is_deleted | BOOLEAN | 是否删除 |
 | created_at | TIMESTAMPTZ | 创建时间 |
+| updated_at | TIMESTAMPTZ | 更新时间 |
 
 ---
 
@@ -833,6 +845,7 @@ Authorization: Bearer {accessToken}
 
 ### haifeng-admin (管理端)
 - `db/migration/V9__create_certificate_competition.sql` - 数据库迁移脚本
+- `db/migration/V30__add_is_deleted_to_competition_major.sql` - 关联表软删除字段迁移脚本
 - `controller/certificate/CertificateController.java` - 证书控制器
 - `controller/certificate/CompetitionController.java` - 竞赛控制器
 - `controller/certificate/CompetitionMajorController.java` - 竞赛-专业关联控制器

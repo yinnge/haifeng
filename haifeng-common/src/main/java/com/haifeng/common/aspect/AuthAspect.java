@@ -1,12 +1,15 @@
 package com.haifeng.common.aspect;
 
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.security.AuthUser;
 import com.haifeng.common.util.SecurityUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
@@ -23,8 +26,11 @@ import java.lang.reflect.Method;
 @Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 @Order(1)
 public class AuthAspect {
+
+    private final SysAdminMapper adminMapper;
 
     /**
      * 检查登录状态
@@ -87,6 +93,30 @@ public class AuthAspect {
             log.warn("用户非VIP，拒绝访问: userId={}, memberType={}",
                     currentUser.getUserId(), currentUser.getMemberType());
             throw new BusinessException(ResultCode.VIP_REQUIRED);
+        }
+    }
+
+    /**
+     * 检查管理员模块权限
+     */
+    @Before("@annotation(requireAdminModule) || @within(requireAdminModule)")
+    public void checkAdminModule(JoinPoint joinPoint, RequireAdminModule requireAdminModule) {
+        RequireAdminModule annotation = getMethodAnnotation(joinPoint, RequireAdminModule.class);
+        if (annotation == null) {
+            annotation = requireAdminModule;
+        }
+
+        AuthUser currentUser = SecurityUtil.getCurrentUser();
+        if (currentUser == null || !currentUser.isAdmin()) {
+            log.warn("非管理员用户，拒绝访问模块: {}", joinPoint.getSignature().toShortString());
+            throw new BusinessException(ResultCode.FORBIDDEN);
+        }
+
+        String moduleCode = annotation.value();
+        int count = adminMapper.countModulePermission(currentUser.getUserId(), moduleCode);
+        if (count == 0) {
+            log.warn("管理员无权访问模块，adminId={}, moduleCode={}", currentUser.getUserId(), moduleCode);
+            throw new BusinessException(ResultCode.MODULE_FORBIDDEN);
         }
     }
 

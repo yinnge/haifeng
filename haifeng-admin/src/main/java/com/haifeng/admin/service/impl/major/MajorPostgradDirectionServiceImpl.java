@@ -175,15 +175,9 @@ public class MajorPostgradDirectionServiceImpl implements MajorPostgradDirection
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                delete(id);
-            } catch (BusinessException e) {
-                log.warn("批量删除跳过不存在的关联记录: id={}", id);
-            }
-        }
+        int deleted = majorPostgradDirectionMapper.deleteBatchIds(ids);
 
-        log.info("批量删除本科专业-考研方向关联完成: 请求数量={}", ids.size());
+        log.info("批量删除本科专业-考研方向关联完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
 
     @Override

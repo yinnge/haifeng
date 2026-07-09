@@ -21,7 +21,7 @@ CREATE TABLE t_city (
     is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    CONSTRAINT uk_city_name UNIQUE (city_name)
+    -- 唯一约束见下方部分唯一索引 uk_city_name_active
 );
 
 -- 索引
@@ -29,6 +29,7 @@ CREATE INDEX idx_city_province ON t_city (province) WHERE is_deleted = FALSE;
 CREATE INDEX idx_city_region ON t_city (region) WHERE is_deleted = FALSE;
 CREATE INDEX idx_city_gdp ON t_city (gdp DESC NULLS LAST) WHERE is_deleted = FALSE;
 CREATE INDEX idx_city_population ON t_city (resident_population DESC NULLS LAST) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX uk_city_name_active ON t_city(city_name) WHERE is_deleted = FALSE;
 CREATE INDEX idx_city_name_search ON t_city USING btree (city_name varchar_pattern_ops) WHERE is_deleted = FALSE;
 
 -- 触发器

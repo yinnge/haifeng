@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.grassrootsPosition.CommunityPosition
 import com.haifeng.admin.vo.employment.grassrootsPosition.CommunityPositionDetailVO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.CommunityPositionListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +17,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 基层服务管理 - 社区工作者岗位管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/grassroots-position/community")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_grassroots_comm")
 public class CommunityPositionController {
 
     private final CommunityPositionService communityPositionService;

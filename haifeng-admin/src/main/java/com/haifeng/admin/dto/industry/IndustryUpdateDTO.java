@@ -74,8 +74,4 @@ public class IndustryUpdateDTO {
     @Size(max = 20, message = "投资趋势不能超过20个字符")
     private String investmentTrend;
 
-    /**
-     * 删除状态
-     */
-    private Boolean isDeleted;
 }

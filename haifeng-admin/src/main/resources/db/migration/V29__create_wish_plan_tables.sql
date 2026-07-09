@@ -1,7 +1,5 @@
--- ============================================================
+-- V29__create_wish_plan_tables.sql
 -- 志愿方案模块 (t_wish_plan, t_wish_group_snapshot, t_wish_major_snapshot)
--- apps_V18 - 高考志愿填报方案快照表
--- ============================================================
 
 BEGIN;
 
@@ -26,8 +24,8 @@ CREATE TABLE IF NOT EXISTS t_wish_plan (
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_wp_member ON t_wish_plan (member_id) WHERE is_deleted = FALSE;
-CREATE INDEX idx_wp_member_year ON t_wish_plan (member_id, plan_year) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_wp_member ON t_wish_plan (member_id) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_wp_member_year ON t_wish_plan (member_id, plan_year) WHERE is_deleted = FALSE;
 
 -- 2. 志愿方案-专业组快照表
 CREATE TABLE IF NOT EXISTS t_wish_group_snapshot (
@@ -56,7 +54,7 @@ CREATE TABLE IF NOT EXISTS t_wish_group_snapshot (
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_twg_plan ON t_wish_group_snapshot (plan_id, group_sort_order);
+CREATE INDEX IF NOT EXISTS idx_twg_plan ON t_wish_group_snapshot (plan_id, group_sort_order);
 
 -- 3. 志愿方案-专业明细快照表
 CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
@@ -78,7 +76,7 @@ CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_twm_group ON t_wish_major_snapshot (group_snapshot_id, major_sort_order);
-CREATE INDEX idx_twm_plan ON t_wish_major_snapshot (plan_id) WHERE is_exported = TRUE;
+CREATE INDEX IF NOT EXISTS idx_twm_group ON t_wish_major_snapshot (group_snapshot_id, major_sort_order);
+CREATE INDEX IF NOT EXISTS idx_twm_plan ON t_wish_major_snapshot (plan_id) WHERE is_exported = TRUE;
 
 COMMIT;

@@ -8,14 +8,19 @@ import com.haifeng.admin.service.special.SpecialChannelUnivService;
 import com.haifeng.admin.vo.special.SpecialChannelUnivDetailVO;
 import com.haifeng.admin.vo.special.SpecialChannelUnivListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 特殊通道 - 招生通道与院校的关联管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/special/channel-univ")
 @RequiredArgsConstructor
+@RequireAdminModule("special_adm_univ")
 public class SpecialChannelUnivController {
 
     private final SpecialChannelUnivService specialChannelUnivService;

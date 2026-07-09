@@ -10,18 +10,23 @@ import com.haifeng.admin.service.company.EnterpriseService;
 import com.haifeng.admin.vo.company.EnterpriseDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 企业管理 Controller
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/company/enterprise")
 @RequiredArgsConstructor
+@RequireAdminModule("company_info")
 public class EnterpriseController {
 
     private final EnterpriseService enterpriseService;
@@ -38,6 +43,7 @@ public class EnterpriseController {
      * 获取企业详情
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "企业管理", action = "查询企业详情")
     public R<EnterpriseDetailVO> detail(@PathVariable Long id) {
         return R.ok(enterpriseService.detail(id));
     }
@@ -84,7 +90,7 @@ public class EnterpriseController {
     /**
      * 批量硬删除企业
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "企业管理", action = "批量硬删除企业")
     public R<Void> batchDelete(@Valid @RequestBody EnterpriseBatchDeleteDTO dto) {
         enterpriseService.batchDelete(dto.getIds());
@@ -97,6 +103,13 @@ public class EnterpriseController {
     @PostMapping("/import")
     @OperationLog(module = "企业管理", action = "导入企业")
     public R<Void> importEnterprises(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         enterpriseService.importEnterprises(file);
         return R.ok();
     }

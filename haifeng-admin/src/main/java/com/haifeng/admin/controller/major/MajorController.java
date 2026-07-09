@@ -9,18 +9,22 @@ import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.MajorDetailVO;
 import com.haifeng.admin.vo.major.MajorListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 专业管理Controller
+ * 专业管理 - 专业主表与详情表增删改查、软/硬删除、导入
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/major")
 @RequiredArgsConstructor
+@RequireAdminModule("major_info")
 public class MajorController {
 
     private final MajorService majorService;
@@ -37,6 +41,7 @@ public class MajorController {
      * 获取专业详情（包含Major + MajorDetail）
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "专业管理", action = "查看专业详情")
     public R<MajorDetailVO> detail(@PathVariable Long id) {
         return R.ok(majorService.getById(id));
     }
@@ -103,7 +108,7 @@ public class MajorController {
     /**
      * 批量软删除专业
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-soft-delete")
     @OperationLog(module = "专业管理", action = "批量软删除专业")
     public R<Void> batchSoftDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         majorService.batchSoftDelete(dto.getIds());
@@ -113,7 +118,7 @@ public class MajorController {
     /**
      * 批量硬删除专业
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "专业管理", action = "批量硬删除专业")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         majorService.batchHardDelete(dto.getIds());
@@ -126,6 +131,13 @@ public class MajorController {
     @PostMapping("/import")
     @OperationLog(module = "专业管理", action = "导入专业主表数据")
     public R<ImportResultVO> importMajor(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         return R.ok(majorService.importMajor(file));
     }
 
@@ -135,6 +147,13 @@ public class MajorController {
     @PostMapping("/import-detail")
     @OperationLog(module = "专业管理", action = "导入专业详情数据")
     public R<ImportResultVO> importMajorDetail(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         return R.ok(majorService.importMajorDetail(file));
     }
 

@@ -7,6 +7,7 @@ import com.haifeng.admin.service.algorithm.admission.AdmissionGroupService;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/admission/group")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_admission_grp")
 public class AdmissionGroupController {
 
     private final AdmissionGroupService admissionGroupService;

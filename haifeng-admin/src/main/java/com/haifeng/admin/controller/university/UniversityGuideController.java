@@ -7,6 +7,7 @@ import com.haifeng.admin.service.university.UniversityGuideService;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
 import com.haifeng.admin.vo.university.UniversityGuideListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/admin/university/guide")
 @RequiredArgsConstructor
+@RequireAdminModule("university_guide")
 public class UniversityGuideController {
 
     private final UniversityGuideService universityGuideService;

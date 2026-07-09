@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.CampusGalleryService;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/admin/university/gallery")
 @RequiredArgsConstructor
+@RequireAdminModule("university_album")
 public class CampusGalleryController {
 
     private final CampusGalleryService campusGalleryService;

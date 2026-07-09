@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.certificate.CompetitionMajorQueryDTO;
 import com.haifeng.admin.service.certificate.CompetitionMajorService;
 import com.haifeng.admin.vo.certificate.CompetitionMajorVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/competition-major")
 @RequiredArgsConstructor
+@RequireAdminModule("cert_comp_major")
 public class CompetitionMajorController {
 
     private final CompetitionMajorService competitionMajorService;
@@ -49,7 +51,7 @@ public class CompetitionMajorController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "竞赛证书管理", action = "批量删除竞赛-专业关联")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         competitionMajorService.batchDeleteCompetitionMajors(batchDTO.getIds());

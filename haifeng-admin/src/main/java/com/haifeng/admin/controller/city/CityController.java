@@ -10,17 +10,23 @@ import com.haifeng.admin.service.city.CityService;
 import com.haifeng.admin.vo.city.CityDetailVO;
 import com.haifeng.admin.vo.city.CityListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
+import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/city")
 @RequiredArgsConstructor
+@RequireAdminModule("city_info")
 public class CityController {
 
     private final CityService cityService;
@@ -37,6 +43,7 @@ public class CityController {
      * 获取城市详情（主表+详情表）
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "城市管理", action = "查看城市详情")
     public R<CityDetailVO> detail(@PathVariable Long id) {
         return R.ok(cityService.detail(id));
     }
@@ -93,9 +100,9 @@ public class CityController {
     /**
      * 批量硬删除城市
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "城市管理", action = "批量硬删除城市")
-    public R<Void> batchDelete(@RequestBody List<Long> ids) {
+    public R<Void> batchDelete(@Valid @Size(min = 1, max = 200, message = "删除数量必须在1-200条之间") @RequestBody List<Long> ids) {
         cityService.batchDelete(ids);
         return R.ok();
     }
@@ -106,6 +113,7 @@ public class CityController {
     @PostMapping("/import")
     @OperationLog(module = "城市管理", action = "导入城市主表")
     public R<Void> importCities(@RequestParam("file") MultipartFile file) {
+        validateImportFile(file);
         cityService.importCities(file);
         return R.ok();
     }
@@ -116,7 +124,19 @@ public class CityController {
     @PostMapping("/import-detail")
     @OperationLog(module = "城市管理", action = "导入城市详情")
     public R<Void> importCityDetails(@RequestParam("file") MultipartFile file) {
+        validateImportFile(file);
         cityService.importCityDetails(file);
         return R.ok();
+    }
+
+    private void validateImportFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "导入文件不能为空");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !(contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                || contentType.equals("application/vnd.ms-excel"))) {
+            throw new BusinessException(400, "仅支持.xlsx格式的Excel文件");
+        }
     }
 }

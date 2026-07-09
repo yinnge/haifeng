@@ -1,7 +1,9 @@
 package com.haifeng.admin.service.impl.auth;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.haifeng.admin.service.auth.AdminAuthService;
+import com.haifeng.admin.vo.auth.AdminTokenVO;
 import com.haifeng.admin.vo.auth.PreAuthVO;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.dto.auth.LoginDTO;
@@ -12,6 +14,7 @@ import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.CaptchaService;
 import com.haifeng.common.service.TotpService;
+import com.haifeng.common.util.DesensitizeUtil;
 import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.vo.auth.TokenVO;
@@ -22,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -47,11 +51,11 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
-        // 2. 检查账号锁定
+        // 2. 检查账号锁定（提前检查减少不必要的验证）
         String failKey = RedisKeyConstant.getAdminLoginFailKey(dto.getPhone());
         String failCountStr = redisTemplate.opsForValue().get(failKey);
         if (failCountStr != null && Integer.parseInt(failCountStr) >= MAX_LOGIN_FAIL_COUNT) {
-            log.warn("管理员账号已锁定: {}", dto.getPhone());
+            log.warn("管理员账号已锁定: {}", DesensitizeUtil.desensitizePhone(dto.getPhone()));
             throw new BusinessException(ResultCode.ACCOUNT_LOCKED);
         }
 
@@ -63,23 +67,27 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         );
 
         if (admin == null) {
-            log.warn("管理员登录失败，手机号不存在: {}", dto.getPhone());
+            log.warn("管理员登录失败，手机号不存在: {}", DesensitizeUtil.desensitizePhone(dto.getPhone()));
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
         if (admin.getStatus() != 1) {
-            log.warn("管理员账号已禁用: {}", dto.getPhone());
+            log.warn("管理员账号已禁用: {}", DesensitizeUtil.desensitizePhone(dto.getPhone()));
             throw new BusinessException(ResultCode.FORBIDDEN);
         }
 
         // 4. 密码校验
         if (!passwordEncoder.matches(dto.getPassword(), admin.getPassword())) {
-            // 记录失败次数
+            // 记录失败次数（原子自增 + 过期设置）
             Long failCount = redisTemplate.opsForValue().increment(failKey);
             if (failCount == 1) {
                 redisTemplate.expire(failKey, LOGIN_FAIL_EXPIRE_MINUTES, TimeUnit.MINUTES);
             }
-            log.warn("管理员登录失败，密码错误: {}，已失败 {} 次", dto.getPhone(), failCount);
+            if (failCount > MAX_LOGIN_FAIL_COUNT) {
+                log.warn("管理员账号已锁定: {}", DesensitizeUtil.desensitizePhone(dto.getPhone()));
+                throw new BusinessException(ResultCode.ACCOUNT_LOCKED);
+            }
+            log.warn("管理员登录失败，密码错误: {}，已失败 {} 次", DesensitizeUtil.desensitizePhone(dto.getPhone()), failCount);
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
@@ -137,25 +145,38 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         return issueToken(admin);
     }
 
-    private TokenVO issueToken(SysAdmin admin) {
-        String accessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null);
+    private AdminTokenVO issueToken(SysAdmin admin) {
+        Integer tokenVersion = admin.getTokenVersion() != null ? admin.getTokenVersion() : 0;
+
+        // 先更新 DB，再写 Redis（防止 Token 已签发但 lastLoginAt 未更新）
+        adminMapper.update(
+                Wrappers.lambdaUpdate(SysAdmin.class)
+                        .eq(SysAdmin::getId, admin.getId())
+                        .set(SysAdmin::getLastLoginAt, OffsetDateTime.now())
+                        .set(SysAdmin::getUpdatedAt, OffsetDateTime.now())
+        );
+
+        String versionKey = RedisKeyConstant.getTokenVersionKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+
+        String accessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion);
         String refreshToken = jwtUtil.generateRefreshToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
         redisTemplate.opsForValue().set(redisKey, refreshToken,
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        admin.setLastLoginAt(OffsetDateTime.now());
-        admin.setUpdatedAt(OffsetDateTime.now());
-        adminMapper.updateById(admin);
+        List<String> permissions = adminMapper.selectModuleCodesByAdminId(admin.getId());
 
         log.info("管理员登录成功: {}", admin.getUsername());
 
-        return TokenVO.builder()
+        return AdminTokenVO.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .accessTokenExpire(jwtUtil.getAccessTokenExpire())
                 .refreshTokenExpire(jwtUtil.getRefreshTokenExpire())
+                .permissions(permissions)
                 .build();
     }
 
@@ -189,19 +210,36 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
-        String newAccessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null);
+        // 更新登录时间（绕过 @Version 乐观锁）
+        adminMapper.update(
+                Wrappers.lambdaUpdate(SysAdmin.class)
+                        .eq(SysAdmin::getId, admin.getId())
+                        .set(SysAdmin::getLastLoginAt, OffsetDateTime.now())
+                        .set(SysAdmin::getUpdatedAt, OffsetDateTime.now())
+        );
+
+        Integer tokenVersion = admin.getTokenVersion() != null ? admin.getTokenVersion() : 0;
+
+        String versionKey = RedisKeyConstant.getTokenVersionKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+
+        String newAccessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion);
         String newRefreshToken = jwtUtil.generateRefreshToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
 
         redisTemplate.opsForValue().set(redisKey, newRefreshToken,
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
+        List<String> permissions = adminMapper.selectModuleCodesByAdminId(admin.getId());
+
         log.info("管理员Token刷新成功: {}", admin.getUsername());
 
-        return TokenVO.builder()
+        return AdminTokenVO.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .accessTokenExpire(jwtUtil.getAccessTokenExpire())
                 .refreshTokenExpire(jwtUtil.getRefreshTokenExpire())
+                .permissions(permissions)
                 .build();
     }
 

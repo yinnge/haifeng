@@ -53,7 +53,7 @@ GET /api/v1/admin/home/announcement/list
   "data": {
     "records": [
       {
-        "id": 1234567890123456789,
+        "id": "1234567890123456789",
         "title": "2026年高考志愿填报指南发布",
         "tag": "重要",
         "status": 1,
@@ -86,7 +86,7 @@ GET /api/v1/admin/home/announcement/{id}
   "code": 200,
   "msg": "success",
   "data": {
-    "id": 1234567890123456789,
+    "id": "1234567890123456789",
     "title": "2026年高考志愿填报指南发布",
     "content": "<p>详细内容...</p>",
     "tag": "重要",
@@ -128,7 +128,7 @@ Authorization: Bearer {accessToken}
 {
   "code": 200,
   "msg": "success",
-  "data": 1234567890123456789,
+  "data": "1234567890123456789",
   "timestamp": 1714300000000
 }
 ```
@@ -261,7 +261,7 @@ GET /api/v1/admin/home/planner/list
   "data": {
     "records": [
       {
-        "id": 1234567890123456789,
+        "id": "1234567890123456789",
         "name": "张老师",
         "position": "高级规划师",
         "region": "北京",
@@ -299,7 +299,7 @@ GET /api/v1/admin/home/planner/{id}
   "code": 200,
   "msg": "success",
   "data": {
-    "id": 1234567890123456789,
+    "id": "1234567890123456789",
     "name": "张老师",
     "position": "高级规划师",
     "region": "北京",
@@ -368,7 +368,7 @@ Authorization: Bearer {accessToken}
 {
   "code": 200,
   "msg": "success",
-  "data": 1234567890123456789,
+  "data": "1234567890123456789",
   "timestamp": 1714300000000
 }
 ```
@@ -513,7 +513,7 @@ GET /api/v1/admin/home/institution/list
   "data": {
     "records": [
       {
-        "id": 1234567890123456789,
+        "id": "1234567890123456789",
         "name": "海峰教育",
         "type": "高考志愿规划",
         "phone": "010-12345678",
@@ -549,7 +549,7 @@ GET /api/v1/admin/home/institution/{id}
   "code": 200,
   "msg": "success",
   "data": {
-    "id": 1234567890123456789,
+    "id": "1234567890123456789",
     "name": "海峰教育",
     "type": "高考志愿规划",
     "phone": "010-12345678",
@@ -609,7 +609,7 @@ Authorization: Bearer {accessToken}
 {
   "code": 200,
   "msg": "success",
-  "data": 1234567890123456789,
+  "data": "1234567890123456789",
   "timestamp": 1714300000000
 }
 ```

@@ -45,9 +45,4 @@ public class CityUpdateDTO {
      * GDP（亿元）
      */
     private BigDecimal gdp;
-
-    /**
-     * 删除状态
-     */
-    private Boolean isDeleted;
 }

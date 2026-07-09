@@ -39,7 +39,13 @@ public class CompetitionServiceImpl implements CompetitionService {
         Page<Competition> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<Competition> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Competition::getIsDeleted, false);
+
+        // 按软删除状态过滤（默认只查未删除的）
+        if (queryDTO.getIsDeleted() != null) {
+            wrapper.eq(Competition::getIsDeleted, queryDTO.getIsDeleted());
+        } else {
+            wrapper.eq(Competition::getIsDeleted, false);
+        }
 
         if (StringUtils.hasText(queryDTO.getCompName())) {
             wrapper.like(Competition::getCompName, queryDTO.getCompName());
@@ -61,7 +67,7 @@ public class CompetitionServiceImpl implements CompetitionService {
             throw new BusinessException(404, "竞赛不存在");
         }
 
-        CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(id);
+        CompetitionDetail detail = competitionDetailMapper.findActiveByCompetitionId(id);
 
         return convertToDetailVO(competition, detail);
     }
@@ -163,6 +169,9 @@ public class CompetitionServiceImpl implements CompetitionService {
             detail.setIsDeleted(true);
             competitionDetailMapper.updateById(detail);
         }
+
+        // 软删除竞赛-专业关联
+        competitionMajorMapper.softDeleteByCompetitionId(id);
 
         log.info("软删除竞赛成功，id={}", id);
     }

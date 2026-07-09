@@ -31,19 +31,9 @@ public class SystemSettings {
     private String siteDescription;
 
     /**
-     * 默认大学API调用次数
+     * 每日 API 调用次数上限
      */
-    private Integer universityApiNumber;
-
-    /**
-     * 默认专业API调用次数
-     */
-    private Integer majorApiNumber;
-
-    /**
-     * 默认城市API调用次数
-     */
-    private Integer cityApiNumber;
+    private Integer apiNumber;
 
     private String providerName;
 

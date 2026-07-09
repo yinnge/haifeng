@@ -36,6 +36,11 @@ public class SysAdmin {
 
     private Integer status;
 
+    @Version
+    private Integer version;
+
+    private Integer tokenVersion;
+
     private OffsetDateTime lastLoginAt;
 
     private String lastLoginIp;

@@ -20,5 +20,4 @@ public class EnterpriseUpdateDTO {
     private String mainBusiness;
     private String enterpriseIntro;
     private String recruitmentStatus;
-    private Boolean isDeleted;
 }

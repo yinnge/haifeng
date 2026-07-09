@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -71,6 +72,7 @@ public class PlannerServiceImpl implements PlannerService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long add(PlannerAddDTO dto) {
         OffsetDateTime now = OffsetDateTime.now();
         Long id = SnowflakeIdGenerator.nextId();
@@ -102,6 +104,7 @@ public class PlannerServiceImpl implements PlannerService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, PlannerUpdateDTO dto) {
         Planner planner = plannerMapper.selectById(id);
         if (planner == null || planner.getDeleted()) {
@@ -128,6 +131,7 @@ public class PlannerServiceImpl implements PlannerService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, StatusDTO dto) {
         Planner planner = plannerMapper.selectById(id);
         if (planner == null || planner.getDeleted()) {
@@ -149,7 +153,7 @@ public class PlannerServiceImpl implements PlannerService {
             throw new BusinessException(404, "规划师不存在");
         }
 
-        plannerMapper.deleteById(id);
+        plannerMapper.hardDeleteById(id);
 
         log.info("硬删除规划师成功: id={}", id);
     }

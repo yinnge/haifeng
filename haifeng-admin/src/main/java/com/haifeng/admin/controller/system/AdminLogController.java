@@ -6,14 +6,19 @@ import com.haifeng.admin.dto.system.AdminLogQueryDTO;
 import com.haifeng.admin.service.system.AdminLogService;
 import com.haifeng.admin.vo.system.AdminLogDetailVO;
 import com.haifeng.admin.vo.system.AdminLogListVO;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 系统管理 - 操作日志查询与批量清理（按ID / 一个月前 / 全部）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/system/logs")
 @RequiredArgsConstructor
+@RequireAdminModule("system_log")
 public class AdminLogController {
 
     private final AdminLogService adminLogService;

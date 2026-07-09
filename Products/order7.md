@@ -101,8 +101,8 @@
 | 6 | PUT | /{id}/status | 修改专业状态（禁用/启用） |
 | 7 | DELETE | /{id} | 软删除专业 |
 | 8 | DELETE | /{id}/hard | 硬删除专业 |
-| 9 | DELETE | /batch | 批量软删除 |
-| 10 | DELETE | /batch/hard | 批量硬删除 |
+| 9 | POST | /batch-soft-delete | 批量软删除 |
+| 10 | POST | /batch-hard-delete | 批量硬删除 |
 | 11 | POST | /import | 导入专业主表xlsx |
 | 12 | POST | /import-detail | 导入专业详情xlsx |
 | 13 | PUT | /{id}/restore | 恢复已禁用的专业 |
@@ -256,8 +256,8 @@ file: [xlsx文件]
 | 5 | PUT | /{id}/status | 修改状态 |
 | 6 | DELETE | /{id} | 软删除 |
 | 7 | DELETE | /{id}/hard | 硬删除 |
-| 8 | DELETE | /batch | 批量软删除 |
-| 9 | DELETE | /batch/hard | 批量硬删除 |
+| 8 | POST | /batch-soft-delete | 批量软删除 |
+| 9 | POST | /batch-hard-delete | 批量硬删除 |
 | 10 | POST | /import | 导入考研专业xlsx |
 | 11 | PUT | /{id}/restore | 恢复 |
 
@@ -307,8 +307,8 @@ GET /api/v1/admin/postgrad-major/list?page=1&size=10&majorName=计算机&degreeT
 | 1 | GET | /list | 分页查询关联列表 |
 | 2 | DELETE | /{id} | 软删除 |
 | 3 | DELETE | /{id}/hard | 硬删除 |
-| 4 | DELETE | /batch | 批量软删除 |
-| 5 | DELETE | /batch/hard | 批量硬删除 |
+| 4 | POST | /batch-soft-delete | 批量软删除 |
+| 5 | POST | /batch-hard-delete | 批量硬删除 |
 | 6 | POST | /import | 导入关联xlsx |
 | 7 | PUT | /{id}/restore | 恢复 |
 

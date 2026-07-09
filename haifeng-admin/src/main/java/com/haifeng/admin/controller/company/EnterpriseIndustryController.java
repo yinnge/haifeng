@@ -7,18 +7,22 @@ import com.haifeng.admin.service.company.EnterpriseIndustryService;
 import com.haifeng.admin.vo.company.EnterpriseIndustryDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseIndustryListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 企业-行业关联 Controller
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/company/enterprise-industry")
 @RequiredArgsConstructor
+@RequireAdminModule("company_industry")
 public class EnterpriseIndustryController {
 
     private final EnterpriseIndustryService enterpriseIndustryService;
@@ -35,6 +39,7 @@ public class EnterpriseIndustryController {
      * 获取关联详情
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "企业-行业关联", action = "查询关联详情")
     public R<EnterpriseIndustryDetailVO> detail(@PathVariable Long id) {
         return R.ok(enterpriseIndustryService.detail(id));
     }
@@ -52,7 +57,7 @@ public class EnterpriseIndustryController {
     /**
      * 批量硬删除关联
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "企业-行业关联", action = "批量硬删除关联")
     public R<Void> batchDelete(@Valid @RequestBody EnterpriseIndustryBatchDeleteDTO dto) {
         enterpriseIndustryService.batchDelete(dto.getIds());
@@ -65,6 +70,13 @@ public class EnterpriseIndustryController {
     @PostMapping("/import")
     @OperationLog(module = "企业-行业关联", action = "导入关联")
     public R<Void> importEnterpriseIndustries(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         enterpriseIndustryService.importEnterpriseIndustries(file);
         return R.ok();
     }

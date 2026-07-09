@@ -2,6 +2,7 @@ package com.haifeng.admin.service.impl.major;
 
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.major.*;
@@ -287,16 +288,14 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                softDelete(id);
-            } catch (BusinessException e) {
-                // 忽略不存在的记录，继续处理其他记录
-                log.warn("批量软删除跳过不存在的考研专业: id={}", id);
-            }
-        }
+        OffsetDateTime now = OffsetDateTime.now();
+        LambdaUpdateWrapper<PostgradMajor> wrapper = new LambdaUpdateWrapper<PostgradMajor>()
+                .in(PostgradMajor::getId, ids)
+                .set(PostgradMajor::getStatus, (short) 0)
+                .set(PostgradMajor::getUpdatedAt, now);
+        int updated = postgradMajorMapper.update(null, wrapper);
 
-        log.info("批量软删除考研专业完成: 请求数量={}", ids.size());
+        log.info("批量软删除考研专业完成: 请求数量={}, 实际更新={}", ids.size(), updated);
     }
 
     @Override
@@ -306,16 +305,9 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                hardDelete(id);
-            } catch (BusinessException e) {
-                // 忽略不存在的记录，继续处理其他记录
-                log.warn("批量硬删除跳过不存在的考研专业: id={}", id);
-            }
-        }
+        int deleted = postgradMajorMapper.deleteBatchIds(ids);
 
-        log.info("批量硬删除考研专业完成: 请求数量={}", ids.size());
+        log.info("批量硬删除考研专业完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
 
     @Override

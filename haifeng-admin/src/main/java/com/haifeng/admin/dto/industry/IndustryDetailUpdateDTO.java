@@ -57,8 +57,4 @@ public class IndustryDetailUpdateDTO {
      */
     private Map<String, Object> salaryData;
 
-    /**
-     * 删除状态
-     */
-    private Boolean isDeleted;
 }

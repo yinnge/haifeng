@@ -60,14 +60,8 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         if (dto.getSiteDescription() != null) {
             settings.setSiteDescription(dto.getSiteDescription());
         }
-        if (dto.getUniversityApiNumber() != null) {
-            settings.setUniversityApiNumber(dto.getUniversityApiNumber());
-        }
-        if (dto.getMajorApiNumber() != null) {
-            settings.setMajorApiNumber(dto.getMajorApiNumber());
-        }
-        if (dto.getCityApiNumber() != null) {
-            settings.setCityApiNumber(dto.getCityApiNumber());
+        if (dto.getApiNumber() != null) {
+            settings.setApiNumber(dto.getApiNumber());
         }
         if (dto.getProPrice() != null) {
             settings.setProPrice(dto.getProPrice());

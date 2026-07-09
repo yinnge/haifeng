@@ -178,6 +178,7 @@ public class IndustryServiceImpl implements IndustryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, IndustryUpdateDTO dto) {
         Industry industry = industryMapper.selectById(id);
         if (industry == null) {
@@ -201,9 +202,6 @@ public class IndustryServiceImpl implements IndustryService {
         industry.setMarketTrend(dto.getMarketTrend());
         industry.setTalentTrend(dto.getTalentTrend());
         industry.setInvestmentTrend(dto.getInvestmentTrend());
-        if (dto.getIsDeleted() != null) {
-            industry.setIsDeleted(dto.getIsDeleted());
-        }
         industry.setUpdatedAt(OffsetDateTime.now());
 
         industryMapper.updateById(industry);
@@ -220,6 +218,7 @@ public class IndustryServiceImpl implements IndustryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateDetail(Long id, IndustryDetailUpdateDTO dto) {
         // 先检查行业是否存在
         Industry industry = industryMapper.selectById(id);
@@ -243,9 +242,6 @@ public class IndustryServiceImpl implements IndustryService {
         detail.setTalentAnalysis(dto.getTalentAnalysis());
         detail.setTalentPolicy(dto.getTalentPolicy());
         detail.setSalaryData(dto.getSalaryData());
-        if (dto.getIsDeleted() != null) {
-            detail.setIsDeleted(dto.getIsDeleted());
-        }
         detail.setUpdatedAt(OffsetDateTime.now());
 
         industryDetailMapper.updateById(detail);
@@ -254,6 +250,7 @@ public class IndustryServiceImpl implements IndustryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, IndustryStatusDTO dto) {
         Industry industry = industryMapper.selectById(id);
         if (industry == null) {
@@ -284,11 +281,8 @@ public class IndustryServiceImpl implements IndustryService {
             throw new BusinessException(404, "行业不存在");
         }
 
-        // 删除详情表
-        IndustryDetail detail = industryDetailMapper.findByIndustryId(id);
-        if (detail != null) {
-            industryDetailMapper.deleteById(detail.getId());
-        }
+        // 删除详情表（不关心 is_deleted 状态，全部硬删）
+        industryDetailMapper.deleteByIndustryIds(List.of(id));
 
         // 删除主表
         industryMapper.deleteById(id);
@@ -303,13 +297,8 @@ public class IndustryServiceImpl implements IndustryService {
             throw new BusinessException(400, "请选择要删除的行业");
         }
 
-        // 删除所有关联的详情记录
-        for (Long industryId : ids) {
-            IndustryDetail detail = industryDetailMapper.findByIndustryId(industryId);
-            if (detail != null) {
-                industryDetailMapper.deleteById(detail.getId());
-            }
-        }
+        // 批量删除详情表
+        industryDetailMapper.deleteByIndustryIds(ids);
 
         // 批量删除主表记录
         int deleted = industryMapper.deleteBatchIds(ids);
@@ -402,12 +391,8 @@ public class IndustryServiceImpl implements IndustryService {
 
             // 批量插入
             if (!industries.isEmpty()) {
-                for (Industry industry : industries) {
-                    industryMapper.insert(industry);
-                }
-                for (IndustryDetail detail : industryDetails) {
-                    industryDetailMapper.insert(detail);
-                }
+                industryMapper.insertBatch(industries);
+                industryDetailMapper.insertBatch(industryDetails);
                 log.info("导入行业主表成功，数量={}", industries.size());
             }
 

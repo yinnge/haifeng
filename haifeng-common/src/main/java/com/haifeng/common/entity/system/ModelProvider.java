@@ -24,6 +24,8 @@ public class ModelProvider {
     @ToString.Exclude
     private String apiKey;
 
+    private String baseUrl;
+
     private String modelName;
 
     private String providerName;

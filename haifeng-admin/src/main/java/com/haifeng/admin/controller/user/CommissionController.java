@@ -5,14 +5,19 @@ import com.haifeng.admin.dto.user.CommissionQueryDTO;
 import com.haifeng.admin.service.user.CommissionService;
 import com.haifeng.admin.vo.user.CommissionListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理 - 佣金记录查询（含软/硬删除、恢复）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/user/commission")
 @RequiredArgsConstructor
+@RequireAdminModule("user_commission")
 public class CommissionController {
 
     private final CommissionService commissionService;

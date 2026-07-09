@@ -7,6 +7,7 @@ import com.haifeng.admin.service.algorithm.config.ProvinceReformService;
 import com.haifeng.admin.vo.algorithm.config.ProvinceReformDetailVO;
 import com.haifeng.admin.vo.algorithm.config.ProvinceReformListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/province-reform")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_score_prov")
 public class ProvinceReformController {
 
     private final ProvinceReformService provinceReformService;
