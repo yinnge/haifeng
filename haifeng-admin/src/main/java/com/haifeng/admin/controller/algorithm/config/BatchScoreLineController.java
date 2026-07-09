@@ -7,6 +7,7 @@ import com.haifeng.admin.service.algorithm.config.BatchScoreLineService;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineDetailVO;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/batch-score-line")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_score_baseline")
 public class BatchScoreLineController {
 
     private final BatchScoreLineService batchScoreLineService;

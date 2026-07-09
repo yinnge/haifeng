@@ -4,10 +4,12 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * 海峰管理端启动类
  */
+@EnableAsync
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.haifeng.common", "com.haifeng.admin"})
 @MapperScan("com.haifeng.common.mapper")

@@ -128,7 +128,7 @@
 | PUT | `/{id}` | 修改企业 |
 | PUT | `/{id}/status` | 修改状态（禁用/启用） |
 | DELETE | `/{id}` | 删除企业（硬删除，含关联岗位） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| POST | `/batch/delete` | 批量删除（硬删除） |
 | POST | `/import` | Excel批量导入（企业+岗位） |
 
 ### 1.1 分页查询列表
@@ -389,8 +389,7 @@ Content-Type: application/json
   "enterpriseScale": "10000人以上",
   "mainBusiness": "社交、游戏、云服务、金融科技",
   "enterpriseIntro": "腾讯是一家领先的互联网科技公司（已更新）...",
-  "recruitmentStatus": "招聘中",
-  "isDeleted": false
+  "recruitmentStatus": "招聘中"
 }
 ```
 
@@ -399,10 +398,9 @@ Content-Type: application/json
 |------|------|------|------|
 | id | Long | 是 | 企业ID |
 
-**请求体参数**：同新增，额外增加：
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| isDeleted | Boolean | 否 | 是否禁用 |
+**请求体参数**：同新增，不包含 isDeleted 字段。修改禁用/启用状态请使用状态切换接口（1.5）。
+
+**业务说明**：此接口不允许修改删除状态，仅可修改企业基础信息。如需禁用/启用企业，请使用 `PUT /{id}/status` 接口。
 
 **响应**
 ```json
@@ -474,7 +472,7 @@ DELETE /api/v1/admin/company/enterprise/{id}
 
 **请求**
 ```
-DELETE /api/v1/admin/company/enterprise/batch
+POST /api/v1/admin/company/enterprise/batch/delete
 Content-Type: application/json
 
 {
@@ -552,7 +550,7 @@ file: [Excel文件]
 | GET | `/list` | 分页查询列表 |
 | GET | `/{id}` | 获取详情 |
 | DELETE | `/{id}` | 删除关联（硬删除） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| POST | `/batch/delete` | 批量删除（硬删除） |
 | POST | `/import` | Excel批量导入 |
 
 ### 2.1 分页查询列表
@@ -678,7 +676,7 @@ DELETE /api/v1/admin/company/enterprise-industry/{id}
 
 **请求**
 ```
-DELETE /api/v1/admin/company/enterprise-industry/batch
+POST /api/v1/admin/company/enterprise-industry/batch/delete
 Content-Type: application/json
 
 {

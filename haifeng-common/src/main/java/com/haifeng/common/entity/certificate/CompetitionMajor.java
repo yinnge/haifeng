@@ -26,6 +26,12 @@ public class CompetitionMajor {
 
     private String competitionName;
 
+    @TableField("is_deleted")
+    private Boolean isDeleted;
+
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
 }

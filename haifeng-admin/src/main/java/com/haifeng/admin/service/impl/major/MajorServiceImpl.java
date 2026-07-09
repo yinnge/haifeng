@@ -2,6 +2,7 @@ package com.haifeng.admin.service.impl.major;
 
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.major.*;
@@ -268,16 +269,14 @@ public class MajorServiceImpl implements MajorService {
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                softDelete(id);
-            } catch (BusinessException e) {
-                // 忽略不存在的记录，继续处理其他记录
-                log.warn("批量软删除跳过不存在的专业: id={}", id);
-            }
-        }
+        OffsetDateTime now = OffsetDateTime.now();
+        LambdaUpdateWrapper<Major> wrapper = new LambdaUpdateWrapper<Major>()
+                .in(Major::getId, ids)
+                .set(Major::getStatus, (short) 0)
+                .set(Major::getUpdatedAt, now);
+        int updated = majorMapper.update(null, wrapper);
 
-        log.info("批量软删除专业完成: 请求数量={}", ids.size());
+        log.info("批量软删除专业完成: 请求数量={}, 实际更新={}", ids.size(), updated);
     }
 
     @Override
@@ -287,16 +286,15 @@ public class MajorServiceImpl implements MajorService {
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                hardDelete(id);
-            } catch (BusinessException e) {
-                // 忽略不存在的记录，继续处理其他记录
-                log.warn("批量硬删除跳过不存在的专业: id={}", id);
-            }
-        }
+        // 批量删除关联的详情
+        LambdaQueryWrapper<MajorDetail> detailWrapper = new LambdaQueryWrapper<MajorDetail>()
+                .in(MajorDetail::getMajorId, ids);
+        majorDetailMapper.delete(detailWrapper);
 
-        log.info("批量硬删除专业完成: 请求数量={}", ids.size());
+        // 批量删除主表
+        int deleted = majorMapper.deleteBatchIds(ids);
+
+        log.info("批量硬删除专业完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
 
     @Override

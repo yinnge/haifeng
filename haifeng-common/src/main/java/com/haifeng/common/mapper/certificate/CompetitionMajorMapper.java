@@ -14,8 +14,14 @@ import java.util.Map;
 @Mapper
 public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
 
-    @Select("SELECT EXISTS(SELECT 1 FROM t_competition_major WHERE competition_id = #{competitionId} AND major_id = #{majorId})")
+    @Select("SELECT EXISTS(SELECT 1 FROM t_competition_major WHERE competition_id = #{competitionId} AND major_id = #{majorId} AND is_deleted = FALSE)")
     boolean existsByCompetitionIdAndMajorId(@Param("competitionId") Long competitionId, @Param("majorId") Long majorId);
+
+    @Select("UPDATE t_competition_major SET is_deleted = TRUE WHERE competition_id = #{competitionId} AND is_deleted = FALSE")
+    int softDeleteByCompetitionId(@Param("competitionId") Long competitionId);
+
+    @org.apache.ibatis.annotations.Update("UPDATE t_competition_major SET is_deleted = TRUE WHERE id = #{id} AND is_deleted = FALSE")
+    int softDeleteById(@Param("id") Long id);
 
     @Delete("DELETE FROM t_competition_major WHERE competition_id = #{competitionId}")
     int deleteByCompetitionId(@Param("competitionId") Long competitionId);

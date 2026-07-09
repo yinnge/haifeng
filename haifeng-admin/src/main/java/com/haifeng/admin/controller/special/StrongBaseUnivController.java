@@ -8,14 +8,19 @@ import com.haifeng.admin.service.special.StrongBaseUnivService;
 import com.haifeng.admin.vo.special.StrongBaseUnivDetailVO;
 import com.haifeng.admin.vo.special.StrongBaseUnivListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 特殊通道 - 强基计划院校配置
+ */
 @RestController
 @RequestMapping("/api/v1/admin/special/strong-base-univ")
 @RequiredArgsConstructor
+@RequireAdminModule("special_sbs_config")
 public class StrongBaseUnivController {
 
     private final StrongBaseUnivService strongBaseUnivService;

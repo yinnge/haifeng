@@ -19,11 +19,7 @@ public class SystemSettingsVO {
 
     private String siteDescription;
 
-    private Integer universityApiNumber;
-
-    private Integer majorApiNumber;
-
-    private Integer cityApiNumber;
+    private Integer apiNumber;
 
     private String providerName;
 

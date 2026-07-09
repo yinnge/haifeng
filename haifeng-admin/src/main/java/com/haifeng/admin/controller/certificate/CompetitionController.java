@@ -9,6 +9,7 @@ import com.haifeng.admin.service.certificate.CompetitionService;
 import com.haifeng.admin.vo.certificate.CompetitionDetailVO;
 import com.haifeng.admin.vo.certificate.CompetitionListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/competition")
 @RequiredArgsConstructor
+@RequireAdminModule("certificate_comp")
 public class CompetitionController {
 
     private final CompetitionService competitionService;
@@ -27,6 +29,7 @@ public class CompetitionController {
     }
 
     @GetMapping("/{id}")
+    @OperationLog(module = "竞赛证书管理", action = "查看竞赛详情")
     public R<CompetitionDetailVO> detail(@PathVariable Long id) {
         return R.ok(competitionService.getCompetitionDetail(id));
     }
@@ -58,7 +61,7 @@ public class CompetitionController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "竞赛证书管理", action = "批量硬删除竞赛")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         competitionService.batchHardDeleteCompetitions(batchDTO.getIds());

@@ -8,6 +8,7 @@ import com.haifeng.admin.service.algorithm.constraint.SafetyLevelService;
 import com.haifeng.admin.vo.algorithm.constraint.SafetyLevelDetailVO;
 import com.haifeng.admin.vo.algorithm.constraint.SafetyLevelListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/constraint/safety-level")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_safety_level")
 public class SafetyLevelController {
 
     private final SafetyLevelService safetyLevelService;

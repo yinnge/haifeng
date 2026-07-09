@@ -14,6 +14,7 @@ import com.haifeng.admin.vo.company.EnterprisePositionVO;
 import com.haifeng.common.entity.company.Enterprise;
 import com.haifeng.common.entity.company.EnterprisePosition;
 import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.company.EnterpriseIndustryMapper;
 import com.haifeng.common.mapper.company.EnterpriseMapper;
 import com.haifeng.common.mapper.company.EnterprisePositionMapper;
 import com.haifeng.common.util.SnowflakeIdGenerator;
@@ -37,6 +38,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
 
     private final EnterpriseMapper enterpriseMapper;
     private final EnterprisePositionMapper enterprisePositionMapper;
+    private final EnterpriseIndustryMapper enterpriseIndustryMapper;
 
     private static final Set<String> VALID_ENTERPRISE_NATURES = Set.of("央企", "国企", "民企", "外企", "合资");
     private static final Set<String> VALID_RECRUITMENT_TYPES = Set.of("校招", "社招", "实习");
@@ -196,9 +198,6 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         enterprise.setMainBusiness(dto.getMainBusiness());
         enterprise.setEnterpriseIntro(dto.getEnterpriseIntro());
         enterprise.setRecruitmentStatus(dto.getRecruitmentStatus());
-        if (dto.getIsDeleted() != null) {
-            enterprise.setIsDeleted(dto.getIsDeleted());
-        }
         enterprise.setUpdatedAt(OffsetDateTime.now());
 
         enterpriseMapper.updateById(enterprise);
@@ -233,6 +232,9 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         // 删除关联的岗位
         enterprisePositionMapper.deleteByEnterpriseId(id);
 
+        // 删除企业行业关联
+        enterpriseIndustryMapper.deleteByEnterpriseIds(List.of(id));
+
         // 删除企业主表
         enterpriseMapper.deleteById(id);
 
@@ -246,10 +248,11 @@ public class EnterpriseServiceImpl implements EnterpriseService {
             throw new BusinessException(400, "请选择要删除的企业");
         }
 
-        // 删除所有关联的岗位
-        for (Long enterpriseId : ids) {
-            enterprisePositionMapper.deleteByEnterpriseId(enterpriseId);
-        }
+        // 批量删除关联的岗位
+        enterprisePositionMapper.deleteByEnterpriseIds(ids);
+
+        // 批量删除企业行业关联
+        enterpriseIndustryMapper.deleteByEnterpriseIds(ids);
 
         // 批量删除企业主表
         int deleted = enterpriseMapper.deleteBatchIds(ids);
@@ -419,14 +422,14 @@ public class EnterpriseServiceImpl implements EnterpriseService {
             }
 
             // 3. 批量插入企业
-            for (Enterprise enterprise : enterprises) {
-                enterpriseMapper.insert(enterprise);
+            if (!enterprises.isEmpty()) {
+                enterpriseMapper.insertBatch(enterprises);
             }
             log.info("导入企业成功，数量={}", enterprises.size());
 
             // 4. 批量插入岗位
-            for (EnterprisePosition position : positions) {
-                enterprisePositionMapper.insert(position);
+            if (!positions.isEmpty()) {
+                enterprisePositionMapper.insertBatch(positions);
             }
             log.info("导入企业岗位成功，数量={}", positions.size());
 

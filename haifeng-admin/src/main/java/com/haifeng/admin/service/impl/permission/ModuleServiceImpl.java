@@ -17,9 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,13 +32,65 @@ public class ModuleServiceImpl implements ModuleService {
         LambdaQueryWrapper<SysModule> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysModule::getDeleted, false);
 
-        if (StringUtils.hasText(dto.getModuleCode())) {
-            wrapper.like(SysModule::getModuleCode, dto.getModuleCode());
+        boolean hasFilter = false;
+
+        if (StringUtils.hasText(dto.getKeyword())) {
+            hasFilter = true;
+            String kw = dto.getKeyword();
+            if (Boolean.TRUE.equals(dto.getExactMatch())) {
+                wrapper.and(w -> w.eq(SysModule::getModuleName, kw)
+                        .or().eq(SysModule::getModuleCode, kw)
+                        .or().eq(SysModule::getPath, kw));
+            } else {
+                wrapper.and(w -> w.like(SysModule::getModuleName, kw)
+                        .or().like(SysModule::getModuleCode, kw)
+                        .or().like(SysModule::getPath, kw));
+            }
+        } else {
+            if (StringUtils.hasText(dto.getModuleName())) {
+                hasFilter = true;
+                if (Boolean.TRUE.equals(dto.getExactMatch())) {
+                    wrapper.eq(SysModule::getModuleName, dto.getModuleName());
+                } else {
+                    wrapper.like(SysModule::getModuleName, dto.getModuleName());
+                }
+            }
+            if (StringUtils.hasText(dto.getModuleCode())) {
+                hasFilter = true;
+                if (Boolean.TRUE.equals(dto.getExactMatch())) {
+                    wrapper.eq(SysModule::getModuleCode, dto.getModuleCode());
+                } else {
+                    wrapper.like(SysModule::getModuleCode, dto.getModuleCode());
+                }
+            }
+            if (StringUtils.hasText(dto.getPath())) {
+                hasFilter = true;
+                if (Boolean.TRUE.equals(dto.getExactMatch())) {
+                    wrapper.eq(SysModule::getPath, dto.getPath());
+                } else {
+                    wrapper.like(SysModule::getPath, dto.getPath());
+                }
+            }
+        }
+
+        if (dto.getStatus() != null) {
+            hasFilter = true;
+            wrapper.eq(SysModule::getStatus, dto.getStatus());
+        }
+
+        if (dto.getLevel() != null) {
+            hasFilter = true;
+            wrapper.eq(SysModule::getLevel, dto.getLevel());
         }
 
         wrapper.orderByAsc(SysModule::getSortOrder);
 
         List<SysModule> modules = moduleMapper.selectList(wrapper);
+
+        if (hasFilter && !modules.isEmpty()) {
+            modules = collectAncestors(modules);
+        }
+
         return buildTree(modules);
     }
 
@@ -63,11 +113,13 @@ public class ModuleServiceImpl implements ModuleService {
             throw new BusinessException(400, "模块编码已存在");
         }
 
+        Integer level = dto.getLevel();
         if (dto.getParentId() != null) {
             SysModule parent = moduleMapper.selectById(dto.getParentId());
             if (parent == null || parent.getDeleted()) {
                 throw new BusinessException(400, "父模块不存在");
             }
+            level = parent.getLevel() + 1;
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -79,7 +131,7 @@ public class ModuleServiceImpl implements ModuleService {
                 .path(dto.getPath())
                 .icon(dto.getIcon())
                 .sortOrder(dto.getSortOrder())
-                .level(dto.getLevel())
+                .level(level)
                 .description(dto.getDescription())
                 .status(1)
                 .deleted(false)
@@ -117,13 +169,35 @@ public class ModuleServiceImpl implements ModuleService {
             throw new BusinessException(400, "模块编码已存在");
         }
 
+        Integer level = dto.getLevel();
+        if (dto.getParentId() != null) {
+            if (dto.getParentId().equals(id)) {
+                throw new BusinessException(400, "不能将自身设为父模块");
+            }
+            SysModule newParent = moduleMapper.selectById(dto.getParentId());
+            if (newParent == null || newParent.getDeleted()) {
+                throw new BusinessException(400, "父模块不存在");
+            }
+            level = newParent.getLevel() + 1;
+
+            if (!dto.getParentId().equals(module.getParentId())) {
+                List<SysModule> allModules = moduleMapper.selectList(
+                        new LambdaQueryWrapper<SysModule>().eq(SysModule::getDeleted, false)
+                );
+                Set<Long> descendantIds = collectDescendantIds(id, allModules);
+                if (descendantIds.contains(dto.getParentId())) {
+                    throw new BusinessException(400, "不能将子模块设为父模块");
+                }
+            }
+        }
+
         module.setModuleName(dto.getModuleName());
         module.setModuleCode(dto.getModuleCode());
         module.setParentId(dto.getParentId());
         module.setPath(dto.getPath());
         module.setIcon(dto.getIcon());
         module.setSortOrder(dto.getSortOrder());
-        module.setLevel(dto.getLevel());
+        module.setLevel(level);
         module.setDescription(dto.getDescription());
         module.setUpdatedAt(OffsetDateTime.now());
 
@@ -138,7 +212,15 @@ public class ModuleServiceImpl implements ModuleService {
             throw new BusinessException(404, "模块不存在");
         }
 
-        // 硬删除：从数据库彻底删除
+        Long childCount = moduleMapper.selectCount(
+                new LambdaQueryWrapper<SysModule>()
+                        .eq(SysModule::getParentId, id)
+                        .eq(SysModule::getDeleted, false)
+        );
+        if (childCount > 0) {
+            throw new BusinessException(400, "该模块下有 " + childCount + " 个子模块，请先删除");
+        }
+
         moduleMapper.hardDeleteById(id);
         log.info("硬删除模块成功: {}", module.getModuleName());
     }
@@ -150,12 +232,57 @@ public class ModuleServiceImpl implements ModuleService {
             throw new BusinessException(404, "模块不存在");
         }
 
-        // 切换状态：0→1 或 1→0
         Integer newStatus = module.getStatus() == 1 ? 0 : 1;
         module.setStatus(newStatus);
         module.setUpdatedAt(OffsetDateTime.now());
         moduleMapper.updateById(module);
         log.info("切换模块状态成功: {}, 新状态: {}", module.getModuleName(), newStatus == 1 ? "启用" : "禁用");
+    }
+
+    private List<SysModule> collectAncestors(List<SysModule> matched) {
+        Set<Long> allIds = matched.stream().map(SysModule::getId).collect(Collectors.toSet());
+        List<SysModule> result = new ArrayList<>(matched);
+
+        List<SysModule> current = matched;
+        while (true) {
+            Set<Long> parentIds = current.stream()
+                    .map(SysModule::getParentId)
+                    .filter(Objects::nonNull)
+                    .filter(id -> !allIds.contains(id))
+                    .collect(Collectors.toSet());
+            if (parentIds.isEmpty()) break;
+
+            List<SysModule> parents = moduleMapper.selectBatchIds(parentIds);
+            if (parents.isEmpty()) break;
+
+            parents.forEach(p -> allIds.add(p.getId()));
+            result.addAll(parents);
+            current = parents;
+        }
+        return result;
+    }
+
+    private Set<Long> collectDescendantIds(Long parentId, List<SysModule> allModules) {
+        Set<Long> descendantIds = new HashSet<>();
+        Queue<Long> queue = new LinkedList<>();
+        queue.add(parentId);
+
+        Map<Long, List<SysModule>> childrenMap = allModules.stream()
+                .filter(m -> m.getParentId() != null)
+                .collect(Collectors.groupingBy(SysModule::getParentId));
+
+        while (!queue.isEmpty()) {
+            Long currentId = queue.poll();
+            List<SysModule> children = childrenMap.get(currentId);
+            if (children != null) {
+                for (SysModule child : children) {
+                    if (descendantIds.add(child.getId())) {
+                        queue.add(child.getId());
+                    }
+                }
+            }
+        }
+        return descendantIds;
     }
 
     private List<ModuleTreeVO> buildTree(List<SysModule> modules) {

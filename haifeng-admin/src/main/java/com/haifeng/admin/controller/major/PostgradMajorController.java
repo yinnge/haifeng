@@ -11,18 +11,22 @@ import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.PostgradMajorDetailVO;
 import com.haifeng.admin.vo.major.PostgradMajorListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 考研专业管理Controller
+ * 考研专业管理 - 考研专业增删改查、软/硬删除、导入
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/postgrad-major")
 @RequiredArgsConstructor
+@RequireAdminModule("major_subject")
 public class PostgradMajorController {
 
     private final PostgradMajorService postgradMajorService;
@@ -39,6 +43,7 @@ public class PostgradMajorController {
      * 获取考研专业详情
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "考研专业管理", action = "查看考研专业详情")
     public R<PostgradMajorDetailVO> detail(@PathVariable Long id) {
         return R.ok(postgradMajorService.getById(id));
     }
@@ -95,7 +100,7 @@ public class PostgradMajorController {
     /**
      * 批量软删除考研专业
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-soft-delete")
     @OperationLog(module = "考研专业管理", action = "批量软删除考研专业")
     public R<Void> batchSoftDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         postgradMajorService.batchSoftDelete(dto.getIds());
@@ -105,7 +110,7 @@ public class PostgradMajorController {
     /**
      * 批量硬删除考研专业
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "考研专业管理", action = "批量硬删除考研专业")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         postgradMajorService.batchHardDelete(dto.getIds());
@@ -118,6 +123,13 @@ public class PostgradMajorController {
     @PostMapping("/import")
     @OperationLog(module = "考研专业管理", action = "导入考研专业数据")
     public R<ImportResultVO> importPostgradMajor(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         return R.ok(postgradMajorService.importPostgradMajor(file));
     }
 

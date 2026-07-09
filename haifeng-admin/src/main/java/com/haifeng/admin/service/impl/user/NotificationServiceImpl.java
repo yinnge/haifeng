@@ -16,7 +16,11 @@ import com.haifeng.common.mapper.user.MemberNotificationMapper;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,6 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final MemberNotificationMapper memberNotificationMapper;
     private final MemberMapper memberMapper;
+    private final SqlSessionFactory sqlSessionFactory;
 
     @Override
     public IPage<NotificationListVO> page(NotificationQueryDTO dto) {
@@ -84,8 +89,8 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public int broadcast(NotificationBroadcastDTO dto) {
+    @Async("broadcastExecutor")
+    public void broadcast(NotificationBroadcastDTO dto) {
         LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Member::getDeleted, false);
         wrapper.eq(Member::getStatus, "active");
@@ -94,28 +99,28 @@ public class NotificationServiceImpl implements NotificationService {
         List<Member> activeMembers = memberMapper.selectList(wrapper);
 
         if (activeMembers.isEmpty()) {
-            return 0;
+            return;
         }
 
-        int count = 0;
         OffsetDateTime now = OffsetDateTime.now();
-        for (Member member : activeMembers) {
-            MemberNotification notification = MemberNotification.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .memberId(member.getId())
-                    .notificationType(NotificationType.SYSTEM_NOTICE)
-                    .title(dto.getTitle())
-                    .content(dto.getContent())
-                    .isRead(false)
-                    .deleted(false)
-                    .createdAt(now)
-                    .build();
-            memberNotificationMapper.insert(notification);
-            count++;
+        try (SqlSession sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH)) {
+            MemberNotificationMapper batchMapper = sqlSession.getMapper(MemberNotificationMapper.class);
+            for (Member member : activeMembers) {
+                batchMapper.insert(MemberNotification.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .memberId(member.getId())
+                        .notificationType(NotificationType.SYSTEM_NOTICE)
+                        .title(dto.getTitle())
+                        .content(dto.getContent())
+                        .isRead(false)
+                        .deleted(false)
+                        .createdAt(now)
+                        .build());
+            }
+            sqlSession.commit();
         }
 
-        log.info("群发系统公告成功: title={}, count={}", dto.getTitle(), count);
-        return count;
+        log.info("群发系统公告成功: title={}, count={}", dto.getTitle(), activeMembers.size());
     }
 
     @Override

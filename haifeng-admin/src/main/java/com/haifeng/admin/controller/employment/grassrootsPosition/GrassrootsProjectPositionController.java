@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.grassrootsPosition.GrassrootsProject
 import com.haifeng.admin.vo.employment.grassrootsPosition.GrassrootsProjectPositionDetailVO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.GrassrootsProjectPositionListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +17,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 基层服务管理 - 基层服务项目岗位管理（如三支一扶、西部计划等）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/grassroots-position/project")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_grassroots_3s")
 public class GrassrootsProjectPositionController {
 
     private final GrassrootsProjectPositionService grassrootsProjectPositionService;

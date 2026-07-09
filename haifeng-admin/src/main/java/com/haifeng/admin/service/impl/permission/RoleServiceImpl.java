@@ -11,17 +11,22 @@ import com.haifeng.admin.service.permission.RoleService;
 import com.haifeng.admin.vo.permission.ModuleTreeVO;
 import com.haifeng.admin.vo.permission.RoleDetailVO;
 import com.haifeng.admin.vo.permission.RoleListVO;
+import com.haifeng.common.entity.permission.SysAdmin;
 import com.haifeng.common.entity.permission.SysModule;
 import com.haifeng.common.entity.permission.SysRole;
 import com.haifeng.common.entity.permission.SysRoleModule;
 import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.mapper.permission.SysModuleMapper;
 import com.haifeng.common.mapper.permission.SysRoleMapper;
 import com.haifeng.common.mapper.permission.SysRoleModuleMapper;
+import com.haifeng.common.constant.RedisKeyConstant;
+import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,9 +41,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleServiceImpl implements RoleService {
 
+    private final SysAdminMapper adminMapper;
     private final SysRoleMapper roleMapper;
     private final SysModuleMapper moduleMapper;
     private final SysRoleModuleMapper roleModuleMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final JwtUtil jwtUtil;
 
     @Override
     public IPage<RoleListVO> page(RoleQueryDTO dto) {
@@ -172,6 +180,15 @@ public class RoleServiceImpl implements RoleService {
             throw new BusinessException(400, "超级管理员角色不可删除");
         }
 
+        Long adminCount = adminMapper.selectCount(
+                new LambdaQueryWrapper<SysAdmin>()
+                        .eq(SysAdmin::getRoleId, id)
+                        .eq(SysAdmin::getDeleted, false)
+        );
+        if (adminCount > 0) {
+            throw new BusinessException(400, "该角色下仍有 " + adminCount + " 个管理员，请先移除");
+        }
+
         SysRole role = roleMapper.selectById(id);
         if (role == null || role.getDeleted()) {
             throw new BusinessException(404, "角色不存在");
@@ -213,35 +230,47 @@ public class RoleServiceImpl implements RoleService {
         List<Long> allModuleIds = new ArrayList<>();
         for (Long moduleId : dto.getModuleIds()) {
             allModuleIds.add(moduleId);
-
-            SysModule module = moduleMapper.selectById(moduleId);
-            if (module != null && module.getLevel() == 1) {
-                List<SysModule> children = moduleMapper.selectList(
-                        new LambdaQueryWrapper<SysModule>()
-                                .eq(SysModule::getParentId, moduleId)
-                                .eq(SysModule::getDeleted, false)
-                );
-                for (SysModule child : children) {
-                    if (!allModuleIds.contains(child.getId())) {
-                        allModuleIds.add(child.getId());
-                    }
-                }
-            }
+            collectAllDescendantIds(moduleId, allModuleIds);
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        for (Long moduleId : allModuleIds) {
-            SysRoleModule rm = SysRoleModule.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .roleId(id)
-                    .moduleId(moduleId)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            roleModuleMapper.insert(rm);
-        }
+        List<SysRoleModule> roleModules = allModuleIds.stream().map(moduleId ->
+                SysRoleModule.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .roleId(id)
+                        .moduleId(moduleId)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build()
+        ).collect(Collectors.toList());
+        roleModuleMapper.insertBatch(roleModules);
 
         log.info("角色绑定模块成功: roleId={}, moduleCount={}", id, allModuleIds.size());
+
+        List<SysAdmin> admins = adminMapper.selectList(
+                new LambdaQueryWrapper<SysAdmin>()
+                        .eq(SysAdmin::getRoleId, id)
+                        .eq(SysAdmin::getDeleted, false)
+        );
+        for (SysAdmin admin : admins) {
+            String refreshKey = RedisKeyConstant.getRefreshTokenKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
+            redisTemplate.delete(refreshKey);
+        }
+        log.info("已清除 {} 个管理员的 refreshToken", admins.size());
+    }
+
+    private void collectAllDescendantIds(Long parentId, List<Long> result) {
+        List<SysModule> children = moduleMapper.selectList(
+                new LambdaQueryWrapper<SysModule>()
+                        .eq(SysModule::getParentId, parentId)
+                        .eq(SysModule::getDeleted, false)
+        );
+        for (SysModule child : children) {
+            if (!result.contains(child.getId())) {
+                result.add(child.getId());
+                collectAllDescendantIds(child.getId(), result);
+            }
+        }
     }
 
     private List<ModuleTreeVO> buildModuleTree(List<SysModule> modules) {
@@ -252,10 +281,18 @@ public class RoleServiceImpl implements RoleService {
             return vo;
         }).collect(Collectors.toList());
 
+        java.util.Map<Long, ModuleTreeVO> voMap = voList.stream()
+                .collect(Collectors.toMap(ModuleTreeVO::getId, v -> v));
+
         List<ModuleTreeVO> tree = new ArrayList<>();
         for (ModuleTreeVO vo : voList) {
             if (vo.getParentId() == null) {
                 tree.add(vo);
+            } else {
+                ModuleTreeVO parent = voMap.get(vo.getParentId());
+                if (parent != null) {
+                    parent.getChildren().add(vo);
+                }
             }
         }
         return tree;

@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.system.SystemSettingsUpdateDTO;
 import com.haifeng.admin.service.system.SystemSettingsService;
 import com.haifeng.admin.vo.system.SystemSettingsVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,9 +13,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 系统管理 - 系统设置（含服务商与模型配置）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/system/settings")
 @RequiredArgsConstructor
+@RequireAdminModule("system_setting")
 public class SystemSettingsController {
 
     private final SystemSettingsService settingsService;

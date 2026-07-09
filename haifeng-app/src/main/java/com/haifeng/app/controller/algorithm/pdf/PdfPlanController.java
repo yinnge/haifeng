@@ -11,7 +11,10 @@ import com.haifeng.common.response.R;
 import com.haifeng.common.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -52,5 +55,19 @@ public class PdfPlanController {
     public R<PdfRecordDetailVO> getRecordDetail(@PathVariable Integer recordId) {
         Long userId = SecurityUtil.getCurrentMemberId();
         return R.ok(pdfReportService.getRecordDetail(userId, recordId));
+    }
+
+    /**
+     * 下载/查看 PDF 报告（浏览器内联显示）
+     */
+    @GetMapping("/records/{recordId}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Integer recordId) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        byte[] pdfBytes = pdfReportService.renderPdf(userId, recordId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("inline", "haifeng-report-" + recordId + ".pdf");
+        headers.setContentLength(pdfBytes.length);
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 }

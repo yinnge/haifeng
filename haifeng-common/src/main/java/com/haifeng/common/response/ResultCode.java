@@ -16,6 +16,8 @@ public enum ResultCode {
     TOO_MANY_REQUESTS(429, "请求过于频繁"),
     INTERNAL_ERROR(500, "服务器内部错误"),
 
+    MODULE_FORBIDDEN(1007, "无权访问该模块"),
+
     // 业务错误码从 1000 开始
     USER_NOT_FOUND(1001, "用户不存在"),
     PASSWORD_ERROR(1002, "密码错误"),

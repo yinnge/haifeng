@@ -21,6 +21,7 @@ public class MapResultItem {
     private String universityName;
     private String cityName;
     private String groupName;
+    private Integer groupSnapshotId;
     private List<MajorBrief> majors;
 
     /** AI 产出的 ~300字简评；失败时为 null */
@@ -37,5 +38,10 @@ public class MapResultItem {
         private String majorName;
         private BigDecimal safetyLevel;
         private String levelShort;
+        private BigDecimal employmentRate;
+        private Integer salaryMin;
+        private Integer salaryMax;
+        private String majorCategory;
+        private String careerProspect;
     }
 }

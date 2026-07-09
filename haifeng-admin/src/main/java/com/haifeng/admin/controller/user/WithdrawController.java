@@ -6,14 +6,19 @@ import com.haifeng.admin.dto.user.WithdrawQueryDTO;
 import com.haifeng.admin.service.user.WithdrawService;
 import com.haifeng.admin.vo.user.WithdrawListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理 - 提现审核处理（含查看微信明文、软/硬删除、恢复）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/user/withdraw")
 @RequiredArgsConstructor
+@RequireAdminModule("user_withdraw")
 public class WithdrawController {
 
     private final WithdrawService withdrawService;

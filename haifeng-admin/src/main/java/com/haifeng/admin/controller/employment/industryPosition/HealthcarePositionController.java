@@ -5,7 +5,7 @@ import com.haifeng.admin.dto.employment.industryPosition.healthcare.*;
 import com.haifeng.admin.service.employment.industryPosition.HealthcarePositionService;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.*;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +14,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 行业专项招聘 - 医疗卫生岗位管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/industry-position/healthcare")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_industry_medical")
 public class HealthcarePositionController {
 
     private final HealthcarePositionService healthcarePositionService;

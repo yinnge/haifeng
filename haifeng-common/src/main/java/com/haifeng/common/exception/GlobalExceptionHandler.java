@@ -5,6 +5,7 @@ import com.haifeng.common.response.ResultCode;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -90,6 +91,16 @@ public class GlobalExceptionHandler {
     public R<Void> handleAuthenticationException(AuthenticationException e) {
         log.warn("认证失败: {}", e.getMessage());
         return R.fail(ResultCode.UNAUTHORIZED);
+    }
+
+    /**
+     * 唯一约束冲突
+     */
+    @ExceptionHandler(DuplicateKeyException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleDuplicateKeyException(DuplicateKeyException e) {
+        log.warn("唯一约束冲突: {}", e.getMostSpecificCause().getMessage());
+        return R.fail(ResultCode.BAD_REQUEST.getCode(), "数据已存在");
     }
 
     /**

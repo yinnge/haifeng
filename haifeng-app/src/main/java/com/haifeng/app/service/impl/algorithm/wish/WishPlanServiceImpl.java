@@ -10,7 +10,10 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
+import com.haifeng.app.util.algorithm.pdf.EnrichmentLoader;
+import com.haifeng.app.util.algorithm.wish.WishPlanExcelUtil;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
+import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
@@ -80,6 +83,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     private final ProvinceConfigMapper provinceConfigMapper;
     private final ProvinceReformService provinceReformService;
     private final WishPlanExcelUtil wishPlanExcelUtil;
+    private final EnrichmentLoader enrichmentLoader;
 
     @Override
     public WishPlanLimitVO getDefaultLimits() {
@@ -696,6 +700,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .filter(m -> m.getMajorId() != null)
                 .map(m -> WishExportMajorVO.builder()
                         .majorId(m.getMajorId())
+                        .majorName(m.getMajorName())
                         .safetyLevel(m.getSafetyLevel())
                         .levelShort(m.getLevelShort())
                         .historyScores(m.getHistoryScores())
@@ -711,20 +716,34 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .orderByAsc(WishGroupSnapshot::getGroupSortOrder));
 
         List<ExportGroupContextVO> result = new ArrayList<>();
+        Map<String, CityEnrichmentVO> cityEnrichmentCache = new HashMap<>();
         for (WishGroupSnapshot g : groups) {
             List<WishExportMajorVO> exportableMajors = getExportableMajorIds(g.getId());
             if (CollectionUtils.isEmpty(exportableMajors)) {
                 // 该专业组下所有专业 is_exported=false，跳过（不进入 AI 分析）
                 continue;
             }
+
+            // 加载城市增强数据（同城缓存）
+            CityEnrichmentVO cityEnrichment = g.getCityName() != null
+                    ? cityEnrichmentCache.computeIfAbsent(g.getCityName(), enrichmentLoader::loadCity)
+                    : null;
+
+            // 加载专业增强数据
+            for (WishExportMajorVO m : exportableMajors) {
+                m.setMajorEnrichment(enrichmentLoader.loadMajor(m.getMajorId()));
+            }
+
             result.add(ExportGroupContextVO.builder()
                     .groupSnapshotId(g.getId())
                     .universityId(g.getUniversityId())
+                    .universityName(g.getUniversityName())
                     .cityName(g.getCityName())
                     .groupSortOrder(g.getGroupSortOrder())
                     .groupCode(g.getGroupCode())
                     .groupName(g.getGroupName())
                     .exportableMajors(exportableMajors)
+                    .cityEnrichment(cityEnrichment)
                     .build());
         }
         return result;

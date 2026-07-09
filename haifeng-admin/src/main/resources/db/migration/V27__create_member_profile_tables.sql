@@ -1,7 +1,6 @@
--- ============================================================
+-- V27__create_member_profile_tables.sql
 -- 用户资料表 (t_member_profile)
 -- 描述：与 t_member 一对一，存储用户的个人资料（可选填）
--- ============================================================
 
 BEGIN;
 
@@ -31,19 +30,39 @@ CREATE TABLE IF NOT EXISTS t_member_profile (
 );
 
 -- 索引
-CREATE INDEX idx_profile_member_id ON t_member_profile (member_id);
-CREATE INDEX idx_profile_identity  ON t_member_profile (identity);
-CREATE INDEX idx_profile_province  ON t_member_profile (province);
+CREATE INDEX IF NOT EXISTS idx_profile_member_id ON t_member_profile (member_id);
+CREATE INDEX IF NOT EXISTS idx_profile_identity  ON t_member_profile (identity);
+CREATE INDEX IF NOT EXISTS idx_profile_province  ON t_member_profile (province);
 
--- 外键
-ALTER TABLE t_member_profile
-    ADD CONSTRAINT fk_profile_member
-    FOREIGN KEY (member_id) REFERENCES t_member(id);
+-- 外键（仅当不存在时添加）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_profile_member'
+          AND conrelid = 't_member_profile'::regclass
+    ) THEN
+        ALTER TABLE t_member_profile
+            ADD CONSTRAINT fk_profile_member
+            FOREIGN KEY (member_id) REFERENCES t_member(id);
+    END IF;
+END
+$$;
 
--- 触发器
-CREATE TRIGGER trg_member_profile_updated_at
-    BEFORE UPDATE ON t_member_profile
-    FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
+-- 触发器（仅当不存在时创建）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'trg_member_profile_updated_at'
+          AND tgrelid = 't_member_profile'::regclass
+    ) THEN
+        CREATE TRIGGER trg_member_profile_updated_at
+            BEFORE UPDATE ON t_member_profile
+            FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
+    END IF;
+END
+$$;
 
 -- 注释
 COMMENT ON TABLE  t_member_profile              IS '用户资料表：与 t_member 一对一';

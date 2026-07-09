@@ -17,6 +17,7 @@ import com.haifeng.common.mapper.major.MajorMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
         Page<CompetitionMajor> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
         LambdaQueryWrapper<CompetitionMajor> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(CompetitionMajor::getIsDeleted, false);
 
         if (queryDTO.getCompetitionId() != null) {
             wrapper.eq(CompetitionMajor::getCompetitionId, queryDTO.getCompetitionId());
@@ -61,6 +63,7 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
     public List<CompetitionMajorVO> listByCompetitionId(Long competitionId) {
         LambdaQueryWrapper<CompetitionMajor> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CompetitionMajor::getCompetitionId, competitionId);
+        wrapper.eq(CompetitionMajor::getIsDeleted, false);
         wrapper.orderByDesc(CompetitionMajor::getCreatedAt);
 
         List<CompetitionMajor> list = competitionMajorMapper.selectList(wrapper);
@@ -71,6 +74,7 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
     public List<CompetitionMajorVO> listByMajorId(Long majorId) {
         LambdaQueryWrapper<CompetitionMajor> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CompetitionMajor::getMajorId, majorId);
+        wrapper.eq(CompetitionMajor::getIsDeleted, false);
         wrapper.orderByDesc(CompetitionMajor::getCreatedAt);
 
         List<CompetitionMajor> list = competitionMajorMapper.selectList(wrapper);
@@ -78,6 +82,7 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long addCompetitionMajor(CompetitionMajorAddDTO addDTO) {
         // 通过名称查找竞赛
         Competition competition = competitionMapper.findByCompName(addDTO.getCompetitionName());
@@ -101,6 +106,7 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
         competitionMajor.setMajorId(major.getId());
         competitionMajor.setCompetitionName(competition.getCompName());
         competitionMajor.setMajorName(major.getMajorName());
+        competitionMajor.setIsDeleted(false);
 
         competitionMajorMapper.insert(competitionMajor);
 
@@ -110,23 +116,27 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteCompetitionMajor(Long id) {
         CompetitionMajor existing = competitionMajorMapper.selectById(id);
-        if (existing == null) {
+        if (existing == null || existing.getIsDeleted()) {
             throw new BusinessException(404, "关联记录不存在");
         }
 
-        competitionMajorMapper.deleteById(id);
-        log.info("删除竞赛-专业关联成功，id={}", id);
+        competitionMajorMapper.softDeleteById(id);
+        log.info("软删除竞赛-专业关联成功，id={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void batchDeleteCompetitionMajors(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        competitionMajorMapper.deleteBatchIds(ids);
-        log.info("批量删除竞赛-专业关联成功，ids={}", ids);
+        for (Long id : ids) {
+            competitionMajorMapper.softDeleteById(id);
+        }
+        log.info("批量软删除竞赛-专业关联成功，ids={}", ids);
     }
 
     private CompetitionMajorVO convertToVO(CompetitionMajor entity) {

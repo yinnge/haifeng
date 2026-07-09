@@ -6,14 +6,19 @@ import com.haifeng.admin.service.user.MemberOrderService;
 import com.haifeng.admin.vo.user.OrderDetailVO;
 import com.haifeng.admin.vo.user.OrderListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理 - 会员订单查询（含查看微信明文、软/硬删除、恢复）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/user/order")
 @RequiredArgsConstructor
+@RequireAdminModule("user_order")
 public class MemberOrderController {
 
     private final MemberOrderService orderService;

@@ -7,6 +7,7 @@ import com.haifeng.admin.service.algorithm.config.ScoreRankService;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankDetailVO;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/score-rank")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_score_rank")
 public class ScoreRankController {
 
     private final ScoreRankService scoreRankService;

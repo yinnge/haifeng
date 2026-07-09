@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -70,6 +71,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long add(AnnouncementAddDTO dto) {
         OffsetDateTime now = OffsetDateTime.now();
         Long id = SnowflakeIdGenerator.nextId();
@@ -92,6 +94,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, AnnouncementUpdateDTO dto) {
         Announcement announcement = announcementMapper.selectById(id);
         if (announcement == null || announcement.getDeleted()) {
@@ -109,6 +112,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, StatusDTO dto) {
         Announcement announcement = announcementMapper.selectById(id);
         if (announcement == null || announcement.getDeleted()) {
@@ -130,7 +134,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
             throw new BusinessException(404, "公告不存在");
         }
 
-        announcementMapper.deleteById(id);
+        announcementMapper.hardDeleteById(id);
 
         log.info("硬删除公告成功: id={}", id);
     }

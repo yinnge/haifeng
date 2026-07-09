@@ -5,16 +5,23 @@ import com.haifeng.admin.dto.permission.ModuleQueryDTO;
 import com.haifeng.admin.dto.permission.ModuleUpdateDTO;
 import com.haifeng.admin.service.permission.ModuleService;
 import com.haifeng.admin.vo.permission.ModuleTreeVO;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 权限管理 - 模块菜单管理（树形结构）
+ */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/permission/modules")
 @RequiredArgsConstructor
+@RequireAdminModule("permission_module")
 public class ModuleController {
 
     private final ModuleService moduleService;

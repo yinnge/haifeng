@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * PDF 生成配额：
  * - INCR pdf:report:quota:{userId}:{yyyyMMdd}（首次写入时设 TTL 到当日 23:59:59）
- * - 上限来源：system_settings.university_api_number（缓存 Redis 5 分钟，默认 1）
+ * - 上限来源：system_settings.api_number（缓存 Redis 5 分钟，默认 3）
  * - 含义：每天可生成 PDF 报告的次数（1 次 PDF = 1 额度，内部 N+1 次 AI 调用不另计）
  * - 超额抛 QuotaExceededException（HTTP 429）
  */
@@ -31,16 +31,16 @@ import java.util.concurrent.TimeUnit;
 public class AiQuotaService {
 
     private static final String QUOTA_KEY_PREFIX = "pdf:report:quota:";
-    private static final String UNIVERSITY_API_NUMBER_CACHE_KEY = "sys:university_api_number";
-    private static final long UNIVERSITY_API_NUMBER_CACHE_TTL_MIN = 5L;
-    private static final int DEFAULT_UNIVERSITY_API_NUMBER = 1;
+    private static final String API_NUMBER_CACHE_KEY = "sys:api_number";
+    private static final long API_NUMBER_CACHE_TTL_MIN = 5L;
+    private static final int DEFAULT_API_NUMBER = 3;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final SystemSettingsMapper settingsMapper;
 
     public void incrAndCheck(Long userId) {
-        int limit = getUniversityApiNumberLimit();
+        int limit = getApiNumberLimit();
         String key = quotaKey(userId);
         Long count = redisTemplate.opsForValue().increment(key);
         long current = count == null ? 0L : count;
@@ -55,18 +55,18 @@ public class AiQuotaService {
         }
     }
 
-    public int getUniversityApiNumberLimit() {
-        Object cached = redisTemplate.opsForValue().get(UNIVERSITY_API_NUMBER_CACHE_KEY);
+    public int getApiNumberLimit() {
+        Object cached = redisTemplate.opsForValue().get(API_NUMBER_CACHE_KEY);
         if (cached instanceof Number) {
             return ((Number) cached).intValue();
         }
         List<SystemSettings> rows = settingsMapper.selectList(Wrappers.<SystemSettings>lambdaQuery());
-        int limit = DEFAULT_UNIVERSITY_API_NUMBER;
-        if (rows != null && !rows.isEmpty() && rows.get(0).getUniversityApiNumber() != null) {
-            limit = rows.get(0).getUniversityApiNumber();
+        int limit = DEFAULT_API_NUMBER;
+        if (rows != null && !rows.isEmpty() && rows.get(0).getApiNumber() != null) {
+            limit = rows.get(0).getApiNumber();
         }
-        redisTemplate.opsForValue().set(UNIVERSITY_API_NUMBER_CACHE_KEY, limit,
-                UNIVERSITY_API_NUMBER_CACHE_TTL_MIN, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(API_NUMBER_CACHE_KEY, limit,
+                API_NUMBER_CACHE_TTL_MIN, TimeUnit.MINUTES);
         return limit;
     }
 

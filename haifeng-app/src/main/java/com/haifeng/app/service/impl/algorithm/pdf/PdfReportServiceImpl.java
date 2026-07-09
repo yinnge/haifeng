@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.dto.algorithm.pdf.PdfRecordQueryDTO;
 import com.haifeng.app.service.algorithm.pdf.AiChatService;
+import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
 import com.haifeng.app.service.algorithm.pdf.PdfReportService;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.vo.algorithm.pdf.*;
@@ -28,6 +29,7 @@ import reactor.core.publisher.Sinks;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,6 +49,7 @@ public class PdfReportServiceImpl implements PdfReportService {
     private final WishPlanService wishPlanService;
     private final ObjectMapper objectMapper;
     private final WishPlanMapper wishPlanMapper;
+    private final PdfRenderService pdfRenderService;
 
     @Override
     public Flux<ServerSentEvent<String>> generateReport(Long userId, Integer planId) {
@@ -130,7 +133,7 @@ public class PdfReportServiceImpl implements PdfReportService {
 
         String reduceJson = null;
         try {
-            String reduceInput = buildReduceInput(mapResults);
+            String reduceInput = buildReduceInput(mapResults, groups);
             List<ChatMessage> reduceMessages = List.of(
                     new ChatMessage("system", buildReduceSystemPrompt()),
                     new ChatMessage("user", reduceInput)
@@ -206,11 +209,27 @@ public class PdfReportServiceImpl implements PdfReportService {
 
     private MapResultItem callMapAI(Long userId, ExportGroupContextVO group) {
         List<MapResultItem.MajorBrief> majors = group.getExportableMajors().stream()
-                .map(m -> MapResultItem.MajorBrief.builder()
-                        .majorName(m.getMajorId() != null ? "专业" + m.getMajorId() : "未知专业")
-                        .safetyLevel(m.getSafetyLevel())
-                        .levelShort(m.getLevelShort())
-                        .build())
+                .map(m -> {
+                    MapResultItem.MajorBrief.MajorBriefBuilder builder = MapResultItem.MajorBrief.builder()
+                            .majorName(m.getMajorName() != null ? m.getMajorName() : "未知专业")
+                            .safetyLevel(m.getSafetyLevel())
+                            .levelShort(m.getLevelShort());
+
+                    if (m.getMajorEnrichment() != null) {
+                        builder.employmentRate(m.getMajorEnrichment().getEmploymentRate())
+                                .salaryMin(m.getMajorEnrichment().getSalaryMin())
+                                .salaryMax(m.getMajorEnrichment().getSalaryMax())
+                                .majorCategory(m.getMajorEnrichment().getMajorCategory());
+                        // careerProspect 截断80字
+                        String prospect = m.getMajorEnrichment().getCareerProspect();
+                        if (prospect != null && prospect.length() > 80) {
+                            prospect = prospect.substring(0, 80);
+                        }
+                        builder.careerProspect(prospect);
+                    }
+
+                    return builder.build();
+                })
                 .collect(Collectors.toList());
 
         try {
@@ -223,8 +242,10 @@ public class PdfReportServiceImpl implements PdfReportService {
 
             return MapResultItem.builder()
                     .universityId(group.getUniversityId())
+                    .universityName(group.getUniversityName())
                     .cityName(group.getCityName())
                     .groupName(group.getGroupName())
+                    .groupSnapshotId(group.getGroupSnapshotId())
                     .majors(majors)
                     .commentary(commentary)
                     .success(true)
@@ -234,8 +255,10 @@ public class PdfReportServiceImpl implements PdfReportService {
                     group.getGroupSnapshotId(), group.getUniversityId(), e.getMessage());
             return MapResultItem.builder()
                     .universityId(group.getUniversityId())
+                    .universityName(group.getUniversityName())
                     .cityName(group.getCityName())
                     .groupName(group.getGroupName())
+                    .groupSnapshotId(group.getGroupSnapshotId())
                     .majors(majors)
                     .commentary(null)
                     .success(false)
@@ -247,14 +270,44 @@ public class PdfReportServiceImpl implements PdfReportService {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"university\":\"").append(escapeJson(group.getGroupName()))
           .append("\",\"city\":\"").append(escapeJson(group.getCityName()))
-          .append("\",\"majors\":[");
+          .append("\"");
+
+        // cityInfo
+        if (group.getCityEnrichment() != null) {
+            CityEnrichmentVO ci = group.getCityEnrichment();
+            sb.append(",\"cityInfo\":{");
+            sb.append("\"mainIndustries\":");
+            sb.append(ci.getMainIndustries() != null ? jsonArray(ci.getMainIndustries()) : "[]");
+            sb.append(",\"gdp\":").append(ci.getGdp() != null ? ci.getGdp() : "null");
+            sb.append(",\"gdpGrowthRate\":").append(ci.getGdpGrowthRate() != null ? ci.getGdpGrowthRate() : "null");
+            sb.append(",\"fortune500Count\":").append(ci.getFortune500Count() != null ? ci.getFortune500Count() : "null");
+            sb.append(",\"avgSalary\":").append(ci.getAvgSalary() != null ? ci.getAvgSalary() : "null");
+            sb.append("}");
+        }
+
+        sb.append(",\"majors\":[");
         for (int i = 0; i < majors.size(); i++) {
             MapResultItem.MajorBrief m = majors.get(i);
             if (i > 0) sb.append(",");
             sb.append("{\"name\":\"").append(escapeJson(m.getMajorName()))
               .append("\",\"safetyLevel\":").append(m.getSafetyLevel() != null ? m.getSafetyLevel() : "0")
-              .append(",\"levelShort\":\"").append(escapeJson(m.getLevelShort()))
-              .append("\"}");
+              .append(",\"levelShort\":\"").append(escapeJson(m.getLevelShort())).append("\"");
+
+            if (m.getEmploymentRate() != null) {
+                sb.append(",\"employmentRate\":").append(m.getEmploymentRate());
+            }
+            if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
+                String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
+                        + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
+                sb.append(",\"salaryRange\":\"").append(range).append("\"");
+            }
+            if (m.getMajorCategory() != null) {
+                sb.append(",\"category\":\"").append(escapeJson(m.getMajorCategory())).append("\"");
+            }
+            if (m.getCareerProspect() != null) {
+                sb.append(",\"careerProspect\":\"").append(escapeJson(m.getCareerProspect())).append("\"");
+            }
+            sb.append("}");
         }
         sb.append("]}");
         return sb.toString();
@@ -264,14 +317,20 @@ public class PdfReportServiceImpl implements PdfReportService {
         return """
             你是一位资深高考志愿规划师。请根据提供的大学、城市和专业信息，给出300字以内的客观研判。
             要求：
-            1. 结合该校该专业在该城市的产业地缘优势或劣势
-            2. 结合行业发展趋势给出前瞻性判断
-            3. 不要罗列数据，只给结论性观点
-            4. 严格控制在300字以内
+            1. 结合该校该专业在该城市的产业地缘优势或劣势，参考 cityInfo 中的 mainIndustries 和 gdp 数据
+            2. 结合行业发展趋势给出前瞻性判断，参考专业的 employmentRate 和 salaryRange 数据
+            3. 若 cityInfo 或专业就业数据为 null，则基于常识判断
+            4. 不要罗列数据，只给结论性观点
+            5. 严格控制在300字以内
+            6. 使用Markdown格式输出（可使用**加粗**、- 列表等）
             """;
     }
 
-    private String buildReduceInput(List<MapResultItem> mapResults) {
+    private String buildReduceInput(List<MapResultItem> mapResults, List<ExportGroupContextVO> groups) {
+        // 按 groupSnapshotId 索引 cityEnrichment 和 majorEnrichment
+        Map<Integer, ExportGroupContextVO> groupMap = groups.stream()
+                .collect(Collectors.toMap(ExportGroupContextVO::getGroupSnapshotId, g -> g, (a, b) -> a));
+
         StringBuilder sb = new StringBuilder();
         sb.append("[");
         for (int i = 0; i < mapResults.size(); i++) {
@@ -280,11 +339,22 @@ public class PdfReportServiceImpl implements PdfReportService {
             sb.append("{\"大学\":\"").append(escapeJson(item.getGroupName()))
               .append("\",\"城市\":\"").append(escapeJson(item.getCityName()))
               .append("\",\"专业\":[");
+
             List<MapResultItem.MajorBrief> majors = item.getMajors();
             if (majors != null) {
                 for (int j = 0; j < majors.size(); j++) {
                     if (j > 0) sb.append(",");
-                    sb.append("\"").append(escapeJson(majors.get(j).getMajorName())).append("\"");
+                    MapResultItem.MajorBrief m = majors.get(j);
+                    sb.append("{\"name\":\"").append(escapeJson(m.getMajorName())).append("\"");
+                    if (m.getEmploymentRate() != null) {
+                        sb.append(",\"就业率\":").append(m.getEmploymentRate());
+                    }
+                    if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
+                        String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
+                                + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
+                        sb.append(",\"薪资\":\"").append(range).append("\"");
+                    }
+                    sb.append("}");
                 }
             }
             sb.append("],\"录取概率\":\"");
@@ -294,7 +364,19 @@ public class PdfReportServiceImpl implements PdfReportService {
                         .distinct()
                         .collect(Collectors.joining("/")));
             }
-            sb.append("\",\"AI简评\":\"")
+            sb.append("\"");
+
+            // 城市产业信息
+            ExportGroupContextVO group = item.getGroupSnapshotId() != null
+                    ? groupMap.get(item.getGroupSnapshotId()) : null;
+            if (group != null && group.getCityEnrichment() != null) {
+                CityEnrichmentVO ci = group.getCityEnrichment();
+                if (ci.getMainIndustries() != null && !ci.getMainIndustries().isEmpty()) {
+                    sb.append(",\"城市产业\":").append(jsonArray(ci.getMainIndustries()));
+                }
+            }
+
+            sb.append(",\"AI简评\":\"")
               .append(item.getCommentary() != null ? escapeJson(item.getCommentary()) : "暂无简评")
               .append("\"}");
         }
@@ -305,12 +387,20 @@ public class PdfReportServiceImpl implements PdfReportService {
     private String buildReduceSystemPrompt() {
         return """
             你是海枫未来规划院的首席志愿规划专家。请根据提供的各大学AI简评浓缩数据，进行全局博弈分析。
-            请输出以下三个部分（用 === 分隔）：
-            1. 全局宏观全景研判：分析哪些属于高风险高收益，哪些属于性价比之王
-            2. SWOT象限分析：城市地域红利VS学校名气光环的博弈辩证
-            3. 海枫强烈推荐填报梯队顺序：综合考虑概率、城市、行业，给出排兵布阵建议
+            数据中包含城市产业信息（城市产业）和专业就业数据（就业率、薪资），请在分析中参考这些数据。
+            请输出以下三个部分，每部分用 Markdown ## 标题分隔：
+            ## 全局宏观全景研判
+            分析哪些属于高风险高收益，哪些属于性价比之王
 
-            要求：不要重复各校的简评内容，只做交叉对比和全局统筹。
+            ## SWOT象限分析
+            城市地域红利VS学校名气光环的博弈辩证
+
+            ## 海枫强烈推荐填报梯队顺序
+            综合考虑概率、城市、行业，给出排兵布阵建议
+
+            要求：
+            1. 不要重复各校的简评内容，只做交叉对比和全局统筹
+            2. 使用Markdown格式输出（可使用**加粗**、- 列表、表格等）
             """;
     }
 
@@ -322,12 +412,50 @@ public class PdfReportServiceImpl implements PdfReportService {
                     .recommendation("")
                     .build();
         }
-        String[] parts = response.split("===", 3);
+
+        // 优先按 ## 标题分割（新格式）
+        if (response.contains("## ")) {
+            String globalAnalysis = extractSection(response, "全局宏观全景研判");
+            String swot = extractSection(response, "SWOT象限分析");
+            String recommendation = extractSection(response, "海枫强烈推荐填报梯队顺序");
+            return ReduceResult.builder()
+                    .globalAnalysis(globalAnalysis)
+                    .swot(swot)
+                    .recommendation(recommendation)
+                    .build();
+        }
+
+        // fallback: 旧格式用 === 分割
+        String[] parts = response.split("={3,}", 3);
         return ReduceResult.builder()
                 .globalAnalysis(parts.length > 0 ? parts[0].trim() : "")
                 .swot(parts.length > 1 ? parts[1].trim() : "")
                 .recommendation(parts.length > 2 ? parts[2].trim() : "")
                 .build();
+    }
+
+    /**
+     * 从 Markdown 响应中提取指定 ## 标题下的内容（到下一个 ## 或文本末尾）
+     */
+    private String extractSection(String text, String sectionTitle) {
+        // 匹配 ## {sectionTitle} 开始，到下一个 ## 或文本结束
+        String[] lines = text.split("\n");
+        StringBuilder content = new StringBuilder();
+        boolean inSection = false;
+        for (String line : lines) {
+            if (line.trim().startsWith("## ")) {
+                if (inSection) {
+                    break; // 遇到下一个 ## 标题，结束当前段
+                }
+                if (line.contains(sectionTitle)) {
+                    inSection = true;
+                    continue; // 跳过标题行本身
+                }
+            } else if (inSection) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString().trim();
     }
 
     private void updateReportFailed(Integer recordId, String reason) {
@@ -359,6 +487,17 @@ public class PdfReportServiceImpl implements PdfReportService {
                    .replace("\n", "\\n")
                    .replace("\r", "\\r")
                    .replace("\t", "\\t");
+    }
+
+    private String jsonArray(List<String> items) {
+        if (items == null || items.isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(escapeJson(items.get(i))).append("\"");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     // ===================== 历史记录查询 =====================
@@ -396,5 +535,10 @@ public class PdfReportServiceImpl implements PdfReportService {
                 .failReason(report.getFailReason())
                 .createdAt(report.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    public byte[] renderPdf(Long userId, Integer recordId) {
+        return pdfRenderService.renderPdf(userId, recordId);
     }
 }

@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.contentManagement.NoticeService;
 import com.haifeng.admin.vo.employment.contentManagement.notice.NoticeDetailVO;
 import com.haifeng.admin.vo.employment.contentManagement.notice.NoticeListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +17,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 招聘内容管理 - 公告管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/content-management/notice")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_content_notice")
 public class NoticeController {
 
     private final NoticeService noticeService;

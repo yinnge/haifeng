@@ -104,7 +104,7 @@ public class ApiKeyPool {
     }
 
     private List<ModelProviderConfig> loadEnabledProviders() {
-        List<ModelProvider> records = modelProviderMapper.findAllEnabledByType("model");
+        List<ModelProvider> records = modelProviderMapper.findAllEnabledByType("ai");
         if (records == null || records.isEmpty()) {
             return Collections.emptyList();
         }
@@ -120,6 +120,9 @@ public class ApiKeyPool {
             providers.add(ModelProviderConfig.builder()
                     .id(record.getId())
                     .apiKey(record.getApiKey().trim())
+                    .baseUrl(StringUtils.hasText(record.getBaseUrl())
+                            ? record.getBaseUrl().trim()
+                            : properties.getBaseUrl())
                     .modelName(record.getModelName().trim())
                     .providerName(normalize(record.getProviderName()))
                     .build());

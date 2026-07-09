@@ -7,6 +7,7 @@ import com.haifeng.admin.service.algorithm.admission.AdmissionMajorScoreService;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionMajorScoreDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionMajorScoreListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/admission/major-score")
 @RequiredArgsConstructor
+@RequireAdminModule("algo_admission_dtl")
 public class AdmissionMajorScoreController {
 
     private final AdmissionMajorScoreService admissionMajorScoreService;

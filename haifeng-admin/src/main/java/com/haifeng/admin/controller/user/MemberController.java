@@ -8,14 +8,19 @@ import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.vo.user.MemberDetailVO;
 import com.haifeng.admin.vo.user.MemberListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 用户管理 - C端用户信息查询、状态管理、会员升级
+ */
 @RestController
 @RequestMapping("/api/v1/admin/user")
 @RequiredArgsConstructor
+@RequireAdminModule("user_member")
 public class MemberController {
 
     private final MemberService memberService;

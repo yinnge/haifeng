@@ -10,15 +10,22 @@ import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.MajorPostgradDirectionDetailVO;
 import com.haifeng.admin.vo.major.MajorPostgradDirectionListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 本科专业-考研方向关联管理（本科专业→考研专业的映射）
+ */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/major-postgrad-direction")
 @RequiredArgsConstructor
+@RequireAdminModule("major_postgraduate")
 public class MajorPostgradDirectionController {
 
     private final MajorPostgradDirectionService majorPostgradDirectionService;
@@ -35,6 +42,7 @@ public class MajorPostgradDirectionController {
      * 获取关联详情
      */
     @GetMapping("/{id}")
+    @OperationLog(module = "本科专业-考研方向关联管理", action = "查看关联详情")
     public R<MajorPostgradDirectionDetailVO> getDetail(@PathVariable Long id) {
         return R.ok(majorPostgradDirectionService.getDetail(id));
     }
@@ -72,7 +80,7 @@ public class MajorPostgradDirectionController {
     /**
      * 批量删除关联（硬删除）
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "本科专业-考研方向关联管理", action = "批量删除关联")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         majorPostgradDirectionService.batchDelete(dto.getIds());
@@ -85,6 +93,13 @@ public class MajorPostgradDirectionController {
     @PostMapping("/import")
     @OperationLog(module = "本科专业-考研方向关联管理", action = "导入关联数据")
     public R<ImportResultVO> importData(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         return R.ok(majorPostgradDirectionService.importData(file));
     }
 }

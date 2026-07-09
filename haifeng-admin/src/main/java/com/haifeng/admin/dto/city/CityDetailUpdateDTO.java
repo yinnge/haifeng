@@ -143,9 +143,4 @@ public class CityDetailUpdateDTO {
      * 文化娱乐
      */
     private Map<String, Object> culture;
-
-    /**
-     * 删除状态
-     */
-    private Boolean isDeleted;
 }

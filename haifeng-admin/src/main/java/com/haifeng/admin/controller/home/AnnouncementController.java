@@ -5,14 +5,21 @@ import com.haifeng.admin.dto.home.*;
 import com.haifeng.admin.service.home.AnnouncementService;
 import com.haifeng.admin.vo.home.*;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 首页管理 - 公告管理
+ */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/home/announcement")
 @RequiredArgsConstructor
+@RequireAdminModule("home_announcement")
 public class AnnouncementController {
 
     private final AnnouncementService announcementService;
