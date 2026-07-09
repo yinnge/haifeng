@@ -10,6 +10,7 @@ import com.haifeng.admin.service.university.SubjectEvaluationService;
 import com.haifeng.admin.vo.university.SubjectEvaluationDetailVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/admin/university/subject-evaluation")
 @RequiredArgsConstructor
+@RequireAdminModule("university_eval")
 public class SubjectEvaluationController {
 
     private final SubjectEvaluationService subjectEvaluationService;

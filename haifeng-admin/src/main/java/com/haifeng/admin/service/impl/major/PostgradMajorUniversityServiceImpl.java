@@ -113,15 +113,14 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                softDelete(id);
-            } catch (BusinessException e) {
-                log.warn("批量软删除跳过不存在的考研专业-大学关联: id={}", id);
-            }
-        }
+        OffsetDateTime now = OffsetDateTime.now();
+        LambdaUpdateWrapper<PostgradMajorUniversity> wrapper = new LambdaUpdateWrapper<PostgradMajorUniversity>()
+                .in(PostgradMajorUniversity::getId, ids)
+                .set(PostgradMajorUniversity::getStatus, (short) 0)
+                .set(PostgradMajorUniversity::getUpdatedAt, now);
+        int updated = postgradMajorUniversityMapper.update(null, wrapper);
 
-        log.info("批量软删除考研专业-大学关联完成: 请求数量={}", ids.size());
+        log.info("批量软删除考研专业-大学关联完成: 请求数量={}, 实际更新={}", ids.size(), updated);
     }
 
     @Override
@@ -131,15 +130,9 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        for (Long id : ids) {
-            try {
-                hardDelete(id);
-            } catch (BusinessException e) {
-                log.warn("批量硬删除跳过不存在的考研专业-大学关联: id={}", id);
-            }
-        }
+        int deleted = postgradMajorUniversityMapper.deleteBatchIds(ids);
 
-        log.info("批量硬删除考研专业-大学关联完成: 请求数量={}", ids.size());
+        log.info("批量硬删除考研专业-大学关联完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
 
     @Override

@@ -5,12 +5,17 @@ import com.haifeng.admin.dto.system.ModelProviderCreateDTO;
 import com.haifeng.admin.dto.system.ModelProviderQueryDTO;
 import com.haifeng.admin.dto.system.ModelProviderStatusDTO;
 import com.haifeng.admin.dto.system.ModelProviderUpdateDTO;
+import com.haifeng.admin.service.system.AiBalanceService;
 import com.haifeng.admin.service.system.ModelProviderService;
+import com.haifeng.admin.vo.system.AiBalanceVO;
 import com.haifeng.admin.vo.system.ModelProviderVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,14 +24,20 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 系统管理 - 模型供应商配置（Spring AI 服务商/模型管理）
+ */
 @RestController
 @RequestMapping("/api/v1/admin/system/model-providers")
 @RequiredArgsConstructor
+@RequireAdminModule("system_provider")
 public class ModelProviderController {
 
     private final ModelProviderService modelProviderService;
+    private final AiBalanceService aiBalanceService;
 
     /**
      * 分页查询模型供应商配置列表
@@ -81,5 +92,14 @@ public class ModelProviderController {
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody ModelProviderStatusDTO dto) {
         modelProviderService.updateStatus(id, dto);
         return R.ok();
+    }
+
+    /**
+     * 查询 DeepSeek 厂商余额
+     */
+    @GetMapping("/balance")
+    public R<List<AiBalanceVO>> getBalance(
+            @RequestParam(required = false, defaultValue = "false") Boolean refresh) {
+        return R.ok(aiBalanceService.getDeepSeekBalances(refresh));
     }
 }

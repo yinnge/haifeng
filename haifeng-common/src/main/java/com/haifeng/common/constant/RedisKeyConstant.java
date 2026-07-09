@@ -98,6 +98,22 @@ public final class RedisKeyConstant {
     }
 
     /**
+     * Token 版本号
+     */
+    public static final String TOKEN_VERSION_PREFIX = "haifeng:token:version:";
+
+    /**
+     * 获取 Token 版本号 Key
+     *
+     * @param userId   用户ID
+     * @param userType 用户类型（admin/member）
+     * @return Redis Key
+     */
+    public static String getTokenVersionKey(Long userId, String userType) {
+        return TOKEN_VERSION_PREFIX + userType + ":" + userId;
+    }
+
+    /**
      * 获取管理员登录失败计数 Key
      *
      * @param phone 手机号

@@ -8,20 +8,27 @@ import com.haifeng.admin.dto.permission.RoleUpdateDTO;
 import com.haifeng.admin.service.permission.RoleService;
 import com.haifeng.admin.vo.permission.RoleDetailVO;
 import com.haifeng.admin.vo.permission.RoleListVO;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 权限管理 - 角色管理（含角色-模块绑定）
+ */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/permission/roles")
+@RequireAdminModule("permission_role")
 @RequiredArgsConstructor
 public class RoleController {
 
     private final RoleService roleService;
 
     @GetMapping
-    public R<IPage<RoleListVO>> page(RoleQueryDTO dto) {
+    public R<IPage<RoleListVO>> page(@Valid RoleQueryDTO dto) {
         IPage<RoleListVO> page = roleService.page(dto);
         return R.ok(page);
     }

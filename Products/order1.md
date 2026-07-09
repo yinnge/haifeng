@@ -179,6 +179,7 @@ Content-Type: application/json
 **说明：**
 - 连续5次密码错误将锁定账号30分钟
 - 如果管理员开启了 TOTP，返回 code=20001，需调用 TOTP 登录接口
+- 接口限流：10次/60秒，超限返回 429
 
 ---
 
@@ -221,6 +222,7 @@ Content-Type: application/json
 **说明：**
 - preAuthToken 有效期 2 分钟，过期需重新登录
 - totpCode 为 Google Authenticator 等 App 显示的 6 位数字
+- 接口限流：10次/60秒，超限返回 429
 
 ---
 
@@ -629,9 +631,10 @@ Authorization: Bearer {accessToken}
 | 错误码 | 说明 |
 |--------|------|
 | 200 | 成功 |
-| 400 | 参数错误 / 用户名已存在 / 手机号已存在 / 邀请码无效 / 验证码错误 |
+| 400 | 参数错误 / 用户名已存在 / 手机号已存在 / 邀请码无效 / 验证码错误 / 数据已存在 |
 | 401 | 未登录或 Token 过期 |
 | 403 | 无权限 / 账号已禁用 |
+| 429 | 请求过于频繁，请稍后重试 |
 | 1001 | 用户不存在 |
 | 1002 | 密码错误 |
 | 1003 | 会员已过期 |
@@ -639,6 +642,7 @@ Authorization: Bearer {accessToken}
 | 1005 | 权限不足（需要旗舰版） |
 | 1006 | 账号已锁定，请30分钟后重试 |
 | 20001 | 需进行二次验证（TOTP） |
+| 1007 | 无权访问该模块（管理员无对应模块权限） |
 
 ---
 
@@ -788,6 +792,19 @@ public R<Void> vipFeature() {
     // 仅 VIP 会员可访问（旗舰版专属）
 }
 ```
+
+### @RequireAdminModule - 需要管理端模块权限
+```java
+@RequireAdminModule("permission_module")
+@RestController
+@RequestMapping("/api/v1/admin/permission/modules")
+public class ModuleController {
+    // 只有 role 绑定了 permission_module 模块的管理员才能访问
+}
+```
+- 注解加在 Controller 类上，该类所有接口自动受控
+- 根据管理员角色关联的模块权限进行校验
+- 无权访问时返回 code=1007（无权访问该模块）
 
 ---
 
@@ -1001,7 +1018,7 @@ Content-Type: application/json
 ```
 
 **说明：**
-- 如果传入的是父模块ID（level=1），会自动关联其所有子模块
+- 会自动递归关联所有层级的子模块（不限于一级子模块）
 - 每次调用会先清除该角色的所有旧关联，再建立新关联
 
 ---
@@ -1019,7 +1036,7 @@ GET /api/v1/admin/permission/admins
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数，默认10 |
 | username | String | 否 | 用户名（模糊搜索） |
-| phone | String | 否 | 手机号（模糊搜索） |
+| phone | String | 否 | 手机号（精确匹配） |
 | realName | String | 否 | 真实姓名（模糊搜索） |
 | status | Integer | 否 | 状态（0=禁用，1=启用） |
 
@@ -1123,9 +1140,19 @@ GET /api/v1/admin/permission/modules
 **请求参数：**
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| moduleCode | String | 否 | 模块编码（精确匹配） |
+| keyword | String | 否 | 全局关键词，同时搜索编码/名称/路径 |
+| exactMatch | Boolean | 否 | true=精准匹配，false=模糊匹配（默认false） |
+| moduleName | String | 否 | 模块名称（模糊/精准取决于 exactMatch） |
+| moduleCode | String | 否 | 模块编码（模糊/精准取决于 exactMatch） |
+| path | String | 否 | 路由路径（模糊/精准取决于 exactMatch） |
+| status | Integer | 否 | 状态（0=禁用，1=启用） |
+| level | Integer | 否 | 层级（1/2/3） |
 
-**说明：** 返回树形结构，无分页
+**说明：**
+- 返回树形结构，无分页
+- keyword 与具体字段(moduleName/moduleCode/path)二选一，同时传时 keyword 优先
+- 搜索时自动补齐祖先节点，保证树形结构完整
+- 接口权限：@RequireAdminModule("permission_module"）
 
 ---
 
@@ -1144,7 +1171,7 @@ Content-Type: application/json
 | path | String | 否 | 路由路径（最长200字符） |
 | icon | String | 否 | 图标（最长50字符） |
 | sortOrder | Integer | 否 | 排序（默认0，数值越小越靠前） |
-| level | Integer | 是 | 层级（1=父模块，2=子模块） |
+| level | Integer | 是 | 层级（1=父模块，2=子模块，3=三级模块） |
 | description | String | 否 | 描述（最长255字符） |
 
 **请求示例：**
@@ -1160,6 +1187,10 @@ Content-Type: application/json
   "description": "用户管理模块"
 }
 ```
+
+**说明：**
+- 如果传了 parentId，level 会根据父模块层级自动计算（父level+1），传值会被覆盖
+- 接口权限：@RequireAdminModule("permission_module"）
 
 ---
 
@@ -1178,7 +1209,7 @@ Content-Type: application/json
 | path | String | 否 | 路由路径（最长200字符） |
 | icon | String | 否 | 图标（最长50字符） |
 | sortOrder | Integer | 否 | 排序 |
-| level | Integer | 是 | 层级（1=父模块，2=子模块） |
+| level | Integer | 是 | 层级（1=父模块，2=子模块，3=三级模块） |
 | description | String | 否 | 描述（最长255字符） |
 
 **请求示例：**
@@ -1193,6 +1224,11 @@ Content-Type: application/json
   "description": "用户管理相关功能"
 }
 ```
+
+**说明：**
+- 如果传了 parentId，level 会根据父模块层级自动计算
+- 修改 parentId 时会自动检测循环引用（不可将子模块设为父模块）
+- 接口权限：@RequireAdminModule("permission_module"）
 
 ---
 
@@ -1224,16 +1260,13 @@ PUT /api/v1/admin/permission/modules/{id}/toggle-status
 
 ---
 
-## 模糊搜索说明
+## 搜索方式说明
 
-以下字段支持模糊搜索（LIKE %keyword%）：
-
-| 模块 | 支持模糊搜索的字段 |
-|------|------------------|
-| 角色列表 | roleName（角色名称） |
-| 管理员列表 | username（用户名）、phone（手机号）、realName（真实姓名） |
-| 会员列表 | username（用户名）、phone（手机号） |
-
-**精确匹配字段：**
-- 模块列表：moduleCode（模块编码）
-- 所有 status 字段：0 或 1
+| 模块 | 支持搜索的字段 | 搜索方式 |
+|------|-------------|---------|
+| 角色列表 | roleName（角色名称） | 模糊搜索(LIKE) |
+| 管理员列表 | username（用户名）、realName（真实姓名） | 模糊搜索 |
+| 管理员列表 | phone（手机号） | 精确匹配 |
+| 模块列表（树形） | keyword（全局关键词）、moduleName、moduleCode、path | 支持 exactMatch 开关，false=模糊，true=精准 |
+| 模块列表（树形） | status、level | 精确匹配 |
+| 所有列表 | status | 精确匹配（0=禁用，1=启用） |

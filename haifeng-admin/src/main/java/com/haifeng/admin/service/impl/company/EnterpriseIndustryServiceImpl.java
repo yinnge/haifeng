@@ -207,8 +207,8 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             }
 
             // 批量插入
-            for (EnterpriseIndustry entity : records) {
-                enterpriseIndustryMapper.insert(entity);
+            if (!records.isEmpty()) {
+                enterpriseIndustryMapper.insertBatch(records);
             }
             log.info("导入企业行业关联成功，数量={}", records.size());
 

@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.civilService.MilitaryPositionService
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +17,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 体制内招录 - 部队文职岗位管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/civil-service/military-position")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_civil_military")
 public class MilitaryPositionController {
 
     private final MilitaryPositionService militaryPositionService;

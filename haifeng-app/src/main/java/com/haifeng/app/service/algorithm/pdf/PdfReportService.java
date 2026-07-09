@@ -38,4 +38,13 @@ public interface PdfReportService {
      * @return 记录详情
      */
     PdfRecordDetailVO getRecordDetail(Long userId, Integer recordId);
+
+    /**
+     * 渲染 PDF 报告为字节流
+     *
+     * @param userId   用户ID（权限校验）
+     * @param recordId 报告记录ID
+     * @return PDF 字节数组
+     */
+    byte[] renderPdf(Long userId, Integer recordId);
 }

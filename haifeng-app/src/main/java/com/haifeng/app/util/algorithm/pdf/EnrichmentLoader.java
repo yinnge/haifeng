@@ -1,0 +1,129 @@
+package com.haifeng.app.util.algorithm.pdf;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
+import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
+import com.haifeng.common.entity.city.City;
+import com.haifeng.common.entity.city.CityDetail;
+import com.haifeng.common.entity.major.Major;
+import com.haifeng.common.entity.major.MajorDetail;
+import com.haifeng.common.mapper.city.CityDetailMapper;
+import com.haifeng.common.mapper.city.CityMapper;
+import com.haifeng.common.mapper.major.MajorDetailMapper;
+import com.haifeng.common.mapper.major.MajorMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.Map;
+
+/**
+ * PDF 报告数据增强加载器
+ * <p>直接使用 Mapper 查询（非 Service），以便在数据缺失时返回 null 优雅降级。
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class EnrichmentLoader {
+
+    private final CityMapper cityMapper;
+    private final CityDetailMapper cityDetailMapper;
+    private final MajorMapper majorMapper;
+    private final MajorDetailMapper majorDetailMapper;
+
+    /**
+     * 按城市名加载城市增强数据
+     *
+     * @param cityName 城市名
+     * @return 城市增强数据，查询失败时返回 null
+     */
+    public CityEnrichmentVO loadCity(String cityName) {
+        if (cityName == null || cityName.isBlank()) {
+            return null;
+        }
+        try {
+            City city = cityMapper.selectOne(
+                    new LambdaQueryWrapper<City>()
+                            .eq(City::getCityName, cityName)
+                            .eq(City::getIsDeleted, false)
+                            .last("LIMIT 1"));
+            if (city == null) {
+                return null;
+            }
+
+            CityDetail detail = cityDetailMapper.findByCityId(city.getId());
+
+            CityEnrichmentVO.CityEnrichmentVOBuilder builder = CityEnrichmentVO.builder()
+                    .cityName(city.getCityName())
+                    .gdp(city.getGdp());
+
+            if (detail != null) {
+                builder.cityLevel(detail.getCityLevel())
+                        .gdpGrowthRate(detail.getGdpGrowthRate())
+                        .fortune500Count(detail.getFortune500Count())
+                        .mainIndustries(detail.getMainIndustries())
+                        .emergingIndustries(detail.getEmergingIndustries())
+                        .industryDescription(detail.getIndustryDescription());
+
+                // 从 employment JSONB 提取 avgSalary / unemploymentRate
+                Map<String, Object> employment = detail.getEmployment();
+                if (employment != null) {
+                    Object avgSalary = employment.get("avgSalary");
+                    if (avgSalary instanceof Number) {
+                        builder.avgSalary(new BigDecimal(avgSalary.toString()));
+                    }
+                    Object unemploymentRate = employment.get("unemploymentRate");
+                    if (unemploymentRate instanceof Number) {
+                        builder.unemploymentRate(new BigDecimal(unemploymentRate.toString()));
+                    }
+                }
+            }
+
+            return builder.build();
+        } catch (Exception e) {
+            log.warn("加载城市增强数据失败, cityName={}: {}", cityName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 按专业ID加载专业增强数据
+     *
+     * @param majorId 专业ID
+     * @return 专业增强数据，查询失败时返回 null
+     */
+    public MajorEnrichmentVO loadMajor(Long majorId) {
+        if (majorId == null) {
+            return null;
+        }
+        try {
+            Major major = majorMapper.selectById(majorId);
+            if (major == null) {
+                return null;
+            }
+
+            MajorDetail detail = majorDetailMapper.selectByMajorId(majorId);
+
+            MajorEnrichmentVO.MajorEnrichmentVOBuilder builder = MajorEnrichmentVO.builder()
+                    .majorName(major.getMajorName())
+                    .majorCategory(major.getMajorCategory())
+                    .parentCategory(major.getParentCategory())
+                    .majorTags(major.getMajorTags())
+                    .degreeAwarded(major.getDegreeAwarded())
+                    .employmentRate(major.getEmploymentRate())
+                    .salaryMin(major.getSalaryMin())
+                    .salaryMax(major.getSalaryMax())
+                    .description(major.getDescription());
+
+            if (detail != null) {
+                builder.careerProspect(detail.getCareerProspect());
+            }
+
+            return builder.build();
+        } catch (Exception e) {
+            log.warn("加载专业增强数据失败, majorId={}: {}", majorId, e.getMessage());
+            return null;
+        }
+    }
+}

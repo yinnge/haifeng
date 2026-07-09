@@ -34,6 +34,7 @@ public class JwtUtil {
     private static final String CLAIM_TOKEN_TYPE = "tokenType";
     private static final String CLAIM_USER_TYPE = "userType";
     private static final String CLAIM_MEMBER_TYPE = "memberType";
+    private static final String CLAIM_TOKEN_VERSION = "tokenVersion";
     private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     public static final String USER_TYPE_ADMIN = "admin";
@@ -57,10 +58,18 @@ public class JwtUtil {
      * 生成 AccessToken（2小时）- 完整版本
      */
     public String generateAccessToken(Long userId, String userType, String memberType) {
+        return generateAccessToken(userId, userType, memberType, 0);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 含 tokenVersion
+     */
+    public String generateAccessToken(Long userId, String userType, String memberType, Integer tokenVersion) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_USER_ID, userId);
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS);
         claims.put(CLAIM_USER_TYPE, userType);
+        claims.put(CLAIM_TOKEN_VERSION, tokenVersion);
         if (memberType != null) {
             claims.put(CLAIM_MEMBER_TYPE, memberType);
         }
@@ -184,6 +193,14 @@ public class JwtUtil {
             return null;
         }
         return claims.get(CLAIM_MEMBER_TYPE, String.class);
+    }
+
+    /**
+     * 从 Claims 中获取 tokenVersion
+     */
+    public Integer getTokenVersionFromClaims(Claims claims) {
+        if (claims == null) return null;
+        return claims.get(CLAIM_TOKEN_VERSION, Integer.class);
     }
 
     /**

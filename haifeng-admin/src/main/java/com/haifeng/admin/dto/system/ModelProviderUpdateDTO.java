@@ -13,6 +13,9 @@ public class ModelProviderUpdateDTO {
     @ToString.Exclude
     private String apiKey;
 
+    @Size(max = 255, message = "Base URL长度不能超过255")
+    private String baseUrl;
+
     @NotBlank(message = "模型名称不能为空")
     @Size(max = 100, message = "模型名称长度不能超过100")
     private String modelName;

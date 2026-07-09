@@ -9,6 +9,7 @@ import com.haifeng.admin.service.resource.ResourceService;
 import com.haifeng.admin.vo.resource.ResourceDetailVO;
 import com.haifeng.admin.vo.resource.ResourceListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/resource")
 @RequiredArgsConstructor
+@RequireAdminModule("resource_info")
 public class ResourceController {
 
     private final ResourceService resourceService;

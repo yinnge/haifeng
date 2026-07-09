@@ -7,14 +7,19 @@ import com.haifeng.admin.dto.profile.TotpVerifyDTO;
 import com.haifeng.admin.service.profile.ProfileService;
 import com.haifeng.admin.vo.profile.ProfileVO;
 import com.haifeng.admin.vo.profile.TotpEnableVO;
+import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 个人中心 - 管理员个人信息、修改密码、TOTP 两步验证设置
+ */
 @RestController
 @RequestMapping("/api/v1/admin/profile")
 @RequiredArgsConstructor
+@RequireLogin(userType = "admin")
 public class ProfileController {
 
     private final ProfileService profileService;

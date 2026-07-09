@@ -1,8 +1,7 @@
--- ============================================================
+-- V28__create_member_gaokao_tables.sql
 -- 用户高考档案表 (t_member_gaokao)
 -- 描述：一个用户一条记录，存储高考的所有业务信息
 --       系统推荐算法的核心输入数据
--- ============================================================
 
 BEGIN;
 
@@ -68,19 +67,39 @@ CREATE TABLE IF NOT EXISTS t_member_gaokao (
 );
 
 -- 索引
-CREATE INDEX idx_mg_member ON t_member_gaokao (member_id);
-CREATE INDEX idx_mg_province_year ON t_member_gaokao (gaokao_province, gaokao_year);
-CREATE INDEX idx_mg_score ON t_member_gaokao (score DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_mg_member ON t_member_gaokao (member_id);
+CREATE INDEX IF NOT EXISTS idx_mg_province_year ON t_member_gaokao (gaokao_province, gaokao_year);
+CREATE INDEX IF NOT EXISTS idx_mg_score ON t_member_gaokao (score DESC NULLS LAST);
 
--- 外键
-ALTER TABLE t_member_gaokao
-    ADD CONSTRAINT fk_mg_member
-    FOREIGN KEY (member_id) REFERENCES t_member(id);
+-- 外键（仅当不存在时添加）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'fk_mg_member'
+          AND conrelid = 't_member_gaokao'::regclass
+    ) THEN
+        ALTER TABLE t_member_gaokao
+            ADD CONSTRAINT fk_mg_member
+            FOREIGN KEY (member_id) REFERENCES t_member(id);
+    END IF;
+END
+$$;
 
--- 触发器
-CREATE TRIGGER trg_mg_updated_at
-    BEFORE UPDATE ON t_member_gaokao
-    FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
+-- 触发器（仅当不存在时创建）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'trg_mg_updated_at'
+          AND tgrelid = 't_member_gaokao'::regclass
+    ) THEN
+        CREATE TRIGGER trg_mg_updated_at
+            BEFORE UPDATE ON t_member_gaokao
+            FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
+    END IF;
+END
+$$;
 
 -- 注释
 COMMENT ON TABLE  t_member_gaokao IS '用户高考档案表：一人一条，志愿算法核心输入';

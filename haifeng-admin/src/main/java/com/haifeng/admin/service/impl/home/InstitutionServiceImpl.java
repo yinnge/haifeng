@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -75,6 +76,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long add(InstitutionAddDTO dto) {
         OffsetDateTime now = OffsetDateTime.now();
         Long id = SnowflakeIdGenerator.nextId();
@@ -103,6 +105,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, InstitutionUpdateDTO dto) {
         Institution institution = institutionMapper.selectById(id);
         if (institution == null || institution.getDeleted()) {
@@ -126,6 +129,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, StatusDTO dto) {
         Institution institution = institutionMapper.selectById(id);
         if (institution == null || institution.getDeleted()) {
@@ -147,7 +151,7 @@ public class InstitutionServiceImpl implements InstitutionService {
             throw new BusinessException(404, "培训机构不存在");
         }
 
-        institutionMapper.deleteById(id);
+        institutionMapper.hardDeleteById(id);
 
         log.info("硬删除培训机构成功: id={}", id);
     }

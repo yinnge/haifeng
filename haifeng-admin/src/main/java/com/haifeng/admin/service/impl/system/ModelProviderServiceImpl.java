@@ -68,6 +68,7 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         String providerName = normalizeProviderName(dto.getProviderName());
         ModelProvider modelProvider = ModelProvider.builder()
                 .apiKey(dto.getApiKey())
+                .baseUrl(dto.getBaseUrl())
                 .modelName(dto.getModelName())
                 .providerName(providerName)
                 .type(dto.getType())
@@ -88,6 +89,9 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         ModelProvider modelProvider = getExisting(id);
         if (StringUtils.hasText(dto.getApiKey())) {
             modelProvider.setApiKey(dto.getApiKey());
+        }
+        if (dto.getBaseUrl() != null) {
+            modelProvider.setBaseUrl(dto.getBaseUrl());
         }
         String providerName = normalizeProviderName(dto.getProviderName());
         modelProvider.setModelName(dto.getModelName());

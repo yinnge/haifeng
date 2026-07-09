@@ -8,7 +8,7 @@ import com.haifeng.admin.service.employment.contentManagement.ExamGuideService;
 import com.haifeng.admin.vo.employment.contentManagement.guide.ExamGuideDetailVO;
 import com.haifeng.admin.vo.employment.contentManagement.guide.ExamGuideListVO;
 import com.haifeng.common.annotation.OperationLog;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,14 +17,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequireLogin
+/**
+ * 招聘内容管理 - 备考指南管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/employment/content-management/exam-guide")
 @RequiredArgsConstructor
+@RequireAdminModule("emp_content_guide")
 public class ExamGuideController {
 
     private final ExamGuideService examGuideService;
-
     @GetMapping("/list")
     public R<IPage<ExamGuideListVO>> list(@Valid ExamGuideQueryDTO dto) {
         return R.ok(examGuideService.page(dto));

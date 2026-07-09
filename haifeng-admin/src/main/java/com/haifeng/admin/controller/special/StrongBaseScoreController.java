@@ -8,14 +8,19 @@ import com.haifeng.admin.service.special.StrongBaseScoreService;
 import com.haifeng.admin.vo.special.StrongBaseScoreDetailVO;
 import com.haifeng.admin.vo.special.StrongBaseScoreListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 特殊通道 - 强基计划分数/数据管理
+ */
 @RestController
 @RequestMapping("/api/v1/admin/special/strong-base-score")
 @RequiredArgsConstructor
+@RequireAdminModule("special_sbs_score")
 public class StrongBaseScoreController {
 
     private final StrongBaseScoreService strongBaseScoreService;

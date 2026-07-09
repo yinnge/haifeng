@@ -35,9 +35,9 @@ class AiQuotaServiceTest {
 
     @Test
     void firstCall_setsTtlToEndOfDay() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(null);
+        when(valueOps.get("sys:api_number")).thenReturn(null);
         when(settingsMapper.selectList(any())).thenReturn(Collections.singletonList(
-                SystemSettings.builder().universityApiNumber(5).build()));
+                SystemSettings.builder().apiNumber(5).build()));
         when(valueOps.increment(anyString())).thenReturn(1L);
 
         service.incrAndCheck(42L);
@@ -47,7 +47,7 @@ class AiQuotaServiceTest {
 
     @Test
     void underLimit_passes() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(5);
+        when(valueOps.get("sys:api_number")).thenReturn(5);
         when(valueOps.increment(anyString())).thenReturn(3L);
 
         service.incrAndCheck(42L);
@@ -55,7 +55,7 @@ class AiQuotaServiceTest {
 
     @Test
     void atLimit_passes() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(5);
+        when(valueOps.get("sys:api_number")).thenReturn(5);
         when(valueOps.increment(anyString())).thenReturn(5L);
 
         service.incrAndCheck(42L);
@@ -63,7 +63,7 @@ class AiQuotaServiceTest {
 
     @Test
     void overLimit_throwsQuotaExceeded() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(5);
+        when(valueOps.get("sys:api_number")).thenReturn(5);
         when(valueOps.increment(anyString())).thenReturn(6L);
 
         assertThatThrownBy(() -> service.incrAndCheck(42L))
@@ -71,34 +71,34 @@ class AiQuotaServiceTest {
     }
 
     @Test
-    void universityApiNumberLimit_cachedInRedis_skipsDb() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(7);
+    void apiNumberLimit_cachedInRedis_skipsDb() {
+        when(valueOps.get("sys:api_number")).thenReturn(7);
 
-        int limit = service.getUniversityApiNumberLimit();
+        int limit = service.getApiNumberLimit();
 
         org.assertj.core.api.Assertions.assertThat(limit).isEqualTo(7);
         verifyNoInteractions(settingsMapper);
     }
 
     @Test
-    void universityApiNumberLimit_cacheMiss_loadsFromDbAndCaches() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(null);
+    void apiNumberLimit_cacheMiss_loadsFromDbAndCaches() {
+        when(valueOps.get("sys:api_number")).thenReturn(null);
         when(settingsMapper.selectList(any())).thenReturn(Arrays.asList(
-                SystemSettings.builder().universityApiNumber(9).build()));
+                SystemSettings.builder().apiNumber(9).build()));
 
-        int limit = service.getUniversityApiNumberLimit();
+        int limit = service.getApiNumberLimit();
 
         org.assertj.core.api.Assertions.assertThat(limit).isEqualTo(9);
-        verify(valueOps).set(eq("sys:university_api_number"), eq(9), eq(5L), eq(java.util.concurrent.TimeUnit.MINUTES));
+        verify(valueOps).set(eq("sys:api_number"), eq(9), eq(5L), eq(java.util.concurrent.TimeUnit.MINUTES));
     }
 
     @Test
-    void universityApiNumberLimit_dbEmpty_fallbacksTo1() {
-        when(valueOps.get("sys:university_api_number")).thenReturn(null);
+    void apiNumberLimit_dbEmpty_fallbacksTo1() {
+        when(valueOps.get("sys:api_number")).thenReturn(null);
         when(settingsMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        int limit = service.getUniversityApiNumberLimit();
+        int limit = service.getApiNumberLimit();
 
-        org.assertj.core.api.Assertions.assertThat(limit).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(limit).isEqualTo(3);
     }
 }

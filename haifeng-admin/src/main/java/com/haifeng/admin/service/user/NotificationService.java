@@ -10,7 +10,7 @@ public interface NotificationService {
 
     IPage<NotificationListVO> page(NotificationQueryDTO dto);
 
-    int broadcast(NotificationBroadcastDTO dto);
+    void broadcast(NotificationBroadcastDTO dto);
 
     void delete(Long id);
 

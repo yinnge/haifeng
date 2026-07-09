@@ -14,10 +14,13 @@ import com.haifeng.common.entity.permission.SysRole;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.mapper.permission.SysRoleMapper;
+import com.haifeng.common.constant.RedisKeyConstant;
+import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -32,6 +35,8 @@ public class AdminServiceImpl implements AdminService {
     private final SysAdminMapper adminMapper;
     private final SysRoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redisTemplate;
+    private final JwtUtil jwtUtil;
 
     @Override
     public IPage<AdminListVO> page(AdminQueryDTO dto) {
@@ -44,7 +49,7 @@ public class AdminServiceImpl implements AdminService {
             wrapper.like(SysAdmin::getUsername, dto.getUsername());
         }
         if (StringUtils.hasText(dto.getPhone())) {
-            wrapper.like(SysAdmin::getPhone, dto.getPhone());
+            wrapper.eq(SysAdmin::getPhone, dto.getPhone());
         }
         if (StringUtils.hasText(dto.getRealName())) {
             wrapper.like(SysAdmin::getRealName, dto.getRealName());
@@ -127,13 +132,17 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void update(Long id, AdminUpdateDTO dto) {
-        if (id == 1L && dto.getRoleId() != null && dto.getRoleId() != 1L) {
-            throw new BusinessException(400, "默认管理员角色不可变更");
-        }
-
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null || admin.getDeleted()) {
             throw new BusinessException(404, "管理员不存在");
+        }
+
+        // 超级管理员角色不可变更（按 role_code 判断，不依赖固定 ID）
+        if (dto.getRoleId() != null && !admin.getRoleId().equals(dto.getRoleId())) {
+            SysRole currentRole = roleMapper.selectById(admin.getRoleId());
+            if (currentRole != null && "super_admin".equals(currentRole.getRoleCode())) {
+                throw new BusinessException(400, "超级管理员角色不可变更");
+            }
         }
 
         // 检查用户名是否重复（排除自己）
@@ -158,22 +167,27 @@ public class AdminServiceImpl implements AdminService {
             throw new BusinessException(400, "手机号已存在");
         }
 
-        // 查询角色
-        SysRole role = roleMapper.selectById(dto.getRoleId());
-        if (role == null || role.getDeleted()) {
+        // 查询目标角色
+        SysRole targetRole = roleMapper.selectById(dto.getRoleId());
+        if (targetRole == null || targetRole.getDeleted()) {
             throw new BusinessException(400, "角色不存在");
         }
 
         admin.setUsername(dto.getUsername());
         if (StringUtils.hasText(dto.getPassword())) {
             admin.setPassword(passwordEncoder.encode(dto.getPassword()));
+            admin.setTokenVersion(admin.getTokenVersion() == null ? 1 : admin.getTokenVersion() + 1);
+            String refreshKey = RedisKeyConstant.getRefreshTokenKey(id, JwtUtil.USER_TYPE_ADMIN);
+            redisTemplate.delete(refreshKey);
+            String versionKey = RedisKeyConstant.getTokenVersionKey(id, JwtUtil.USER_TYPE_ADMIN);
+            redisTemplate.opsForValue().increment(versionKey);
         }
         admin.setRealName(dto.getRealName());
         admin.setPhone(dto.getPhone());
         admin.setEmail(dto.getEmail());
         admin.setAvatar(dto.getAvatar());
         admin.setRoleId(dto.getRoleId());
-        admin.setRoleName(role.getRoleName());
+        admin.setRoleName(targetRole.getRoleName());
         if (dto.getStatus() != null) {
             admin.setStatus(dto.getStatus());
         }
@@ -185,13 +199,15 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public void delete(Long id) {
-        if (id == 1L) {
-            throw new BusinessException(400, "默认管理员不可删除");
-        }
-
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null || admin.getDeleted()) {
             throw new BusinessException(404, "管理员不存在");
+        }
+
+        // 超级管理员不可删除（按 role_code 判断）
+        SysRole role = roleMapper.selectById(admin.getRoleId());
+        if (role != null && "super_admin".equals(role.getRoleCode())) {
+            throw new BusinessException(400, "超级管理员不可删除");
         }
 
         // 硬删除：从数据库彻底删除
@@ -204,6 +220,12 @@ public class AdminServiceImpl implements AdminService {
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null || admin.getDeleted()) {
             throw new BusinessException(404, "管理员不存在");
+        }
+
+        // 超级管理员不可禁用（按 role_code 判断）
+        SysRole role = roleMapper.selectById(admin.getRoleId());
+        if (role != null && "super_admin".equals(role.getRoleCode())) {
+            throw new BusinessException(400, "超级管理员不可禁用");
         }
 
         // 切换状态：0→1 或 1→0

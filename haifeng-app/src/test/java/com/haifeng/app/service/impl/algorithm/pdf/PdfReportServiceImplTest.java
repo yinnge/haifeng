@@ -1,6 +1,7 @@
 package com.haifeng.app.service.impl.algorithm.pdf;
 
 import com.haifeng.app.service.algorithm.pdf.AiChatService;
+import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.vo.algorithm.pdf.ChatMessage;
 import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
@@ -34,6 +35,7 @@ class PdfReportServiceImplTest {
     private AiQuotaService quotaService = mock(AiQuotaService.class);
     private WishPlanService wishPlanService = mock(WishPlanService.class);
     private WishPlanMapper wishPlanMapper = mock(WishPlanMapper.class);
+    private PdfRenderService pdfRenderService = mock(PdfRenderService.class);
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private PdfReportServiceImpl service;
@@ -42,7 +44,7 @@ class PdfReportServiceImplTest {
     void setup() {
         service = new PdfReportServiceImpl(
                 pdfReportMapper, aiChatService, quotaService,
-                wishPlanService, objectMapper, wishPlanMapper);
+                wishPlanService, objectMapper, wishPlanMapper, pdfRenderService);
     }
 
     @Test

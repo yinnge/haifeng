@@ -7,18 +7,22 @@ import com.haifeng.admin.service.major.PostgradMajorUniversityService;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.PostgradMajorUniversityListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 考研专业-大学关联管理Controller
+ * 考研专业-大学关联管理（某考研专业在哪些大学开设）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/postgrad-major-university")
 @RequiredArgsConstructor
+@RequireAdminModule("major_univ")
 public class PostgradMajorUniversityController {
 
     private final PostgradMajorUniversityService postgradMajorUniversityService;
@@ -54,7 +58,7 @@ public class PostgradMajorUniversityController {
     /**
      * 批量软删除考研专业-大学关联
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-soft-delete")
     @OperationLog(module = "考研专业-大学关联管理", action = "批量软删除考研专业-大学关联")
     public R<Void> batchSoftDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         postgradMajorUniversityService.batchSoftDelete(dto.getIds());
@@ -64,7 +68,7 @@ public class PostgradMajorUniversityController {
     /**
      * 批量硬删除考研专业-大学关联
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "考研专业-大学关联管理", action = "批量硬删除考研专业-大学关联")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         postgradMajorUniversityService.batchHardDelete(dto.getIds());
@@ -77,6 +81,13 @@ public class PostgradMajorUniversityController {
     @PostMapping("/import")
     @OperationLog(module = "考研专业-大学关联管理", action = "导入考研专业-大学关联数据")
     public R<ImportResultVO> importPostgradMajorUniversity(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return R.fail(400, "请上传文件");
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || !fileName.endsWith(".xlsx")) {
+            return R.fail(400, "仅支持 .xlsx 格式文件");
+        }
         return R.ok(postgradMajorUniversityService.importPostgradMajorUniversity(file));
     }
 

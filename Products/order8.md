@@ -14,10 +14,10 @@
 ### 删除机制说明
 | 操作 | HTTP方法 | 路径 | 说明 |
 |------|----------|------|------|
-| 硬删除 | DELETE | `/{id}` | 物理删除记录，数据不可恢复 |
-| 批量硬删除 | DELETE | `/batch` | 批量物理删除记录 |
+| 硬删除 | DELETE | `/{id}` | 物理删除记录，数据不可恢复（已软删除的记录不可再硬删除） |
+| 批量硬删除 | POST | `/batch/delete` | 批量物理删除记录（请求体传ids） |
 | 禁用/启用 | PUT | `/{id}/status` | isDeleted=true禁用，isDeleted=false启用（软删除可恢复） |
-| 详情 | GET | `/{id}` | 查看详情 |
+| 详情 | GET | `/{id}` | 查看详情（已软删除的记录不可查看） |
 
 前端列表每行应显示：删除（硬删除）、禁用/启用、详情按钮
 
@@ -46,7 +46,7 @@ GET /api/v1/admin/city/list
 | cityName | String | 否 | 城市名称模糊查询 |
 | province | String | 否 | 省份模糊查询 |
 | region | String | 否 | 所属地区模糊查询 |
-| isDeleted | Boolean | 否 | 删除状态筛选 |
+| isDeleted | Boolean | 否 | 删除状态筛选，不传默认只查未删除的（isDeleted=false） |
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数，默认10 |
 
@@ -229,7 +229,9 @@ Authorization: Bearer {accessToken}
 |------|------|------|------|
 | id | Long | 是 | 城市ID |
 
-**请求参数：** 同新增（除cityName外均可选）
+**请求参数：** 同新增（除cityName外均可选），不包含 isDeleted 字段。修改禁用/启用状态请使用状态切换接口（1.6）。
+
+**业务说明：** 此接口不允许修改删除状态，仅可修改城市基础信息。如需禁用/启用城市，请使用 `PUT /{id}/status` 接口。
 
 **响应示例：**
 ```json
@@ -257,7 +259,9 @@ Authorization: Bearer {accessToken}
 |------|------|------|------|
 | id | Long | 是 | 城市ID |
 
-**请求参数：** 详情表所有JSONB字段
+**请求参数：** 详情表所有JSONB字段，不包含 isDeleted 字段。修改禁用/启用状态请使用状态切换接口（1.6）。
+
+**业务说明：** 此接口不允许修改删除状态，仅可修改详情信息。如需禁用/启用城市，请使用 `PUT /{id}/status` 接口。
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -322,7 +326,7 @@ Authorization: Bearer {accessToken}
 }
 ```
 
-**业务说明：** 物理删除主表+详情表记录，数据不可恢复。如需保留数据，请使用状态切换接口（1.6）。
+**业务说明：** 物理删除主表+详情表记录，数据不可恢复。仅未软删除的城市可执行硬删除，已软删除的城市请通过状态切换接口（1.6）恢复。如需保留数据，请使用状态切换接口（1.6）。
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -330,12 +334,16 @@ Authorization: Bearer {accessToken}
 
 ### 1.8 批量硬删除城市
 ```
-DELETE /api/v1/admin/city/batch
+POST /api/v1/admin/city/batch/delete
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
 
 **请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| ids | List&lt;Long&gt; | 是 | 城市ID列表，单次最多200条 |
+
 ```json
 [1234567890123456789, 1234567890123456790]
 ```
@@ -378,6 +386,10 @@ Authorization: Bearer {accessToken}
 | residentPopulation | 常住人口（万人） |
 | gdp | GDP（亿元） |
 
+**业务说明：**
+- 仅支持 .xlsx 格式文件
+- 文件不能为空
+
 **操作日志：** 此接口自动记录操作日志
 
 ---
@@ -411,6 +423,10 @@ Authorization: Bearer {accessToken}
 | Medical | 医疗数据 |
 | HousingPolicy | 住房政策数据 |
 | RentalCost | 租房成本数据 |
+
+**业务说明：**
+- 仅支持 .xlsx 格式文件
+- 文件不能为空
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -651,7 +667,7 @@ Authorization: Bearer {accessToken}
 
 ### 2.8 批量硬删除行业
 ```
-DELETE /api/v1/admin/industry/batch
+POST /api/v1/admin/industry/batch/delete
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
@@ -975,6 +991,7 @@ Authorization: Bearer {accessToken}
 | 401 | 未登录或 Token 过期 |
 | 403 | 无权限 |
 | 404 | 资源不存在 |
+| 429 | 请求过于频繁 |
 | 500 | 服务器内部错误 |
 
 ---
@@ -985,7 +1002,7 @@ Authorization: Bearer {accessToken}
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | BIGINT | 城市ID（雪花算法） |
-| city_name | VARCHAR(50) | 城市名称（唯一） |
+| city_name | VARCHAR(50) | 城市名称（未删除记录唯一，软删除后同名可复用） |
 | province | VARCHAR(30) | 所属省份 |
 | region | VARCHAR(20) | 所属地区（华东/华南/华北等） |
 | city_intro | TEXT | 城市简介 |

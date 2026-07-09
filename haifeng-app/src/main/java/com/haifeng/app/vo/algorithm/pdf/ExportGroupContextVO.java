@@ -25,6 +25,9 @@ public class ExportGroupContextVO {
     /** 院校ID */
     private Long universityId;
 
+    /** 院校名称 */
+    private String universityName;
+
     /** 城市名（唯一，用于 CityService.detailByName） */
     private String cityName;
 
@@ -39,4 +42,7 @@ public class ExportGroupContextVO {
 
     /** 该组下可导出的专业列表（is_exported=true，按 major_sort_order 升序） */
     private List<WishExportMajorVO> exportableMajors;
+
+    /** 城市增强数据（产业/GDP/薪资等，供 AI 分析与 PDF 展示） */
+    private CityEnrichmentVO cityEnrichment;
 }

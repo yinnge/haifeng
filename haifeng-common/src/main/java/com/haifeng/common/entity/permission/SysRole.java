@@ -26,6 +26,9 @@ public class SysRole {
 
     private Integer status;
 
+    @Version
+    private Integer version;
+
     @TableLogic
     @TableField("is_deleted")
     private Boolean deleted;

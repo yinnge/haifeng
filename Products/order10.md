@@ -33,7 +33,7 @@
 | POST | `/add` | 新增关联 |
 | PUT | `/{id}` | 修改关联 |
 | DELETE | `/{id}` | 删除关联（硬删除） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| POST | `/batch-delete` | 批量删除（硬删除） |
 | POST | `/import` | xlsx批量导入 |
 
 ### 1. 分页查询列表
@@ -135,9 +135,13 @@ DELETE /api/v1/admin/major-postgrad-direction/{id}
 
 **请求**
 ```
-DELETE /api/v1/admin/major-postgrad-direction/batch
+POST /api/v1/admin/major-postgrad-direction/batch-delete
 Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
 
+**请求参数：**
+```json
 {
   "ids": [1234567890, 1234567891]
 }

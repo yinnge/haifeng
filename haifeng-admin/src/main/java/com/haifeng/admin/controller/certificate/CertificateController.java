@@ -9,6 +9,7 @@ import com.haifeng.admin.service.certificate.CertificateService;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
 import com.haifeng.admin.vo.certificate.CertificateListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/certificate")
 @RequiredArgsConstructor
+@RequireAdminModule("certificate_info")
 public class CertificateController {
 
     private final CertificateService certificateService;
@@ -27,6 +29,7 @@ public class CertificateController {
     }
 
     @GetMapping("/{id}")
+    @OperationLog(module = "竞赛证书管理", action = "查看证书详情")
     public R<CertificateDetailVO> detail(@PathVariable Long id) {
         return R.ok(certificateService.getCertificateDetail(id));
     }
@@ -58,7 +61,7 @@ public class CertificateController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch/delete")
     @OperationLog(module = "竞赛证书管理", action = "批量硬删除证书")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         certificateService.batchHardDeleteCertificates(batchDTO.getIds());

@@ -1,6 +1,8 @@
 package com.haifeng.common.security;
 
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +13,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -31,6 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtUtil jwtUtil;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -39,12 +43,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = extractToken(request);
             if (StringUtils.hasText(token) && jwtUtil.validateToken(token) && jwtUtil.isAccessToken(token)) {
-                // 解析 Token 信息
+                Claims claims = jwtUtil.parseToken(token);
+                if (claims == null) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 Long userId = jwtUtil.getUserIdFromToken(token);
                 String userType = jwtUtil.getUserTypeFromToken(token);
                 String memberType = jwtUtil.getMemberTypeFromToken(token);
 
-                if (userId != null) {
+                if (userId != null && isTokenVersionValid(claims)) {
                     // 构建权限列表
                     List<SimpleGrantedAuthority> authorities = buildAuthorities(userType, memberType);
 
@@ -70,6 +79,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 校验 Token 版本号（仅 admin 用户）
+     */
+    private boolean isTokenVersionValid(Claims claims) {
+        Integer tokenVersion = jwtUtil.getTokenVersionFromClaims(claims);
+        if (tokenVersion == null) {
+            return true;
+        }
+
+        Long userId = claims.get("userId", Long.class);
+        String userType = claims.get("userType", String.class);
+        if (userId == null || !"admin".equals(userType)) {
+            return true;
+        }
+
+        String versionKey = RedisKeyConstant.getTokenVersionKey(userId, JwtUtil.USER_TYPE_ADMIN);
+        String currentVersion = redisTemplate.opsForValue().get(versionKey);
+        if (currentVersion == null) {
+            return true;
+        }
+
+        boolean valid = Integer.valueOf(currentVersion).equals(tokenVersion);
+        if (!valid) {
+            log.warn("Token版本号不匹配，userId={}，tokenVersion={}，currentVersion={}", userId, tokenVersion, currentVersion);
+        }
+        return valid;
     }
 
     /**

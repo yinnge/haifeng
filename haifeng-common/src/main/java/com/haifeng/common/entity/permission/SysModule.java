@@ -36,6 +36,9 @@ public class SysModule {
 
     private Integer status;
 
+    @Version
+    private Integer version;
+
     @TableLogic
     @TableField("is_deleted")
     private Boolean deleted;

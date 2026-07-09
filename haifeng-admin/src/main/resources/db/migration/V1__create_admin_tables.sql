@@ -1,13 +1,14 @@
 -- V1__create_admin_tables.sql
 -- 海峰未来规划院 - 管理端数据库表
 
--- 1. 角色表
+-- 1. 角色表（ID 由 Java 雪花算法生成）
 CREATE TABLE sys_role (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGINT PRIMARY KEY,
     role_name       VARCHAR(50) NOT NULL,
     role_code       VARCHAR(50) NOT NULL,
     description     VARCHAR(100),
     status          SMALLINT DEFAULT 1,
+    version         INT DEFAULT 0,
     is_deleted      BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
@@ -22,9 +23,9 @@ COMMENT ON COLUMN sys_role.role_name IS '角色名称';
 COMMENT ON COLUMN sys_role.role_code IS '角色编码';
 COMMENT ON COLUMN sys_role.status IS '状态: 0-禁用, 1-启用';
 
--- 2. 模块表（支持父子层级）
+-- 2. 模块表（支持父子层级，ID 由 Java 雪花算法生成）
 CREATE TABLE sys_module (
-    id            BIGSERIAL PRIMARY KEY,
+    id            BIGINT PRIMARY KEY,
     module_name   VARCHAR(50) NOT NULL,
     module_code   VARCHAR(50) NOT NULL UNIQUE,
     parent_id     BIGINT REFERENCES sys_module(id) ON DELETE CASCADE,
@@ -34,6 +35,7 @@ CREATE TABLE sys_module (
     level         SMALLINT NOT NULL,
     description   VARCHAR(255),
     status        SMALLINT DEFAULT 1,
+    version       INT DEFAULT 0,
     is_deleted    BOOLEAN DEFAULT FALSE,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
@@ -45,11 +47,11 @@ CREATE INDEX idx_module_status ON sys_module(status) WHERE is_deleted = FALSE;
 
 COMMENT ON TABLE sys_module IS '模块表';
 COMMENT ON COLUMN sys_module.parent_id IS '父模块ID，NULL表示顶级';
-COMMENT ON COLUMN sys_module.level IS '1=父模块 2=子模块';
+COMMENT ON COLUMN sys_module.level IS '模块层级: 1=顶级父模块 2=子模块 3=三级子模块';
 
--- 3. 角色-模块关联表
+-- 3. 角色-模块关联表（ID 由 Java 雪花算法生成）
 CREATE TABLE sys_role_module (
-    id          BIGSERIAL PRIMARY KEY,
+    id          BIGINT PRIMARY KEY,
     role_id     BIGINT NOT NULL,
     module_id   BIGINT NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT NOW(),
@@ -63,9 +65,9 @@ CREATE INDEX idx_role_module_module ON sys_role_module(module_id);
 
 COMMENT ON TABLE sys_role_module IS '角色-模块关联表';
 
--- 4. 管理员表
+-- 4. 管理员表（ID 由 Java 雪花算法生成）
 CREATE TABLE sys_admin (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGINT PRIMARY KEY,
     username        VARCHAR(50) NOT NULL UNIQUE,
     password        VARCHAR(255) NOT NULL,
     real_name       VARCHAR(50),
@@ -75,6 +77,7 @@ CREATE TABLE sys_admin (
     role_id         BIGINT NOT NULL,
     role_name       VARCHAR(50),
     status          SMALLINT DEFAULT 1,
+    version         INT DEFAULT 0,
     last_login_at   TIMESTAMPTZ,
     last_login_ip   VARCHAR(50),
     is_deleted      BOOLEAN DEFAULT FALSE,
@@ -93,9 +96,9 @@ COMMENT ON COLUMN sys_admin.status IS '状态: 0-禁用, 1-启用';
 COMMENT ON COLUMN sys_admin.totp_secret IS 'TOTP动态口令密钥(Base32编码)';
 COMMENT ON COLUMN sys_admin.is_totp_enabled IS '是否已开启双因素认证';
 
--- 5. 操作日志表
+-- 5. 操作日志表（ID 由 Java 雪花算法生成）
 CREATE TABLE admin_logs (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGINT PRIMARY KEY,
     admin_id        BIGINT NOT NULL,
     admin_name      VARCHAR(50),
     operation       VARCHAR(100) NOT NULL,
@@ -113,10 +116,10 @@ CREATE INDEX idx_admin_logs_created ON admin_logs(created_at);
 
 COMMENT ON TABLE admin_logs IS '操作日志表';
 
--- 6. 会员表
+-- 6. 会员表（ID 由 Java 雪花算法生成）
 -- member_type: normal(普通版) -> pro(专业版) -> vip(旗舰版)
 CREATE TABLE IF NOT EXISTS t_member (
-    id                          BIGSERIAL PRIMARY KEY,
+    id                          BIGINT PRIMARY KEY,
     username                    VARCHAR(50) NOT NULL UNIQUE,
     password                    VARCHAR(100) NOT NULL,
     avatar                      VARCHAR(500),
@@ -157,8 +160,10 @@ COMMENT ON COLUMN t_member.wechat_id IS '微信号(AES加密存储)';
 COMMENT ON COLUMN t_member.wechat_id_index IS '微信号盲索引(SHA-256哈希，用于等值查询)';
 
 -- 默认管理员（密码：Admin123）
-INSERT INTO sys_role (id, role_name, role_code, description, status)
-VALUES (1, '超级管理员', 'super_admin', '拥有所有权限', 1);
+-- 注：ID 由 Java 雪花算法生成，此处只是 DDL 参考；实际种子数据通过 Java 工具插入
+INSERT INTO sys_role (role_name, role_code, description, status)
+VALUES ('超级管理员', 'super_admin', '拥有所有权限', 1);
 
-INSERT INTO sys_admin (id, username, password, real_name, phone, role_id, role_name, status)
-VALUES (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8ioctLkRc2xqV8k1u7QwcEVyRZCJ.', '超级管理员', '13800000000', 1, '超级管理员', 1);
+INSERT INTO sys_admin (username, password, real_name, phone, role_id, role_name, status)
+SELECT 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8ioctLkRc2xqV8k1u7QwcEVyRZCJ.', '超级管理员', '13800000000', id, role_name, 1
+FROM sys_role WHERE role_code = 'super_admin';

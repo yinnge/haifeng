@@ -11,6 +11,8 @@ public class ModelProviderVO {
 
     private String apiKeyMasked;
 
+    private String baseUrl;
+
     private String modelName;
 
     private String providerName;
