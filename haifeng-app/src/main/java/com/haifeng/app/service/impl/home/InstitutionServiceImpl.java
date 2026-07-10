@@ -90,6 +90,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         InstitutionDetailVO vo = new InstitutionDetailVO();
         BeanUtils.copyProperties(entity, vo);
+        desensitizePhone(vo);
 
         redisTemplate.opsForValue().set(cacheKey, vo,
                 RedisKeyConstant.HOME_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
@@ -100,6 +101,26 @@ public class InstitutionServiceImpl implements InstitutionService {
         InstitutionListVO vo = new InstitutionListVO();
         BeanUtils.copyProperties(entity, vo);
         return vo;
+    }
+
+    private void desensitizePhone(InstitutionDetailVO vo) {
+        if (vo.getPhone() == null || vo.getPhone().isEmpty()) {
+            return;
+        }
+        
+        String phone = vo.getPhone();
+        // 移除电话号码中的非数字字符（保留+号用于国际号码）
+        String digitsOnly = phone.replaceAll("[^0-9+]", "");
+        
+        if (digitsOnly.length() < 7) {
+            // 电话号码太短，无法进行标准脱敏，返回原样
+            return;
+        }
+        
+        // 保留前3位和后4位，中间用****替换
+        String prefix = digitsOnly.substring(0, 3);
+        String suffix = digitsOnly.substring(digitsOnly.length() - 4);
+        vo.setPhone(prefix + "****" + suffix);
     }
 
     private IPage<InstitutionListVO> toPage(PageCacheDTO<InstitutionListVO> cached) {

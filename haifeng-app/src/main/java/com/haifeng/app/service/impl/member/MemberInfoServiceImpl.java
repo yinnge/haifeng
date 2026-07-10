@@ -1,6 +1,7 @@
 package com.haifeng.app.service.impl.member;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.app.dto.member.AvatarUpdateDTO;
 import com.haifeng.app.dto.member.MemberInfoUpdateDTO;
 import com.haifeng.app.dto.member.PasswordUpdateDTO;
 import com.haifeng.app.dto.member.WechatUpdateDTO;
@@ -18,8 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-
-import java.time.OffsetDateTime;
 
 @Slf4j
 @Service
@@ -93,7 +92,6 @@ public class MemberInfoServiceImpl implements MemberInfoService {
             member.setAvatar(dto.getAvatar());
         }
 
-        member.setUpdatedAt(OffsetDateTime.now());
         memberMapper.updateById(member);
 
         log.info("更新用户信息成功: memberId={}", memberId);
@@ -124,7 +122,6 @@ public class MemberInfoServiceImpl implements MemberInfoService {
         member.setWechatId(dto.getWechatId());
         String blindIndex = CryptoUtil.blindIndex(dto.getWechatId(), securityProperties.getHashSalt());
         member.setWechatIdIndex(blindIndex);
-        member.setUpdatedAt(OffsetDateTime.now());
         memberMapper.updateById(member);
 
         log.info("更新微信号成功: memberId={}", memberId);
@@ -145,7 +142,6 @@ public class MemberInfoServiceImpl implements MemberInfoService {
         }
 
         member.setPassword(passwordEncoder.encode(dto.getNewPassword()));
-        member.setUpdatedAt(OffsetDateTime.now());
         memberMapper.updateById(member);
 
         log.info("修改密码成功: memberId={}", memberId);
@@ -153,7 +149,8 @@ public class MemberInfoServiceImpl implements MemberInfoService {
 
     @Override
     @Transactional
-    public void updateAvatar(String avatar) {
+    public void updateAvatar(AvatarUpdateDTO dto) {
+        String avatar = dto.getAvatar();
         Long memberId = SecurityUtil.getCurrentMemberId();
         Member member = memberMapper.selectById(memberId);
 
@@ -162,7 +159,6 @@ public class MemberInfoServiceImpl implements MemberInfoService {
         }
 
         member.setAvatar(avatar);
-        member.setUpdatedAt(OffsetDateTime.now());
         memberMapper.updateById(member);
 
         log.info("更新头像成功: memberId={}", memberId);

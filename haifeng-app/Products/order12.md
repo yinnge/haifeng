@@ -47,7 +47,7 @@
 | code | 含义 | 触发场景 |
 |------|------|----------|
 | 200 | 成功 | 正常返回 |
-| 400 | 参数错误 | 字段级校验失败（`page < 1` / `size < 10` / `size > 1000`） |
+| 400 | 参数错误 | 字段级校验失败（`page < 1` / `size < 10` / `size > 100`） |
 | 401 | 未登录或 Token 过期 | 未带 Token / Token 失效 |
 | 403 | 无权限 | 普通用户访问本模块接口 |
 | 500 | 服务器内部错误 | 未预期异常 |
@@ -57,7 +57,7 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | page | Integer | 否 | 1 | 页码，最小 1 |
-| size | Integer | 否 | 10 | 每页条数，10–1000 |
+| size | Integer | 否 | 10 | 每页条数，10–100 |
 
 ### 数据可见性规则
 
@@ -141,10 +141,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 
 ### 行为说明
 
-1. 根据路径 `majorId` 联表 `t_major_postgrad_direction`（按 `major_id` 过滤）和 `t_postgrad_major`，只返回 `pm.status = 1` 的记录
-2. 走 `idx_mpd_major` 索引 → 主键回表 `t_postgrad_major`
-3. 关联结果按 `sort_order` 升序、`pm.id` 降序返回
-4. **不存在任何关联时**返回空分页（`records: []`），不抛 404
+1. 先根据 `majorId` 查询 `t_major` 表校验专业是否存在且已发布（`status = 1`），不存在则返回空分页
+2. 联表 `t_major_postgrad_direction`（按 `major_id` 过滤）和 `t_postgrad_major`，只返回 `pm.status = 1` 的记录
+3. 走 `idx_mpd_major` 索引 → 主键回表 `t_postgrad_major`
+4. 关联结果按 `sort_order` 升序、`pm.id` 降序返回
+5. **不存在任何关联时**返回空分页（`records: []`），不抛 404
 
 ### 错误响应
 
@@ -152,7 +153,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 |------|------|-----|
 | 未登录 | 401 | 未登录或 Token 过期 |
 | 普通用户（非 Pro/Vip） | 403 | 权限不足（需要专业版及以上） |
-| `page < 1` 或 `size` 越界 | 400 | 字段级校验信息 |
+| `page < 1` / `size < 10` / `size > 100` | 400 | 字段级校验信息 |
 | `majorId` 在 t_major 不存在 | 200 | 返回空分页（不抛 404） |
 | `majorId` 存在但无任何关联 | 200 | 返回空分页 |
 
@@ -237,7 +238,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
 |------|------|-----|
 | 未登录 | 401 | 未登录或 Token 过期 |
 | 普通用户（非 Pro/Vip） | 403 | 权限不足（需要专业版及以上） |
-| `page < 1` 或 `size` 越界 | 400 | 字段级校验信息 |
+| `page < 1` / `size < 10` / `size > 100` | 400 | 字段级校验信息 |
 | `postgradMajorId` 在 t_postgrad_major 不存在 | 200 | 返回空分页（不抛 404） |
 | `postgradMajorId` 存在但无任何关联 | 200 | 返回空分页 |
 

@@ -1,8 +1,8 @@
-gi# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园图册 / 通道关联）
+# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园图册 / 通道关联 / 录取专业组）
 
 ## 功能概述
 
-本模块实现 C 端院校管理 5 类只读展示接口。访问权限按子功能分级：列表、通道关联完全公开；详情、图册、适应指南需要登录；适应指南"学业规划类"需要 Pro 及以上会员。所有接口不加 Redis 缓存（实时读库）。
+本模块实现 C 端院校管理 6 类只读展示接口。访问权限按子功能分级：列表、通道关联完全公开；详情、图册、适应指南需要登录；适应指南"学业规划类"需要 Pro 及以上会员；录取专业组查询需要 VIP 会员。所有接口不加 Redis 缓存（实时读库）。
 | 子模块 | 功能 | 权限要求 |
 |--------|------|----------|
 | 院校列表 | 院校分页列表（多条件筛选 + 名称模糊） | 公开访问 |
@@ -15,6 +15,7 @@ gi# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园
 | 适应指南 · 周边生活类 | 周边生活服务 | 登录用户 |
 | 校园图册 | 按院校分页查询图册（可按类型筛选） | 登录用户 |
 | 通道-大学关联 | 按大学查询关联的特殊招生通道 | 公开访问 |
+| 录取专业组 | 按大学分页查询录取专业组及专业录取明细 | **VIP 会员** |
 
 ---
 
@@ -27,6 +28,7 @@ gi# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园
 | 公开 | 无需登录，无需 Token |
 | 登录用户 | 需携带有效 Access Token；由 `@RequireLogin` 切面校验 |
 | Pro 及以上 | 需 `member_type ∈ {pro, vip}`；由 `@RequirePro` 切面校验 |
+| VIP 会员 | 需 `member_type ∈ {vip}`；由 `@RequireVip` 切面校验 |
 
 ### 统一响应格式
 
@@ -44,16 +46,16 @@ gi# C 端院校管理 API 文档（院校列表 / 详情 / 适应指南 / 校园
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | page | Integer | 否 | 1 | 页码，最小 1 |
-| size | Integer | 否 | 10 | 每页条数，10–1000（推荐档位：10/20/30/50/100） |
+| size | Integer | 否 | 10 | 每页条数，10–100（推荐档位：10/20/30/50/100） |
 
 ### 错误码
 
 | code | 含义 | 触发场景 |
 |------|------|----------|
 | 200 | 成功 | 正常返回 |
-| 400 | 参数错误 | `page < 1` / `size < 10` / `size > 1000` 等字段级校验失败 |
+| 400 | 参数错误 | `page < 1` / `size < 10` / `size > 100` 等字段级校验失败 |
 | 401 | 未登录或 Token 过期 | 未带 Token / Token 失效 / 访问需登录接口 |
-| 403 | 无权限 | 普通用户访问 academic 接口 |
+| 403 | 无权限 | 普通用户访问 academic 接口 / 非 VIP 用户访问录取专业组接口 |
 | 404 | 资源不存在 | universityId 不存在 / 院校已下架（status=0）/ 详情未配置 / 指南未配置 |
 | 500 | 服务器内部错误 | 未预期异常 |
 
@@ -609,6 +611,289 @@ GET /api/v1/app/university/channel-options
 
 ---
 
+## 6. 录取专业组查询
+
+**功能描述**：查询某大学近5年的录取专业组数据及专业录取明细。需 VIP 会员。
+
+### 6.1 录取专业组分页查询
+
+**功能描述**：按 `university_id` 分页查询录取专业组列表，仅返回近5年数据，支持省份、批次精准查询及城市名模糊查询。
+
+#### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/university/admission-group/{universityId}` |
+| 权限 | VIP 会员（`@RequireVip`） |
+| Content-Type | application/x-www-form-urlencoded（query 参数） |
+
+#### 请求参数
+
+| 参数 | 位置 | 类型 | 必填 | 查询方式 | 说明 |
+|------|------|------|------|----------|------|
+| universityId | Path | Long | 是 | **精准（=）** | 院校 ID |
+| page | Query | Integer | 否 | — | 页码，默认 1 |
+| size | Query | Integer | 否 | — | 每页条数，默认 10 |
+| province | Query | String | 否 | **精准（=）** | 招生省份，需通过 `ProvinceEnum` 校验 |
+| batch | Query | String | 否 | **精准（=）** | 录取批次（如 "本科批"、"提前批"、"专科批"） |
+| cityName | Query | String | 否 | **模糊（LIKE %cityName%）** | 城市名称 |
+
+> `province` 参数值需通过 `ProvinceEnum` 校验，不合法返回 400。
+
+#### 固定条件
+
+- `university_id = {universityId}`
+- `is_deleted = false`
+- `year >= 当前年份 - 5`（动态过滤，如今年2026则 year >= 2021）
+
+#### 排序规则
+
+`year DESC, id ASC`
+
+#### 请求示例
+
+```http
+GET /api/v1/app/university/1001/admission-group?page=1&size=10&province=北京&batch=本科批
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
+```
+
+#### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 1,
+        "groupCode": "001",
+        "groupName": "物理组",
+        "year": 2025,
+        "province": "北京",
+        "batch": "本科批",
+        "cityName": "北京",
+        "subjects": ["物理"],
+        "requirementType": "必选1",
+        "majorCount": 8,
+        "admissionCount": 120,
+        "minScore": 650,
+        "minRank": 1800,
+        "maxScore": 690,
+        "maxRank": 500,
+        "avgScore": 668.50,
+        "avgRank": 1200
+      }
+    ],
+    "total": 1,
+    "size": 10,
+    "current": 1,
+    "pages": 1
+  },
+  "timestamp": 1717392000000
+}
+```
+
+#### 响应字段（VO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Integer | 专业组 ID（用于查询明细或详情） |
+| groupCode | String | 专业组代码 |
+| groupName | String | 专业组名称 |
+| year | Short | 招生年份 |
+| province | String | 招生省份 |
+| batch | String | 录取批次 |
+| cityName | String | 城市名 |
+| subjects | String[] | 选科科目数组 |
+| requirementType | String | 选科要求类型（不限/2选1/3选1/必选1/必选2/必选3） |
+| majorCount | Integer | 包含专业数量 |
+| admissionCount | Integer | 录取人数 |
+| minScore | Integer | 最低分 |
+| minRank | Integer | 最低位次 |
+| maxScore | Integer | 最高分 |
+| maxRank | Integer | 最高位次 |
+| avgScore | BigDecimal | 平均分 |
+| avgRank | Integer | 平均位次 |
+
+### 6.2 专业录取明细列表
+
+**功能描述**：根据 `group_id` 查询该专业组内所有专业的录取分数明细。
+
+#### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/university/admission-group/{groupId}/scores` |
+| 权限 | VIP 会员（`@RequireVip`） |
+
+#### 请求参数
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| groupId | Path | Integer | 是 | 专业组 ID（来自接口6.1响应的 `id` 字段） |
+
+#### 请求示例
+
+```http
+GET /api/v1/app/university/admission-group/1/scores
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
+```
+
+#### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "majorCode": "080901",
+      "majorName": "计算机科学与技术",
+      "educationLevel": "本科",
+      "duration": "4年",
+      "tuition": "5000",
+      "description": "培养计算机领域高级人才",
+      "admissionCount": 30,
+      "minScore": 670,
+      "minRank": 1000,
+      "maxScore": 690,
+      "maxRank": 500,
+      "avgScore": 678.50,
+      "avgRank": 750,
+      "constraints": []
+    }
+  ],
+  "timestamp": 1717392000000
+}
+```
+
+#### 响应字段（VO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Integer | 主键 |
+| groupId | Integer | 所属专业组 ID |
+| majorCode | String | 专业代码 |
+| majorName | String | 专业名称 |
+| educationLevel | String | 学历层次（本科/专科） |
+| duration | String | 学制（如 "4年"） |
+| tuition | String | 学费信息 |
+| description | String | 专业说明/备注 |
+| admissionCount | Integer | 录取人数 |
+| minScore | Integer | 最低分 |
+| minRank | Integer | 最低位次 |
+| maxScore | Integer | 最高分 |
+| maxRank | Integer | 最高位次 |
+| avgScore | BigDecimal | 平均分 |
+| avgRank | Integer | 平均位次 |
+| constraints | String[] | 约束条件数组 |
+
+### 6.3 录取专业组详情
+
+**功能描述**：根据 `group_id` 查询单个录取专业组的完整信息。
+
+#### 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `GET /api/v1/app/university/admission-group/{groupId}/detail` |
+| 权限 | VIP 会员（`@RequireVip`） |
+
+#### 请求参数
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| groupId | Path | Integer | 是 | 专业组 ID |
+
+#### 请求示例
+
+```http
+GET /api/v1/app/university/admission-group/1/detail
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9....
+```
+
+#### 响应示例
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "id": 1,
+    "universityId": 1001,
+    "universityName": "清华大学",
+    "cityName": "北京",
+    "year": 2025,
+    "province": "北京",
+    "batch": "本科批",
+    "enrollmentCode": "1103",
+    "groupCode": "001",
+    "groupName": "物理组",
+    "subjects": ["物理"],
+    "requirementType": "必选1",
+    "description": "含计算机、电子等热门专业",
+    "constraints": [],
+    "majorCount": 8,
+    "categoryCount": 3,
+    "admissionCount": 120,
+    "minScore": 650,
+    "minRank": 1800,
+    "maxScore": 690,
+    "maxRank": 500,
+    "avgScore": 668.50,
+    "avgRank": 1200,
+    "createdAt": "2025-06-01T00:00:00+08:00",
+    "updatedAt": "2025-06-01T00:00:00+08:00"
+  },
+  "timestamp": 1717392000000
+}
+```
+
+#### 响应字段（VO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Integer | 主键 |
+| universityId | Long | 院校 ID |
+| universityName | String | 院校名称（冗余） |
+| cityName | String | 城市名 |
+| year | Short | 招生年份 |
+| province | String | 招生省份 |
+| batch | String | 录取批次 |
+| enrollmentCode | String | 招生代码 |
+| groupCode | String | 专业组代码 |
+| groupName | String | 专业组名称 |
+| subjects | String[] | 选科科目数组 |
+| requirementType | String | 选科要求类型 |
+| description | String | 专业组说明 |
+| constraints | String[] | 约束条件数组 |
+| majorCount | Integer | 包含专业数量 |
+| categoryCount | Integer | 包含专业类数量 |
+| admissionCount | Integer | 录取人数 |
+| minScore | Integer | 最低分 |
+| minRank | Integer | 最低位次 |
+| maxScore | Integer | 最高分 |
+| maxRank | Integer | 最高位次 |
+| avgScore | BigDecimal | 平均分 |
+| avgRank | Integer | 平均位次 |
+| createdAt | String | 创建时间（ISO-8601 带时区） |
+| updatedAt | String | 更新时间（ISO-8601 带时区） |
+
+### 错误响应
+
+| 场景 | code | msg |
+|------|------|-----|
+| 未登录 / Token 失效 | 401 | 未登录或 Token 过期 |
+| 非 VIP 会员访问 | 403 | 权限不足（需要旗舰版） |
+| province 参数不合法 | 400 | 省份参数不合法 |
+| groupId 不存在或已删除 | 404 | 录取专业组不存在 |
+| 参数校验失败 | 400 | 字段级校验信息 |
+
+---
+
 ## 模糊查询 vs 精准查询字段总览
 
 | 接口 | 模糊查询字段 | 精准查询字段 |
@@ -619,6 +904,9 @@ GET /api/v1/app/university/channel-options
 | 4. 校园图册 | — | `universityId`（path）、`imageType` |
 | 5.1 通道-大学关联 | `channelName` | `universityId`（path）、`regionTag` |
 | 5.2 通道下拉选项 | — | — |
+| 6.1 录取专业组分页 | `cityName` | `universityId`（path）、`province`、`batch` |
+| 6.2 专业录取明细 | — | `groupId`（path） |
+| 6.3 录取专业组详情 | — | `groupId`（path） |
 
 > 多筛选字段同时传入按 AND 组合。
 
@@ -627,15 +915,18 @@ GET /api/v1/app/university/channel-options
 ## 接口路径速查
 
 ```
-GET  /api/v1/app/university/list                              [公开]   院校列表（多筛选 + name 模糊）
-GET  /api/v1/app/university/{id}/detail                       [登录]   院校详情（联表）
-GET  /api/v1/app/university/guides/{id}/overview              [登录]   指南 · 概览
-GET  /api/v1/app/university/guides/{id}/survival              [登录]   指南 · 基础生存类
-GET  /api/v1/app/university/guides/{id}/academic              [Pro]    指南 · 学业规划类
-GET  /api/v1/app/university/guides/{id}/social                [登录]   指南 · 社交融入类
-GET  /api/v1/app/university/guides/{id}/safety                [登录]   指南 · 权益与安全类
-GET  /api/v1/app/university/guides/{id}/life                  [登录]   指南 · 周边生活类
-GET  /api/v1/app/university/{id}/gallery                      [登录]   校园图册（按 imageType 筛选）
-GET  /api/v1/app/university/{id}/channels                     [公开]   通道-大学关联（按 universityId + regionTag 筛选）
-GET  /api/v1/app/university/channel-options                   [公开]   通道下拉选项
+GET  /api/v1/app/university/list                                    [公开]   院校列表（多筛选 + name 模糊）
+GET  /api/v1/app/university/{id}/detail                             [登录]   院校详情（联表）
+GET  /api/v1/app/university/guides/{id}/overview                    [登录]   指南 · 概览
+GET  /api/v1/app/university/guides/{id}/survival                    [登录]   指南 · 基础生存类
+GET  /api/v1/app/university/guides/{id}/academic                    [Pro]    指南 · 学业规划类
+GET  /api/v1/app/university/guides/{id}/social                      [登录]   指南 · 社交融入类
+GET  /api/v1/app/university/guides/{id}/safety                      [登录]   指南 · 权益与安全类
+GET  /api/v1/app/university/guides/{id}/life                        [登录]   指南 · 周边生活类
+GET  /api/v1/app/university/{id}/gallery                            [登录]   校园图册（按 imageType 筛选）
+GET  /api/v1/app/university/{id}/channels                           [公开]   通道-大学关联（按 universityId + regionTag 筛选）
+GET  /api/v1/app/university/channel-options                         [公开]   通道下拉选项
+GET  /api/v1/app/university/admission-group/{universityId}          [VIP]    录取专业组分页（近5年 + province/batch/cityName 筛选）
+GET  /api/v1/app/university/admission-group/{groupId}/scores        [VIP]    专业录取明细列表
+GET  /api/v1/app/university/admission-group/{groupId}/detail        [VIP]    录取专业组详情
 ```

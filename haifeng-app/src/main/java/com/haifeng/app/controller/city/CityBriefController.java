@@ -1,43 +1,30 @@
 package com.haifeng.app.controller.city;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.app.service.city.CityService;
 import com.haifeng.app.vo.city.CityBriefVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.entity.city.City;
-import com.haifeng.common.exception.BusinessException;
-import com.haifeng.common.mapper.city.CityMapper;
 import com.haifeng.common.response.R;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/app/city")
 @RequiredArgsConstructor
-@RequireLogin
 public class CityBriefController {
 
-    private final CityMapper cityMapper;
+    private final CityService cityService;
 
+    @RequireLogin
     @GetMapping("/brief")
-    public R<CityBriefVO> getByName(@RequestParam String name) {
-        LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(City::getCityName, name)
-               .eq(City::getIsDeleted, false);
-
-        City city = cityMapper.selectOne(wrapper);
-        if (city == null) {
-            throw new BusinessException(404, "城市不存在");
-        }
-
-        return R.ok(CityBriefVO.builder()
-                .cityName(city.getCityName())
-                .province(city.getProvince())
-                .region(city.getRegion())
-                .cityIntro(city.getCityIntro())
-                .collegeCount(city.getCollegeCount())
-                .build());
+    public R<CityBriefVO> getByName(
+            @RequestParam @NotBlank(message = "城市名称不能为空") @Size(max = 50, message = "城市名称长度不能超过50") String name) {
+        return R.ok(cityService.getBriefByName(name));
     }
 }

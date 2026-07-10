@@ -96,6 +96,14 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
 
     @Override
     public IPage<UndergraduateMajorDirectionBriefVO> undergraduateMajors(Long postgradMajorId, BasePageQueryDTO dto) {
+        PostgradMajor postgradMajor = postgradMajorMapper.selectOne(
+                new LambdaQueryWrapper<PostgradMajor>()
+                        .eq(PostgradMajor::getId, postgradMajorId)
+                        .eq(PostgradMajor::getStatus, STATUS_PUBLISHED));
+        if (postgradMajor == null) {
+            log.warn("考研专业不存在或已下架，返回空分页, postgradMajorId={}", postgradMajorId);
+            return new Page<>(dto.getPage(), dto.getSize());
+        }
         Page<Map<String, Object>> page = new Page<>(dto.getPage(), dto.getSize());
         IPage<Map<String, Object>> mapPage =
                 majorPostgradDirectionMapper.selectMajorsByPostgradMajorId(page, postgradMajorId);

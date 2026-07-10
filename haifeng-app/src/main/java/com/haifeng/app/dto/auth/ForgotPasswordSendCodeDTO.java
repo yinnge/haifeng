@@ -2,6 +2,7 @@ package com.haifeng.app.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -12,8 +13,10 @@ public class ForgotPasswordSendCodeDTO {
     private String phone;
 
     @NotBlank(message = "图形验证码不能为空")
+    @Size(min = 4, max = 4, message = "图形验证码必须是4位")
     private String captchaCode;
 
     @NotBlank(message = "图形验证码UUID不能为空")
+    @Size(max = 100, message = "图形验证码标识长度不能超过100")
     private String uuid;
 }

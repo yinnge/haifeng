@@ -7,6 +7,7 @@ import com.haifeng.app.vo.major.PostgradMajorBriefVO;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +31,7 @@ public class UniversityPostgradMajorController {
     @RequirePro
     @GetMapping("/{universityId}/postgrad-majors")
     public R<IPage<PostgradMajorBriefVO>> list(
-            @PathVariable Long universityId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid UniversityPostgradMajorQueryDTO dto) {
         return R.ok(universityPostgradMajorService.page(universityId, dto));
     }

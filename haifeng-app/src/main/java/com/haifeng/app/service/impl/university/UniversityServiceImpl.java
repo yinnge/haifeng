@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.university.UniversityChannelQueryDTO;
 import com.haifeng.app.dto.university.UniversityQueryDTO;
+import com.haifeng.common.enums.ProvinceEnum;
 import com.haifeng.app.service.university.UniversityService;
 import com.haifeng.app.vo.university.ChannelOptionVO;
+import com.haifeng.app.vo.university.UniversityBriefVO;
 import com.haifeng.app.vo.university.UniversityChannelListVO;
 import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
@@ -108,6 +110,9 @@ public class UniversityServiceImpl implements UniversityService {
 
     @Override
     public IPage<UniversityChannelListVO> pageChannels(Long universityId, UniversityChannelQueryDTO dto) {
+        if (StringUtils.hasText(dto.getRegionTag()) && !ProvinceEnum.isValid(dto.getRegionTag())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "省份参数不合法");
+        }
         Page<SpecialChannelUniversity> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<SpecialChannelUniversity> wrapper = new LambdaQueryWrapper<SpecialChannelUniversity>()
                 .eq(SpecialChannelUniversity::getIsActive, true)
@@ -136,6 +141,27 @@ public class UniversityServiceImpl implements UniversityService {
                         .channelName(e.getChannelName())
                         .build())
                 .toList();
+    }
+
+    @Override
+    public UniversityBriefVO getByName(String name) {
+        University university = universityMapper.selectByName(name);
+        if (university == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
+        }
+        return UniversityBriefVO.builder()
+                .name(university.getName())
+                .provinceName(university.getProvinceName())
+                .cityName(university.getCityName())
+                .region(university.getRegion())
+                .category(university.getCategory())
+                .educationLevel(university.getEducationLevel())
+                .nature(university.getNature())
+                .recommendationRate(university.getRecommendationRate())
+                .department(university.getDepartment())
+                .tags(university.getTags())
+                .imageUrl(university.getImageUrl())
+                .build();
     }
 
     private UniversityListVO toListVO(University e) {

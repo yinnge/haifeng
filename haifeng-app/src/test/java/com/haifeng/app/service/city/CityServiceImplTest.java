@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.MybatisMapperBuilderAssistant;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.haifeng.app.service.impl.city.CityServiceImpl;
+import com.haifeng.app.vo.city.CityBriefVO;
 import com.haifeng.common.entity.city.City;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.city.CityDetailMapper;
@@ -42,13 +43,15 @@ class CityServiceImplTest {
     }
 
     @Test
-    void findIdByName_returnsCityIdByExactNameAndNotDeleted() {
+    void getBriefByName_returnsBriefByExactNameAndNotDeleted() {
         when(cityMapper.selectOne(cityWrapperCaptor.capture()))
-                .thenReturn(City.builder().id(1001L).cityName("北京").isDeleted(false).build());
+                .thenReturn(City.builder().id(1001L).cityName("北京").province("北京").region("华北")
+                        .cityIntro("首都").collegeCount(100).isDeleted(false).build());
 
-        Long result = service.findIdByName("北京");
+        CityBriefVO result = service.getBriefByName("北京");
 
-        assertThat(result).isEqualTo(1001L);
+        assertThat(result.getCityName()).isEqualTo("北京");
+        assertThat(result.getProvince()).isEqualTo("北京");
         assertThat(cityWrapperCaptor.getValue().getCustomSqlSegment()).contains(
                 "city_name",
                 "is_deleted");
@@ -57,11 +60,11 @@ class CityServiceImplTest {
     }
 
     @Test
-    void findIdByName_cityNotFound_throwsNotFound() {
+    void getBriefByName_cityNotFound_throwsNotFound() {
         when(cityMapper.selectOne(any())).thenReturn(null);
 
         BusinessException exception = catchThrowableOfType(
-                () -> service.findIdByName("不存在城市"), BusinessException.class);
+                () -> service.getBriefByName("不存在城市"), BusinessException.class);
 
         assertThat(exception).isNotNull();
         assertThat(exception.getCode()).isEqualTo(ResultCode.NOT_FOUND.getCode());

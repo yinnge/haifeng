@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.university.UniversityChannelQueryDTO;
 import com.haifeng.app.dto.university.UniversityQueryDTO;
 import com.haifeng.app.vo.university.ChannelOptionVO;
+import com.haifeng.app.vo.university.UniversityBriefVO;
 import com.haifeng.app.vo.university.UniversityChannelListVO;
 import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
@@ -32,4 +33,9 @@ public interface UniversityService {
      * 查询所有可用的招生渠道选项（去重）
      */
     List<ChannelOptionVO> listChannelOptions();
+
+    /**
+     * 根据名称查询院校简要信息
+     */
+    UniversityBriefVO getByName(String name);
 }

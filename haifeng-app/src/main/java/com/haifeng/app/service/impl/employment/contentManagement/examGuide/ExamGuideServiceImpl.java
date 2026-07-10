@@ -24,8 +24,7 @@ public class ExamGuideServiceImpl implements ExamGuideService {
         wrapper.eq(ExamGuide::getIsDeleted, false);
         wrapper.eq(ExamGuide::getGuideCategory, guideCategory);
         wrapper.eq(StrUtil.isNotBlank(guideType), ExamGuide::getGuideType, guideType);
-        wrapper.orderByDesc(ExamGuide::getSortOrder).last("NULLS LAST");
-        wrapper.orderByDesc(ExamGuide::getCreatedAt);
+        wrapper.orderBy(true, false, "sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         List<ExamGuide> list = examGuideMapper.selectList(wrapper);
         return list.stream().map(this::convertToDetailVO).toList();
@@ -50,8 +49,6 @@ public class ExamGuideServiceImpl implements ExamGuideService {
                 .isTop(guide.getIsTop())
                 .isRecommended(guide.getIsRecommended())
                 .sortOrder(guide.getSortOrder())
-                .viewCount(guide.getViewCount())
-                .likeCount(guide.getLikeCount())
                 .createdAt(guide.getCreatedAt())
                 .updatedAt(guide.getUpdatedAt())
                 .build();

@@ -7,6 +7,7 @@ import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +34,7 @@ public class PlannerController {
 
     /** 规划师详情 */
     @GetMapping("/{id}")
-    public R<PlannerDetailVO> detail(@PathVariable Long id) {
+    public R<PlannerDetailVO> detail(@Min(value = 1, message = "ID必须大于0") @PathVariable Long id) {
         return R.ok(plannerService.detail(id));
     }
 }

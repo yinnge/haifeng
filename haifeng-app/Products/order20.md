@@ -309,8 +309,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | isTop | Boolean | 是否置顶 |
 | isRecommended | Boolean | 是否推荐 |
 | sortOrder | Integer | 排序号 |
-| viewCount | Integer | 浏览量 |
-| likeCount | Integer | 点赞量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -346,8 +344,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isRecommended": true,
       "sortOrder": 1,
-      "viewCount": 12580,
-      "likeCount": 836,
       "createdAt": "2026-06-01T10:00:00+08:00",
       "updatedAt": "2026-06-01T10:00:00+08:00"
     }
@@ -409,7 +405,6 @@ Host: api.haifeng.com
 | isTop | Boolean | 是否置顶 |
 | isImportant | Boolean | 是否重要 |
 | sortOrder | Integer | 排序权重 |
-| viewCount | Integer | 浏览量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -449,7 +444,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isImportant": true,
       "sortOrder": 100,
-      "viewCount": 25680,
       "createdAt": "2026-06-01T10:00:00+08:00",
       "updatedAt": "2026-06-01T10:00:00+08:00"
     }
@@ -510,7 +504,9 @@ Host: api.haifeng.com
 |------|------|------|
 | id | Long | 主键 ID |
 | institutionName | String | 医疗机构名称 |
+| institutionType | String | 机构类型 |
 | institutionLevel | String | 机构等级 |
+| institutionNature | String | 机构性质（公立/民营） |
 | positionName | String | 岗位名称 |
 | department | String | 科室 |
 | positionCategory | String | 岗位类别 |
@@ -544,7 +540,9 @@ Host: api.haifeng.com
       {
         "id": 200001,
         "institutionName": "广东省人民医院",
+        "institutionType": "综合医院",
         "institutionLevel": "三级甲等",
+        "institutionNature": "公立",
         "positionName": "临床护理",
         "department": "护理部",
         "positionCategory": "护理",
@@ -741,8 +739,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | isTop | Boolean | 是否置顶 |
 | isRecommended | Boolean | 是否推荐 |
 | sortOrder | Integer | 排序号 |
-| viewCount | Integer | 浏览量 |
-| likeCount | Integer | 点赞量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -778,8 +774,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isRecommended": true,
       "sortOrder": 1,
-      "viewCount": 9880,
-      "likeCount": 652,
       "createdAt": "2026-06-01T10:00:00+08:00",
       "updatedAt": "2026-06-01T10:00:00+08:00"
     }
@@ -841,7 +835,6 @@ Host: api.haifeng.com
 | isTop | Boolean | 是否置顶 |
 | isImportant | Boolean | 是否重要 |
 | sortOrder | Integer | 排序权重 |
-| viewCount | Integer | 浏览量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -881,7 +874,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isImportant": true,
       "sortOrder": 100,
-      "viewCount": 32150,
       "createdAt": "2026-06-15T10:00:00+08:00",
       "updatedAt": "2026-06-15T10:00:00+08:00"
     }
@@ -1187,8 +1179,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | isTop | Boolean | 是否置顶 |
 | isRecommended | Boolean | 是否推荐 |
 | sortOrder | Integer | 排序号 |
-| viewCount | Integer | 浏览量 |
-| likeCount | Integer | 点赞量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -1224,8 +1214,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isRecommended": true,
       "sortOrder": 1,
-      "viewCount": 15680,
-      "likeCount": 1023,
       "createdAt": "2026-06-01T10:00:00+08:00",
       "updatedAt": "2026-06-01T10:00:00+08:00"
     }
@@ -1287,7 +1275,6 @@ Host: api.haifeng.com
 | isTop | Boolean | 是否置顶 |
 | isImportant | Boolean | 是否重要 |
 | sortOrder | Integer | 排序权重 |
-| viewCount | Integer | 浏览量 |
 | createdAt | OffsetDateTime | 创建时间 |
 | updatedAt | OffsetDateTime | 更新时间 |
 
@@ -1327,7 +1314,6 @@ Host: api.haifeng.com
       "isTop": true,
       "isImportant": true,
       "sortOrder": 100,
-      "viewCount": 58600,
       "createdAt": "2026-08-20T10:00:00+08:00",
       "updatedAt": "2026-08-20T10:00:00+08:00"
     }

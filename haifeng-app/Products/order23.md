@@ -1,38 +1,46 @@
-# Order 23 - 短信验证码 · 忘记密码 API 文档
+# 体制内招录 API 文档
 
-> 版本：v1.1
-> 日期：2026-07-06
+## 概述
 
----
+实现 App 端"体制内招录"模块的查询功能，包含 4 类职位：
 
-## 目录
+| 模块 | 表 | 说明 |
+|------|-----|------|
+| 公务员 | t_civil_position | 国考/省考招录职位 |
+| 事业编 | t_institution_position | 事业单位招聘职位 |
+| 部队文职 | t_military_position | 军队文职人员招聘岗位 |
+| 选调生 | t_selection_position | 定向/非定向选调生招录岗位 |
 
-1. [验证码接口](#1-验证码接口)
-2. [发送短信验证码](#2-发送短信验证码)
-3. [重置密码](#3-重置密码)
-4. [错误码表](#4-错误码表)
-5. [Redis Key 一览](#5-redis-key-一览)
+## 基本信息
 
----
+- **Base Path**: `/api/v1/app/employment/civil-service`
+- **统一响应格式**: `R<T>` 包裹
+- **认证**: 详情接口需 `@RequireLogin`（需在请求头携带 Access Token）
+- **分页参数**: `page`（从1开始）、`size`（10/20/30/50/100）
 
-## 1. 验证码接口
+### 响应结构
 
-### 获取图形验证码
-
-> 发送短信验证码前需先获取图形验证码
-
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {},
+  "timestamp": 1234567890
+}
 ```
-GET /api/v1/app/auth/captcha
-```
 
-**Response 200:**
+### 分页响应结构
+
 ```json
 {
   "code": 200,
   "msg": "success",
   "data": {
-    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "image": "data:image/png;base64,iVBOR..."
+    "records": [],
+    "total": 0,
+    "size": 10,
+    "current": 1,
+    "pages": 0
   },
   "timestamp": 1234567890
 }
@@ -40,137 +48,1002 @@ GET /api/v1/app/auth/captcha
 
 ---
 
-## 2. 发送短信验证码
+## 一、公务员考试职位
 
-> 向用户手机发送 6 位短信验证码，用于忘记密码身份验证
+### 1.1 分页列表
 
-```
-POST /api/v1/app/auth/forgot-password/send-code
-Content-Type: application/json
-```
+获取公务员考试职位分页列表，支持模糊搜索和精确筛选。
 
-**Request:**
-```json
-{
-  "phone": "13800138000",
-  "captchaCode": "a3b2",
-  "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-}
-```
+- **URL**: `/api/v1/app/employment/civil-service/position/list`
+- **Method**: `GET`
+- **Auth**: 无需登录
 
-| 字段 | 类型 | 必填 | 校验规则 | 说明 |
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 查询方式 | 说明 |
 |------|------|------|----------|------|
-| phone | String | 是 | `^1[3-9]\d{9}$` | 手机号 |
-| captchaCode | String | 是 | 4位字母/数字 | 图形验证码，不区分大小写 |
-| uuid | String | 是 | UUID格式 | 图形验证码的唯一标识 |
+| page | Integer | 否 | - | 页码，默认1 |
+| size | Integer | 否 | - | 每页条数，默认10 |
+| keyword | String | 否 | 模糊 LIKE | 全局模糊搜索（positionName OR recruitingDept OR workLocation） |
+| examType | String | 否 | 精确 EQ | 考试类型（国考/省考） |
+| positionCode | String | 否 | 精确 EQ | 职位代码 |
+| deptCode | String | 否 | 精确 EQ | 部门代码 |
+| minEducation | String | 否 | 精确 EQ | 最低学历（不限/大专/本科/硕士/博士） |
+| majorRequirement | String | 否 | 精确 EQ | 专业要求 |
+| degreeRequirement | String | 否 | 精确 EQ | 学位要求（不限/学士/硕士/博士） |
+| politicalStatus | String | 否 | 精确 EQ | 政治面貌（不限/中共党员/共青团员/群众） |
+| examCategory | String | 否 | 精确 EQ | 考试类别 |
 
-**校验流程：**
+> **查询逻辑**:
+> - 基础条件：`is_deleted = false`
+> - 模糊字段（positionName, recruitingDept, workLocation）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
+> - 精确字段（examType, positionCode, deptCode, minEducation, majorRequirement, degreeRequirement, politicalStatus, examCategory）：多个精确字段之间用 **AND** 连接
+> - 模糊与精确之间用 **AND** 连接
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
 
-| 步骤 | 校验项 | 失败处理 |
-|------|--------|----------|
-| 1 | 图形验证码校验（CaptchaService） | 400 "验证码错误或已过期" |
-| 2 | 手机号是否存在（t_member） | 统一返回200，不提示未注册 |
-| 3 | 60秒发送冷却（Redis） | 429 "发送过于频繁，请60秒后重试" |
-| 4 | 每日上限5次（Redis） | 429 "今日短信发送次数已达上限" |
-| 5 | IP频率限制（10次/60s） | 429 "请求过于频繁，请稍后重试" |
+#### 响应数据（CivilPositionListVO）
 
-**Response 200：**
-```json
-{
-  "code": 200,
-  "msg": "success",
-  "data": null,
-  "timestamp": 1234567890
-}
-```
-
-> **注意：** 手机号不存在时同样返回 200，防止枚举攻击。
-
----
-
-## 3. 重置密码
-
-> 验证短信验证码后重置密码，并清除所有登录态
-
-```
-POST /api/v1/app/auth/forgot-password/reset
-Content-Type: application/json
-```
-
-**Request:**
-```json
-{
-  "phone": "13800138000",
-  "code": "438921",
-  "password": "newPwd123"
-}
-```
-
-| 字段 | 类型 | 必填 | 校验规则 | 说明 |
-|------|------|------|----------|------|
-| phone | String | 是 | `^1[3-9]\d{9}$` | 手机号 |
-| code | String | 是 | `^\d{6}$` | 6位短信验证码 |
-| password | String | 是 | `^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,16}$` | 新密码（字母+数字） |
-
-**校验流程：**
-
-| 步骤 | 校验项 | 失败处理 |
-|------|--------|----------|
-| 1 | 手机号是否存在（t_member） | 1001 "用户不存在" |
-| 2 | 验证码是否存在/已过期 | 1401 "验证码已过期或不存在" |
-| 3 | 验证码匹配 | 1402 "验证码错误次数过多，已锁定30分钟"（连续5次失败） |
-| 4 | 密码强度 | 400 "密码必须是数字+字母，长度6-16位" |
-| 5 | 新密码不能与原密码相同 | 400 "新密码不能与原密码相同" |
-| 6 | 更新密码 | — |
-| 7 | 清除登录态 | 删除 Redis 中 refresh token |
-
-**Response 200：**
-```json
-{
-  "code": 200,
-  "msg": "success",
-  "data": null,
-  "timestamp": 1234567890
-}
-```
-
-**验证码锁定规则：**
-- 连续 5 次验证码输入错误 → 锁定 30 分钟
-- 锁定期间返回 `{"code": 1402, "msg": "验证码错误次数过多，已锁定30分钟"}`
-- 成功后清除失败计数
-
----
-
-## 4. 错误码表
-
-| 错误码 | HTTP Status | 说明 | 场景 |
-|--------|-------------|------|------|
-| 200 | 200 | 成功 | — |
-| 400 | 400 | 参数错误 | 验证码过期、密码格式错误、新密码与原密码相同 |
-| 429 | 429 | 请求过于频繁 | 60秒冷却、日限、验证码锁定 |
-| 1001 | 404 | 用户不存在 | reset 接口手机号未注册 |
-| 1400 | 500 | 短信发送失败 | Submail API 错误或超时 |
-| 1401 | 400 | 验证码已过期或不存在 | 验证码过期/未发送 |
-| 1402 | 429 | 验证码锁定 | 连续5次错误，锁定30分钟 |
-
----
-
-## 5. Redis Key 一览
-
-| Key 模式 | TTL | 用途 |
-|----------|-----|------|
-| `haifeng:sms:code:{phone}` | 5min | 短信验证码 |
-| `haifeng:sms:send:cool:{phone}` | 60s | 发送冷却 |
-| `haifeng:sms:send:limit:{yyyyMMdd}:{phone}` | 当日剩余 | 每日发送次数 |
-| `haifeng:sms:verify:fail:{phone}` | 30min | 验证码失败计数 |
-| `haifeng:captcha:{uuid}` | 2min | 图形验证码（已有） |
-| `haifeng:limit:api:{ip}:/api/v1/app/auth/forgot-password/send-code` | 60s | IP限流（已有模式） |
-
----
-
-## 6. 版本历史
-
-| 版本 | 日期 | 变更 |
+| 字段 | 类型 | 说明 |
 |------|------|------|
-| v1.0 | 2026-07-06 | 初版 |
-| v1.1 | 2026-07-06 | 新增步骤5：新密码不能与原密码相同（400 "新密码不能与原密码相同"） |
+| id | Long | 主键ID |
+| positionName | String | 职位名称 |
+| examType | String | 考试类型（国考/省考） |
+| recruitingDept | String | 招录部门 |
+| minEducation | String | 最低学历 |
+| majorRequirement | String | 专业要求 |
+| degreeRequirement | String | 学位要求 |
+| politicalStatus | String | 政治面貌 |
+| examCategory | String | 考试类别 |
+| workLocation | String | 工作地点 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名结束日期 |
+| regStatus | String | 报名状态（报名中/已结束/即将开始） |
+| applicantCount | Integer | 报名人数 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/position/list?page=1&size=20&keyword=财务&examType=国考
+```
+
+---
+
+### 1.2 查询详情
+
+根据 ID 获取公务员考试职位详情。
+
+- **URL**: `/api/v1/app/employment/civil-service/position/{id}/detail`
+- **Method**: `GET`
+- **Auth**: 需要登录（`@RequireLogin`）
+
+#### 路径参数
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 职位ID |
+
+#### 响应数据（CivilPositionDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 职位名称 |
+| examType | String | 考试类型 |
+| recruitingDept | String | 招录部门 |
+| deptCode | String | 部门代码 |
+| positionCode | String | 职位代码 |
+| affiliatedBureau | String | 隶属局/分局 |
+| majorRequirement | String | 专业要求 |
+| minEducation | String | 最低学历 |
+| degreeRequirement | String | 学位要求 |
+| politicalStatus | String | 政治面貌 |
+| workExperience | String | 工作年限要求 |
+| grassrootsExperience | String | 基层工作经历要求 |
+| examCategory | String | 考试类别 |
+| interviewRatio | String | 面试比例 |
+| recruitmentCount | Integer | 招录人数 |
+| hasProfessionalTest | Boolean | 是否有专业科目考试 |
+| workLocation | String | 工作地点 |
+| workLocationDetail | String | 工作地点详细地址 |
+| householdRequirement | String | 户籍要求 |
+| householdLocation | String | 户籍所在地 |
+| positionIntro | String | 职位简介 |
+| remark | String | 备注 |
+| officialWebsite | String | 官方网站 |
+| contactPhone | String | 咨询电话 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名结束日期 |
+| regStatus | String | 报名状态 |
+| applicantCount | Integer | 报名人数 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/position/1891234567890123456/detail
+Authorization: Bearer <access_token>
+```
+
+---
+
+### 1.3 备考指南
+
+获取公务员考试备考指南列表。跳转至统一备考指南模块，按 `guide_category=civil` 预设过滤，支持按 `guide_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=civil`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
+
+> **查询逻辑**:
+> - 固定条件：`guide_category = 'civil'` AND `is_deleted = false`
+> - 精确查询：`guide_type = ?`（按传入 guideType，默认 `'备考攻略'`）
+> - 排序：`sort_order DESC NULLS LAST`, `created_at DESC`
+> - 不分页：全量返回匹配记录
+
+#### 响应数据（ExamGuideDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| guideCategory | String | 指南分类（固定为 civil） |
+| guideType | String | 指南类型 |
+| title | String | 标题 |
+| subtitle | String | 副标题 |
+| coverImage | String | 封面图片 |
+| iconClass | String | 图标样式类 |
+| summary | String | 摘要 |
+| content | String | 内容 |
+| tags | String[] | 标签列表（TEXT[]） |
+| difficultyLevel | String | 难度等级 |
+| targetAudience | String | 目标受众 |
+| authorName | String | 作者名称 |
+| authorTitle | String | 作者头衔 |
+| isTop | Boolean | 是否置顶 |
+| isRecommended | Boolean | 是否推荐 |
+| sortOrder | Integer | 排序序号 |
+| viewCount | Integer | 浏览量 |
+| likeCount | Integer | 点赞量 |
+| createdAt | OffsetDateTime | 创建时间 |
+| updatedAt | OffsetDateTime | 更新时间 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=civil&guideType=备考攻略
+```
+
+---
+
+### 1.4 公告
+
+获取公务员考试公告列表。跳转至统一公告模块，按 `notice_category=civil` 预设过滤，支持按 `notice_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=civil`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
+
+> **查询逻辑**:
+> - 固定条件：`notice_category = 'civil'` AND `is_deleted = false`
+> - 精确查询：`notice_type = ?`（按传入 noticeType，默认 `'招聘公告'`）
+> - 排序：`sort_order DESC NULLS LAST`, `created_at DESC`
+> - 不分页：全量返回匹配记录
+
+#### 响应数据（NoticeDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| noticeCategory | String | 公告分类（固定为 civil） |
+| noticeType | String | 公告类型 |
+| title | String | 标题 |
+| summary | String | 摘要 |
+| content | String | 内容 |
+| province | String | 省份 |
+| city | String | 城市 |
+| tags | String[] | 标签列表（TEXT[]） |
+| year | String | 年份 |
+| source | String | 来源 |
+| sourceUrl | String | 来源链接 |
+| publishDate | OffsetDateTime | 发布日期 |
+| publishUnit | String | 发布单位 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名结束日期 |
+| examTime | OffsetDateTime | 考试时间 |
+| recruitmentCount | Integer | 招录人数 |
+| isTop | Boolean | 是否置顶 |
+| isImportant | Boolean | 是否重要 |
+| sortOrder | Integer | 排序权重 |
+| viewCount | Integer | 浏览量 |
+| createdAt | OffsetDateTime | 创建时间 |
+| updatedAt | OffsetDateTime | 更新时间 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=civil&noticeType=招聘公告
+```
+
+---
+
+### 公务员枚举值
+
+#### examType（考试类型）
+
+| 值 | 说明 |
+|----|------|
+| 国考 | 国家公务员考试 |
+| 省考 | 省级公务员考试 |
+
+#### minEducation（最低学历）
+
+| 值 | 说明 |
+|----|------|
+| 不限 | 不限 |
+| 大专 | 大专 |
+| 本科 | 本科 |
+| 硕士 | 硕士 |
+| 博士 | 博士 |
+
+#### degreeRequirement（学位要求）
+
+| 值 | 说明 |
+|----|------|
+| 不限 | 不限 |
+| 学士 | 学士 |
+| 硕士 | 硕士 |
+| 博士 | 博士 |
+
+#### politicalStatus（政治面貌）
+
+| 值 | 说明 |
+|----|------|
+| 不限 | 不限 |
+| 中共党员 | 中共党员 |
+| 共青团员 | 共青团员 |
+| 群众 | 群众 |
+
+#### regStatus（报名状态）
+
+| 值 | 说明 |
+|----|------|
+| 报名中 | 报名中 |
+| 已结束 | 已结束 |
+| 即将开始 | 即将开始 |
+
+---
+
+## 二、事业编职位
+
+### 2.1 分页列表
+
+获取事业编职位分页列表，支持模糊搜索和精确筛选。
+
+- **URL**: `/api/v1/app/employment/civil-service/institution/list`
+- **Method**: `GET`
+- **Auth**: 无需登录
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 查询方式 | 说明 |
+|------|------|------|----------|------|
+| page | Integer | 否 | - | 页码，默认1 |
+| size | Integer | 否 | - | 每页条数，默认10 |
+| keyword | String | 否 | 模糊 LIKE | 全局模糊搜索（positionName OR supervisingDept OR institution OR workLocation） |
+| province | String | 否 | 精确 EQ | 省份 |
+| examCategory | String | 否 | 精确 EQ | 考试类别 |
+| positionType | String | 否 | 精确 EQ | 职位类型 |
+| educationRequirement | String | 否 | 精确 EQ | 学历要求（无要求/大专/本科/硕士/博士） |
+| degreeRequirement | String | 否 | 精确 EQ | 学位要求（无要求/学士/硕士/博士） |
+| positionStatus | String | 否 | 精确 EQ | 职位状态（招聘中/已结束） |
+| specialPosition | String | 否 | 精确 EQ | 特殊岗位标识 |
+| ageLimit | Integer | 否 | 范围 GE | 年龄上限（>= 查询值） |
+
+> **查询逻辑**:
+> - 基础条件：`is_deleted = false`
+> - 模糊字段（positionName, supervisingDept, institution, workLocation）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
+> - 精确字段（province, examCategory, positionType, educationRequirement, degreeRequirement, positionStatus, specialPosition）：多个精确字段之间用 **AND** 连接
+> - ageLimit：使用 `>=` 范围查询
+> - 模糊与精确之间用 **AND** 连接
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
+
+#### 响应数据（InstitutionPositionListVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 职位名称 |
+| supervisingDept | String | 主管部门 |
+| institution | String | 招聘单位 |
+| workLocation | String | 工作地点 |
+| province | String | 省份 |
+| examCategory | String | 考试类别 |
+| positionType | String | 职位类型 |
+| ageLimit | Integer | 年龄上限 |
+| recruitmentCount | Integer | 招聘人数 |
+| salaryRange | String | 薪资范围 |
+| regDeadline | String | 报名截止时间 |
+| specialPosition | String | 特殊岗位标识 |
+| positionStatus | String | 职位状态 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/institution/list?page=1&size=20&province=广东省&positionType=专业技术岗
+```
+
+---
+
+### 2.2 查询详情
+
+根据 ID 获取事业编职位详情。
+
+- **URL**: `/api/v1/app/employment/civil-service/institution/{id}/detail`
+- **Method**: `GET`
+- **Auth**: 需要登录（`@RequireLogin`）
+
+#### 路径参数
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 职位ID |
+
+#### 响应数据（InstitutionPositionDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 职位名称 |
+| supervisingDept | String | 主管部门 |
+| institution | String | 招聘单位 |
+| workLocation | String | 工作地点 |
+| province | String | 省份 |
+| examCategory | String | 考试类别 |
+| positionType | String | 职位类型 |
+| subCategory | String | 职位子类 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| ageLimit | Integer | 年龄上限 |
+| recruitmentCount | Integer | 招聘人数 |
+| salaryRange | String | 薪资范围 |
+| regDeadline | String | 报名截止时间 |
+| majorRequirements | String[] | 专业要求列表（TEXT[]） |
+| specialPosition | String | 特殊岗位标识 |
+| otherRequirement | String | 其他要求 |
+| otherRequirementDesc | String | 其他要求说明 |
+| remarkType | String | 备注类型 |
+| remarkDesc | String | 备注说明 |
+| consultationPhone | String | 咨询电话 |
+| supervisionPhone | String | 监督电话 |
+| positionStatus | String | 职位状态 |
+| positionTag | String | 职位标签（热门/无/急招） |
+| tagText | String | 标签自定义文本 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/institution/1891234567890654321/detail
+Authorization: Bearer <access_token>
+```
+
+---
+
+### 2.3 备考指南
+
+获取事业编考试备考指南列表。跳转至统一备考指南模块，按 `guide_category=institution` 预设过滤，支持按 `guide_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=institution`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
+
+> **查询逻辑**: 同 1.3，固定条件 `guide_category = 'institution'`，支持 `guide_type` 精确过滤
+
+#### 响应数据（ExamGuideDetailVO）
+
+同 1.3，字段结构一致，`guideCategory` 固定为 `institution`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=institution&guideType=备考攻略
+```
+
+---
+
+### 2.4 公告
+
+获取事业编考试公告列表。跳转至统一公告模块，按 `notice_category=institution` 预设过滤，支持按 `notice_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=institution`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
+
+> **查询逻辑**: 同 1.4，固定条件 `notice_category = 'institution'`，支持 `notice_type` 精确过滤
+
+#### 响应数据（NoticeDetailVO）
+
+同 1.4，字段结构一致，`noticeCategory` 固定为 `institution`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=institution&noticeType=招聘公告
+```
+
+---
+
+### 事业编枚举值
+
+#### educationRequirement（学历要求）
+
+| 值 | 说明 |
+|----|------|
+| 无要求 | 无要求 |
+| 大专 | 大专 |
+| 本科 | 本科 |
+| 硕士 | 硕士 |
+| 博士 | 博士 |
+
+#### degreeRequirement（学位要求）
+
+| 值 | 说明 |
+|----|------|
+| 无要求 | 无要求 |
+| 学士 | 学士 |
+| 硕士 | 硕士 |
+| 博士 | 博士 |
+
+#### positionStatus（职位状态）
+
+| 值 | 说明 |
+|----|------|
+| 招聘中 | 招聘中 |
+| 已结束 | 已结束 |
+
+#### positionTag（职位标签）
+
+| 值 | 说明 |
+|----|------|
+| 热门 | 热门 |
+| 无 | 无 |
+| 急招 | 急招 |
+
+---
+
+## 三、部队文职岗位
+
+### 3.1 分页列表
+
+获取部队文职岗位分页列表，支持模糊搜索和精确筛选。
+
+- **URL**: `/api/v1/app/employment/civil-service/military/list`
+- **Method**: `GET`
+- **Auth**: 无需登录
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 查询方式 | 说明 |
+|------|------|------|----------|------|
+| page | Integer | 否 | - | 页码，默认1 |
+| size | Integer | 否 | - | 每页条数，默认10 |
+| keyword | String | 否 | 模糊 LIKE | 全局模糊搜索（positionName OR employerUnit OR department） |
+| positionType | String | 否 | 精确 EQ | 岗位类型 |
+| workLocation | String | 否 | 精确 EQ | 工作地点 |
+| majorRequirement | String | 否 | 精确 EQ | 专业要求 |
+| educationRequirement | String | 否 | 精确 EQ | 学历要求（本科及以上/硕士及以上/博士） |
+| positionStatus | String | 否 | 精确 EQ | 岗位状态（进行中/已结束） |
+
+> **查询逻辑**:
+> - 基础条件：`is_deleted = false`
+> - 模糊字段（positionName, employerUnit, department）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
+> - 精确字段（positionType, workLocation, majorRequirement, educationRequirement, positionStatus）：多个精确字段之间用 **AND** 连接
+> - 模糊与精确之间用 **AND** 连接
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
+
+#### 响应数据（MilitaryPositionListVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 岗位名称 |
+| employerUnit | String | 用人单位 |
+| department | String | 所属部门 |
+| positionType | String | 岗位类型 |
+| majorRequirement | String | 专业要求 |
+| educationRequirement | String | 学历要求 |
+| workLocation | String | 工作地点 |
+| salaryRange | String | 薪资范围 |
+| regDeadline | String | 报名截止时间 |
+| positionStatus | String | 岗位状态 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/military/list?page=1&size=20&keyword=参谋&positionType=行政管理
+```
+
+---
+
+### 3.2 查询详情
+
+根据 ID 获取部队文职岗位详情。
+
+- **URL**: `/api/v1/app/employment/civil-service/military/{id}/detail`
+- **Method**: `GET`
+- **Auth**: 需要登录（`@RequireLogin`）
+
+#### 路径参数
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 岗位ID |
+
+#### 响应数据（MilitaryPositionDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 岗位名称 |
+| employerUnit | String | 用人单位 |
+| department | String | 所属部门 |
+| positionType | String | 岗位类型 |
+| workLocation | String | 工作地点 |
+| salaryRange | String | 薪资范围 |
+| majorRequirement | String | 专业要求 |
+| educationRequirement | String | 学历要求 |
+| regDeadline | String | 报名截止时间 |
+| positionStatus | String | 岗位状态 |
+| positionDescription | String | 岗位描述 |
+| responsibilities | String[] | 岗位职责列表（TEXT[]） |
+| qualifications | String[] | 任职资格列表（TEXT[]） |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/military/1891234567890654321/detail
+Authorization: Bearer <access_token>
+```
+
+---
+
+### 3.3 备考指南
+
+获取部队文职考试备考指南列表。跳转至统一备考指南模块，按 `guide_category=military` 预设过滤，支持按 `guide_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=military`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
+
+> **查询逻辑**: 同 1.3，固定条件 `guide_category = 'military'`，支持 `guide_type` 精确过滤
+
+#### 响应数据（ExamGuideDetailVO）
+
+同 1.3，字段结构一致，`guideCategory` 固定为 `military`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=military&guideType=备考攻略
+```
+
+---
+
+### 3.4 公告
+
+获取部队文职考试公告列表。跳转至统一公告模块，按 `notice_category=military` 预设过滤，支持按 `notice_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=military`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
+
+> **查询逻辑**: 同 1.4，固定条件 `notice_category = 'military'`，支持 `notice_type` 精确过滤
+
+#### 响应数据（NoticeDetailVO）
+
+同 1.4，字段结构一致，`noticeCategory` 固定为 `military`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=military&noticeType=招聘公告
+```
+
+---
+
+### 部队文职枚举值
+
+#### educationRequirement（学历要求）
+
+| 值 | 说明 |
+|----|------|
+| 本科及以上 | 本科及以上 |
+| 硕士及以上 | 硕士及以上 |
+| 博士 | 博士 |
+
+#### positionStatus（岗位状态）
+
+| 值 | 说明 |
+|----|------|
+| 进行中 | 进行中 |
+| 已结束 | 已结束 |
+
+---
+
+## 四、选调生岗位
+
+### 4.1 分页列表
+
+获取选调生岗位分页列表，支持模糊搜索和精确筛选。
+
+- **URL**: `/api/v1/app/employment/civil-service/selection/list`
+- **Method**: `GET`
+- **Auth**: 无需登录
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 查询方式 | 说明 |
+|------|------|------|----------|------|
+| page | Integer | 否 | - | 页码，默认1 |
+| size | Integer | 否 | - | 每页条数，默认10 |
+| keyword | String | 否 | 模糊 LIKE | 全局模糊搜索（positionName OR targetUnit OR workLocation） |
+| selectionType | String | 否 | 精确 EQ | 选调类型（定向选调/非定向选调/急需紧缺专业选调） |
+| year | String | 否 | 精确 EQ | 年份 |
+| province | String | 否 | 精确 EQ | 省份 |
+| majorRequirement | String | 否 | 精确 EQ | 专业要求 |
+| universityRequirement | String | 否 | 精确 EQ | 院校要求 |
+| educationRequirement | String | 否 | 精确 EQ | 学历要求（本科/硕士/博士/本科及以上/硕士及以上） |
+| degreeRequirement | String | 否 | 精确 EQ | 学位要求 |
+| politicalStatus | String | 否 | 精确 EQ | 政治面貌 |
+| positionStatus | String | 否 | 精确 EQ | 岗位状态（报名中/笔试阶段/面试阶段/已结束/即将开始） |
+| ageLimit | Integer | 否 | 范围 GE | 年龄上限（>= 查询值） |
+
+> **查询逻辑**:
+> - 基础条件：`is_deleted = false`
+> - 模糊字段（positionName, targetUnit, workLocation）：通过 keyword 传入，多个模糊字段之间用 **OR** 连接
+> - 精确字段（selectionType, year, province, majorRequirement, universityRequirement, educationRequirement, degreeRequirement, politicalStatus, positionStatus）：多个精确字段之间用 **AND** 连接
+> - ageLimit：使用 `>=` 范围查询
+> - 模糊与精确之间用 **AND** 连接
+> - 排序：`sort_order DESC, created_at DESC`（优先展示运营手动置顶的高优先级岗位）
+
+#### 响应数据（SelectionPositionListVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 岗位名称 |
+| selectionType | String | 选调类型 |
+| year | String | 年份 |
+| province | String | 省份 |
+| organizingDept | String | 组织部门 |
+| targetUnit | String | 录用单位 |
+| workLocation | String | 工作地点 |
+| majorRequirement | String | 专业要求 |
+| universityRequirement | String | 院校要求 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| trainingDirection | String | 培养方向 |
+| politicalStatus | String | 政治面貌 |
+| ageLimit | Integer | 年龄上限 |
+| recruitmentCount | Integer | 招录人数 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名结束日期 |
+| positionStatus | String | 岗位状态 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/selection/list?page=1&size=20&year=2026&province=广东省&selectionType=定向选调
+```
+
+---
+
+### 4.2 查询详情
+
+根据 ID 获取选调生岗位详情。
+
+- **URL**: `/api/v1/app/employment/civil-service/selection/{id}/detail`
+- **Method**: `GET`
+- **Auth**: 需要登录（`@RequireLogin`）
+
+#### 路径参数
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 岗位ID |
+
+#### 响应数据（SelectionPositionDetailVO）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 主键ID |
+| positionName | String | 岗位名称 |
+| selectionType | String | 选调类型 |
+| year | String | 年份 |
+| province | String | 省份 |
+| organizingDept | String | 组织部门 |
+| targetUnit | String | 录用单位 |
+| workLocation | String | 工作地点 |
+| trainingDirection | String | 培养方向 |
+| grassrootsServiceYears | String | 基层服务年限 |
+| trainingPlan | String | 培养计划 |
+| educationRequirement | String | 学历要求 |
+| degreeRequirement | String | 学位要求 |
+| majorRequirement | String | 专业要求 |
+| majorCategories | String[] | 专业类别列表（TEXT[]） |
+| universityRequirement | String | 院校要求 |
+| targetUniversities | String[] | 目标院校列表（TEXT[]） |
+| politicalStatus | String | 政治面貌 |
+| studentCadreRequirement | String | 学生干部要求 |
+| awardsRequirement | String | 奖励荣誉要求 |
+| ageLimit | Integer | 年龄上限 |
+| recruitmentCount | Integer | 招录人数 |
+| examSubjects | String | 考试科目 |
+| interviewForm | String | 面试形式 |
+| regStartDate | OffsetDateTime | 报名开始日期 |
+| regEndDate | OffsetDateTime | 报名结束日期 |
+| examTime | OffsetDateTime | 考试时间 |
+| applyLink | String | 报名链接 |
+| positionStatus | String | 岗位状态 |
+| remark | String | 备注 |
+| contactPhone | String | 联系电话 |
+| officialLink | String | 官方公告链接 |
+| content | String | 详细内容 |
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/civil-service/selection/1891234567890654321/detail
+Authorization: Bearer <access_token>
+```
+
+---
+
+### 4.3 备考指南
+
+获取选调生考试备考指南列表。跳转至统一备考指南模块，按 `guide_category=selection` 预设过滤，支持按 `guide_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=selection`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| guideType | String | 否 | 指南类型，默认 `备考攻略`，可选值见「备考指南类型枚举」 |
+
+> **查询逻辑**: 同 1.3，固定条件 `guide_category = 'selection'`，支持 `guide_type` 精确过滤
+
+#### 响应数据（ExamGuideDetailVO）
+
+同 1.3，字段结构一致，`guideCategory` 固定为 `selection`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=selection&guideType=备考攻略
+```
+
+---
+
+### 4.4 公告
+
+获取选调生考试公告列表。跳转至统一公告模块，按 `notice_category=selection` 预设过滤，支持按 `notice_type` 切换查询。
+
+- **URL**: `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=selection`
+- **Method**: `GET`
+- **Auth**: 无需登录
+- **分页**: 否，全量返回
+
+#### 请求参数（Query String）
+
+| 参数 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| noticeType | String | 否 | 公告类型，默认 `招聘公告`，可选值见「公告类型枚举」 |
+
+> **查询逻辑**: 同 1.4，固定条件 `notice_category = 'selection'`，支持 `notice_type` 精确过滤
+
+#### 响应数据（NoticeDetailVO）
+
+同 1.4，字段结构一致，`noticeCategory` 固定为 `selection`。
+
+#### 请求示例
+
+```
+GET /api/v1/app/employment/content/notice/list-by-type?noticeCategory=selection&noticeType=招聘公告
+```
+
+---
+
+### 选调生枚举值
+
+#### selectionType（选调类型）
+
+| 值 | 说明 |
+|----|------|
+| 定向选调 | 定向选调 |
+| 非定向选调 | 非定向选调 |
+| 急需紧缺专业选调 | 急需紧缺专业选调 |
+
+#### educationRequirement（学历要求）
+
+| 值 | 说明 |
+|----|------|
+| 本科 | 本科 |
+| 硕士 | 硕士 |
+| 博士 | 博士 |
+| 本科及以上 | 本科及以上 |
+| 硕士及以上 | 硕士及以上 |
+
+#### politicalStatus（政治面貌）
+
+| 值 | 说明 |
+|----|------|
+| 中共党员 | 中共党员 |
+| 中共预备党员 | 中共预备党员 |
+| 共青团员 | 共青团员 |
+| 不限 | 不限 |
+
+#### positionStatus（岗位状态）
+
+| 值 | 说明 |
+|----|------|
+| 报名中 | 报名中 |
+| 笔试阶段 | 笔试阶段 |
+| 面试阶段 | 面试阶段 |
+| 已结束 | 已结束 |
+| 即将开始 | 即将开始 |
+
+---
+
+## 备考指南类型枚举
+
+| 值 | 说明 |
+|----|------|
+| 备考攻略 | 备考攻略 |
+| 科目指导 | 科目指导 |
+| 真题解析 | 真题解析 |
+| 面试技巧 | 面试技巧 |
+| 时事热点 | 时事热点 |
+| 经验分享 | 经验分享 |
+| 政策解读 | 政策解读 |
+| 学习计划 | 学习计划 |
+
+---
+
+## 公告类型枚举
+
+| 值 | 说明 |
+|----|------|
+| 招聘公告 | 招聘公告 |
+| 招录公告 | 招录公告 |
+| 补录公告 | 补录公告 |
+| 调剂公告 | 调剂公告 |
+| 成绩公示 | 成绩公示 |
+| 面试通知 | 面试通知 |
+| 体检通知 | 体检通知 |
+| 录用公示 | 录用公示 |
+| 报名指南 | 报名指南 |
+| 考试大纲 | 考试大纲 |
+| 政策解读 | 政策解读 |
+
+---
+
+# 错误码说明
+
+| code | 说明 | 场景 |
+|------|------|------|
+| 200 | 成功 | - |
+| 400 | 参数错误 | 分页参数不合法、ID格式错误 |
+| 401 | 未登录/Token过期 | 访问需登录接口未传Token |
+| 404 | 资源不存在 | 查询详情时ID不存在或已软删除 |
+
+---
+
+## API 端点汇总
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| GET | `/api/v1/app/employment/civil-service/position/list` | 否 | 公务员分页列表 |
+| GET | `/api/v1/app/employment/civil-service/position/{id}/detail` | 是 | 公务员详情 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=civil` | 否 | 公务员备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=civil` | 否 | 公务员考试公告 |
+| GET | `/api/v1/app/employment/civil-service/institution/list` | 否 | 事业编分页列表 |
+| GET | `/api/v1/app/employment/civil-service/institution/{id}/detail` | 是 | 事业编详情 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=institution` | 否 | 事业编备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=institution` | 否 | 事业编公告 |
+| GET | `/api/v1/app/employment/civil-service/military/list` | 否 | 部队文职分页列表 |
+| GET | `/api/v1/app/employment/civil-service/military/{id}/detail` | 是 | 部队文职详情 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=military` | 否 | 部队文职备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=military` | 否 | 部队文职公告 |
+| GET | `/api/v1/app/employment/civil-service/selection/list` | 否 | 选调生分页列表 |
+| GET | `/api/v1/app/employment/civil-service/selection/{id}/detail` | 是 | 选调生详情 |
+| GET | `/api/v1/app/employment/content/exam-guide/list-by-type?guideCategory=selection` | 否 | 选调生备考指南 |
+| GET | `/api/v1/app/employment/content/notice/list-by-type?noticeCategory=selection` | 否 | 选调生公告 |
+
+---
+
+## Java 包路径参考
+
+### haifeng-common
+
+| 类 | 路径 |
+|----|------|
+| CivilPosition Entity | `com.haifeng.common.entity.employment.civilService.CivilPosition` |
+| InstitutionPosition Entity | `com.haifeng.common.entity.employment.civilService.InstitutionPosition` |
+| MilitaryPosition Entity | `com.haifeng.common.entity.employment.civilService.MilitaryPosition` |
+| SelectionPosition Entity | `com.haifeng.common.entity.employment.civilService.SelectionPosition` |
+| CivilPositionMapper | `com.haifeng.common.mapper.employment.civilService.CivilPositionMapper` |
+| InstitutionPositionMapper | `com.haifeng.common.mapper.employment.civilService.InstitutionPositionMapper` |
+| MilitaryPositionMapper | `com.haifeng.common.mapper.employment.civilService.MilitaryPositionMapper` |
+| SelectionPositionMapper | `com.haifeng.common.mapper.employment.civilService.SelectionPositionMapper` |
+
+### haifeng-app
+
+| 类 | 路径 |
+|----|------|
+| CivilPositionController | `com.haifeng.app.controller.employment.civilService.CivilPositionController` |
+| InstitutionPositionController | `com.haifeng.app.controller.employment.civilService.InstitutionPositionController` |
+| MilitaryPositionController | `com.haifeng.app.controller.employment.civilService.MilitaryPositionController` |
+| SelectionPositionController | `com.haifeng.app.controller.employment.civilService.SelectionPositionController` |
+| CivilPositionService | `com.haifeng.app.service.employment.civilService.CivilPositionService` |
+| InstitutionPositionService | `com.haifeng.app.service.employment.civilService.InstitutionPositionService` |
+| MilitaryPositionService | `com.haifeng.app.service.employment.civilService.MilitaryPositionService` |
+| SelectionPositionService | `com.haifeng.app.service.employment.civilService.SelectionPositionService` |
+| CivilPositionServiceImpl | `com.haifeng.app.service.impl.employment.civilService.CivilPositionServiceImpl` |
+| InstitutionPositionServiceImpl | `com.haifeng.app.service.impl.employment.civilService.InstitutionPositionServiceImpl` |
+| MilitaryPositionServiceImpl | `com.haifeng.app.service.impl.employment.civilService.MilitaryPositionServiceImpl` |
+| SelectionPositionServiceImpl | `com.haifeng.app.service.impl.employment.civilService.SelectionPositionServiceImpl` |
+| CivilPositionSearchDTO | `com.haifeng.app.dto.employment.civilService.CivilPositionSearchDTO` |
+| InstitutionPositionSearchDTO | `com.haifeng.app.dto.employment.civilService.InstitutionPositionSearchDTO` |
+| MilitaryPositionSearchDTO | `com.haifeng.app.dto.employment.civilService.MilitaryPositionSearchDTO` |
+| SelectionPositionSearchDTO | `com.haifeng.app.dto.employment.civilService.SelectionPositionSearchDTO` |
+| CivilPositionListVO | `com.haifeng.app.vo.employment.civilService.CivilPositionListVO` |
+| CivilPositionDetailVO | `com.haifeng.app.vo.employment.civilService.CivilPositionDetailVO` |
+| InstitutionPositionListVO | `com.haifeng.app.vo.employment.civilService.InstitutionPositionListVO` |
+| InstitutionPositionDetailVO | `com.haifeng.app.vo.employment.civilService.InstitutionPositionDetailVO` |
+| MilitaryPositionListVO | `com.haifeng.app.vo.employment.civilService.MilitaryPositionListVO` |
+| MilitaryPositionDetailVO | `com.haifeng.app.vo.employment.civilService.MilitaryPositionDetailVO` |
+| SelectionPositionListVO | `com.haifeng.app.vo.employment.civilService.SelectionPositionListVO` |
+| SelectionPositionDetailVO | `com.haifeng.app.vo.employment.civilService.SelectionPositionDetailVO` |

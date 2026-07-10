@@ -1,5 +1,6 @@
 package com.haifeng.app.service.member;
 
+import com.haifeng.app.dto.member.AvatarUpdateDTO;
 import com.haifeng.app.dto.member.MemberInfoUpdateDTO;
 import com.haifeng.app.dto.member.PasswordUpdateDTO;
 import com.haifeng.app.dto.member.WechatUpdateDTO;
@@ -17,5 +18,5 @@ public interface MemberInfoService {
 
     void updatePassword(PasswordUpdateDTO dto);
 
-    void updateAvatar(String avatar);
+    void updateAvatar(AvatarUpdateDTO dto);
 }

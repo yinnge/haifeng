@@ -50,7 +50,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), FinancePosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), FinancePosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(FinancePosition::getSortOrder, FinancePosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<FinancePosition> page = new Page<>(dto.getPage(), dto.getSize());
         financePositionMapper.selectPage(page, wrapper);
@@ -82,8 +82,11 @@ public class FinancePositionServiceImpl implements FinancePositionService {
 
     @Override
     public FinancePositionDetailVO detail(Long id) {
-        FinancePosition pos = financePositionMapper.selectById(id);
-        if (pos == null || Boolean.TRUE.equals(pos.getIsDeleted())) {
+        LambdaQueryWrapper<FinancePosition> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(FinancePosition::getId, id);
+        wrapper.eq(FinancePosition::getIsDeleted, false);
+        FinancePosition pos = financePositionMapper.selectOne(wrapper);
+        if (pos == null) {
             log.warn("金融招聘岗位不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -123,9 +126,35 @@ public class FinancePositionServiceImpl implements FinancePositionService {
                 .regEndDate(pos.getRegEndDate())
                 .applyLink(pos.getApplyLink())
                 .positionStatus(pos.getPositionStatus())
-                .contactInfo(pos.getContactInfo())
+                .contactInfo(desensitizeContactInfo(pos.getContactInfo()))
                 .remark(pos.getRemark())
                 .content(pos.getContent())
                 .build();
+    }
+
+    private String desensitizeContactInfo(String info) {
+        if (info == null || info.length() < 4) {
+            return info;
+        }
+        if (info.contains("@")) {
+            int atIndex = info.indexOf("@");
+            String prefix = info.substring(0, atIndex);
+            String domain = info.substring(atIndex);
+            if (prefix.length() <= 2) {
+                return prefix.charAt(0) + "***" + domain;
+            }
+            return prefix.substring(0, 2) + "***" + domain;
+        }
+        if (info.contains("-")) {
+            String[] parts = info.split("-", 2);
+            if (parts[1].length() >= 4) {
+                return parts[0] + "-" + "****" + parts[1].substring(parts[1].length() - 4);
+            }
+            return parts[0] + "-****";
+        }
+        if (info.length() >= 11) {
+            return info.substring(0, 3) + "****" + info.substring(info.length() - 4);
+        }
+        return info.substring(0, 1) + "****" + info.substring(info.length() - 1);
     }
 }

@@ -3,6 +3,8 @@ package com.haifeng.app.controller.employment.contentManagement.examGuide;
 import com.haifeng.app.service.employment.contentManagement.examGuide.ExamGuideService;
 import com.haifeng.app.vo.employment.contentManagement.examGuide.ExamGuideDetailVO;
 import com.haifeng.common.response.R;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
@@ -21,8 +23,8 @@ public class ExamGuideController {
 
     @GetMapping("/list-by-type")
     public R<List<ExamGuideDetailVO>> listByType(
-            @RequestParam String guideCategory,
-            @RequestParam(defaultValue = "备考攻略") String guideType) {
+            @RequestParam @NotBlank @Size(max = 50) String guideCategory,
+            @RequestParam(defaultValue = "备考攻略") @Size(max = 20) String guideType) {
         return R.ok(examGuideService.listByCategoryAndType(guideCategory, guideType));
     }
 

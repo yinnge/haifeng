@@ -19,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -146,14 +145,10 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
 
         if (existing == null) {
             entity.setId(SnowflakeIdGenerator.nextId());
-            entity.setCreatedAt(OffsetDateTime.now());
-            entity.setUpdatedAt(OffsetDateTime.now());
             memberGaokaoMapper.insert(entity);
             log.info("创建高考档案成功: memberId={}, archiveId={}", memberId, entity.getId());
         } else {
             entity.setId(existing.getId());
-            entity.setCreatedAt(existing.getCreatedAt());
-            entity.setUpdatedAt(OffsetDateTime.now());
             memberGaokaoMapper.updateById(entity);
             log.info("更新高考档案成功: memberId={}, archiveId={}", memberId, entity.getId());
         }

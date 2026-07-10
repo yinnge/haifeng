@@ -41,7 +41,7 @@ public class Notice implements Serializable {
 
     private String[] tags;
 
-    private String year;
+    private Integer year;
 
     private String source;
 

@@ -77,6 +77,9 @@ public class Member {
         if (isVipActive()) {
             return "vip";
         }
+        if ("pro".equals(memberType)) {
+            return "pro";
+        }
         return "normal";
     }
 

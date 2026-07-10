@@ -8,6 +8,7 @@ import com.haifeng.app.vo.university.SubjectEvaluationListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +34,7 @@ public class SubjectEvaluationController {
     @RequireLogin
     @GetMapping("/{universityId}/subject-evaluations")
     public R<IPage<SubjectEvaluationListVO>> list(
-            @PathVariable Long universityId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid SubjectEvaluationQueryDTO dto) {
         return R.ok(subjectEvaluationService.page(universityId, dto));
     }
@@ -42,7 +43,7 @@ public class SubjectEvaluationController {
     @RequireLogin
     @GetMapping("/{universityId}/subject-evaluations/grade-stats")
     public R<List<SubjectEvaluationGradeStatsVO>> gradeStats(
-            @PathVariable Long universityId) {
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(subjectEvaluationService.gradeStats(universityId));
     }
 }

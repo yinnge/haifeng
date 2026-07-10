@@ -36,7 +36,7 @@ public class CompetitionServiceImpl implements CompetitionService {
 
         LambdaQueryWrapper<Competition> wrapper = new LambdaQueryWrapper<Competition>()
                 .eq(Competition::getIsDeleted, false)
-                .orderByAsc(Competition::getId);
+                .orderBy(true, false, "id ASC NULLS LAST");
 
         IPage<Competition> entityPage = competitionMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

@@ -1,5 +1,6 @@
 package com.haifeng.app.controller.member;
 
+import com.haifeng.app.dto.member.AvatarUpdateDTO;
 import com.haifeng.app.dto.member.MemberInfoUpdateDTO;
 import com.haifeng.app.dto.member.PasswordUpdateDTO;
 import com.haifeng.app.dto.member.WechatUpdateDTO;
@@ -10,8 +11,6 @@ import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/app/member")
@@ -50,9 +49,8 @@ public class MemberInfoController {
     }
 
     @PutMapping("/avatar")
-    public R<Void> updateAvatar(@RequestBody Map<String, String> body) {
-        String avatar = body.get("avatar");
-        memberInfoService.updateAvatar(avatar);
+    public R<Void> updateAvatar(@Valid @RequestBody AvatarUpdateDTO dto) {
+        memberInfoService.updateAvatar(dto);
         return R.ok();
     }
 }

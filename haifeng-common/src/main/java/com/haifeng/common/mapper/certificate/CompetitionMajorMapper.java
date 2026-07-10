@@ -33,7 +33,7 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
     @Select("SELECT cm.major_id AS majorId, cm.major_name AS majorName " +
             "FROM t_competition_major cm " +
             "WHERE cm.competition_id = #{competitionId} " +
-            "ORDER BY cm.id ASC")
+            "ORDER BY cm.id ASC NULLS LAST")
     IPage<Map<String, Object>> selectMajorsByCompetitionId(
             Page<?> page,
             @Param("competitionId") Long competitionId);
@@ -45,7 +45,7 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
     @Select("SELECT cm.competition_id AS competitionId, cm.competition_name AS competitionName " +
             "FROM t_competition_major cm " +
             "WHERE cm.major_id = #{majorId} " +
-            "ORDER BY cm.id ASC")
+            "ORDER BY cm.id ASC NULLS LAST")
     IPage<Map<String, Object>> selectCompetitionsByMajorId(
             Page<?> page,
             @Param("majorId") Long majorId);

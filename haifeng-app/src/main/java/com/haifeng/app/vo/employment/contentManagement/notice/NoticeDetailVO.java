@@ -34,7 +34,7 @@ public class NoticeDetailVO implements Serializable {
 
     private String[] tags;
 
-    private String year;
+    private Integer year;
 
     private String source;
 
@@ -55,8 +55,6 @@ public class NoticeDetailVO implements Serializable {
     private Boolean isTop;
 
     private Boolean isImportant;
-
-    private Integer viewCount;
 
     private Integer sortOrder;
 

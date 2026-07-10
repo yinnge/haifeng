@@ -130,19 +130,21 @@ public class MajorServiceImpl implements MajorService {
     public IPage<MajorListVO> ranking(MajorRankingQueryDTO dto) {
         Page<Major> page = new Page<>(dto.getPage(), dto.getSize());
 
-        // 构建 WHERE 条件
+        String sortBy = dto.getSortBy();
+        String column = SORT_COLUMN_MAP.get(sortBy != null ? sortBy : "employmentRate");
+        if (column == null) {
+            column = "employment_rate";
+        }
+        boolean isAsc = "asc".equalsIgnoreCase(dto.getSortOrder());
+        String direction = isAsc ? "ASC" : "DESC";
+
         LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<Major>()
                 .eq(Major::getStatus, STATUS_PUBLISHED)
                 .like(dto.getName() != null && !dto.getName().isBlank(),
                         Major::getMajorName, dto.getName())
                 .eq(dto.getMajorCategory() != null && !dto.getMajorCategory().isBlank(),
-                        Major::getMajorCategory, dto.getMajorCategory());
-
-        // 排序：sortBy 映射到数据库列名 + sortOrder + NULLS LAST
-        String column = SORT_COLUMN_MAP.get(dto.getSortBy());
-        String direction = "asc".equalsIgnoreCase(dto.getSortOrder()) ? "ASC" : "DESC";
-        String nulls = "NULLS LAST";
-        wrapper.last("ORDER BY " + column + " " + direction + " " + nulls + ", id DESC");
+                        Major::getMajorCategory, dto.getMajorCategory())
+                .last("ORDER BY " + column + " " + direction + " NULLS LAST, id DESC");
 
         IPage<Major> entityPage = majorMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
@@ -150,6 +152,14 @@ public class MajorServiceImpl implements MajorService {
 
     @Override
     public IPage<PostgradMajorDirectionBriefVO> postgradDirections(Long majorId, BasePageQueryDTO dto) {
+        Major major = majorMapper.selectOne(
+                new LambdaQueryWrapper<Major>()
+                        .eq(Major::getId, majorId)
+                        .eq(Major::getStatus, STATUS_PUBLISHED));
+        if (major == null) {
+            log.warn("专业不存在或已下架，返回空分页, majorId={}", majorId);
+            return new Page<>(dto.getPage(), dto.getSize());
+        }
         Page<Map<String, Object>> page = new Page<>(dto.getPage(), dto.getSize());
         IPage<Map<String, Object>> mapPage =
                 majorPostgradDirectionMapper.selectPostgradMajorsByMajorId(page, majorId);

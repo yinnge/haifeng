@@ -10,6 +10,7 @@ import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,7 @@ public class CompetitionController {
     /** 任务2接口2：竞赛详情（登录） */
     @RequireLogin
     @GetMapping("/{compId}/detail")
-    public R<CompetitionDetailVO> detail(@PathVariable Long compId) {
+    public R<CompetitionDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long compId) {
         return R.ok(competitionService.detail(compId));
     }
 
@@ -46,7 +47,7 @@ public class CompetitionController {
     @RequirePro
     @GetMapping("/{compId}/majors")
     public R<IPage<CompetitionMajorBriefVO>> majors(
-            @PathVariable Long compId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long compId,
             @Valid BasePageQueryDTO dto) {
         return R.ok(competitionService.majors(compId, dto));
     }
