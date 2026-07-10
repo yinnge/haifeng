@@ -33,8 +33,8 @@ public class ResourceServiceImpl implements ResourceService {
                 .eq(Resource::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getResourceName()), Resource::getResourceName, dto.getResourceName())
                 .eq(StringUtils.hasText(dto.getCategory()), Resource::getCategory, dto.getCategory())
-                .orderByAsc(Resource::getSortOrder)
-                .orderByDesc(Resource::getCreatedAt);
+                .orderByAsc("sort_order ASC NULLS LAST")
+                .orderByDesc("created_at DESC NULLS LAST");
 
         IPage<Resource> entityPage = resourceMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

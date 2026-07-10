@@ -9,6 +9,7 @@ import com.haifeng.app.vo.university.AdmissionMajorScoreListVO;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,20 +30,20 @@ public class AdmissionGroupController {
     @RequireVip
     @GetMapping("/{universityId}")
     public R<IPage<AdmissionGroupListVO>> page(
-            @PathVariable Long universityId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid AdmissionGroupQueryDTO dto) {
         return R.ok(admissionGroupService.pageByUniversity(universityId, dto));
     }
 
     @RequireVip
     @GetMapping("/{groupId}/scores")
-    public R<List<AdmissionMajorScoreListVO>> scores(@PathVariable Integer groupId) {
+    public R<List<AdmissionMajorScoreListVO>> scores(@PathVariable @Min(value = 1, message = "ID必须大于0") Long groupId) {
         return R.ok(admissionGroupService.listScores(groupId));
     }
 
     @RequireVip
     @GetMapping("/{groupId}/detail")
-    public R<AdmissionGroupDetailVO> detail(@PathVariable Integer groupId) {
+    public R<AdmissionGroupDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long groupId) {
         return R.ok(admissionGroupService.getDetail(groupId));
     }
 }

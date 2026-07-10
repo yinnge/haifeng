@@ -57,6 +57,11 @@ class MajorServiceImplTest {
         dto.setPage(1);
         dto.setSize(20);
 
+        Major major = new Major();
+        major.setId(42L);
+        major.setStatus((short) 1);
+        when(majorMapper.selectOne(org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class))).thenReturn(major);
+
         Map<String, Object> row1 = new HashMap<>();
         row1.put("id", 1001L);
         row1.put("postgradMajorName", "计算机科学与技术");
@@ -87,6 +92,12 @@ class MajorServiceImplTest {
     @Test
     void postgradDirections_emptyMapperResult_returnsEmptyPage() {
         BasePageQueryDTO dto = new BasePageQueryDTO();
+
+        Major major = new Major();
+        major.setId(99L);
+        major.setStatus((short) 1);
+        when(majorMapper.selectOne(org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class))).thenReturn(major);
+
         Page<Map<String, Object>> page = new Page<>(1, 10);
         page.setRecords(List.of());
         page.setTotal(0);
@@ -102,6 +113,12 @@ class MajorServiceImplTest {
     @Test
     void postgradDirections_nullFieldsInRowMap_yieldsNullVoFields() {
         BasePageQueryDTO dto = new BasePageQueryDTO();
+
+        Major major = new Major();
+        major.setId(1L);
+        major.setStatus((short) 1);
+        when(majorMapper.selectOne(org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class))).thenReturn(major);
+
         Map<String, Object> row = new HashMap<>();
         row.put("id", null);
         row.put("postgradMajorName", null);
@@ -116,6 +133,19 @@ class MajorServiceImplTest {
         assertThat(result.getRecords()).hasSize(1);
         assertThat(result.getRecords().get(0).getId()).isNull();
         assertThat(result.getRecords().get(0).getPostgradMajorName()).isNull();
+    }
+
+    @Test
+    void postgradDirections_majorNotFound_returnsEmptyPage() {
+        BasePageQueryDTO dto = new BasePageQueryDTO();
+        dto.setPage(1);
+        dto.setSize(10);
+        when(majorMapper.selectOne(org.mockito.ArgumentMatchers.any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        IPage<PostgradMajorDirectionBriefVO> result = service.postgradDirections(999L, dto);
+
+        assertThat(result.getTotal()).isZero();
+        assertThat(result.getRecords()).isEmpty();
     }
 
     @Test

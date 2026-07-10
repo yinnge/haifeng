@@ -1,26 +1,27 @@
 package com.haifeng.app.dto.major;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-/** C 端专业薪资/就业排行查询 DTO（spec 任务1接口4） */
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class MajorRankingQueryDTO extends BasePageQueryDTO {
 
-    /** 模糊查询（LIKE %name%） */
+    @Size(max = 100, message = "专业名称最长100个字符")
     private String name;
 
-    /** 精准查询 */
+    @Size(max = 50, message = "专业类别最长50个字符")
     private String majorCategory;
 
-    /** 排序字段，默认 employmentRate */
+    @NotNull(message = "排序字段不能为空")
     @Pattern(regexp = "employmentRate|salaryMin|salaryMax", message = "sortBy 只支持 employmentRate、salaryMin、salaryMax")
     private String sortBy = "employmentRate";
 
-    /** 排序方向，默认 desc */
+    @NotNull(message = "排序方向不能为空")
     @Pattern(regexp = "asc|desc", message = "sortOrder 只支持 asc、desc")
     private String sortOrder = "desc";
 }

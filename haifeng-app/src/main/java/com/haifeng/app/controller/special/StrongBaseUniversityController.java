@@ -4,6 +4,7 @@ import com.haifeng.app.service.special.StrongBaseUniversityService;
 import com.haifeng.app.vo.special.StrongBaseUniversityDetailVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +22,7 @@ public class StrongBaseUniversityController {
 
     @RequireLogin
     @GetMapping("/{universityId}")
-    public R<StrongBaseUniversityDetailVO> detailByUniversityId(@PathVariable Long universityId) {
+    public R<StrongBaseUniversityDetailVO> detailByUniversityId(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(strongBaseUniversityService.detailByUniversityId(universityId));
     }
 }

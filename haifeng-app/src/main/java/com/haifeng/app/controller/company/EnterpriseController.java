@@ -10,6 +10,8 @@ import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,14 +42,14 @@ public class EnterpriseController {
     /** 企业岗位列表（登录） */
     @RequireLogin
     @GetMapping("/{enterpriseId}/positions")
-    public R<List<EnterprisePositionVO>> positions(@PathVariable Long enterpriseId) {
+    public R<List<EnterprisePositionVO>> positions(@PathVariable @Min(value = 1, message = "ID必须大于0") Long enterpriseId) {
         return R.ok(enterpriseService.positions(enterpriseId));
     }
 
     /** 企业 → 行业跳转信息（Pro 及以上） */
     @RequirePro
     @GetMapping("/industries")
-    public R<List<EnterpriseIndustryGroupVO>> industries(@RequestParam List<Long> enterpriseIds) {
+    public R<List<EnterpriseIndustryGroupVO>> industries(@RequestParam @NotEmpty(message = "企业ID列表不能为空") List<@Min(value = 1, message = "ID必须大于0") Long> enterpriseIds) {
         return R.ok(enterpriseService.industriesByEnterpriseIds(enterpriseIds));
     }
 }

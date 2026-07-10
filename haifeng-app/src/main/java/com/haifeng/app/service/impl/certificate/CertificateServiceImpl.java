@@ -34,7 +34,7 @@ public class CertificateServiceImpl implements CertificateService {
                         Certificate::getCategory, dto.getCategory())
                 .like(StringUtils.hasText(dto.getCertName()),
                         Certificate::getCertName, dto.getCertName())
-                .orderByAsc(Certificate::getId);
+                .orderBy(true, false, "id ASC NULLS LAST");
 
         IPage<Certificate> entityPage = certificateMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
@@ -47,7 +47,7 @@ public class CertificateServiceImpl implements CertificateService {
                         .eq(Certificate::getId, certId)
                         .eq(Certificate::getIsDeleted, false));
         if (cert == null) {
-            log.debug("证书不存在或已删除, certId={}", certId);
+            log.warn("证书不存在或已删除, certId={}", certId);
             throw new BusinessException(ResultCode.NOT_FOUND, "证书不存在");
         }
 

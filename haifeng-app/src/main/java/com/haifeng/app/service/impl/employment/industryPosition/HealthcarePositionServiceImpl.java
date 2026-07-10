@@ -50,7 +50,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), HealthcarePosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), HealthcarePosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(HealthcarePosition::getSortOrder, HealthcarePosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<HealthcarePosition> page = new Page<>(dto.getPage(), dto.getSize());
         healthcarePositionMapper.selectPage(page, wrapper);
@@ -58,7 +58,9 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
         return page.convert(pos -> HealthcarePositionListVO.builder()
                 .id(pos.getId())
                 .institutionName(pos.getInstitutionName())
+                .institutionType(pos.getInstitutionType())
                 .institutionLevel(pos.getInstitutionLevel())
+                .institutionNature(pos.getInstitutionNature())
                 .positionName(pos.getPositionName())
                 .department(pos.getDepartment())
                 .positionCategory(pos.getPositionCategory())
@@ -78,8 +80,11 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
 
     @Override
     public HealthcarePositionDetailVO detail(Long id) {
-        HealthcarePosition pos = healthcarePositionMapper.selectById(id);
-        if (pos == null || Boolean.TRUE.equals(pos.getIsDeleted())) {
+        LambdaQueryWrapper<HealthcarePosition> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(HealthcarePosition::getId, id);
+        wrapper.eq(HealthcarePosition::getIsDeleted, false);
+        HealthcarePosition pos = healthcarePositionMapper.selectOne(wrapper);
+        if (pos == null) {
             log.warn("医疗卫生招聘岗位不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -115,10 +120,36 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
                 .examContent(pos.getExamContent())
                 .applyLink(pos.getApplyLink())
                 .positionStatus(pos.getPositionStatus())
-                .contactPhone(pos.getContactPhone())
+                .contactPhone(desensitizePhone(pos.getContactPhone()))
                 .contactPerson(pos.getContactPerson())
                 .remark(pos.getRemark())
                 .content(pos.getContent())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return phone;
+        }
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            String prefix = phone.substring(0, atIndex);
+            String domain = phone.substring(atIndex);
+            if (prefix.length() <= 2) {
+                return prefix.charAt(0) + "***" + domain;
+            }
+            return prefix.substring(0, 2) + "***" + domain;
+        }
+        if (phone.contains("-")) {
+            String[] parts = phone.split("-", 2);
+            if (parts[1].length() >= 4) {
+                return parts[0] + "-" + "****" + parts[1].substring(parts[1].length() - 4);
+            }
+            return parts[0] + "-****";
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+        }
+        return phone.substring(0, 1) + "****" + phone.substring(phone.length() - 1);
     }
 }

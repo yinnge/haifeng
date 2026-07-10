@@ -10,6 +10,7 @@ import java.util.List;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +38,7 @@ public class ResourceController {
     /** 任务 3 接口 2 & 3：查看资源 URL 并同步 +1 浏览计数，需登录 */
     @RequireLogin
     @GetMapping("/{id}/url")
-    public R<ResourceUrlVO> getUrl(@PathVariable Long id) {
+    public R<ResourceUrlVO> getUrl(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
         return R.ok(resourceService.getUrl(id));
     }
 

@@ -28,14 +28,14 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
         LambdaQueryWrapper<GrassrootsProjectPosition> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GrassrootsProjectPosition::getIsDeleted, false);
 
-        if (StrUtil.isNotBlank(dto.getKeyword())) {
-            wrapper.and(w -> w
-                    .like(GrassrootsProjectPosition::getPositionName, dto.getKeyword())
-                    .or()
-                    .like(GrassrootsProjectPosition::getOrganizingDept, dto.getKeyword())
-                    .or()
-                    .like(GrassrootsProjectPosition::getServiceUnit, dto.getKeyword())
-            );
+        if (StrUtil.isNotBlank(dto.getPositionName())) {
+            wrapper.like(GrassrootsProjectPosition::getPositionName, dto.getPositionName());
+        }
+        if (StrUtil.isNotBlank(dto.getOrganizingDept())) {
+            wrapper.like(GrassrootsProjectPosition::getOrganizingDept, dto.getOrganizingDept());
+        }
+        if (StrUtil.isNotBlank(dto.getServiceUnit())) {
+            wrapper.like(GrassrootsProjectPosition::getServiceUnit, dto.getServiceUnit());
         }
 
         wrapper.eq(StrUtil.isNotBlank(dto.getProjectType()), GrassrootsProjectPosition::getProjectType, dto.getProjectType());
@@ -57,8 +57,7 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
             wrapper.le(GrassrootsProjectPosition::getAgeLimit, dto.getAgeLimitMax());
         }
 
-        wrapper.orderByDesc(GrassrootsProjectPosition::getSortOrder);
-        wrapper.orderByDesc(GrassrootsProjectPosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<GrassrootsProjectPosition> page = new Page<>(dto.getPage(), dto.getSize());
         grassrootsProjectPositionMapper.selectPage(page, wrapper);
@@ -86,8 +85,11 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
 
     @Override
     public GrassrootsProjectPositionDetailVO detail(Long id) {
-        GrassrootsProjectPosition p = grassrootsProjectPositionMapper.selectById(id);
-        if (p == null || Boolean.TRUE.equals(p.getIsDeleted())) {
+        LambdaQueryWrapper<GrassrootsProjectPosition> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GrassrootsProjectPosition::getId, id);
+        wrapper.eq(GrassrootsProjectPosition::getIsDeleted, false);
+        GrassrootsProjectPosition p = grassrootsProjectPositionMapper.selectOne(wrapper);
+        if (p == null) {
             log.warn("基层服务项目岗位不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -131,9 +133,28 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
                 .regEndDate(p.getRegEndDate())
                 .applyLink(p.getApplyLink())
                 .positionStatus(p.getPositionStatus())
-                .contactPhone(p.getContactPhone())
+                .contactPhone(desensitizePhone(p.getContactPhone()))
                 .remark(p.getRemark())
                 .content(p.getContent())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (StrUtil.isBlank(phone)) return phone;
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            if (atIndex > 2) {
+                return phone.substring(0, 2) + "***" + phone.substring(atIndex);
+            }
+            return phone.substring(0, 1) + "***" + phone.substring(atIndex);
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(7);
+        } else if (phone.length() >= 8) {
+            return phone.substring(0, 2) + "****" + phone.substring(6);
+        } else if (phone.length() >= 4) {
+            return phone.substring(0, 1) + "****" + phone.substring(phone.length() - 1);
+        }
+        return phone;
     }
 }

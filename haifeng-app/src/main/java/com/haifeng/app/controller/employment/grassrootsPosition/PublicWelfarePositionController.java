@@ -8,6 +8,7 @@ import com.haifeng.app.vo.employment.grassrootsPosition.PublicWelfarePositionLis
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class PublicWelfarePositionController {
 
     @RequireLogin
     @GetMapping("/{id}/detail")
-    public R<PublicWelfarePositionDetailVO> detail(@PathVariable Long id) {
+    public R<PublicWelfarePositionDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
         return R.ok(publicWelfarePositionService.detail(id));
     }
 }

@@ -49,7 +49,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getDegreeRequirement()), TeacherPosition::getDegreeRequirement, dto.getDegreeRequirement());
         wrapper.eq(StrUtil.isNotBlank(dto.getMajorRequirement()), TeacherPosition::getMajorRequirement, dto.getMajorRequirement());
 
-        wrapper.orderByDesc(TeacherPosition::getSortOrder, TeacherPosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<TeacherPosition> page = new Page<>(dto.getPage(), dto.getSize());
         teacherPositionMapper.selectPage(page, wrapper);
@@ -80,8 +80,11 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
 
     @Override
     public TeacherPositionDetailVO detail(Long id) {
-        TeacherPosition pos = teacherPositionMapper.selectById(id);
-        if (pos == null || Boolean.TRUE.equals(pos.getIsDeleted())) {
+        LambdaQueryWrapper<TeacherPosition> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TeacherPosition::getId, id);
+        wrapper.eq(TeacherPosition::getIsDeleted, false);
+        TeacherPosition pos = teacherPositionMapper.selectOne(wrapper);
+        if (pos == null) {
             log.warn("教师招聘岗位不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -117,9 +120,35 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
                 .examTime(pos.getExamTime())
                 .positionStatus(pos.getPositionStatus())
                 .applyLink(pos.getApplyLink())
-                .contactPhone(pos.getContactPhone())
+                .contactPhone(desensitizePhone(pos.getContactPhone()))
                 .remark(pos.getRemark())
                 .content(pos.getContent())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return phone;
+        }
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            String prefix = phone.substring(0, atIndex);
+            String domain = phone.substring(atIndex);
+            if (prefix.length() <= 2) {
+                return prefix.charAt(0) + "***" + domain;
+            }
+            return prefix.substring(0, 2) + "***" + domain;
+        }
+        if (phone.contains("-")) {
+            String[] parts = phone.split("-", 2);
+            if (parts[1].length() >= 4) {
+                return parts[0] + "-" + "****" + parts[1].substring(parts[1].length() - 4);
+            }
+            return parts[0] + "-****";
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+        }
+        return phone.substring(0, 1) + "****" + phone.substring(phone.length() - 1);
     }
 }

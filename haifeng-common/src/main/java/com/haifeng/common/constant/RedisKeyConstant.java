@@ -198,11 +198,24 @@ public final class RedisKeyConstant {
      */
     public static final long HOME_CACHE_TTL_MINUTES = 30L;
 
+    /** 用户输入拼入缓存key时的最大长度 */
+    private static final int MAX_INPUT_LENGTH_IN_KEY = 50;
+
+    /**
+     * 截断用户输入，防止超长字符串导致缓存key膨胀
+     */
+    private static String truncateForKey(String input) {
+        if (input == null) return "";
+        return input.length() > MAX_INPUT_LENGTH_IN_KEY
+                ? input.substring(0, MAX_INPUT_LENGTH_IN_KEY)
+                : input;
+    }
+
     /**
      * 公告列表缓存 Key
      */
     public static String getAnnouncementListKey(int page, int size, String tag) {
-        return HOME_ANNOUNCEMENT_LIST_PREFIX + "p=" + page + ":s=" + size + ":tag=" + (tag == null ? "" : tag);
+        return HOME_ANNOUNCEMENT_LIST_PREFIX + "p=" + page + ":s=" + size + ":tag=" + truncateForKey(tag);
     }
 
     /**
@@ -216,7 +229,7 @@ public final class RedisKeyConstant {
      * 规划师列表缓存 Key
      */
     public static String getPlannerListKey(int page, int size, String region) {
-        return HOME_PLANNER_LIST_PREFIX + "p=" + page + ":s=" + size + ":region=" + (region == null ? "" : region);
+        return HOME_PLANNER_LIST_PREFIX + "p=" + page + ":s=" + size + ":region=" + truncateForKey(region);
     }
 
     /**
@@ -230,7 +243,7 @@ public final class RedisKeyConstant {
      * 培训机构列表缓存 Key
      */
     public static String getInstitutionListKey(int page, int size, String name) {
-        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size + ":name=" + (name == null ? "" : name);
+        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size + ":name=" + truncateForKey(name);
     }
 
     /**

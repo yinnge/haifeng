@@ -30,8 +30,7 @@ public class SpecialChannelServiceImpl implements SpecialChannelService {
                 .eq(SpecialChannel::getIsActive, true)
                 .eq(StringUtils.hasText(dto.getDisplayType()), SpecialChannel::getDisplayType, dto.getDisplayType())
                 .like(StringUtils.hasText(dto.getChannelName()), SpecialChannel::getChannelName, dto.getChannelName())
-                .orderByAsc(SpecialChannel::getSortOrder)
-                .orderByDesc(SpecialChannel::getId);
+                .last("ORDER BY sort_order ASC NULLS LAST, id DESC NULLS LAST");
         return specialChannelMapper.selectPage(page, wrapper).convert(this::toListVO);
     }
 

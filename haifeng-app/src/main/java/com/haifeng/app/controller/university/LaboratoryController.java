@@ -8,6 +8,7 @@ import com.haifeng.app.vo.university.LaboratoryListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +32,7 @@ public class LaboratoryController {
     @RequireLogin
     @GetMapping("/{universityId}/laboratories")
     public R<IPage<LaboratoryListVO>> list(
-            @PathVariable Long universityId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid LaboratoryQueryDTO dto) {
         return R.ok(laboratoryService.page(universityId, dto));
     }
@@ -39,7 +40,8 @@ public class LaboratoryController {
     /** spec §3.2：按主键查询实验室详情 */
     @RequireLogin
     @GetMapping("/laboratories/{labId}")
-    public R<LaboratoryDetailVO> detail(@PathVariable Long labId) {
+    public R<LaboratoryDetailVO> detail(
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long labId) {
         return R.ok(laboratoryService.detail(labId));
     }
 }

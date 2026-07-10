@@ -7,6 +7,7 @@ import com.haifeng.app.vo.university.CampusGalleryListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,16 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Validated
 @RestController
-@RequestMapping("/api/v1/app/university/gallery")
+@RequestMapping("/api/v1/app/university")
 @RequiredArgsConstructor
 public class CampusGalleryController {
 
     private final CampusGalleryService galleryService;
 
     @RequireLogin
-    @GetMapping("/{universityId}")
+    @GetMapping("/{universityId}/gallery")
     public R<IPage<CampusGalleryListVO>> gallery(
-            @PathVariable Long universityId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid CampusGalleryQueryDTO dto) {
         return R.ok(galleryService.page(universityId, dto));
     }

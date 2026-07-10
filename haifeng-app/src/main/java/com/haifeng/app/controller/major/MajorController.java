@@ -14,6 +14,7 @@ import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +46,7 @@ public class MajorController {
     /** 任务1接口2：专业详情（登录） */
     @RequireLogin
     @GetMapping("/{majorId}/detail")
-    public R<MajorDetailVO> detail(@PathVariable Long majorId) {
+    public R<MajorDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId) {
         return R.ok(majorService.detail(majorId));
     }
 
@@ -66,7 +67,7 @@ public class MajorController {
     @RequirePro
     @GetMapping("/{majorId}/postgrad-directions")
     public R<IPage<PostgradMajorDirectionBriefVO>> postgradDirections(
-            @PathVariable Long majorId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId,
             @Valid BasePageQueryDTO dto) {
         return R.ok(majorService.postgradDirections(majorId, dto));
     }
@@ -75,7 +76,7 @@ public class MajorController {
     @RequirePro
     @GetMapping("/{majorId}/competitions")
     public R<IPage<CompetitionBriefVO>> competitions(
-            @PathVariable Long majorId,
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId,
             @Valid BasePageQueryDTO dto) {
         return R.ok(majorService.competitions(majorId, dto));
     }

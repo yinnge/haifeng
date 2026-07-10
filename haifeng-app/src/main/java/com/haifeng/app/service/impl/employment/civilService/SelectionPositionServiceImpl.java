@@ -51,7 +51,7 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
         }
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionStatus()), SelectionPosition::getPositionStatus, dto.getPositionStatus());
 
-        wrapper.orderByDesc(SelectionPosition::getSortOrder, SelectionPosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<SelectionPosition> page = new Page<>(dto.getPage(), dto.getSize());
         selectionPositionMapper.selectPage(page, wrapper);
@@ -117,9 +117,35 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
                 .applyLink(item.getApplyLink())
                 .positionStatus(item.getPositionStatus())
                 .remark(item.getRemark())
-                .contactPhone(item.getContactPhone())
+                .contactPhone(desensitizePhone(item.getContactPhone()))
                 .officialLink(item.getOfficialLink())
                 .content(item.getContent())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return phone;
+        }
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            String prefix = phone.substring(0, atIndex);
+            String domain = phone.substring(atIndex);
+            if (prefix.length() <= 2) {
+                return prefix.charAt(0) + "***" + domain;
+            }
+            return prefix.substring(0, 2) + "***" + domain;
+        }
+        if (phone.contains("-")) {
+            String[] parts = phone.split("-", 2);
+            if (parts[1].length() >= 4) {
+                return parts[0] + "-" + "****" + parts[1].substring(parts[1].length() - 4);
+            }
+            return parts[0] + "-****";
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+        }
+        return phone.charAt(0) + "****" + phone.charAt(phone.length() - 1);
     }
 }

@@ -8,6 +8,7 @@ import com.haifeng.app.vo.certificate.CertificateListVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,7 @@ public class CertificateController {
     /** 任务1接口2：证书详情（登录） */
     @RequireLogin
     @GetMapping("/{certId}/detail")
-    public R<CertificateDetailVO> detail(@PathVariable Long certId) {
+    public R<CertificateDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long certId) {
         return R.ok(certificateService.detail(certId));
     }
 

@@ -26,8 +26,8 @@ public class SpecialChannelUniversityServiceImpl implements SpecialChannelUniver
 
     @Override
     public IPage<SpecialChannelUnivListVO> page(SpecialChannelUnivQueryDTO dto) {
-        if (!ProvinceEnum.isValid(dto.getRegionTag())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "省份参数不合法");
+        if (StringUtils.hasText(dto.getRegionTag()) && !ProvinceEnum.isValid(dto.getRegionTag())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "地区标签参数不合法");
         }
         Page<SpecialChannelUniversity> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<SpecialChannelUniversity> wrapper = new LambdaQueryWrapper<SpecialChannelUniversity>()
@@ -37,8 +37,7 @@ public class SpecialChannelUniversityServiceImpl implements SpecialChannelUniver
                 .eq(StringUtils.hasText(dto.getRegionTag()), SpecialChannelUniversity::getRegionTag, dto.getRegionTag())
                 .ge(dto.getSignupStart() != null, SpecialChannelUniversity::getSignupStart, dto.getSignupStart())
                 .le(dto.getSignupEnd() != null, SpecialChannelUniversity::getSignupEnd, dto.getSignupEnd())
-                .orderByAsc(SpecialChannelUniversity::getSortOrder)
-                .orderByDesc(SpecialChannelUniversity::getId);
+                .last("ORDER BY sort_order ASC NULLS LAST, id DESC NULLS LAST");
         return specialChannelUniversityMapper.selectPage(page, wrapper).convert(this::toListVO);
     }
 

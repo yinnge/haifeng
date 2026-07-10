@@ -50,10 +50,6 @@ public class ExamGuideDetailVO implements Serializable {
 
     private Integer sortOrder;
 
-    private Integer viewCount;
-
-    private Integer likeCount;
-
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

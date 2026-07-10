@@ -12,7 +12,7 @@ public interface AdmissionGroupService {
 
     IPage<AdmissionGroupListVO> pageByUniversity(Long universityId, AdmissionGroupQueryDTO dto);
 
-    AdmissionGroupDetailVO getDetail(Integer groupId);
+    AdmissionGroupDetailVO getDetail(Long groupId);
 
-    List<AdmissionMajorScoreListVO> listScores(Integer groupId);
+    List<AdmissionMajorScoreListVO> listScores(Long groupId);
 }

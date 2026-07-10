@@ -58,6 +58,12 @@ public class IndustryServiceImpl implements IndustryService {
 
     @Override
     public IndustryDetailVO detail(Long industryId) {
+        Industry industry = industryMapper.selectById(industryId);
+        if (industry == null || Boolean.TRUE.equals(industry.getIsDeleted())) {
+            log.debug("行业不存在或已删除, industryId={}", industryId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "行业详情不存在");
+        }
+
         IndustryDetail detail = industryDetailMapper.findByIndustryId(industryId);
         if (detail == null) {
             log.debug("行业详情不存在, industryId={}", industryId);

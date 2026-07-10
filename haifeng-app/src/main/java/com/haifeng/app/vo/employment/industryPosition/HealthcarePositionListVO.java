@@ -19,7 +19,11 @@ public class HealthcarePositionListVO implements Serializable {
 
     private String institutionName;
 
+    private String institutionType;
+
     private String institutionLevel;
+
+    private String institutionNature;
 
     private String positionName;
 

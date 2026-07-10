@@ -61,7 +61,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     }
 
     @Override
-    public AdmissionGroupDetailVO getDetail(Integer groupId) {
+    public AdmissionGroupDetailVO getDetail(Long groupId) {
         AdmissionGroup entity = groupMapper.selectById(groupId);
         if (entity == null || entity.getIsDeleted()) {
             log.debug("录取专业组不存在或已删除, groupId={}", groupId);
@@ -71,7 +71,12 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     }
 
     @Override
-    public List<AdmissionMajorScoreListVO> listScores(Integer groupId) {
+    public List<AdmissionMajorScoreListVO> listScores(Long groupId) {
+        AdmissionGroup entity = groupMapper.selectById(groupId);
+        if (entity == null || entity.getIsDeleted()) {
+            log.debug("录取专业组不存在或已删除, groupId={}", groupId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "录取专业组不存在");
+        }
         List<AdmissionMajorScore> list = majorScoreMapper.selectList(
                 new LambdaQueryWrapper<AdmissionMajorScore>()
                         .eq(AdmissionMajorScore::getGroupId, groupId)

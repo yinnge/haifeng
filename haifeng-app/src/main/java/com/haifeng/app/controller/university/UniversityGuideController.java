@@ -5,6 +5,7 @@ import com.haifeng.app.vo.university.*;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.response.R;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,37 +27,37 @@ public class UniversityGuideController {
 
     @RequireLogin
     @GetMapping("/{universityId}/overview")
-    public R<UniversityGuideOverviewVO> overview(@PathVariable Long universityId) {
+    public R<UniversityGuideOverviewVO> overview(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.overview(universityId));
     }
 
     @RequireLogin
     @GetMapping("/{universityId}/survival")
-    public R<UniversityGuideSurvivalVO> survival(@PathVariable Long universityId) {
+    public R<UniversityGuideSurvivalVO> survival(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.survival(universityId));
     }
 
     @RequirePro
     @GetMapping("/{universityId}/academic")
-    public R<UniversityGuideAcademicVO> academic(@PathVariable Long universityId) {
+    public R<UniversityGuideAcademicVO> academic(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.academic(universityId));
     }
 
     @RequireLogin
     @GetMapping("/{universityId}/social")
-    public R<UniversityGuideSocialVO> social(@PathVariable Long universityId) {
+    public R<UniversityGuideSocialVO> social(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.social(universityId));
     }
 
     @RequireLogin
     @GetMapping("/{universityId}/safety")
-    public R<UniversityGuideSafetyVO> safety(@PathVariable Long universityId) {
+    public R<UniversityGuideSafetyVO> safety(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.safety(universityId));
     }
 
     @RequireLogin
     @GetMapping("/{universityId}/life")
-    public R<UniversityGuideLifeVO> life(@PathVariable Long universityId) {
+    public R<UniversityGuideLifeVO> life(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.life(universityId));
     }
 }
