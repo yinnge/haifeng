@@ -1,13 +1,20 @@
 package com.haifeng.admin.vo.university;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-public class UniversityDetailVO {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UniversityDetailVO implements Serializable {
 
     // 基础信息（Tab1）
     private Long id;

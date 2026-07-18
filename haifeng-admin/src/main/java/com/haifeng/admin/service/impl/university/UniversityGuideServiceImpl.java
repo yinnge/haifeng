@@ -14,6 +14,7 @@ import com.haifeng.common.entity.university.UniversityGuide;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.UniversityGuideMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
 import com.haifeng.admin.excel.university.UniversityGuideExcelDTO;
@@ -96,6 +97,20 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
         IPage<UniversityGuide> guidePage = universityGuideMapper.selectPage(page, wrapper);
 
+        // 批量查询院校名称（避免 N+1）
+        List<UniversityGuide> records = guidePage.getRecords();
+        Set<Long> univIds = records.stream()
+                .map(UniversityGuide::getUniversityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> univNameMap = new HashMap<>();
+        if (!univIds.isEmpty()) {
+            List<University> universities = universityMapper.selectBatchIds(univIds);
+            univNameMap = universities.stream()
+                    .collect(Collectors.toMap(University::getId, University::getName, (a, b) -> a));
+        }
+
+        Map<Long, String> finalUnivNameMap = univNameMap;
         return guidePage.convert(guide -> {
             UniversityGuideListVO vo = new UniversityGuideListVO();
             vo.setId(guide.getId());
@@ -104,13 +119,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             vo.setRemark(guide.getRemark());
             vo.setStatus(guide.getStatus() != null ? guide.getStatus().intValue() : null);
             vo.setCreatedAt(guide.getCreatedAt() != null ? guide.getCreatedAt().toLocalDateTime() : null);
-
-            // 查询院校名称
-            University university = universityMapper.selectById(guide.getUniversityId());
-            if (university != null) {
-                vo.setUniversityName(university.getName());
-            }
-
+            vo.setUniversityName(finalUnivNameMap.get(guide.getUniversityId()));
             return vo;
         });
     }
@@ -119,7 +128,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     public UniversityGuideDetailVO detail(Long id) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null || guide.getStatus() == 0) {
-            throw new BusinessException(404, "院校适应指南不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
         UniversityGuideDetailVO vo = new UniversityGuideDetailVO();
@@ -160,7 +169,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         // 校验院校是否存在
         University university = universityMapper.selectById(dto.getUniversityId());
         if (university == null || university.getStatus() == 0) {
-            throw new BusinessException(404, "关联院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "关联院校不存在");
         }
 
         // 检查该院校是否已有指南（1:1关系）
@@ -209,25 +218,25 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     public void update(Long id, UniversityGuideUpdateDTO dto) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null || guide.getStatus() == 0) {
-            throw new BusinessException(404, "院校适应指南不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
-        guide.setCustomTags(dto.getCustomTags());
-        guide.setCampusFacilities(dto.getCampusFacilities());
-        guide.setDormitoryServices(dto.getDormitoryServices());
-        guide.setCampusTransportation(dto.getCampusTransportation());
-        guide.setAcademicGuidance(dto.getAcademicGuidance());
-        guide.setMajorTransferGuidelines(dto.getMajorTransferGuidelines());
-        guide.setMajorTransferConstriction(dto.getMajorTransferConstriction());
-        guide.setAcademicSupportResources(dto.getAcademicSupportResources());
-        guide.setStudentOrganizations(dto.getStudentOrganizations());
-        guide.setCampusEvents(dto.getCampusEvents());
-        guide.setClassDormSocial(dto.getClassDormSocial());
-        guide.setFinancialAid(dto.getFinancialAid());
-        guide.setCampusSecurity(dto.getCampusSecurity());
-        guide.setHealthServices(dto.getHealthServices());
-        guide.setLifeServices(dto.getLifeServices());
-        guide.setRemark(dto.getRemark());
+        if (dto.getCustomTags() != null) guide.setCustomTags(dto.getCustomTags());
+        if (dto.getCampusFacilities() != null) guide.setCampusFacilities(dto.getCampusFacilities());
+        if (dto.getDormitoryServices() != null) guide.setDormitoryServices(dto.getDormitoryServices());
+        if (dto.getCampusTransportation() != null) guide.setCampusTransportation(dto.getCampusTransportation());
+        if (dto.getAcademicGuidance() != null) guide.setAcademicGuidance(dto.getAcademicGuidance());
+        if (dto.getMajorTransferGuidelines() != null) guide.setMajorTransferGuidelines(dto.getMajorTransferGuidelines());
+        if (dto.getMajorTransferConstriction() != null) guide.setMajorTransferConstriction(dto.getMajorTransferConstriction());
+        if (dto.getAcademicSupportResources() != null) guide.setAcademicSupportResources(dto.getAcademicSupportResources());
+        if (dto.getStudentOrganizations() != null) guide.setStudentOrganizations(dto.getStudentOrganizations());
+        if (dto.getCampusEvents() != null) guide.setCampusEvents(dto.getCampusEvents());
+        if (dto.getClassDormSocial() != null) guide.setClassDormSocial(dto.getClassDormSocial());
+        if (dto.getFinancialAid() != null) guide.setFinancialAid(dto.getFinancialAid());
+        if (dto.getCampusSecurity() != null) guide.setCampusSecurity(dto.getCampusSecurity());
+        if (dto.getHealthServices() != null) guide.setHealthServices(dto.getHealthServices());
+        if (dto.getLifeServices() != null) guide.setLifeServices(dto.getLifeServices());
+        if (dto.getRemark() != null) guide.setRemark(dto.getRemark());
         if (dto.getStatus() != null) {
             guide.setStatus(dto.getStatus().shortValue());
         }
@@ -243,7 +252,11 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     public void updateStatus(Long id, Short status) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null) {
-            throw new BusinessException(404, "院校适应指南不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
+        }
+
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(400, "状态值无效，仅支持0（下架）或1（展示）");
         }
 
         guide.setStatus(status);
@@ -258,7 +271,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     public void delete(Long id) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null) {
-            throw new BusinessException(404, "院校适应指南不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
         // 软删除：status = 0
@@ -274,7 +287,11 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     public void hardDelete(Long id) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null) {
-            throw new BusinessException(404, "院校适应指南不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
+        }
+
+        if (guide.getStatus() == 0) {
+            throw new BusinessException(400, "该院校适应指南已软删除，无法硬删除");
         }
 
         // 硬删除：物理删除
@@ -410,8 +427,8 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             }
 
             if (!errors.isEmpty()) {
-                String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
-                        successCount, errors.size(), String.join("; ", errors));
+                String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
+                        errors.size(), String.join("; ", errors));
                 throw new BusinessException(400, errorMsg);
             }
 

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.haifeng.common.config.StringArrayTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -38,8 +39,12 @@ public class SelectionPosition implements Serializable {
     private String educationRequirement;
     private String degreeRequirement;
     private String majorRequirement;
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] majorCategories;
+
     private String universityRequirement;
+
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] targetUniversities;
     private String politicalStatus;
     private String studentCadreRequirement;

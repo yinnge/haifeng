@@ -44,9 +44,30 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void add(SafetyLevelAddDTO dto) {
         if (dto.getMinCoefficient().compareTo(dto.getMaxCoefficient()) >= 0) {
             throw new BusinessException(400, "系数下界必须小于系数上界");
+        }
+        SafetyLevelDict deleted = safetyLevelDictMapper.selectDeletedByLevel(dto.getLevel());
+        if (deleted != null) {
+            if (safetyLevelDictMapper.countByCodeExclude(dto.getCode(), dto.getLevel()) > 0) {
+                throw new BusinessException(400, "代码已存在");
+            }
+            deleted.setCode(dto.getCode());
+            deleted.setName(dto.getName());
+            deleted.setNameShort(dto.getNameShort());
+            deleted.setMinCoefficient(dto.getMinCoefficient());
+            deleted.setMaxCoefficient(dto.getMaxCoefficient());
+            deleted.setColor(dto.getColor());
+            deleted.setConfidence(dto.getConfidence());
+            deleted.setConfidenceReason(dto.getConfidenceReason());
+            deleted.setDescription(dto.getDescription());
+            deleted.setIsDeleted(false);
+            deleted.setVersion(0);
+            safetyLevelDictMapper.updateById(deleted);
+            log.info("恢复已删除安全系数等级，level={}", dto.getLevel());
+            return;
         }
         if (safetyLevelDictMapper.selectById(dto.getLevel()) != null) {
             throw new BusinessException(400, "等级已存在");
@@ -59,12 +80,13 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
                 .nameShort(dto.getNameShort()).minCoefficient(dto.getMinCoefficient())
                 .maxCoefficient(dto.getMaxCoefficient()).color(dto.getColor())
                 .confidence(dto.getConfidence()).confidenceReason(dto.getConfidenceReason())
-                .description(dto.getDescription()).build();
+                .description(dto.getDescription()).isDeleted(false).version(0).build();
         safetyLevelDictMapper.insert(entity);
         log.info("新增安全系数等级，level={}", dto.getLevel());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Short level, SafetyLevelAddDTO dto) {
         SafetyLevelDict existing = safetyLevelDictMapper.selectById(level);
         if (existing == null) {
@@ -90,11 +112,13 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Short level) {
-        int rows = safetyLevelDictMapper.deleteById(level);
-        if (rows == 0) {
+        SafetyLevelDict existing = safetyLevelDictMapper.selectById(level);
+        if (existing == null) {
             throw new BusinessException(404, "安全系数等级不存在");
         }
+        safetyLevelDictMapper.deleteById(level);
         log.info("删除安全系数等级，level={}", level);
     }
 
@@ -104,8 +128,8 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         if (levels == null || levels.isEmpty()) {
             throw new BusinessException(400, "请选择要删除的记录");
         }
-        safetyLevelDictMapper.deleteBatchIds(levels);
-        log.info("批量删除安全系数等级，levels={}", levels);
+        int count = safetyLevelDictMapper.batchSoftDelete(levels);
+        log.info("批量删除安全系数等级，count={}", count);
     }
 
     private SafetyLevelListVO convertToListVO(SafetyLevelDict entity) {
@@ -117,6 +141,9 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         vo.setMinCoefficient(entity.getMinCoefficient());
         vo.setMaxCoefficient(entity.getMaxCoefficient());
         vo.setConfidence(entity.getConfidence());
+        vo.setIsDeleted(entity.getIsDeleted());
+        vo.setVersion(entity.getVersion());
+        vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;
     }
 
@@ -132,6 +159,10 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         vo.setConfidence(entity.getConfidence());
         vo.setConfidenceReason(entity.getConfidenceReason());
         vo.setDescription(entity.getDescription());
+        vo.setIsDeleted(entity.getIsDeleted());
+        vo.setVersion(entity.getVersion());
+        vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;
     }
 }

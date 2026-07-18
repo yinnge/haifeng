@@ -11,6 +11,9 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/employment/civil-service/institution-position")
 @RequiredArgsConstructor
 @RequireAdminModule("emp_civil_institution")
+@Validated
 public class InstitutionPositionController {
 
     private final InstitutionPositionService institutionPositionService;
@@ -59,17 +63,22 @@ public class InstitutionPositionController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch-delete")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "体制内招录", action = "批量删除事业编职位")
-    public R<Void> batchDelete(@Valid @RequestBody List<Long> ids) {
+    public R<Void> batchDelete(
+            @Valid @RequestBody
+            @NotEmpty(message = "ids不能为空")
+            @Size(max = 100, message = "单次最多删除100条")
+            List<Long> ids
+    ) {
         institutionPositionService.batchDelete(ids);
         return R.ok();
     }
 
     @PostMapping("/pre-validate")
-    public R<String> preValidate(@RequestParam("file") MultipartFile file) {
+    public R<Void> preValidate(@RequestParam("file") MultipartFile file) {
         String result = institutionPositionService.preValidate(file);
-        return result == null ? R.ok("校验通过") : R.ok(result);
+        return result == null ? R.ok() : R.fail(400, result);
     }
 
     @PostMapping("/import")

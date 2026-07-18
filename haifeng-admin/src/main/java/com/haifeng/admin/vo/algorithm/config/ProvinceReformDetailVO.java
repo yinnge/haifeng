@@ -11,4 +11,6 @@ public class ProvinceReformDetailVO {
     private Short reformYear;
     private String reformModel;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private Integer version;
 }

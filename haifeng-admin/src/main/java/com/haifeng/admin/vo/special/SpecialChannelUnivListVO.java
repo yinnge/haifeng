@@ -1,8 +1,11 @@
 package com.haifeng.admin.vo.special;
 
-import lombok.Data;
+import lombok.*;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SpecialChannelUnivListVO {
     private Long id;
     private String channelName;

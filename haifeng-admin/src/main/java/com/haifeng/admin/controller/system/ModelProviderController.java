@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,13 +24,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 系统管理 - 模型供应商配置（Spring AI 服务商/模型管理）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/system/model-providers")
 @RequiredArgsConstructor
@@ -75,10 +76,10 @@ public class ModelProviderController {
     }
 
     /**
-     * 删除模型供应商配置
+     * 禁用模型供应商配置
      */
-    @DeleteMapping("/{id}")
-    @OperationLog(module = "系统管理", action = "删除模型供应商配置")
+    @PutMapping("/{id}/disable")
+    @OperationLog(module = "系统管理", action = "禁用模型供应商配置")
     public R<Void> delete(@PathVariable Long id) {
         modelProviderService.delete(id);
         return R.ok();
@@ -87,7 +88,7 @@ public class ModelProviderController {
     /**
      * 修改模型供应商配置状态
      */
-    @RequestMapping(value = "/{id}/status", method = {RequestMethod.PATCH, RequestMethod.PUT})
+    @PutMapping("/{id}/status")
     @OperationLog(module = "系统管理", action = "修改模型供应商配置状态")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody ModelProviderStatusDTO dto) {
         modelProviderService.updateStatus(id, dto);
@@ -98,6 +99,7 @@ public class ModelProviderController {
      * 查询 DeepSeek 厂商余额
      */
     @GetMapping("/balance")
+    @OperationLog(module = "系统管理", action = "查询AI厂商余额")
     public R<List<AiBalanceVO>> getBalance(
             @RequestParam(required = false, defaultValue = "false") Boolean refresh) {
         return R.ok(aiBalanceService.getDeepSeekBalances(refresh));

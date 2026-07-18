@@ -23,6 +23,7 @@ public class SpecialChannelUnivAddDTO {
     @Size(max = 50, message = "大学名称长度不能超过50")
     private String universityName;
 
+    @NotNull(message = "年份不能为空")
     private Short year;
 
     @Size(max = 20, message = "地区标签长度不能超过20")

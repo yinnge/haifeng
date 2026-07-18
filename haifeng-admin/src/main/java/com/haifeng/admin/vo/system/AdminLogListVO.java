@@ -1,41 +1,25 @@
 package com.haifeng.admin.vo.system;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.OffsetDateTime;
 
 @Data
-public class AdminLogListVO {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AdminLogListVO implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private Long id;
-
-    /**
-     * 管理员姓名
-     */
     private String adminName;
-
-    /**
-     * 操作描述
-     */
     private String operation;
-
-    /**
-     * 请求方法
-     */
     private String requestMethod;
-
-    /**
-     * 操作结果
-     */
     private String result;
-
-    /**
-     * IP地址
-     */
     private String ip;
-
-    /**
-     * 创建时间
-     */
     private OffsetDateTime createdAt;
 }

@@ -13,6 +13,8 @@ import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.TotpService;
 import com.haifeng.common.util.SecurityUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -54,12 +56,15 @@ public class ProfileServiceImpl implements ProfileService {
         SysAdmin admin = getCurrentAdmin();
 
         if (StringUtils.hasText(dto.getUsername())) {
+            checkFieldUnique("username", dto.getUsername(), admin.getId());
             admin.setUsername(dto.getUsername());
         }
         if (StringUtils.hasText(dto.getPhone())) {
+            checkFieldUnique("phone", dto.getPhone(), admin.getId());
             admin.setPhone(dto.getPhone());
         }
         if (StringUtils.hasText(dto.getEmail())) {
+            checkFieldUnique("email", dto.getEmail(), admin.getId());
             admin.setEmail(dto.getEmail());
         }
         if (StringUtils.hasText(dto.getAvatar())) {
@@ -70,6 +75,20 @@ public class ProfileServiceImpl implements ProfileService {
         adminMapper.updateById(admin);
 
         log.info("管理员更新个人信息: {}", admin.getUsername());
+    }
+
+    private void checkFieldUnique(String field, String value, Long excludeId) {
+        LambdaQueryWrapper<SysAdmin> query = Wrappers.<SysAdmin>lambdaQuery()
+                .ne(SysAdmin::getId, excludeId);
+        switch (field) {
+            case "username" -> query.eq(SysAdmin::getUsername, value);
+            case "phone" -> query.eq(SysAdmin::getPhone, value);
+            case "email" -> query.eq(SysAdmin::getEmail, value);
+        }
+        Long count = adminMapper.selectCount(query);
+        if (count > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, field + "已被其他管理员使用");
+        }
     }
 
     @Override
@@ -89,7 +108,6 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public TotpEnableVO enableTotp() {
         SysAdmin admin = getCurrentAdmin();
 
@@ -97,13 +115,8 @@ public class ProfileServiceImpl implements ProfileService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "TOTP 已开启");
         }
 
-        // 生成密钥
+        // 生成密钥（暂不持久化，等 verify 时再保存）
         String secret = totpService.generateSecret();
-        admin.setTotpSecret(secret);
-        admin.setUpdatedAt(OffsetDateTime.now());
-        adminMapper.updateById(admin);
-
-        // 生成二维码
         String qrCode = totpService.generateQrCodeBase64(secret, admin.getUsername());
 
         log.info("管理员生成 TOTP 密钥: {}", admin.getUsername());
@@ -119,14 +132,15 @@ public class ProfileServiceImpl implements ProfileService {
     public void verifyTotp(TotpVerifyDTO dto) {
         SysAdmin admin = getCurrentAdmin();
 
-        if (admin.getTotpSecret() == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "请先开启 TOTP");
+        if (Boolean.TRUE.equals(admin.getTotpEnabled())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "TOTP 已开启");
         }
 
-        if (!totpService.verifyCode(admin.getTotpSecret(), dto.getCode())) {
+        if (!totpService.verifyCode(dto.getSecret(), dto.getCode())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误");
         }
 
+        admin.setTotpSecret(dto.getSecret());
         admin.setTotpEnabled(true);
         admin.setUpdatedAt(OffsetDateTime.now());
         adminMapper.updateById(admin);
@@ -141,6 +155,10 @@ public class ProfileServiceImpl implements ProfileService {
 
         if (!passwordEncoder.matches(dto.getPassword(), admin.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR, "密码错误");
+        }
+
+        if (admin.getTotpSecret() == null || !totpService.verifyCode(admin.getTotpSecret(), dto.getCode())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "TOTP 验证码错误");
         }
 
         admin.setTotpEnabled(false);

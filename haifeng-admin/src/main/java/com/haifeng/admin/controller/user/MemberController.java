@@ -8,10 +8,13 @@ import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.vo.user.MemberDetailVO;
 import com.haifeng.admin.vo.user.MemberListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RateLimit;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/user")
 @RequiredArgsConstructor
 @RequireAdminModule("user_member")
+@Validated
 public class MemberController {
 
     private final MemberService memberService;
@@ -37,7 +41,7 @@ public class MemberController {
      * 获取用户详情
      */
     @GetMapping("/{id}")
-    public R<MemberDetailVO> detail(@PathVariable Long id) {
+    public R<MemberDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(memberService.detail(id));
     }
 
@@ -46,7 +50,7 @@ public class MemberController {
      */
     @PutMapping("/{id}/status")
     @OperationLog(module = "用户管理", action = "修改用户状态")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody MemberStatusDTO dto) {
+    public R<Void> updateStatus(@PathVariable @Min(1) Long id, @Valid @RequestBody MemberStatusDTO dto) {
         memberService.updateStatus(id, dto);
         return R.ok();
     }
@@ -56,7 +60,8 @@ public class MemberController {
      */
     @GetMapping("/{id}/wechat")
     @OperationLog(module = "用户管理", action = "查看用户微信明文")
-    public R<String> getWechat(@PathVariable Long id) {
+    @RateLimit(value = 10, time = 60)
+    public R<String> getWechat(@PathVariable @Min(1) Long id) {
         return R.ok(memberService.getWechatPlaintext(id));
     }
 
@@ -65,7 +70,7 @@ public class MemberController {
      */
     @PostMapping("/{id}/upgrade")
     @OperationLog(module = "用户管理", action = "会员开通/续费")
-    public R<Long> upgradeMember(@PathVariable Long id, @Valid @RequestBody MemberUpgradeDTO dto) {
+    public R<Long> upgradeMember(@PathVariable @Min(1) Long id, @Valid @RequestBody MemberUpgradeDTO dto) {
         return R.ok(memberService.upgradeMember(id, dto));
     }
 }

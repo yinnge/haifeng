@@ -52,6 +52,7 @@ public class UniversityAddDTO {
 
     private String imageUrl;
 
+    @Size(max = 5000, message = "院校简介不能超过5000个字符")
     private String introduction;
 
     private Integer sortOrder;

@@ -11,5 +11,7 @@ public class MajorConstraintDetailVO {
     private String constraintCode;
     private String constraintName;
     private String remark;
+    private Integer version;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

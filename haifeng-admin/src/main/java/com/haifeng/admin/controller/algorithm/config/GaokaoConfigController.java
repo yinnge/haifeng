@@ -8,8 +8,10 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/gaokao-config")
 @RequiredArgsConstructor

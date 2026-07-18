@@ -16,11 +16,9 @@ public class ModelProviderUpdateDTO {
     @Size(max = 255, message = "Base URL长度不能超过255")
     private String baseUrl;
 
-    @NotBlank(message = "模型名称不能为空")
     @Size(max = 100, message = "模型名称长度不能超过100")
     private String modelName;
 
-    @NotBlank(message = "供应商名称不能为空")
     @Size(max = 50, message = "供应商名称长度不能超过50")
     private String providerName;
 

@@ -16,9 +16,9 @@
 | GET | `/list` | 分页查询 |
 | GET | `/{id}/detail` | 详情 |
 | PUT | `/{id}/update` | 修改 |
-| DELETE | `/{id}/delete` | 物理删除 |
-| PATCH | `/{id}/status` | 启用/禁用 |
-| DELETE | `/batch-delete` | 批量物理删除 |
+| DELETE | `/{id}/delete` | 软删除 |
+| PATCH | `/{id}/status` | 更新岗位状态 |
+| POST | `/batch-delete` | 批量软删除 |
 | POST | `/pre-validate` | Excel 预校验 |
 | POST | `/import` | 导入 Excel |
 
@@ -29,7 +29,7 @@
 ### 基础路径
 `/api/v1/admin/employment/industry-position/teacher`
 
-**权限：** 需要登录（类级 @RequireLogin）
+**权限：** 需要管理员模块权限（类级 @RequireAdminModule("emp_industry_teacher")）
 
 ---
 
@@ -102,7 +102,7 @@
 
 ---
 
-### 1.4 删除教师招聘岗位（物理删除）
+### 1.4 删除教师招聘岗位（软删除）
 
 **DELETE** `/api/v1/admin/employment/industry-position/teacher/{id}/delete`
 
@@ -110,24 +110,24 @@
 
 ---
 
-### 1.5 启用/禁用教师招聘岗位
+### 1.5 更新教师招聘岗位状态
 
 **PATCH** `/api/v1/admin/employment/industry-position/teacher/{id}/status`
 
 **请求体：**
 ```json
 {
-  "status": 1   // 1=启用(isDeleted=false), 0=禁用(isDeleted=true)
+  "positionStatus": "招聘中"   // 招聘中 | 已结束 | 即将开始
 }
 ```
 
-**日志：** `@OperationLog(module = "行业专项招聘", action = "启用/禁用教师招聘岗位")`
+**日志：** `@OperationLog(module = "行业专项招聘", action = "更新教师招聘岗位状态")`
 
 ---
 
-### 1.6 批量物理删除
+### 1.6 批量软删除
 
-**DELETE** `/api/v1/admin/employment/industry-position/teacher/batch-delete`
+**POST** `/api/v1/admin/employment/industry-position/teacher/batch-delete`
 
 **请求体：**
 ```json
@@ -155,9 +155,9 @@
 或
 ```json
 {
-  "code": 200,
-  "msg": "success",
-  "data": "第2行: 学校名称不能为空; 第3行: 省份不合法"
+  "code": 400,
+  "msg": "第2行: 学校名称不能为空\n第3行: 省份不合法",
+  "data": null
 }
 ```
 
@@ -251,7 +251,7 @@
 ### 基础路径
 `/api/v1/admin/employment/industry-position/finance`
 
-**权限区别：** 分页列表**不需要登录**，其余接口需要登录（方法级 @RequireLogin）。
+**权限区别：** 所有接口均需要管理员模块权限（类级 @RequireAdminModule("emp_industry_bank")）。
 
 ### 3.1 分页查询
 
@@ -290,10 +290,11 @@
 ### 排序
 所有列表查询按 `sort_order` 降序 + `created_at` 降序排列
 
-### 状态（启用/禁用）
-- `status=1` → `is_deleted=false`（启用，出现在列表）
-- `status=0` → `is_deleted=true`（禁用，不出现在列表）
-- 已禁用的记录可以通过同样的接口重新启用
+### 岗位状态（positionStatus）
+- `招聘中` - 正在招聘
+- `已结束` - 招聘已结束
+- `即将开始` - 招聘即将开始
+- 已软删除的记录不在列表中显示，无法通过 status 接口恢复
 
 ### 数据校验
 - 省份通过 `ProvinceEnum.isValid()` 校验
@@ -322,18 +323,16 @@ haifeng-admin/src/main/java/com/haifeng/admin/
 │   ├── HealthcarePositionServiceImpl.java
 │   └── FinancePositionServiceImpl.java
 ├── dto/employment/industryPosition/
+│   ├── PositionStatusUpdateDTO.java   # 共用状态更新DTO
 │   ├── teacher/
 │   │   ├── TeacherPositionQueryDTO.java
-│   │   ├── TeacherPositionUpdateDTO.java
-│   │   └── TeacherPositionStatusDTO.java
+│   │   └── TeacherPositionUpdateDTO.java
 │   ├── healthcare/
 │   │   ├── HealthcarePositionQueryDTO.java
-│   │   ├── HealthcarePositionUpdateDTO.java
-│   │   └── HealthcarePositionStatusDTO.java
+│   │   └── HealthcarePositionUpdateDTO.java
 │   └── finance/
 │       ├── FinancePositionQueryDTO.java
-│       ├── FinancePositionUpdateDTO.java
-│       └── FinancePositionStatusDTO.java
+│       └── FinancePositionUpdateDTO.java
 ├── vo/employment/industryPosition/
 │   ├── teacher/
 │   │   ├── TeacherPositionListVO.java

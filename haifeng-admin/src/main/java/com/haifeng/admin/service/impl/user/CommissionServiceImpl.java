@@ -11,10 +11,11 @@ import com.haifeng.common.entity.user.ReferralCommission;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
 import com.haifeng.common.mapper.user.ReferralCommissionMapper;
+import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -37,13 +38,13 @@ public class CommissionServiceImpl implements CommissionService {
         wrapper.eq(ReferralCommission::getDeleted, false);
 
         if (StringUtils.hasText(dto.getReferrerPhone())) {
-            wrapper.like(ReferralCommission::getReferrerPhone, dto.getReferrerPhone());
+            wrapper.likeLeft(ReferralCommission::getReferrerPhone, dto.getReferrerPhone());
         }
         if (StringUtils.hasText(dto.getReferrerName())) {
             wrapper.like(ReferralCommission::getReferrerName, dto.getReferrerName());
         }
         if (StringUtils.hasText(dto.getRefereePhone())) {
-            wrapper.like(ReferralCommission::getRefereePhone, dto.getRefereePhone());
+            wrapper.likeLeft(ReferralCommission::getRefereePhone, dto.getRefereePhone());
         }
         if (StringUtils.hasText(dto.getRefereeName())) {
             wrapper.like(ReferralCommission::getRefereeName, dto.getRefereeName());
@@ -62,16 +63,26 @@ public class CommissionServiceImpl implements CommissionService {
 
         return commissionPage.convert(commission -> {
             CommissionListVO vo = new CommissionListVO();
-            BeanUtils.copyProperties(commission, vo);
+            vo.setId(commission.getId());
+            vo.setReferrerName(commission.getReferrerName());
+            vo.setReferrerPhone(commission.getReferrerPhone());
+            vo.setRefereeName(commission.getRefereeName());
+            vo.setRefereePhone(commission.getRefereePhone());
+            vo.setOrderId(commission.getOrderId());
+            vo.setOrderAmount(commission.getOrderAmount());
+            vo.setCommissionRate(commission.getCommissionRate());
+            vo.setCommissionAmount(commission.getCommissionAmount());
+            vo.setCreatedAt(commission.getCreatedAt());
             return vo;
         });
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         ReferralCommission commission = referralCommissionMapper.selectById(id);
-        if (commission == null || commission.getDeleted()) {
-            throw new BusinessException(404, "佣金记录不存在");
+        if (commission == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
         }
 
         commission.setDeleted(true);
@@ -82,10 +93,15 @@ public class CommissionServiceImpl implements CommissionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void hardDelete(Long id) {
         ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
         if (commission == null) {
-            throw new BusinessException(404, "佣金记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
+        }
+
+        if (!commission.getDeleted()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请先禁用该佣金记录，再执行硬删除");
         }
 
         referralCommissionMapper.hardDeleteById(id);
@@ -93,14 +109,15 @@ public class CommissionServiceImpl implements CommissionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
         ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
         if (commission == null) {
-            throw new BusinessException(404, "佣金记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
         }
 
         if (!commission.getDeleted()) {
-            throw new BusinessException(400, "该佣金记录未被禁用，无需恢复");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该佣金记录未被禁用，无需恢复");
         }
 
         referralCommissionMapper.restoreById(id, OffsetDateTime.now());

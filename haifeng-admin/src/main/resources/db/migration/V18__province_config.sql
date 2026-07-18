@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS t_province_config (
     density_k                 NUMERIC(4,3)    DEFAULT 0.150,
     line_steepness            NUMERIC(4,2)    DEFAULT 2.80,
     rank_steepness            NUMERIC(4,2)    DEFAULT 2.40,
-    created_at                TIMESTAMPTZ     DEFAULT NOW()
+    created_at                TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ     DEFAULT NOW(),
+    version                   INTEGER         DEFAULT 0
 );
 
 COMMENT ON TABLE t_province_config IS '省份算法配置表';

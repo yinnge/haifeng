@@ -10,12 +10,16 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/admission/group")
 @RequiredArgsConstructor
@@ -61,9 +65,9 @@ public class AdmissionGroupController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch")
     @OperationLog(module = "专业组管理", action = "批量删除专业组")
-    public R<Void> batchDelete(@RequestBody List<Integer> ids) {
+    public R<Void> batchDelete(@Valid @RequestBody @NotEmpty(message = "ids不能为空") @Size(max = 100) List<Integer> ids) {
         admissionGroupService.batchDelete(ids);
         return R.ok();
     }

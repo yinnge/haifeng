@@ -11,6 +11,7 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/admin/university/guide")
 @RequiredArgsConstructor
 @RequireAdminModule("university_guide")
+@Validated
 public class UniversityGuideController {
 
     private final UniversityGuideService universityGuideService;
@@ -93,7 +95,7 @@ public class UniversityGuideController {
     /**
      * 批量软删除院校适应指南
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "院校管理", action = "批量软删除院校适应指南")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         universityGuideService.batchDelete(dto.getIds());
@@ -103,7 +105,7 @@ public class UniversityGuideController {
     /**
      * 批量硬删除院校适应指南
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "院校管理", action = "批量硬删除院校适应指南")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         universityGuideService.batchHardDelete(dto.getIds());

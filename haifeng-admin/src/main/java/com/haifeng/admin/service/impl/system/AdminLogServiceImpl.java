@@ -11,10 +11,11 @@ import com.haifeng.admin.vo.system.AdminLogListVO;
 import com.haifeng.common.entity.system.AdminLog;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.system.AdminLogMapper;
+import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -47,25 +48,45 @@ public class AdminLogServiceImpl implements AdminLogService {
 
         IPage<AdminLog> logPage = adminLogMapper.selectPage(page, wrapper);
 
-        return logPage.convert(adminLog -> {
-            AdminLogListVO vo = new AdminLogListVO();
-            BeanUtils.copyProperties(adminLog, vo);
-            return vo;
-        });
+        return logPage.convert(adminLog -> AdminLogListVO.builder()
+                .id(adminLog.getId())
+                .adminName(adminLog.getAdminName())
+                .operation(adminLog.getOperation())
+                .requestMethod(adminLog.getRequestMethod())
+                .result(adminLog.getResult())
+                .ip(adminLog.getIp())
+                .createdAt(adminLog.getCreatedAt())
+                .build());
     }
 
     @Override
     public AdminLogDetailVO detail(Long id) {
         AdminLog adminLog = adminLogMapper.selectById(id);
         if (adminLog == null) {
-            throw new BusinessException(404, "操作日志不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "操作日志不存在");
         }
 
-        AdminLogDetailVO vo = new AdminLogDetailVO();
-        BeanUtils.copyProperties(adminLog, vo);
-        return vo;
+        String requestParams = adminLog.getRequestParams();
+        if (StringUtils.hasText(requestParams) && requestParams.length() > 500) {
+            requestParams = requestParams.substring(0, 500) + "...(已截断)";
+        }
+
+        return AdminLogDetailVO.builder()
+                .id(adminLog.getId())
+                .adminId(adminLog.getAdminId())
+                .adminName(adminLog.getAdminName())
+                .operation(adminLog.getOperation())
+                .requestPath(adminLog.getRequestPath())
+                .requestMethod(adminLog.getRequestMethod())
+                .requestParams(requestParams)
+                .result(adminLog.getResult())
+                .errorMsg(adminLog.getErrorMsg())
+                .ip(adminLog.getIp())
+                .createdAt(adminLog.getCreatedAt())
+                .build();
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int batchDelete(AdminLogBatchDeleteDTO dto) {
         String type = dto.getType();
@@ -77,18 +98,22 @@ public class AdminLogServiceImpl implements AdminLogService {
                     throw new BusinessException(400, "请选择要删除的记录");
                 }
                 deletedCount = adminLogMapper.batchHardDelete(dto.getIds());
-                log.info("批量删除操作日志: count={}", deletedCount);
+                log.info("批量删除操作日志: type=ids, count={}", deletedCount);
                 break;
 
             case "lastMonth":
                 OffsetDateTime oneMonthAgo = OffsetDateTime.now().minusMonths(1);
                 deletedCount = adminLogMapper.deleteBeforeTime(oneMonthAgo);
-                log.info("删除一个月前的操作日志: count={}", deletedCount);
+                log.info("删除一个月前的操作日志: type=lastMonth, count={}", deletedCount);
                 break;
 
             case "all":
+                long totalCount = adminLogMapper.selectCount(null);
+                if (totalCount > 10000) {
+                    throw new BusinessException(400, "日志总数超过10000条，请联系管理员处理");
+                }
                 deletedCount = adminLogMapper.deleteAll();
-                log.info("删除全部操作日志: count={}", deletedCount);
+                log.info("删除全部操作日志: type=all, count={}", deletedCount);
                 break;
 
             default:

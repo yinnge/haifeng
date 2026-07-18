@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.industryPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.industryPosition.PositionStatusUpdateDTO;
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.*;
 import com.haifeng.admin.service.employment.industryPosition.HealthcarePositionService;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.*;
@@ -8,7 +9,10 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +25,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/employment/industry-position/healthcare")
 @RequiredArgsConstructor
 @RequireAdminModule("emp_industry_medical")
+@Validated
 public class HealthcarePositionController {
 
     private final HealthcarePositionService healthcarePositionService;
@@ -50,15 +55,20 @@ public class HealthcarePositionController {
     }
 
     @PatchMapping("/{id}/status")
-    @OperationLog(module = "行业专项招聘", action = "启用/禁用医疗卫生岗位")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody HealthcarePositionStatusDTO dto) {
-        healthcarePositionService.updateStatus(id, dto.getStatus());
+    @OperationLog(module = "行业专项招聘", action = "更新医疗卫生岗位状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody PositionStatusUpdateDTO dto) {
+        healthcarePositionService.updateStatus(id, dto.getPositionStatus());
         return R.ok();
     }
 
-    @DeleteMapping("/batch-delete")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "行业专项招聘", action = "批量删除医疗卫生岗位")
-    public R<Void> batchDelete(@Valid @RequestBody List<Long> ids) {
+    public R<Void> batchDelete(
+            @Valid @RequestBody
+            @NotEmpty(message = "ids不能为空")
+            @Size(max = 100, message = "单次最多删除100条")
+            List<Long> ids
+    ) {
         healthcarePositionService.batchDelete(ids);
         return R.ok();
     }
@@ -66,7 +76,7 @@ public class HealthcarePositionController {
     @PostMapping("/pre-validate")
     public R<String> preValidate(@RequestParam("file") MultipartFile file) {
         String result = healthcarePositionService.preValidate(file);
-        return result == null ? R.ok("校验通过") : R.ok(result);
+        return result == null ? R.ok("校验通过") : R.fail(400, result);
     }
 
     @PostMapping("/import")

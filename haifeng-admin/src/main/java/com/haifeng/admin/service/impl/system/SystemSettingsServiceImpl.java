@@ -8,13 +8,13 @@ import com.haifeng.common.entity.system.ModelProvider;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.system.ModelProviderMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,15 +32,33 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
     public SystemSettingsVO get() {
         SystemSettings settings = settingsMapper.selectById(SINGLETON_ID);
         if (settings == null) {
-            throw new BusinessException(404, "系统设置不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "系统设置不存在");
         }
 
-        SystemSettingsVO vo = new SystemSettingsVO();
-        BeanUtils.copyProperties(settings, vo);
-        return vo;
+        return SystemSettingsVO.builder()
+                .id(settings.getId())
+                .siteName(settings.getSiteName())
+                .siteUrl(settings.getSiteUrl())
+                .siteIcp(settings.getSiteIcp())
+                .siteDescription(settings.getSiteDescription())
+                .apiNumber(settings.getApiNumber())
+                .providerName(settings.getProviderName())
+                .modelName(settings.getModelName())
+                .proPrice(settings.getProPrice())
+                .vipPrice(settings.getVipPrice())
+                .proCommissionRate(settings.getProCommissionRate())
+                .vipCommissionRate(settings.getVipCommissionRate())
+                .seoTitle(settings.getSeoTitle())
+                .seoKeywords(settings.getSeoKeywords())
+                .seoDescription(settings.getSeoDescription())
+                .contactUrl(settings.getContactUrl())
+                .basicMessage(settings.getBasicMessage())
+                .updatedAt(settings.getUpdatedAt())
+                .build();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(SystemSettingsUpdateDTO dto) {
         SystemSettings settings = settingsMapper.selectById(SINGLETON_ID);
         if (settings == null) {
@@ -75,6 +93,12 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         if (dto.getSeoKeywords() != null) {
             settings.setSeoKeywords(dto.getSeoKeywords());
         }
+        if (dto.getProCommissionRate() != null) {
+            settings.setProCommissionRate(dto.getProCommissionRate());
+        }
+        if (dto.getVipCommissionRate() != null) {
+            settings.setVipCommissionRate(dto.getVipCommissionRate());
+        }
         if (dto.getSeoDescription() != null) {
             settings.setSeoDescription(dto.getSeoDescription());
         }
@@ -85,9 +109,7 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
             settings.setBasicMessage(dto.getBasicMessage());
         }
 
-        settings.setUpdatedAt(OffsetDateTime.now());
         settingsMapper.updateById(settings);
-
         log.info("系统设置更新成功");
     }
 
@@ -102,6 +124,7 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateProviderModel(ProviderModelUpdateDTO dto) {
         // 验证 provider 是否存在且启用
         List<ModelProvider> providers = modelProviderMapper.findEnabledByProvider(dto.getProviderName());
@@ -119,12 +142,11 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         // 更新系统设置
         SystemSettings settings = settingsMapper.selectById(SINGLETON_ID);
         if (settings == null) {
-            throw new BusinessException(404, "系统设置不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "系统设置不存在");
         }
 
         settings.setProviderName(dto.getProviderName());
         settings.setModelName(dto.getModelName());
-        settings.setUpdatedAt(OffsetDateTime.now());
         settingsMapper.updateById(settings);
 
         log.info("系统设置服务商和模型更新成功: provider={}, model={}", dto.getProviderName(), dto.getModelName());

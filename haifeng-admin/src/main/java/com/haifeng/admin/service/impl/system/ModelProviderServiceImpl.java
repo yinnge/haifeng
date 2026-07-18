@@ -14,8 +14,8 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.system.ModelProviderMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -63,28 +63,26 @@ public class ModelProviderServiceImpl implements ModelProviderService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public ModelProviderVO create(ModelProviderCreateDTO dto) {
-        OffsetDateTime now = OffsetDateTime.now();
-        String providerName = normalizeProviderName(dto.getProviderName());
         ModelProvider modelProvider = ModelProvider.builder()
                 .apiKey(dto.getApiKey())
                 .baseUrl(dto.getBaseUrl())
                 .modelName(dto.getModelName())
-                .providerName(providerName)
+                .providerName(normalizeProviderName(dto.getProviderName()))
                 .type(dto.getType())
                 .description(dto.getDescription())
                 .status(dto.getStatus() != null ? dto.getStatus() : 1)
-                .createdAt(now)
-                .updatedAt(now)
                 .build();
 
         modelProviderMapper.insert(modelProvider);
         log.info("新增服务商配置成功: id={}, providerName={}, type={}, modelName={}",
-                modelProvider.getId(), providerName, dto.getType(), dto.getModelName());
+                modelProvider.getId(), modelProvider.getProviderName(), dto.getType(), dto.getModelName());
         return toVO(modelProvider);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ModelProviderUpdateDTO dto) {
         ModelProvider modelProvider = getExisting(id);
         if (StringUtils.hasText(dto.getApiKey())) {
@@ -93,36 +91,37 @@ public class ModelProviderServiceImpl implements ModelProviderService {
         if (dto.getBaseUrl() != null) {
             modelProvider.setBaseUrl(dto.getBaseUrl());
         }
-        String providerName = normalizeProviderName(dto.getProviderName());
-        modelProvider.setModelName(dto.getModelName());
-        modelProvider.setProviderName(providerName);
+        if (StringUtils.hasText(dto.getProviderName())) {
+            modelProvider.setProviderName(normalizeProviderName(dto.getProviderName()));
+        }
+        if (StringUtils.hasText(dto.getModelName())) {
+            modelProvider.setModelName(dto.getModelName());
+        }
         if (StringUtils.hasText(dto.getType())) {
             modelProvider.setType(dto.getType());
         }
         if (dto.getDescription() != null) {
             modelProvider.setDescription(dto.getDescription());
         }
-        if (dto.getStatus() != null) {
-            modelProvider.setStatus(dto.getStatus());
-        }
-        modelProvider.setUpdatedAt(OffsetDateTime.now());
 
         modelProviderMapper.updateById(modelProvider);
-        log.info("更新服务商配置成功: id={}, providerName={}, modelName={}", id, providerName, dto.getModelName());
+        log.info("更新服务商配置成功: id={}, providerName={}, modelName={}", id, modelProvider.getProviderName(), modelProvider.getModelName());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        getExisting(id);
-        modelProviderMapper.deleteById(id);
-        log.info("删除服务商配置成功: id={}", id);
+        ModelProvider modelProvider = getExisting(id);
+        modelProvider.setStatus(0);
+        modelProviderMapper.updateById(modelProvider);
+        log.info("禁用服务商配置成功: id={}, providerName={}", id, modelProvider.getProviderName());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, ModelProviderStatusDTO dto) {
         ModelProvider modelProvider = getExisting(id);
         modelProvider.setStatus(dto.getStatus());
-        modelProvider.setUpdatedAt(OffsetDateTime.now());
 
         modelProviderMapper.updateById(modelProvider);
         log.info("更新服务商配置状态成功: id={}, status={}", id, dto.getStatus());
@@ -137,13 +136,22 @@ public class ModelProviderServiceImpl implements ModelProviderService {
     }
 
     private ModelProviderVO toVO(ModelProvider modelProvider) {
-        ModelProviderVO vo = new ModelProviderVO();
-        BeanUtils.copyProperties(modelProvider, vo);
-        vo.setApiKeyMasked(maskApiKey(modelProvider.getApiKey()));
-        return vo;
+        return ModelProviderVO.builder()
+                .id(modelProvider.getId())
+                .baseUrl(modelProvider.getBaseUrl())
+                .modelName(modelProvider.getModelName())
+                .providerName(modelProvider.getProviderName())
+                .type(modelProvider.getType())
+                .description(modelProvider.getDescription())
+                .status(modelProvider.getStatus())
+                .createdAt(modelProvider.getCreatedAt())
+                .updatedAt(modelProvider.getUpdatedAt())
+                .apiKeyMasked(maskApiKey(modelProvider.getApiKey()))
+                .build();
     }
 
     private String normalizeProviderName(String providerName) {
+        if (providerName == null) return null;
         return providerName.trim().toLowerCase(Locale.ROOT);
     }
 

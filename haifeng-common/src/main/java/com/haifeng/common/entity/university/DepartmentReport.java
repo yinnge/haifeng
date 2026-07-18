@@ -21,6 +21,9 @@ public class DepartmentReport {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    @Version
+    private Integer version;
+
     private Long departmentId;
 
     private String subtitle;

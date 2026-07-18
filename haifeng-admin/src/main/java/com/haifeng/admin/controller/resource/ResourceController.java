@@ -12,11 +12,15 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/resource")
 @RequiredArgsConstructor
@@ -71,21 +75,21 @@ public class ResourceController {
     }
 
     /**
-     * 硬删除资源
+     * 删除资源（软删除）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "资源管理", action = "硬删除资源")
+    @OperationLog(module = "资源管理", action = "删除资源")
     public R<Void> delete(@PathVariable Long id) {
         resourceService.delete(id);
         return R.ok();
     }
 
     /**
-     * 批量硬删除资源
+     * 批量删除资源（软删除）
      */
-    @DeleteMapping("/batch")
-    @OperationLog(module = "资源管理", action = "批量硬删除资源")
-    public R<Void> batchDelete(@RequestBody List<Long> ids) {
+    @PostMapping("/batch-delete")
+    @OperationLog(module = "资源管理", action = "批量删除资源")
+    public R<Void> batchDelete(@Valid @RequestBody @NotEmpty(message = "ids 不能为空") @Size(max = 100, message = "批量删除最多100条") List<Long> ids) {
         resourceService.batchDelete(ids);
         return R.ok();
     }

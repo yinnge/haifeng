@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.CampusGalleryService;
+import com.haifeng.admin.vo.university.CampusGalleryDetailVO;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/admin/university/gallery")
 @RequiredArgsConstructor
 @RequireAdminModule("university_album")
+@Validated
 public class CampusGalleryController {
 
     private final CampusGalleryService campusGalleryService;
@@ -30,6 +33,14 @@ public class CampusGalleryController {
     @GetMapping("/list")
     public R<IPage<CampusGalleryListVO>> list(@Valid CampusGalleryQueryDTO dto) {
         return R.ok(campusGalleryService.page(dto));
+    }
+
+    /**
+     * 获取校园图册详情
+     */
+    @GetMapping("/{id}")
+    public R<CampusGalleryDetailVO> detail(@PathVariable Long id) {
+        return R.ok(campusGalleryService.detail(id));
     }
 
     /**
@@ -84,7 +95,7 @@ public class CampusGalleryController {
     /**
      * 批量软删除校园图册
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "院校管理", action = "批量软删除校园图册")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         campusGalleryService.batchDelete(dto.getIds());
@@ -94,7 +105,7 @@ public class CampusGalleryController {
     /**
      * 批量硬删除校园图册
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "院校管理", action = "批量硬删除校园图册")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         campusGalleryService.batchHardDelete(dto.getIds());

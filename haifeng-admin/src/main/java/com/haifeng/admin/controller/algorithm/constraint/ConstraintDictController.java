@@ -2,6 +2,7 @@ package com.haifeng.admin.controller.algorithm.constraint;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.algorithm.constraint.ConstraintDictAddDTO;
+import com.haifeng.admin.dto.algorithm.constraint.ConstraintDictBatchDeleteDTO;
 import com.haifeng.admin.dto.algorithm.constraint.ConstraintDictQueryDTO;
 import com.haifeng.admin.service.algorithm.constraint.ConstraintDictService;
 import com.haifeng.admin.vo.algorithm.constraint.ConstraintDictDetailVO;
@@ -11,14 +12,15 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 /**
  * 约束字典管理
  * 定义高考录取中的各类约束项（视力/身高/色觉/单科成绩等），
  * 是约束体系的基础数据，被 MajorConstraintController 引用关联到专业
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/constraint/dict")
 @RequiredArgsConstructor
@@ -72,10 +74,10 @@ public class ConstraintDictController {
     }
 
     /** 批量删除约束字典（按 code 列表） */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "约束字典管理", action = "批量删除约束字典")
-    public R<Void> batchDelete(@RequestBody List<String> codes) {
-        constraintDictService.batchDelete(codes);
+    public R<Void> batchDelete(@Valid @RequestBody ConstraintDictBatchDeleteDTO dto) {
+        constraintDictService.batchDelete(dto.getCodes());
         return R.ok();
     }
 }

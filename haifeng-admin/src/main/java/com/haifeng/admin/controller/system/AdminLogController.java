@@ -6,15 +6,18 @@ import com.haifeng.admin.dto.system.AdminLogQueryDTO;
 import com.haifeng.admin.service.system.AdminLogService;
 import com.haifeng.admin.vo.system.AdminLogDetailVO;
 import com.haifeng.admin.vo.system.AdminLogListVO;
+import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 系统管理 - 操作日志查询与批量清理（按ID / 一个月前 / 全部）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/system/logs")
 @RequiredArgsConstructor
@@ -43,7 +46,8 @@ public class AdminLogController {
      * 批量删除操作日志
      * type: ids-按ID批量删除 / lastMonth-删除一个月前的日志 / all-全部删除
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch")
+    @OperationLog(module = "系统管理", action = "批量删除操作日志")
     public R<Integer> batchDelete(@Valid @RequestBody AdminLogBatchDeleteDTO dto) {
         return R.ok(adminLogService.batchDelete(dto));
     }

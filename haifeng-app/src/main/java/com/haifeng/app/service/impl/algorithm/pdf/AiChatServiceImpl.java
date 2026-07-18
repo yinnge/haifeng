@@ -91,6 +91,10 @@ public class AiChatServiceImpl implements AiChatService {
         root.put("max_tokens", properties.getMaxTokens());
         root.put("temperature", properties.getTemperature());
 
+        // 禁用思考模式，避免返回思考过程内容
+        ObjectNode thinking = root.putObject("thinking");
+        thinking.put("type", "disabled");
+
         ArrayNode arr = root.putArray("messages");
         // 不预置空 system 消息（与 buildRequestBody 不同），因为 Map/Reduce 调用方会在 messages 中自带 system prompt
         for (ChatMessage m : messages) {

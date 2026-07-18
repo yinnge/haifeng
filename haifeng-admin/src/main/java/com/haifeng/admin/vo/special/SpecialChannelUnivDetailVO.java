@@ -1,9 +1,12 @@
 package com.haifeng.admin.vo.special;
 
-import lombok.Data;
+import lombok.*;
 import java.time.OffsetDateTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SpecialChannelUnivDetailVO {
     private Long id;
     private String channelCode;

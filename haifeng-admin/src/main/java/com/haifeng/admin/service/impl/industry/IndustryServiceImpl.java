@@ -28,6 +28,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -38,6 +39,12 @@ public class IndustryServiceImpl implements IndustryService {
 
     private final IndustryMapper industryMapper;
     private final IndustryDetailMapper industryDetailMapper;
+
+    private static final int MAX_IMPORT_ROWS = 500;
+    private static final Set<String> VALID_TRENDS = Set.of("上升", "稳定", "下降");
+    private static final BigDecimal NEGATIVE_HUNDRED = new BigDecimal("-100");
+    private static final BigDecimal THOUSAND = new BigDecimal("1000");
+    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     @Override
     public IPage<IndustryListVO> page(IndustryQueryDTO dto) {
@@ -322,6 +329,10 @@ public class IndustryServiceImpl implements IndustryService {
                 throw new BusinessException(400, "导入失败：Excel文件为空");
             }
 
+            if (mainData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+
             List<Industry> industries = new ArrayList<>();
             List<IndustryDetail> industryDetails = new ArrayList<>();
             Set<String> industryNamesInFile = new HashSet<>();
@@ -347,6 +358,62 @@ public class IndustryServiceImpl implements IndustryService {
                 if (industryMapper.existsByIndustryName(data.getIndustryName())) {
                     errorMsgs.add("第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'已存在");
                     continue;
+                }
+
+                // 校验字段长度
+                if (data.getIndustryName().length() > 100) {
+                    errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getCategory()) && data.getCategory().length() > 50) {
+                    errorMsgs.add("第" + rowNum + "行：行业分类长度不能超过50个字符");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getIconClass()) && data.getIconClass().length() > 100) {
+                    errorMsgs.add("第" + rowNum + "行：图标类名长度不能超过100个字符");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getMarketScale()) && data.getMarketScale().length() > 50) {
+                    errorMsgs.add("第" + rowNum + "行：市场规模长度不能超过50个字符");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getTalentGap()) && data.getTalentGap().length() > 50) {
+                    errorMsgs.add("第" + rowNum + "行：人才缺口长度不能超过50个字符");
+                    continue;
+                }
+
+                // 校验枚举值
+                if (StringUtils.hasText(data.getGrowthTrend()) && !VALID_TRENDS.contains(data.getGrowthTrend())) {
+                    errorMsgs.add("第" + rowNum + "行：增长趋势'" + data.getGrowthTrend() + "'不合法，必须是：上升、稳定、下降");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getMarketTrend()) && !VALID_TRENDS.contains(data.getMarketTrend())) {
+                    errorMsgs.add("第" + rowNum + "行：市场趋势'" + data.getMarketTrend() + "'不合法，必须是：上升、稳定、下降");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getTalentTrend()) && !VALID_TRENDS.contains(data.getTalentTrend())) {
+                    errorMsgs.add("第" + rowNum + "行：人才趋势'" + data.getTalentTrend() + "'不合法，必须是：上升、稳定、下降");
+                    continue;
+                }
+                if (StringUtils.hasText(data.getInvestmentTrend()) && !VALID_TRENDS.contains(data.getInvestmentTrend())) {
+                    errorMsgs.add("第" + rowNum + "行：投资趋势'" + data.getInvestmentTrend() + "'不合法，必须是：上升、稳定、下降");
+                    continue;
+                }
+
+                // 校验数值范围
+                if (data.getAnnualGrowthRate() != null) {
+                    BigDecimal rate = data.getAnnualGrowthRate();
+                    if (rate.compareTo(NEGATIVE_HUNDRED) < 0 || rate.compareTo(THOUSAND) > 0) {
+                        errorMsgs.add("第" + rowNum + "行：年增长率必须在-100到1000之间");
+                        continue;
+                    }
+                }
+                if (data.getInvestmentHeat() != null) {
+                    BigDecimal heat = data.getInvestmentHeat();
+                    if (heat.compareTo(BigDecimal.ZERO) < 0 || heat.compareTo(HUNDRED) > 0) {
+                        errorMsgs.add("第" + rowNum + "行：投资热度必须在0-100之间");
+                        continue;
+                    }
                 }
 
                 OffsetDateTime now = OffsetDateTime.now();
@@ -396,9 +463,14 @@ public class IndustryServiceImpl implements IndustryService {
                 log.info("导入行业主表成功，数量={}", industries.size());
             }
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(500, "读取Excel文件失败");
+        } catch (Exception e) {
+            log.error("导入行业数据失败", e);
+            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
         }
     }
 
@@ -461,6 +533,45 @@ public class IndustryServiceImpl implements IndustryService {
                     .head(SalaryDataExcelDTO.class)
                     .sheet(8)
                     .doReadSync();
+
+            // 行数检查
+            if (detailData != null && detailData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet0数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (scaleData != null && scaleData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet1数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (talentDemandData != null && talentDemandData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet2数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (salaryData != null && salaryData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet3数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (policyInfoData != null && policyInfoData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet4数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (developmentSupportData != null && developmentSupportData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet5数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (talentAnalysisData != null && talentAnalysisData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet6数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (talentPolicyData != null && talentPolicyData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet7数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+            if (salaryDataExcelList != null && salaryDataExcelList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：Sheet8数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+
+            // Sheet1~Sheet8 文件内去重检查
+            validateSheetDedup(scaleData, "Sheet1", errorMsgs, IndustryScaleExcelDTO::getIndustryName);
+            validateSheetDedup(talentDemandData, "Sheet2", errorMsgs, TalentDemandExcelDTO::getIndustryName);
+            validateSheetDedup(salaryData, "Sheet3", errorMsgs, IndustrySalaryExcelDTO::getIndustryName);
+            validateSheetDedup(policyInfoData, "Sheet4", errorMsgs, PolicyInfoExcelDTO::getIndustryName);
+            validateSheetDedup(developmentSupportData, "Sheet5", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName);
+            validateSheetDedup(talentAnalysisData, "Sheet6", errorMsgs, TalentAnalysisExcelDTO::getIndustryName);
+            validateSheetDedup(talentPolicyData, "Sheet7", errorMsgs, TalentPolicyExcelDTO::getIndustryName);
+            validateSheetDedup(salaryDataExcelList, "Sheet8", errorMsgs, SalaryDataExcelDTO::getIndustryName);
 
             // 按行业名称分组JSONB数据
             Map<String, Map<String, Object>> scaleMap = buildJsonbMap(scaleData,
@@ -550,6 +661,8 @@ public class IndustryServiceImpl implements IndustryService {
 
             // 缓存行业ID
             Map<String, Long> industryIdCache = new HashMap<>();
+            // 文件内去重检查
+            Set<String> detailNamesInFile = new HashSet<>();
 
             // 处理详情基础字段
             int updatedCount = 0;
@@ -559,6 +672,19 @@ public class IndustryServiceImpl implements IndustryService {
 
                 if (!StringUtils.hasText(data.getIndustryName())) {
                     errorMsgs.add("Sheet0第" + rowNum + "行：行业名称不能为空");
+                    continue;
+                }
+
+                // 检查文件内重复
+                if (detailNamesInFile.contains(data.getIndustryName())) {
+                    errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'在文件中重复");
+                    continue;
+                }
+                detailNamesInFile.add(data.getIndustryName());
+
+                // 校验字段长度
+                if (StringUtils.hasText(data.getShortDescription()) && data.getShortDescription().length() > 500) {
+                    errorMsgs.add("Sheet0第" + rowNum + "行：简短描述长度不能超过500个字符");
                     continue;
                 }
 
@@ -603,15 +729,62 @@ public class IndustryServiceImpl implements IndustryService {
                 updatedCount++;
             }
 
+            // Sheet1~Sheet8 孤儿数据校验
+            validateSheetOrphan(scaleData, "Sheet1", errorMsgs, IndustryScaleExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentDemandData, "Sheet2", errorMsgs, TalentDemandExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(salaryData, "Sheet3", errorMsgs, IndustrySalaryExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(policyInfoData, "Sheet4", errorMsgs, PolicyInfoExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(developmentSupportData, "Sheet5", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentAnalysisData, "Sheet6", errorMsgs, TalentAnalysisExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentPolicyData, "Sheet7", errorMsgs, TalentPolicyExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(salaryDataExcelList, "Sheet8", errorMsgs, SalaryDataExcelDTO::getIndustryName, detailNamesInFile);
+
             if (!errorMsgs.isEmpty()) {
                 throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
             }
 
             log.info("导入行业详情成功，更新数量={}", updatedCount);
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(500, "读取Excel文件失败");
+        } catch (Exception e) {
+            log.error("导入行业详情数据失败", e);
+            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
+        }
+    }
+
+    /**
+     * 校验Sheet内行业名称是否重复
+     */
+    private <T> void validateSheetDedup(List<T> dataList, String sheetName,
+                                         List<String> errorMsgs,
+                                         java.util.function.Function<T, String> nameExtractor) {
+        if (dataList == null) return;
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < dataList.size(); i++) {
+            String name = nameExtractor.apply(dataList.get(i));
+            if (StringUtils.hasText(name) && !seen.add(name)) {
+                errorMsgs.add(sheetName + "第" + (i + 2) + "行：行业名称'" + name + "'在文件中重复");
+            }
+        }
+    }
+
+    /**
+     * 校验Sheet中行业名称是否都在Sheet0中存在
+     */
+    private <T> void validateSheetOrphan(List<T> dataList, String sheetName,
+                                          List<String> errorMsgs,
+                                          java.util.function.Function<T, String> nameExtractor,
+                                          Set<String> validNames) {
+        if (dataList == null) return;
+        for (int i = 0; i < dataList.size(); i++) {
+            String name = nameExtractor.apply(dataList.get(i));
+            if (StringUtils.hasText(name) && !validNames.contains(name)) {
+                errorMsgs.add(sheetName + "第" + (i + 2) + "行：行业名称'" + name + "'在Sheet0中不存在");
+            }
         }
     }
 

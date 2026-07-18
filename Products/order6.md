@@ -2,13 +2,14 @@
 
 ## 概述
 
-本文档描述院校管理模块的次表管理接口，包含院系详情、实验室列表、学科评估三个子模块。
+本文档描述院校管理模块的次表管理接口，包含校园图册、院系详情、实验室列表、学科评估四个子模块。
 
 **基础路径：** `/api/v1/admin/university`
 
 **模块说明：**
 | 子模块 | 数据表 | 关系 |
 |--------|--------|------|
+| 校园图册 | t_campus_gallery | 1:N（与院校） |
 | 院系详情 | t_department + department_reports(JSONB) | 1:1（与院校N:1） |
 | 实验室列表 | t_laboratory + laboratory_core_team/laboratory_statistics | 1:N（与院校） |
 | 学科评估 | t_subject_evaluation | 1:N（与院校） |
@@ -16,6 +17,21 @@
 ---
 
 ## Excel导入表头规范
+
+### xlsx0：校园图册 (1 Sheet)
+
+#### Sheet0 - t_campus_gallery主表
+
+| 表头名称 | 类型 | 必填 | 说明 |
+|---------|------|------|------|
+| 院校名称 | 文本 | Y | 外键，必须在universities表中存在 |
+| 图片类型 | 文本 | Y | 图片分类标签 |
+| 图片URL | 文本 | Y | 图片地址 |
+| 排序 | 整数 | | 数值越小越靠前，默认0 |
+
+> **导入说明：** 校验和插入分离——第一轮只校验所有行，全部通过后才批量插入。任何一行校验失败则全部不插入。
+
+---
 
 ### xlsx1：院系管理 (12 Sheets)
 
@@ -231,7 +247,242 @@
 
 ## 接口列表
 
+### 0. 校园图册管理接口（9个）
+
+> **模块权限标识：** `university_album`
+> **乐观锁：** 所有写操作（update/updateStatus/delete）基于 `version` 字段实现乐观锁，数据被并发修改时返回 `400: 数据已被其他人修改，请刷新后重试`。
+
+#### 0.1 分页查询校园图册列表
+
+- **URL:** `GET /api/v1/admin/university/gallery/list`
+- **方法:** GET
+- **参数:**
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| universityName | String | | 院校名称（模糊搜索，最长50字符） |
+| imageType | String | | 图片类型（精确匹配） |
+| status | Integer | | 状态：0-下架 1-展示。不传则默认只查未删除记录 |
+| page | Integer | Y | 页码，从1开始，默认1 |
+| size | Integer | Y | 每页条数：10/20/30/50/100，默认10 |
+
+- **响应:**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 1234567890123456789,
+        "universityId": 1234567890123456788,
+        "universityName": "清华大学",
+        "imageType": "校园风光",
+        "imageUrl": "https://example.com/campus1.jpg",
+        "sortOrder": 1,
+        "status": 1,
+        "createdAt": "2026-05-07T10:00:00"
+      }
+    ],
+    "total": 50,
+    "size": 10,
+    "current": 1,
+    "pages": 5
+  },
+  "timestamp": 1234567890
+}
+```
+
+---
+
+#### 0.2 获取校园图册详情
+
+- **URL:** `GET /api/v1/admin/university/gallery/{id}`
+- **方法:** GET
+- **路径参数:**
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | Y | 校园图册ID |
+
+- **响应:**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "id": 1234567890123456789,
+    "universityId": 1234567890123456788,
+    "universityName": "清华大学",
+    "imageType": "校园风光",
+    "imageUrl": "https://example.com/campus1.jpg",
+    "sortOrder": 1,
+    "status": 1,
+    "createdAt": "2026-05-07T10:00:00",
+    "updatedAt": "2026-05-07T10:00:00"
+  },
+  "timestamp": 1234567890
+}
+```
+
+---
+
+#### 0.3 新增校园图册
+
+- **URL:** `POST /api/v1/admin/university/gallery`
+- **方法:** POST
+- **请求体:**
+```json
+{
+  "universityId": 1234567890123456788,
+  "imageType": "校园风光",
+  "imageUrl": "https://example.com/campus1.jpg",
+  "sortOrder": 1
+}
+```
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| universityId | Long | Y | 院校ID |
+| imageType | String | Y | 图片类型 |
+| imageUrl | String | Y | 图片URL |
+| sortOrder | Integer | | 排序，默认0 |
+
+- **响应:**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": 1234567890123456789,
+  "timestamp": 1234567890
+}
+```
+
+---
+
+#### 0.4 修改校园图册
+
+- **URL:** `PUT /api/v1/admin/university/gallery/{id}`
+- **方法:** PUT
+- **路径参数:** id - 校园图册ID
+- **请求体:**
+```json
+{
+  "imageType": "校园风光",
+  "imageUrl": "https://example.com/campus2.jpg",
+  "sortOrder": 2,
+  "status": 1
+}
+```
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| imageType | String | Y | 图片类型 |
+| imageUrl | String | Y | 图片URL |
+| sortOrder | Integer | | 排序 |
+| status | Short | | 状态：0-下架 1-展示 |
+
+---
+
+#### 0.5 切换校园图册状态
+
+- **URL:** `PUT /api/v1/admin/university/gallery/{id}/status`
+- **方法:** PUT
+- **路径参数:** id - 校园图册ID
+- **说明:** status只允许0（下架）或1（展示）
+- **请求体:**
+```json
+{
+  "status": 0
+}
+```
+
+---
+
+#### 0.6 软删除校园图册
+
+- **URL:** `DELETE /api/v1/admin/university/gallery/{id}`
+- **方法:** DELETE
+- **说明:** 软删除，将status置为0。已软删除的记录不可重复软删除
+
+---
+
+#### 0.7 硬删除校园图册
+
+- **URL:** `DELETE /api/v1/admin/university/gallery/{id}/hard`
+- **方法:** DELETE
+- **说明:** 物理删除。已软删除的记录不可硬删除
+
+---
+
+#### 0.8 批量软删除校园图册
+
+- **URL:** `POST /api/v1/admin/university/gallery/batch-delete`
+- **方法:** POST
+- **请求体:**
+```json
+{
+  "ids": [1234567890123456789, 1234567890123456790]
+}
+```
+- **说明:** 仅更新未删除的记录（status != 0），已删除的记录会被跳过
+
+---
+
+#### 0.9 批量硬删除校园图册
+
+- **URL:** `POST /api/v1/admin/university/gallery/batch-hard-delete`
+- **方法:** POST
+- **请求体:**
+```json
+{
+  "ids": [1234567890123456789, 1234567890123456790]
+}
+```
+
+---
+
+#### 0.10 导入校园图册数据
+
+- **URL:** `POST /api/v1/admin/university/gallery/import`
+- **方法:** POST
+- **Content-Type:** multipart/form-data
+- **参数:**
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| file | File | Y | xlsx文件，最大30MB，Sheet0主表 |
+
+- **表头规范:** 见 xlsx0：校园图册
+
+- **导入语义:** 校验和插入分离。第一轮只校验所有行，全部通过后才批量插入。任何一行校验失败则全部不插入（全成功或全失败）。
+
+- **响应（成功）:**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null,
+  "timestamp": 1234567890
+}
+```
+
+**导入错误示例：** 错误信息最多显示前50条
+```json
+{
+  "code": 400,
+  "msg": "导入校验失败，共2条错误：第3行: 院校名称不能为空; 第5行: 院校[未知大学]不存在",
+  "data": null,
+  "timestamp": 1234567890
+}
+```
+
+---
+
 ### 1. 院系管理接口（12个）
+
+> **模块权限标识：** `university_dept`
+> **乐观锁：** 所有写操作（update/updateStatus/delete）基于 `version` 字段实现乐观锁，数据被并发修改时返回 `400: 数据已被其他人修改，请刷新后重试`。
 
 #### 1.1 分页查询院系列表
 
@@ -461,27 +712,29 @@
 
 #### 1.8 批量软删除院系
 
-- **URL:** `DELETE /api/v1/admin/university/department/batch`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/department/batch-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
   "ids": [1234567890123456789, 1234567890123456790]
 }
 ```
+- **说明:** 仅更新未删除的记录（status != 0），已删除的院系及其报告会被跳过
 
 ---
 
 #### 1.9 批量硬删除院系
 
-- **URL:** `DELETE /api/v1/admin/university/department/batch/hard`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/department/batch-hard-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
   "ids": [1234567890123456789, 1234567890123456790]
 }
 ```
+- **说明:** 同时删除关联的报告数据
 
 ---
 
@@ -498,20 +751,24 @@
 
 - **表头规范:** 见 xlsx1 Sheet0：t_department主表
 
-- **响应:**
+- **导入语义:** 校验和插入分离。第一轮只校验所有行（院校存在性、院系名称唯一性等），全部通过后才批量插入。任何一行校验失败则全部不插入（全成功或全失败）。
+
+- **响应（成功）:**
 ```json
 {
   "code": 200,
-  "msg": "导入成功，共处理100条数据",
-  "data": {
-    "total": 100,
-    "success": 98,
-    "failed": 2,
-    "errors": [
-      "第5行：院校名称'未知大学'在主表中不存在",
-      "第12行：院系名称不能为空"
-    ]
-  },
+  "msg": "success",
+  "data": null,
+  "timestamp": 1234567890
+}
+```
+
+**导入错误示例：** 错误信息最多显示前50条
+```json
+{
+  "code": 400,
+  "msg": "导入校验失败，共2条错误：第5行: 院校[未知大学]不存在; 第12行: 院系名称不能为空",
+  "data": null,
   "timestamp": 1234567890
 }
 ```
@@ -530,6 +787,8 @@
 | file | File | Y | xlsx文件，最大30MB，包含Sheet1-11报告数据 |
 
 - **表头规范:** 见 xlsx1 Sheet1-Sheet11
+
+- **说明:** 该功能暂未开放，调用返回 `400: 该功能暂未开放`
 
 ---
 
@@ -591,9 +850,11 @@
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| universityName | String | | 院校名称（模糊搜索） |
-| labName | String | | 实验室名称（模糊搜索） |
-| labType | String | | 实验室类型（精确匹配） |
+| universityName | String | | 院校名称（模糊搜索，最长50字符） |
+| name | String | | 实验室名称（模糊搜索，最长50字符） |
+| labType | String | | 实验室类型（精确匹配，最长50字符） |
+| region | String | | 所在地区（精确匹配，最长50字符） |
+| department | String | | 主管部门（精确匹配，最长50字符） |
 | status | Integer | | 状态：0-下架 1-展示 |
 | page | Integer | Y | 页码，从1开始 |
 | size | Integer | Y | 每页条数：10/20/30/50/100/200/500/1000 |
@@ -609,15 +870,11 @@
         "id": 1234567890123456789,
         "universityId": 1234567890123456788,
         "universityName": "清华大学",
-        "labName": "智能技术与系统国家重点实验室",
+        "name": "智能技术与系统国家重点实验室",
         "labType": "国家重点实验室",
-        "establishedDate": "1990-01-01",
         "region": "北京",
+        "department": "科技部",
         "director": "张三",
-        "staffSize": 150,
-        "studentSize": 300,
-        "researchAreas": ["人工智能", "机器学习", "自然语言处理"],
-        "sortOrder": 1,
         "status": 1,
         "createdAt": "2026-05-07T10:00:00"
       }
@@ -652,27 +909,27 @@
     "id": 1234567890123456789,
     "universityId": 1234567890123456788,
     "universityName": "清华大学",
-    "labName": "智能技术与系统国家重点实验室",
+    "name": "智能技术与系统国家重点实验室",
     "labType": "国家重点实验室",
-    "establishedDate": "1990-01-01",
+    "establishedYear": "1990",
     "region": "北京",
-    "supervisingDepartment": "科技部",
+    "department": "科技部",
     "director": "张三",
-    "staffSize": 150,
-    "studentSize": 300,
-    "contactEmail": "lab@tsinghua.edu.cn",
-    "contactPhone": "010-12345678",
+    "staffCount": "150",
+    "studentCount": "300",
+    "email": "lab@tsinghua.edu.cn",
+    "phone": "010-12345678",
     "introduction": "智能技术与系统国家重点实验室是...",
     "researchDescription": "主要从事人工智能基础理论...",
     "labSpace": "8000平方米",
-    "openProjects": "年度开放课题...",
+    "openTopics": "年度开放课题...",
     "cooperation": "与MIT、斯坦福等建立合作",
-    "visitingScholar": "每年接收访问学者20人",
-    "researchAreas": ["人工智能", "机器学习", "自然语言处理"],
-    "mainEquipment": ["高性能计算集群", "GPU服务器"],
+    "visitingScholars": "每年接收访问学者20人",
+    "researchFields": ["人工智能", "机器学习", "自然语言处理"],
+    "majorEquipment": ["高性能计算集群", "GPU服务器"],
     "coreTeam": [
-      {"memberName": "李四", "position": "教授", "role": "课题负责人"},
-      {"memberName": "王五", "position": "副教授", "role": "骨干成员"}
+      {"name": "李四", "position": "教授", "title": "课题负责人"},
+      {"name": "王五", "position": "副教授", "title": "骨干成员"}
     ],
     "statistics": [
       {"label": "发表论文数", "count": 500},
@@ -698,24 +955,30 @@
 ```json
 {
   "universityId": 1234567890123456788,
-  "labName": "智能技术与系统国家重点实验室",
+  "name": "智能技术与系统国家重点实验室",
   "labType": "国家重点实验室",
-  "establishedDate": "1990-01-01",
+  "establishedYear": "1990",
   "region": "北京",
-  "supervisingDepartment": "科技部",
+  "department": "科技部",
   "director": "张三",
-  "staffSize": 150,
-  "studentSize": 300,
-  "contactEmail": "lab@tsinghua.edu.cn",
-  "contactPhone": "010-12345678",
+  "staffCount": "150",
+  "studentCount": "300",
+  "email": "lab@tsinghua.edu.cn",
+  "phone": "010-12345678",
   "introduction": "智能技术与系统国家重点实验室是...",
   "researchDescription": "主要从事人工智能基础理论...",
   "labSpace": "8000平方米",
-  "openProjects": "年度开放课题...",
+  "openTopics": "年度开放课题...",
   "cooperation": "与MIT、斯坦福等建立合作",
-  "visitingScholar": "每年接收访问学者20人",
-  "researchAreas": ["人工智能", "机器学习"],
-  "mainEquipment": ["高性能计算集群", "GPU服务器"],
+  "visitingScholars": "每年接收访问学者20人",
+  "researchFields": ["人工智能", "机器学习"],
+  "majorEquipment": ["高性能计算集群", "GPU服务器"],
+  "coreTeam": [
+    {"name": "李四", "position": "教授", "title": "课题负责人"}
+  ],
+  "statistics": [
+    {"label": "发表论文数", "count": 500}
+  ],
   "sortOrder": 1
 }
 ```
@@ -737,7 +1000,38 @@
 - **URL:** `PUT /api/v1/admin/university/laboratory/{id}`
 - **方法:** PUT
 - **路径参数:** id - 实验室ID
-- **请求体:** 同新增实验室
+- **说明:** 所有字段均为可选，不传或传null则数据库中对应字段设为null
+- **请求体:**
+```json
+{
+  "name": "智能技术与系统国家重点实验室",
+  "labType": "国家重点实验室",
+  "establishedYear": "1990",
+  "region": "北京",
+  "department": "科技部",
+  "director": "张三",
+  "staffCount": "150",
+  "studentCount": "300",
+  "email": "lab@tsinghua.edu.cn",
+  "phone": "010-12345678",
+  "introduction": "智能技术与系统国家重点实验室是...",
+  "researchDescription": "主要从事人工智能基础理论...",
+  "labSpace": "8000平方米",
+  "openTopics": "年度开放课题...",
+  "cooperation": "与MIT、斯坦福等建立合作",
+  "visitingScholars": "每年接收访问学者20人",
+  "researchFields": ["人工智能", "机器学习"],
+  "majorEquipment": ["高性能计算集群", "GPU服务器"],
+  "coreTeam": [
+    {"name": "李四", "position": "教授", "title": "课题负责人"}
+  ],
+  "statistics": [
+    {"label": "发表论文数", "count": 500}
+  ],
+  "sortOrder": 1,
+  "status": 1
+}
+```
 
 ---
 
@@ -746,6 +1040,7 @@
 - **URL:** `PUT /api/v1/admin/university/laboratory/{id}/status`
 - **方法:** PUT
 - **路径参数:** id - 实验室ID
+- **说明:** status只允许0（下架）或1（展示）
 - **请求体:**
 ```json
 {
@@ -759,7 +1054,7 @@
 
 - **URL:** `DELETE /api/v1/admin/university/laboratory/{id}`
 - **方法:** DELETE
-- **说明:** 软删除，将status置为0
+- **说明:** 软删除，将status置为0。已软删除的记录不可重复软删除
 
 ---
 
@@ -767,14 +1062,14 @@
 
 - **URL:** `DELETE /api/v1/admin/university/laboratory/{id}/hard`
 - **方法:** DELETE
-- **说明:** 物理删除，同时删除关联的核心团队和统计数据
+- **说明:** 物理删除。已软删除的记录不可硬删除
 
 ---
 
 #### 2.8 批量软删除实验室
 
-- **URL:** `DELETE /api/v1/admin/university/laboratory/batch`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/laboratory/batch-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
@@ -786,8 +1081,8 @@
 
 #### 2.9 批量硬删除实验室
 
-- **URL:** `DELETE /api/v1/admin/university/laboratory/batch/hard`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/laboratory/batch-hard-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
@@ -814,16 +1109,18 @@
 ```json
 {
   "code": 200,
-  "msg": "导入成功，共处理50条数据",
-  "data": {
-    "total": 50,
-    "success": 48,
-    "failed": 2,
-    "errors": [
-      "第3行：院校名称'未知大学'在主表中不存在",
-      "第8行：实验室名称不能为空"
-    ]
-  },
+  "msg": "success",
+  "data": null,
+  "timestamp": 1234567890
+}
+```
+
+**导入错误示例：**
+```json
+{
+  "code": 400,
+  "msg": "导入失败，共2行数据存在错误，已全部回滚。错误信息：第3行：院校名称'未知大学'不存在；第8行：实验室名称不能为空",
+  "data": null,
   "timestamp": 1234567890
 }
 ```
@@ -832,6 +1129,8 @@
 
 #### 2.11 修改实验室关联数据
 
+> ⚠️ 此接口暂未实现
+
 - **URL:** `PUT /api/v1/admin/university/laboratory/{id}/relations`
 - **方法:** PUT
 - **路径参数:** id - 实验室ID
@@ -839,8 +1138,8 @@
 ```json
 {
   "coreTeam": [
-    {"memberName": "李四", "position": "教授", "role": "课题负责人"},
-    {"memberName": "王五", "position": "副教授", "role": "骨干成员"}
+    {"name": "李四", "position": "教授", "title": "课题负责人"},
+    {"name": "王五", "position": "副教授", "title": "骨干成员"}
   ],
   "statistics": [
     {"label": "发表论文数", "count": 500},
@@ -861,11 +1160,11 @@
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| universityName | String | | 院校名称（模糊搜索） |
-| subjectCode | String | | 学科代码（精确匹配） |
-| subjectName | String | | 学科名称（模糊搜索） |
-| evaluationRound | String | | 评估轮次（精确匹配） |
-| evaluationGrade | String | | 评估等级（精确匹配） |
+| universityName | String | | 院校名称（模糊搜索，最长50字符） |
+| disciplineCode | String | | 学科代码（精确匹配，最长50字符） |
+| disciplineName | String | | 学科名称（模糊搜索，最长50字符） |
+| evaluationRound | String | | 评估轮次（精确匹配，最长20字符） |
+| evaluationGrade | String | | 评估等级（精确匹配，最长10字符） |
 | status | Integer | | 状态：0-下架 1-展示 |
 | page | Integer | Y | 页码，从1开始 |
 | size | Integer | Y | 每页条数：10/20/30/50/100/200/500/1000 |
@@ -881,11 +1180,10 @@
         "id": 1234567890123456789,
         "universityId": 1234567890123456788,
         "universityName": "清华大学",
-        "subjectCode": "0812",
-        "subjectName": "计算机科学与技术",
+        "disciplineCode": "0812",
+        "disciplineName": "计算机科学与技术",
         "evaluationRound": "第五轮",
         "evaluationGrade": "A+",
-        "sortOrder": 1,
         "status": 1,
         "createdAt": "2026-05-07T10:00:00"
       }
@@ -920,8 +1218,8 @@
     "id": 1234567890123456789,
     "universityId": 1234567890123456788,
     "universityName": "清华大学",
-    "subjectCode": "0812",
-    "subjectName": "计算机科学与技术",
+    "disciplineCode": "0812",
+    "disciplineName": "计算机科学与技术",
     "evaluationRound": "第五轮",
     "evaluationGrade": "A+",
     "sortOrder": 1,
@@ -943,8 +1241,8 @@
 ```json
 {
   "universityId": 1234567890123456788,
-  "subjectCode": "0812",
-  "subjectName": "计算机科学与技术",
+  "disciplineCode": "0812",
+  "disciplineName": "计算机科学与技术",
   "evaluationRound": "第五轮",
   "evaluationGrade": "A+",
   "sortOrder": 1
@@ -968,7 +1266,18 @@
 - **URL:** `PUT /api/v1/admin/university/subject-evaluation/{id}`
 - **方法:** PUT
 - **路径参数:** id - 学科评估ID
-- **请求体:** 同新增学科评估
+- **说明:** 所有字段均为可选，不传则保持原值
+- **请求体:**
+```json
+{
+  "disciplineCode": "0812",
+  "disciplineName": "计算机科学与技术",
+  "evaluationRound": "第五轮",
+  "evaluationGrade": "A+",
+  "sortOrder": 1,
+  "status": 1
+}
+```
 
 ---
 
@@ -977,6 +1286,7 @@
 - **URL:** `PUT /api/v1/admin/university/subject-evaluation/{id}/status`
 - **方法:** PUT
 - **路径参数:** id - 学科评估ID
+- **说明:** status只允许0（下架）或1（展示）
 - **请求体:**
 ```json
 {
@@ -990,7 +1300,7 @@
 
 - **URL:** `DELETE /api/v1/admin/university/subject-evaluation/{id}`
 - **方法:** DELETE
-- **说明:** 软删除，将status置为0
+- **说明:** 软删除，将status置为0。已软删除的记录不可重复软删除
 
 ---
 
@@ -998,14 +1308,14 @@
 
 - **URL:** `DELETE /api/v1/admin/university/subject-evaluation/{id}/hard`
 - **方法:** DELETE
-- **说明:** 物理删除
+- **说明:** 物理删除。已软删除的记录不可硬删除
 
 ---
 
 #### 3.8 批量软删除学科评估
 
-- **URL:** `DELETE /api/v1/admin/university/subject-evaluation/batch`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/subject-evaluation/batch-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
@@ -1017,8 +1327,8 @@
 
 #### 3.9 批量硬删除学科评估
 
-- **URL:** `DELETE /api/v1/admin/university/subject-evaluation/batch/hard`
-- **方法:** DELETE
+- **URL:** `POST /api/v1/admin/university/subject-evaluation/batch-hard-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
@@ -1045,16 +1355,18 @@
 ```json
 {
   "code": 200,
-  "msg": "导入成功，共处理200条数据",
-  "data": {
-    "total": 200,
-    "success": 198,
-    "failed": 2,
-    "errors": [
-      "第15行：院校名称'未知大学'在主表中不存在",
-      "第28行：评估等级'S'不在有效范围内"
-    ]
-  },
+  "msg": "success",
+  "data": null,
+  "timestamp": 1234567890
+}
+```
+
+**导入错误示例：**
+```json
+{
+  "code": 400,
+  "msg": "导入失败，共2行数据存在错误，已全部回滚。错误信息：第15行：院校名称'未知大学'不存在；第28行：评估等级'A++'格式不正确",
+  "data": null,
   "timestamp": 1234567890
 }
 ```
@@ -1066,7 +1378,7 @@
 | 错误码 | 说明 |
 |--------|------|
 | 200 | 成功 |
-| 400 | 参数错误 |
+| 400 | 参数错误 / 导入校验失败 / 数据已被其他人修改 |
 | 401 | 未登录/Token过期 |
 | 403 | 无权限 |
 | 404 | 资源不存在 |
@@ -1076,7 +1388,7 @@
 ```json
 {
   "code": 400,
-  "msg": "导入失败：第3行：'院校名称'不能为空；第5行：院校名称'未知大学'在主表中不存在",
+  "msg": "导入校验失败，共2条错误：第3行: 院校名称不能为空; 第5行: 院校[未知大学]不存在",
   "data": null,
   "timestamp": 1234567890
 }

@@ -3,7 +3,7 @@ package com.haifeng.admin.controller.employment.grassrootsPosition;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionUpdateDTO;
-import com.haifeng.admin.dto.employment.grassrootsPosition.StatusDTO;
+import com.haifeng.admin.dto.employment.grassrootsPosition.PositionStatusUpdateDTO;
 import com.haifeng.admin.service.employment.grassrootsPosition.CommunityPositionService;
 import com.haifeng.admin.vo.employment.grassrootsPosition.CommunityPositionDetailVO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.CommunityPositionListVO;
@@ -11,7 +11,10 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/employment/grassroots-position/community")
 @RequiredArgsConstructor
 @RequireAdminModule("emp_grassroots_comm")
+@Validated
 public class CommunityPositionController {
 
     private final CommunityPositionService communityPositionService;
@@ -53,15 +57,15 @@ public class CommunityPositionController {
     }
 
     @PatchMapping("/{id}/status")
-    @OperationLog(module = "基层服务管理", action = "启用/禁用社区工作者岗位")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
-        communityPositionService.updateStatus(id, dto.getStatus());
+    @OperationLog(module = "基层服务管理", action = "更新社区工作者岗位状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody PositionStatusUpdateDTO dto) {
+        communityPositionService.updateStatus(id, dto.getPositionStatus());
         return R.ok();
     }
 
-    @DeleteMapping("/batch-delete")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "基层服务管理", action = "批量删除社区工作者岗位")
-    public R<Void> batchDelete(@Valid @RequestBody List<Long> ids) {
+    public R<Void> batchDelete(@Valid @RequestBody @NotEmpty @Size(max = 100) List<Long> ids) {
         communityPositionService.batchDelete(ids);
         return R.ok();
     }
@@ -69,7 +73,7 @@ public class CommunityPositionController {
     @PostMapping("/pre-validate")
     public R<String> preValidate(@RequestParam("file") MultipartFile file) {
         String result = communityPositionService.preValidate(file);
-        return result == null ? R.ok("校验通过") : R.ok(result);
+        return result == null ? R.ok("校验通过") : R.fail(400, result);
     }
 
     @PostMapping("/import")

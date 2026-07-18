@@ -13,13 +13,13 @@ import com.haifeng.common.enums.NotificationType;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberNotificationMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,8 +79,14 @@ public class NotificationServiceImpl implements NotificationService {
         Map<Long, String> finalMemberNameMap = memberNameMap;
         return notificationPage.convert(notification -> {
             NotificationListVO vo = new NotificationListVO();
-            BeanUtils.copyProperties(notification, vo);
+            vo.setId(notification.getId());
+            vo.setMemberId(notification.getMemberId());
             vo.setMemberName(finalMemberNameMap.get(notification.getMemberId()));
+            vo.setTitle(notification.getTitle());
+            vo.setContent(notification.getContent());
+            vo.setIsRead(notification.getIsRead());
+            vo.setCreatedAt(notification.getCreatedAt());
+            vo.setReadAt(notification.getReadAt());
             if (notification.getNotificationType() != null) {
                 vo.setNotificationType(notification.getNotificationType().getValue());
             }
@@ -90,6 +96,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Async("broadcastExecutor")
+    @Transactional(rollbackFor = Exception.class)
     public void broadcast(NotificationBroadcastDTO dto) {
         LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Member::getDeleted, false);
@@ -115,6 +122,7 @@ public class NotificationServiceImpl implements NotificationService {
                         .isRead(false)
                         .deleted(false)
                         .createdAt(now)
+                        .updatedAt(now)
                         .build());
             }
             sqlSession.commit();
@@ -124,13 +132,15 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         MemberNotification notification = memberNotificationMapper.selectById(id);
         if (notification == null || notification.getDeleted()) {
-            throw new BusinessException(404, "通知不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "通知不存在");
         }
 
         notification.setDeleted(true);
+        notification.setUpdatedAt(OffsetDateTime.now());
         memberNotificationMapper.updateById(notification);
 
         log.info("删除通知成功: notificationId={}", id);
@@ -138,6 +148,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void sendNotification(Long memberId, NotificationType type, String title, String content, Long relatedId) {
+        OffsetDateTime now = OffsetDateTime.now();
         MemberNotification notification = MemberNotification.builder()
                 .id(SnowflakeIdGenerator.nextId())
                 .memberId(memberId)
@@ -147,7 +158,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .relatedId(relatedId)
                 .isRead(false)
                 .deleted(false)
-                .createdAt(OffsetDateTime.now())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
         memberNotificationMapper.insert(notification);
 
@@ -155,10 +167,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void hardDelete(Long id) {
         MemberNotification notification = memberNotificationMapper.selectByIdIgnoreDeleted(id);
         if (notification == null) {
-            throw new BusinessException(404, "通知不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "通知不存在");
         }
 
         memberNotificationMapper.hardDeleteById(id);
@@ -166,14 +179,15 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
         MemberNotification notification = memberNotificationMapper.selectByIdIgnoreDeleted(id);
         if (notification == null) {
-            throw new BusinessException(404, "通知不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "通知不存在");
         }
 
         if (!notification.getDeleted()) {
-            throw new BusinessException(400, "该通知未被禁用，无需恢复");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该通知未被禁用，无需恢复");
         }
 
         memberNotificationMapper.restoreById(id, OffsetDateTime.now());

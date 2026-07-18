@@ -9,7 +9,9 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/user/notification")
 @RequiredArgsConstructor
 @RequireAdminModule("user_notification")
+@Validated
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -46,7 +49,7 @@ public class NotificationController {
      */
     @DeleteMapping("/{id}")
     @OperationLog(module = "用户管理", action = "禁用通知")
-    public R<Void> delete(@PathVariable Long id) {
+    public R<Void> delete(@PathVariable @Min(1) Long id) {
         notificationService.delete(id);
         return R.ok();
     }
@@ -56,7 +59,7 @@ public class NotificationController {
      */
     @DeleteMapping("/{id}/hard")
     @OperationLog(module = "用户管理", action = "硬删除通知")
-    public R<Void> hardDelete(@PathVariable Long id) {
+    public R<Void> hardDelete(@PathVariable @Min(1) Long id) {
         notificationService.hardDelete(id);
         return R.ok();
     }
@@ -66,7 +69,7 @@ public class NotificationController {
      */
     @PutMapping("/{id}/restore")
     @OperationLog(module = "用户管理", action = "恢复通知")
-    public R<Void> restore(@PathVariable Long id) {
+    public R<Void> restore(@PathVariable @Min(1) Long id) {
         notificationService.restore(id);
         return R.ok();
     }

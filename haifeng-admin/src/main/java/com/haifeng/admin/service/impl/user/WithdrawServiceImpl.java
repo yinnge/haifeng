@@ -16,12 +16,12 @@ import com.haifeng.common.enums.WithdrawStatus;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.WithdrawRecordMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.DesensitizeUtil;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -66,8 +66,16 @@ public class WithdrawServiceImpl implements WithdrawService {
 
         return withdrawPage.convert(withdraw -> {
             WithdrawListVO vo = new WithdrawListVO();
-            BeanUtils.copyProperties(withdraw, vo);
+            vo.setId(withdraw.getId());
+            vo.setMemberId(withdraw.getMemberId());
+            vo.setMemberName(withdraw.getMemberName());
+            vo.setPhone(withdraw.getPhone());
             vo.setWechatId(DesensitizeUtil.desensitizeWechat(withdraw.getWechatId()));
+            vo.setAmount(withdraw.getAmount());
+            vo.setOperatorName(withdraw.getOperatorName());
+            vo.setRemark(withdraw.getRemark());
+            vo.setCreatedAt(withdraw.getCreatedAt());
+            vo.setUpdatedAt(withdraw.getUpdatedAt());
             if (withdraw.getStatus() != null) {
                 vo.setStatus(withdraw.getStatus().getValue());
             }
@@ -79,7 +87,7 @@ public class WithdrawServiceImpl implements WithdrawService {
     public String getWechatPlaintext(Long id) {
         WithdrawRecord withdraw = withdrawRecordMapper.selectById(id);
         if (withdraw == null || withdraw.getDeleted()) {
-            throw new BusinessException(404, "提现记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "提现记录不存在");
         }
         return withdraw.getWechatId();
     }
@@ -89,16 +97,16 @@ public class WithdrawServiceImpl implements WithdrawService {
     public void process(Long id, WithdrawProcessDTO dto) {
         WithdrawRecord withdraw = withdrawRecordMapper.selectById(id);
         if (withdraw == null || withdraw.getDeleted()) {
-            throw new BusinessException(404, "提现记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "提现记录不存在");
         }
 
         if (withdraw.getStatus() != WithdrawStatus.PENDING) {
-            throw new BusinessException(400, "该提现记录已处理");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该提现记录已处理");
         }
 
         Member member = memberMapper.selectById(withdraw.getMemberId());
         if (member == null || member.getDeleted()) {
-            throw new BusinessException(404, "用户不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
         Long operatorId = SecurityUtil.getCurrentAdminId();
@@ -107,12 +115,12 @@ public class WithdrawServiceImpl implements WithdrawService {
         OffsetDateTime now = OffsetDateTime.now();
 
         if ("paid".equals(dto.getAction())) {
-            withdraw.setStatus(WithdrawStatus.PAID);
-            withdraw.setOperatorId(operatorId);
-            withdraw.setOperatorName(operatorName);
-            withdraw.setRemark(dto.getRemark());
-            withdraw.setUpdatedAt(now);
-            withdrawRecordMapper.updateById(withdraw);
+            int affected = withdrawRecordMapper.updateStatusCas(
+                    id, WithdrawStatus.PENDING.getValue(), WithdrawStatus.PAID.getValue(),
+                    operatorId, operatorName, dto.getRemark(), now);
+            if (affected == 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "处理失败，该提现记录状态已变更，请刷新后重试");
+            }
 
             BigDecimal newTotalPaid = member.getCommissionTotalPaid().add(withdraw.getAmount());
             member.setCommissionTotalPaid(newTotalPaid);
@@ -130,12 +138,12 @@ public class WithdrawServiceImpl implements WithdrawService {
             log.info("提现处理成功-已打款: withdrawId={}, amount={}, operatorId={}", id, withdraw.getAmount(), operatorId);
 
         } else if ("rejected".equals(dto.getAction())) {
-            withdraw.setStatus(WithdrawStatus.REJECTED);
-            withdraw.setOperatorId(operatorId);
-            withdraw.setOperatorName(operatorName);
-            withdraw.setRemark(dto.getRemark());
-            withdraw.setUpdatedAt(now);
-            withdrawRecordMapper.updateById(withdraw);
+            int affected = withdrawRecordMapper.updateStatusCas(
+                    id, WithdrawStatus.PENDING.getValue(), WithdrawStatus.REJECTED.getValue(),
+                    operatorId, operatorName, dto.getRemark(), now);
+            if (affected == 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "处理失败，该提现记录状态已变更，请刷新后重试");
+            }
 
             BigDecimal newBalance = member.getCommissionBalance().add(withdraw.getAmount());
             member.setCommissionBalance(newBalance);
@@ -145,7 +153,7 @@ public class WithdrawServiceImpl implements WithdrawService {
             String rejectReason = StringUtils.hasText(dto.getRemark()) ? dto.getRemark() : "审核未通过";
             notificationService.sendNotification(
                     member.getId(),
-                    NotificationType.COMMISSION_PAID,
+                    NotificationType.COMMISSION_REJECTED,
                     "提现被拒绝",
                     String.format("您申请提现的%.2f元佣金未通过审核，原因：%s。金额已退还至您的佣金余额。", withdraw.getAmount(), rejectReason),
                     withdraw.getId()
@@ -156,10 +164,11 @@ public class WithdrawServiceImpl implements WithdrawService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         WithdrawRecord withdraw = withdrawRecordMapper.selectById(id);
         if (withdraw == null || withdraw.getDeleted()) {
-            throw new BusinessException(404, "提现记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "提现记录不存在");
         }
 
         withdraw.setDeleted(true);
@@ -170,10 +179,11 @@ public class WithdrawServiceImpl implements WithdrawService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void hardDelete(Long id) {
         WithdrawRecord withdraw = withdrawRecordMapper.selectByIdIgnoreDeleted(id);
         if (withdraw == null) {
-            throw new BusinessException(404, "提现记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "提现记录不存在");
         }
 
         withdrawRecordMapper.hardDeleteById(id);
@@ -181,14 +191,15 @@ public class WithdrawServiceImpl implements WithdrawService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
         WithdrawRecord withdraw = withdrawRecordMapper.selectByIdIgnoreDeleted(id);
         if (withdraw == null) {
-            throw new BusinessException(404, "提现记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "提现记录不存在");
         }
 
         if (!withdraw.getDeleted()) {
-            throw new BusinessException(400, "该提现记录未被禁用，无需恢复");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该提现记录未被禁用，无需恢复");
         }
 
         withdrawRecordMapper.restoreById(id, OffsetDateTime.now());

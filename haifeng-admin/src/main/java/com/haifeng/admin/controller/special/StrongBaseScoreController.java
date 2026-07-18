@@ -12,11 +12,13 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 特殊通道 - 强基计划分数/数据管理
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/special/strong-base-score")
 @RequiredArgsConstructor
@@ -63,7 +65,7 @@ public class StrongBaseScoreController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "强基计划管理", action = "批量删除强基数据")
     public R<Void> batchDelete(@Valid @RequestBody StrongBaseScoreBatchDeleteDTO dto) {
         strongBaseScoreService.batchDelete(dto.getIds());

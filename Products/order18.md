@@ -181,65 +181,18 @@ status: 0=禁用(isDeleted=true), 1=启用(isDeleted=false)
 
 ---
 
-### 1.6 批量删除(物理)
+### 1.6 批量删除
 
-**DELETE** `/exam-guide/batch-delete`
+**POST** `/exam-guide/batch-delete`
 
 #### 请求体
 ```json
 [1001, 1002, 1003]
 ```
 
----
-
-### 1.7 Excel预校验
-
-**POST** `/exam-guide/pre-validate`
-
-#### 请求参数
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | MultipartFile | 是 | xlsx文件 |
-
-#### 返回
-```json
-{
-  "code": 200,
-  "msg": "success",
-  "data": "校验通过"
-}
-```
-
----
-
-### 1.8 Excel导入
-
-**POST** `/exam-guide/import`
-
-#### 请求参数
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | MultipartFile | 是 | xlsx文件 |
-
-#### Excel列说明
-| 列名 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| 指南类别 | String | 是 | civil/institution/military/... |
-| 指南类型 | String | 否 | 备考攻略/科目指导/... |
-| 标题 | String | 是 | |
-| 副标题 | String | 否 | |
-| 封面图片 | String | 否 | URL |
-| 图标类名 | String | 否 | Font Awesome类名 |
-| 摘要 | String | 否 | |
-| 详细内容 | String | 否 | HTML |
-| 标签(逗号分隔) | String | 否 | 如: 真题,行测,申论 |
-| 难度 | String | 否 | 入门/进阶/高阶 |
-| 目标读者 | String | 否 | |
-| 作者名 | String | 否 | |
-| 作者头衔 | String | 否 | |
-| 是否置顶 | Boolean | 否 | true/false |
-| 是否推荐 | Boolean | 否 | true/false |
-| 排序权重 | Integer | 否 | |
+#### 校验规则
+- `@NotEmpty`：列表不能为空
+- `@Size(max = 100)`：单次最多删除 100 条
 
 ---
 
@@ -402,60 +355,18 @@ status: 0=禁用(isDeleted=true), 1=启用(isDeleted=false)
 
 ---
 
-### 2.6 批量删除(物理)
+### 2.6 批量删除
 
-**DELETE** `/notice/batch-delete`
+**POST** `/notice/batch-delete`
 
 #### 请求体
 ```json
 [1001, 1002, 1003]
 ```
 
----
-
-### 2.7 Excel预校验
-
-**POST** `/notice/pre-validate`
-
-#### 请求参数
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | MultipartFile | 是 | xlsx文件 |
-
----
-
-### 2.8 Excel导入
-
-**POST** `/notice/import`
-
-#### 请求参数
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | MultipartFile | 是 | xlsx文件 |
-
-#### Excel列说明
-| 列名 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| 公告类别 | String | 是 | civil/institution/military/... |
-| 公告类型 | String | 否 | 招聘公告/成绩公示/... |
-| 标题 | String | 是 | |
-| 摘要 | String | 否 | |
-| 公告内容 | String | 否 | HTML |
-| 省份 | String | 否 | |
-| 城市 | String | 否 | |
-| 标签(逗号分隔) | String | 否 | 如: 应届,本科 |
-| 年份 | String | 否 | |
-| 来源 | String | 否 | |
-| 原文链接 | String | 否 | URL |
-| 发布日期 | LocalDateTime | 否 | yyyy-MM-dd HH:mm:ss |
-| 发布单位 | String | 否 | |
-| 报名开始日期 | LocalDateTime | 否 | |
-| 报名截止日期 | LocalDateTime | 否 | |
-| 考试时间 | LocalDateTime | 否 | |
-| 招录总人数 | Integer | 否 | |
-| 是否置顶 | Boolean | 否 | true/false |
-| 是否重要 | Boolean | 否 | true/false |
-| 排序权重 | Integer | 否 | |
+#### 校验规则
+- `@NotEmpty`：列表不能为空
+- `@Size(max = 100)`：单次最多删除 100 条
 
 ---
 
@@ -464,7 +375,7 @@ status: 0=禁用(isDeleted=true), 1=启用(isDeleted=false)
 | Code | 说明 |
 |------|------|
 | 200 | 成功 |
-| 400 | 参数错误/Excel校验不通过 |
+| 400 | 参数错误 |
 | 404 | 资源不存在 |
 | 500 | 服务器内部错误 |
 
@@ -475,4 +386,3 @@ status: 0=禁用(isDeleted=true), 1=启用(isDeleted=false)
 - 删除 (module="招聘内容管理", action="删除备考指南"/"删除公告")
 - 启用/禁用 (module="招聘内容管理", action="启用/禁用备考指南"/"启用/禁用公告")
 - 批量删除 (module="招聘内容管理", action="批量删除备考指南"/"批量删除公告")
-- 导入 (module="招聘内容管理", action="导入备考指南"/"导入公告")

@@ -53,7 +53,6 @@ public class RoleServiceImpl implements RoleService {
         Page<SysRole> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysRole::getDeleted, false);
 
         if (StringUtils.hasText(dto.getRoleName())) {
             wrapper.like(SysRole::getRoleName, dto.getRoleName());
@@ -107,7 +106,6 @@ public class RoleServiceImpl implements RoleService {
         Long count = roleMapper.selectCount(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getRoleName, dto.getRoleName())
-                        .eq(SysRole::getDeleted, false)
         );
         if (count > 0) {
             throw new BusinessException(400, "角色名称已存在");
@@ -116,7 +114,6 @@ public class RoleServiceImpl implements RoleService {
         count = roleMapper.selectCount(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getRoleCode, dto.getRoleCode())
-                        .eq(SysRole::getDeleted, false)
         );
         if (count > 0) {
             throw new BusinessException(400, "角色编码已存在");
@@ -148,7 +145,6 @@ public class RoleServiceImpl implements RoleService {
         Long count = roleMapper.selectCount(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getRoleName, dto.getRoleName())
-                        .eq(SysRole::getDeleted, false)
                         .ne(SysRole::getId, id)
         );
         if (count > 0) {
@@ -158,7 +154,6 @@ public class RoleServiceImpl implements RoleService {
         count = roleMapper.selectCount(
                 new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getRoleCode, dto.getRoleCode())
-                        .eq(SysRole::getDeleted, false)
                         .ne(SysRole::getId, id)
         );
         if (count > 0) {
@@ -176,22 +171,22 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public void delete(Long id) {
-        if (id == 1L) {
+        SysRole role = roleMapper.selectById(id);
+        if (role == null || role.getDeleted()) {
+            throw new BusinessException(404, "角色不存在");
+        }
+
+        // 超级管理员角色不可删除（按 roleCode 判断）
+        if ("super_admin".equals(role.getRoleCode())) {
             throw new BusinessException(400, "超级管理员角色不可删除");
         }
 
         Long adminCount = adminMapper.selectCount(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getRoleId, id)
-                        .eq(SysAdmin::getDeleted, false)
         );
         if (adminCount > 0) {
             throw new BusinessException(400, "该角色下仍有 " + adminCount + " 个管理员，请先移除");
-        }
-
-        SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
-            throw new BusinessException(404, "角色不存在");
         }
 
         // 硬删除：从数据库彻底删除
@@ -250,7 +245,6 @@ public class RoleServiceImpl implements RoleService {
         List<SysAdmin> admins = adminMapper.selectList(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getRoleId, id)
-                        .eq(SysAdmin::getDeleted, false)
         );
         for (SysAdmin admin : admins) {
             String refreshKey = RedisKeyConstant.getRefreshTokenKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
@@ -260,15 +254,21 @@ public class RoleServiceImpl implements RoleService {
     }
 
     private void collectAllDescendantIds(Long parentId, List<Long> result) {
+        collectAllDescendantIds(parentId, result, 0);
+    }
+
+    private void collectAllDescendantIds(Long parentId, List<Long> result, int depth) {
+        if (depth > 5) {
+            return;
+        }
         List<SysModule> children = moduleMapper.selectList(
                 new LambdaQueryWrapper<SysModule>()
                         .eq(SysModule::getParentId, parentId)
-                        .eq(SysModule::getDeleted, false)
         );
         for (SysModule child : children) {
             if (!result.contains(child.getId())) {
                 result.add(child.getId());
-                collectAllDescendantIds(child.getId(), result);
+                collectAllDescendantIds(child.getId(), result, depth + 1);
             }
         }
     }

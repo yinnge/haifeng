@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,26 +20,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ConstraintWeightCalculator {
 
-    private BigDecimal WEIGHT_SOFT_GROUP;
-    private BigDecimal WEIGHT_SOFT_BOTH;
-
     private final ConstraintDictMapper constraintDictMapper;
     private final GaokaoConfigMapper gaokaoConfigMapper;
-
-    @PostConstruct
-    void init() {
-        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
-        if (config == null) {
-            log.error("gaokao_config 表无数据，无法初始化 ConstraintWeightCalculator");
-            throw new IllegalStateException("gaokao_config 表无数据，无法初始化 ConstraintWeightCalculator");
-        }
-        WEIGHT_SOFT_GROUP = config.getWeightSoftGroup();
-        WEIGHT_SOFT_BOTH = config.getWeightSoftBoth();
-        if (WEIGHT_SOFT_GROUP == null || WEIGHT_SOFT_BOTH == null) {
-            log.error("gaokao_config.weight_soft_group / weight_soft_both 为 NULL");
-            throw new IllegalStateException("gaokao_config.weight_soft_group / weight_soft_both 为 NULL");
-        }
-    }
 
     /**
      * 计算约束权重
@@ -57,9 +38,13 @@ public class ConstraintWeightCalculator {
             return ConstraintWeightResult.ok();
         }
 
+        // 每次计算实时加载配置，确保配置更新即时生效
+        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
+        BigDecimal weightSoftGroup = config != null ? config.getWeightSoftGroup() : BigDecimal.valueOf(0.6);
+        BigDecimal weightSoftBoth = config != null ? config.getWeightSoftBoth() : BigDecimal.valueOf(0.3);
+
         // 步骤1：专业组约束检查
         List<String> groupIntersection = intersection(userConstraints, groupConstraints);
-        boolean groupHasHard = false;
         boolean groupHasSoft = false;
 
         if (!groupIntersection.isEmpty()) {
@@ -76,7 +61,7 @@ public class ConstraintWeightCalculator {
             }
         }
 
-        BigDecimal groupWeight = groupHasSoft ? WEIGHT_SOFT_GROUP : BigDecimal.ONE;
+        BigDecimal groupWeight = groupHasSoft ? weightSoftGroup : BigDecimal.ONE;
 
         // 步骤2：专业明细约束检查
         List<String> majorIntersection = intersection(userConstraints, majorConstraints);
@@ -90,11 +75,10 @@ public class ConstraintWeightCalculator {
                     return ConstraintWeightResult.blocked("专业限制：" + code);
                 }
                 if ("SOFT".equals(severity)) {
-                    // 专业组已有 SOFT → 0.3，否则 → 0.6
                     if (groupHasSoft) {
-                        return ConstraintWeightResult.softWeight(WEIGHT_SOFT_BOTH);
+                        return ConstraintWeightResult.softWeight(weightSoftBoth);
                     } else {
-                        return ConstraintWeightResult.softWeight(WEIGHT_SOFT_GROUP);
+                        return ConstraintWeightResult.softWeight(weightSoftGroup);
                     }
                 }
             }

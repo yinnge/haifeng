@@ -1,9 +1,6 @@
 package com.haifeng.common.entity.algorithm;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,5 +34,12 @@ public class GaokaoConfig {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<BigDecimal> yearWeights;
 
+    @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
+
+    @Version
+    private Integer version;
 }

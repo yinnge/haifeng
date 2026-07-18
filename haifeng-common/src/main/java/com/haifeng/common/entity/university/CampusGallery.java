@@ -18,6 +18,9 @@ public class CampusGallery {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+    @Version
+    private Integer version;
+
     private Long universityId;
 
     private String universityName;

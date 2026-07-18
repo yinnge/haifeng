@@ -31,6 +31,8 @@
 | is_active | BOOLEAN | 是 | 是否启用，默认true |
 | created_at | TIMESTAMPTZ | 是 | 创建时间 |
 | updated_at | TIMESTAMPTZ | 是 | 更新时间 |
+| is_deleted | BOOLEAN | 否 | 软删除标记，默认false |
+| version | INTEGER | 否 | 乐观锁版本号，默认0 |
 
 ### 2. t_major_constraint（专业约束关联表）
 
@@ -38,13 +40,16 @@
 |------|------|------|------|
 | id | BIGINT | 是 | 主键（雪花算法） |
 | major_code | VARCHAR(20) | 是 | 专业代码 → t_major.major_code |
-| major_name | VARCHAR(50) | 是 | 专业名称 → t_major.major_name |
+| major_name | VARCHAR(100) | 是 | 专业名称 → t_major.major_name |
 | constraint_code | VARCHAR(50) | 是 | 约束代码 → t_constraint_dict.code |
-| constraint_name | VARCHAR(50) | 是 | 约束名称 → t_constraint_dict.name |
+| constraint_name | VARCHAR(100) | 是 | 约束名称 → t_constraint_dict.name |
 | remark | VARCHAR(200) | 否 | 备注 |
 | created_at | TIMESTAMPTZ | 是 | 创建时间 |
+| updated_at | TIMESTAMPTZ | 是 | 更新时间 |
+| is_deleted | BOOLEAN | 否 | 软删除标记，默认false |
+| version | INTEGER | 否 | 乐观锁版本号，默认0 |
 
-**唯一约束**：major_code + constraint_code
+**唯一约束**：uk_major_constraint (major_code + constraint_code)
 
 ### 3. t_safety_level_dict（安全系数等级字典）
 
@@ -76,8 +81,8 @@
 | POST | `/` | 新增约束 |
 | PUT | `/{code}` | 修改约束 |
 | PUT | `/{code}/toggle` | 切换启用状态 |
-| DELETE | `/{code}` | 删除约束（硬删除） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| DELETE | `/{code}` | 删除约束（软删除） |
+| POST | `/batch-delete` | 批量删除（软删除） |
 
 ### 1.1 分页查询列表
 
@@ -222,15 +227,15 @@ Content-Type: application/json
 | name | String | 是 | 最大100字符，唯一 | 约束名称 |
 | category | String | 是 | 最大30字符 | 约束大类 |
 | description | String | 否 | - | 详细说明 |
-| severity | String | 否 | 只能是HARD或SOFT | 严重程度，默认HARD |
+| severity | String | 是 | 只能是HARD或SOFT | 严重程度，默认HARD |
 | checkField | String | 否 | 最大50字符 | 检查字段 |
 | checkOperator | String | 否 | 最大20字符 | 检查运算符 |
 | checkValue | String | 否 | 最大100字符 | 检查值 |
 | extraField | String | 否 | 最大50字符 | 附加条件字段 |
 | extraOperator | String | 否 | 最大20字符 | 附加条件运算符 |
 | extraValue | String | 否 | 最大100字符 | 附加条件值 |
-| sortOrder | Integer | 否 | - | 排序值，默认0 |
-| isActive | Boolean | 否 | - | 是否启用，默认true |
+| sortOrder | Integer | 否 | @Min(0) | 排序值，默认0 |
+| isActive | Boolean | 是 | @NotNull | 是否启用，默认true |
 
 **响应**
 ```json
@@ -327,6 +332,8 @@ DELETE /api/v1/admin/algorithm/constraint/dict/{code}
 |------|------|------|------|
 | code | String | 是 | 约束代码 |
 
+**删除行为：** 软删除，设置 `is_deleted = TRUE`。恢复方式：通过新增同 code 约束自动恢复。
+
 **响应**
 ```json
 {
@@ -341,16 +348,18 @@ DELETE /api/v1/admin/algorithm/constraint/dict/{code}
 
 **请求**
 ```
-DELETE /api/v1/admin/algorithm/constraint/dict/batch
+POST /api/v1/admin/algorithm/constraint/dict/batch-delete
 Content-Type: application/json
 
 ["NO_COLOR_BLIND", "NO_COLOR_WEAK", "HEIGHT_MIN_170"]
 ```
 
 **请求体**
-| 类型 | 说明 |
-|------|------|
-| Array\<String\> | 约束代码数组 |
+| 类型 | 必填 | 校验规则 | 说明 |
+|------|:----:|----------|------|
+| Array\<String\> | ✓ | @NotEmpty, @Size(max=100) | 约束代码数组，单次最多100条 |
+
+**删除行为：** 批量软删除，单条 SQL 执行。恢复方式：同上。
 
 **响应**
 ```json
@@ -373,8 +382,8 @@ Content-Type: application/json
 | GET | `/page` | 分页查询列表 |
 | GET | `/{id}` | 获取详情 |
 | POST | `/` | 新增关联 |
-| DELETE | `/{id}` | 删除关联（硬删除） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| DELETE | `/{id}` | 删除关联（软删除） |
+| POST | `/batch-delete` | 批量删除（软删除） |
 | POST | `/import` | Excel批量导入 |
 
 ### 2.1 分页查询列表
@@ -389,10 +398,10 @@ GET /api/v1/admin/algorithm/constraint/major/page?page=1&size=10&majorCode=08090
 |------|------|------|----------|------|
 | page | Integer | 否 | - | 页码，默认1 |
 | size | Integer | 否 | - | 每页数量，默认10，可选：10/20/30/50/100/200/500/1000 |
-| majorCode | String | 否 | **精确查询** | 专业代码 |
-| majorName | String | 否 | **精确查询** | 专业名称 |
-| constraintCode | String | 否 | **精确查询** | 约束代码 |
-| constraintName | String | 否 | **精确查询** | 约束名称 |
+| majorCode | String | 否 | **精确查询**，@Size(max=50) | 专业代码 |
+| majorName | String | 否 | **精确查询**，@Size(max=100) | 专业名称 |
+| constraintCode | String | 否 | **精确查询**，@Size(max=50) | 约束代码 |
+| constraintName | String | 否 | **精确查询**，@Size(max=100) | 约束名称 |
 
 > **注意**：所有查询条件均为**精确匹配**，不支持模糊查询
 
@@ -550,6 +559,8 @@ DELETE /api/v1/admin/algorithm/constraint/major/{id}
 |------|------|------|------|
 | id | Long | 是 | 记录ID |
 
+**删除行为：** 软删除，设置 `is_deleted = TRUE`。恢复方式：通过新增同业务键关联自动恢复。
+
 **响应**
 ```json
 {
@@ -564,16 +575,18 @@ DELETE /api/v1/admin/algorithm/constraint/major/{id}
 
 **请求**
 ```
-DELETE /api/v1/admin/algorithm/constraint/major/batch
+POST /api/v1/admin/algorithm/constraint/major/batch-delete
 Content-Type: application/json
 
 [1893000000000001, 1893000000000002]
 ```
 
 **请求体**
-| 类型 | 说明 |
-|------|------|
-| Array\<Long\> | ID数组 |
+| 类型 | 必填 | 校验规则 | 说明 |
+|------|:----:|----------|------|
+| Array\<Long\> | ✓ | @NotEmpty, @Size(max=100) | ID数组，单次最多100条 |
+
+**删除行为：** 批量软删除，单条 SQL 执行。恢复方式：同上。
 
 **响应**
 ```json
@@ -591,18 +604,25 @@ Content-Type: application/json
 ```
 POST /api/v1/admin/algorithm/constraint/major/import
 Content-Type: multipart/form-data
-
-file: [Excel文件]
 ```
 
-**Excel模板列**
-| 列名 | 类型 | 必填 | 说明 |
+**Form参数**
+| 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| 专业名称 | String | 是 | 专业名称（系统自动查找专业代码） |
-| 约束名称 | String | 是 | 约束名称（系统自动查找约束代码） |
-| 备注 | String | 否 | 备注说明 |
+| file | File | 是 | Excel文件(.xlsx或.xls) |
 
-**Excel示例**
+#### Excel 模板列说明
+
+| 列名 | 字段 | 类型 | 必填 | DB列名 / DB类型 | 说明 |
+|------|------|------|------|------------------|------|
+| 专业名称 | majorName | String | 是 | major_name VARCHAR(100) NOT NULL | 必须在 t_major 表中存在 |
+| 约束名称 | constraintName | String | 是 | constraint_name VARCHAR(100) NOT NULL | 必须在 t_constraint_dict 表中存在 |
+| 备注 | remark | String | 否 | remark VARCHAR(200) | 备注说明 |
+
+> **注意**：第一行为表头，必须与上述列名完全一致。
+
+#### Excel 示例
+
 | 专业名称 | 约束名称 | 备注 |
 |----------|----------|------|
 | 临床医学 | 不招色盲色弱 | 体检标准要求 |
@@ -610,33 +630,141 @@ file: [Excel文件]
 | 护理学 | 不招色盲 | |
 | 播音与主持艺术 | 不招面部疤痕 | 镜前形象要求 |
 
-**成功响应**
+#### 字段取值约束详解
+
+**外键校验字段**
+
+| 字段 | 关联表 | 关联列 | 校验方式 | 为空处理 |
+|------|--------|--------|----------|----------|
+| 专业名称 | t_major | major_name (status=1) | 预加载去重查询 | 必填，为空报错 |
+| 约束名称 | t_constraint_dict | name (is_deleted=FALSE) | 预加载去重查询 | 必填，为空报错 |
+
+**字段长度约束**
+
+| 字段 | DB类型 | 最大长度 | 说明 |
+|------|--------|----------|------|
+| 专业名称 | VARCHAR(100) | 100 | 超长报错 |
+| 约束名称 | VARCHAR(100) | 100 | 超长报错 |
+| 备注 | VARCHAR(200) | 200 | 可空，超长报错 |
+
+**唯一性约束（DB层）**
+
+| 约束名 | 表 | 字段组合 | 说明 |
+|--------|-----|---------|------|
+| uk_major_constraint | t_major_constraint | major_code + constraint_code | 同专业同约束唯一 |
+
+#### 校验规则汇总
+
+| 校验类型 | 规则 | 校验层级 | 说明 |
+|----------|------|----------|------|
+| 必填 | 专业名称、约束名称 | 代码 | 为空则记录错误 |
+| 字段长度 | 专业名称≤100, 约束名称≤100, 备注≤200 | 代码 | 超长则记录错误 |
+| 外键存在 | 专业名称->t_major, 约束名称->t_constraint_dict | 代码 | 不存在则报错 |
+| Excel内去重 | major_code + constraint_code（业务键） | 代码 | Excel内重复则报错 |
+| DB已存在检查 | major_code + constraint_code | 代码 | 已存在（未删除）的记录拒绝导入 |
+| 软删除记录恢复 | major_code + constraint_code | 代码 | 软删除记录自动恢复并更新，不报错 |
+| 行数上限 | 单次导入不超过1000条 | 代码 | 超限则直接拒绝 |
+| 错误截断 | 错误超过20条时仅展示前20条 + 总数 | 代码 | 格式：`前20条错误; ... 等N条错误` |
+| 文件类型 | .xlsx 或 .xls | 代码 | 其他格式拒绝 |
+
+#### 导入逻辑
+
+1. **两阶段处理**：先校验所有数据，校验通过后逐条插入/恢复（要么全部成功，要么全部失败）
+2. **软删除记录恢复机制**：
+   - 若数据库中存在已软删除的相同业务键记录（major_code + constraint_code），不会报错
+   - 恢复该记录：设置 `is_deleted = false`，并更新 `majorName`、`constraintName`、`remark` 字段
+   - 恢复的记录计入返回的处理条数
+3. **已存在记录拒绝**：若数据库中存在**未删除**的相同业务键记录，拒绝导入并报错
+4. **事务保证**：方法标注 `@Transactional(rollbackFor = Exception.class)`，任何异常全部回滚
+5. **行数上限**：单次导入不超过1000条记录
+6. **预加载优化**：批量查询专业名称/约束名称映射 + 批量查询已存在业务键，消除 N+1 查询
+
+#### 响应
+
 ```json
 {
   "code": 200,
   "msg": "success",
-  "data": null,
+  "data": 150,
   "timestamp": 1715500800000
 }
 ```
 
-**校验错误响应**
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| data | Integer | 成功处理条数（新增 + 恢复） |
+
+#### 错误响应示例
+
+**校验失败**
 ```json
 {
   "code": 400,
-  "msg": "数据校验失败：第2行: 专业不存在（专业名称=临床医学ABC）; 第5行: 约束不存在（约束名称=不招XXX）; 第8行: 数据库已存在该关联（专业=临床医学, 约束=不招色盲色弱）",
+  "msg": "数据校验失败：第2行: 专业名称[临床医学ABC]不存在; 第5行: 约束名称[不招XXX]不存在; 第8行: 数据库已存在该关联（专业=临床医学, 约束=不招色盲色弱）",
   "data": null,
   "timestamp": 1715500800000
 }
 ```
 
-**导入规则**：
-1. 所有必填字段不能为空
-2. 专业名称必须在 t_major 表中存在
-3. 约束名称必须在 t_constraint_dict 表中存在
-4. 同一专业不能重复关联同一约束（major_code + constraint_code 唯一）
-5. Excel内不能有重复记录
-6. 任何错误都会导致整个导入回滚
+> 当错误超过20条时，仅展示前20条并附总数，格式为 `数据校验失败：前20条错误; ... 等N条错误`
+
+**文件类型错误**
+```json
+{
+  "code": 400,
+  "msg": "请上传Excel文件（.xlsx或.xls）",
+  "data": null,
+  "timestamp": 1715500800000
+}
+```
+
+**行数超限**
+```json
+{
+  "code": 400,
+  "msg": "单次导入不能超过1000条记录",
+  "data": null,
+  "timestamp": 1715500800000
+}
+```
+
+**文件为空**
+```json
+{
+  "code": 400,
+  "msg": "请上传Excel文件",
+  "data": null,
+  "timestamp": 1715500800000
+}
+```
+
+**Excel无数据**
+```json
+{
+  "code": 400,
+  "msg": "Excel文件中没有数据",
+  "data": null,
+  "timestamp": 1715500800000
+}
+```
+
+**Excel格式错误**
+```json
+{
+  "code": 400,
+  "msg": "Excel文件格式错误，请检查文件内容",
+  "data": null,
+  "timestamp": 1715500800000
+}
+```
+
+#### 注意事项
+
+1. **表头必须完全匹配**：第一行为表头，列名必须与上方"Excel模板列说明"表格中的列名完全一致
+2. **软删除记录会被自动恢复**：若数据库中存在已软删除的相同业务键记录，导入时会自动恢复并更新字段值，不会报错
+3. **已存在（未删除）的记录会拒绝导入**：若数据库中存在未删除的相同业务键记录，该行会报错
+4. **返回值为处理条数**：`data` 字段返回成功处理的记录数（新增 + 恢复），类型为 Integer
+5. **专业名称和约束名称必须在系统中预先存在**：系统会根据专业名称查找 t_major.major_code，根据约束名称查找 t_constraint_dict.code
 
 ---
 
@@ -650,8 +778,8 @@ file: [Excel文件]
 | GET | `/{level}` | 获取详情 |
 | POST | `/` | 新增等级 |
 | PUT | `/{level}` | 修改等级 |
-| DELETE | `/{level}` | 删除等级（硬删除） |
-| DELETE | `/batch` | 批量删除（硬删除） |
+| DELETE | `/{level}` | 删除等级（软删除） |
+| POST | `/batch-delete` | 批量删除（软删除） |
 
 ### 3.1 分页查询列表
 
@@ -902,6 +1030,8 @@ DELETE /api/v1/admin/algorithm/constraint/safety-level/{level}
 |------|------|------|------|
 | level | Short | 是 | 等级编号 |
 
+**删除行为：** 软删除，设置 `is_deleted = TRUE`。恢复方式：通过新增同 level 等级自动恢复。
+
 **响应**
 ```json
 {
@@ -916,18 +1046,18 @@ DELETE /api/v1/admin/algorithm/constraint/safety-level/{level}
 
 **请求**
 ```
-DELETE /api/v1/admin/algorithm/constraint/safety-level/batch
+POST /api/v1/admin/algorithm/constraint/safety-level/batch-delete
 Content-Type: application/json
 
-{
-  "levels": [6, 7, 8]
-}
+[6, 7, 8]
 ```
 
-**请求体参数**
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| levels | Array\<Short\> | 是 | 等级编号数组 |
+**请求体**
+| 类型 | 必填 | 校验规则 | 说明 |
+|------|:----:|----------|------|
+| Array\<Short\> | ✓ | @NotEmpty, @Size(max=100) | 等级编号数组，单次最多100条 |
+
+**删除行为：** 批量软删除，单条 SQL 执行。恢复方式：同上。
 
 **响应**
 ```json

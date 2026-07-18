@@ -3,6 +3,7 @@ package com.haifeng.admin.vo.algorithm.constraint;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 @Data
 public class SafetyLevelDetailVO {
@@ -16,4 +17,8 @@ public class SafetyLevelDetailVO {
     private String confidence;
     private String confidenceReason;
     private String description;
+    private Boolean isDeleted;
+    private Integer version;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

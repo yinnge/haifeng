@@ -1,5 +1,6 @@
 package com.haifeng.admin.dto.resource;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -33,5 +34,6 @@ public class ResourceAddDTO {
     /**
      * 排序序号，默认0
      */
+    @Min(value = 0, message = "排序序号不能为负")
     private Integer sortOrder;
 }

@@ -553,7 +553,7 @@ Authorization: Bearer {accessToken}
 | operation | 操作描述 |
 | requestPath | 请求路径 |
 | requestMethod | 请求方法 |
-| requestParams | 请求参数（敏感字段已脱敏） |
+| requestParams | 请求参数（敏感字段已脱敏，超过500字符自动截断） |
 | result | 操作结果 |
 | errorMsg | 错误信息（失败时有值） |
 | ip | IP地址 |
@@ -563,7 +563,7 @@ Authorization: Bearer {accessToken}
 
 #### 3. 批量删除操作日志
 ```
-DELETE /api/v1/admin/system/logs/batch
+POST /api/v1/admin/system/logs/batch
 Content-Type: application/json
 Authorization: Bearer {accessToken}
 ```
@@ -572,7 +572,7 @@ Authorization: Bearer {accessToken}
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | type | String | 是 | 删除类型：`ids` / `lastMonth` / `all` |
-| ids | List\<Long\> | 条件 | 要删除的ID列表（type=ids时必填） |
+| ids | List\<Long\> | 条件 | 要删除的ID列表（type=ids时必填，不能为空，最多100条） |
 
 **删除类型说明：**
 | type值 | 说明 |

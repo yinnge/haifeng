@@ -2,29 +2,23 @@ package com.haifeng.admin.service.impl.employment.contentManagement;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideUpdateDTO;
-import com.haifeng.admin.excel.employment.contentManagement.ExamGuideExcelDTO;
 import com.haifeng.admin.service.employment.contentManagement.ExamGuideService;
 import com.haifeng.admin.vo.employment.contentManagement.guide.ExamGuideDetailVO;
 import com.haifeng.admin.vo.employment.contentManagement.guide.ExamGuideListVO;
 import com.haifeng.common.entity.employment.contentManagement.ExamGuide;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.employment.contentManagement.ExamGuideMapper;
-import com.haifeng.common.util.SnowflakeIdGenerator;
-import com.alibaba.excel.EasyExcel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -79,13 +73,28 @@ public class ExamGuideServiceImpl implements ExamGuideService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ExamGuideUpdateDTO dto) {
         ExamGuide examGuide = examGuideMapper.selectById(id);
         if (examGuide == null || examGuide.getIsDeleted()) {
             throw new BusinessException(404, "备考指南不存在");
         }
-        BeanUtils.copyProperties(dto, examGuide);
-        examGuide.setUpdatedAt(OffsetDateTime.now());
+        if (dto.getGuideCategory() != null) examGuide.setGuideCategory(dto.getGuideCategory());
+        if (dto.getGuideType() != null) examGuide.setGuideType(dto.getGuideType());
+        if (dto.getTitle() != null) examGuide.setTitle(dto.getTitle());
+        if (dto.getSubtitle() != null) examGuide.setSubtitle(dto.getSubtitle());
+        if (dto.getCoverImage() != null) examGuide.setCoverImage(dto.getCoverImage());
+        if (dto.getIconClass() != null) examGuide.setIconClass(dto.getIconClass());
+        if (dto.getSummary() != null) examGuide.setSummary(dto.getSummary());
+        if (dto.getContent() != null) examGuide.setContent(dto.getContent());
+        if (dto.getTags() != null) examGuide.setTags(dto.getTags());
+        if (dto.getDifficultyLevel() != null) examGuide.setDifficultyLevel(dto.getDifficultyLevel());
+        if (dto.getTargetAudience() != null) examGuide.setTargetAudience(dto.getTargetAudience());
+        if (dto.getAuthorName() != null) examGuide.setAuthorName(dto.getAuthorName());
+        if (dto.getAuthorTitle() != null) examGuide.setAuthorTitle(dto.getAuthorTitle());
+        if (dto.getIsTop() != null) examGuide.setIsTop(dto.getIsTop());
+        if (dto.getIsRecommended() != null) examGuide.setIsRecommended(dto.getIsRecommended());
+        if (dto.getSortOrder() != null) examGuide.setSortOrder(dto.getSortOrder());
         examGuideMapper.updateById(examGuide);
         log.info("更新备考指南成功: id={}", id);
     }
@@ -94,11 +103,12 @@ public class ExamGuideServiceImpl implements ExamGuideService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         ExamGuide examGuide = examGuideMapper.selectById(id);
-        if (examGuide == null) {
+        if (examGuide == null || examGuide.getIsDeleted()) {
             throw new BusinessException(404, "备考指南不存在");
         }
-        examGuideMapper.deleteById(id);
-        log.info("硬删除备考指南成功: id={}", id);
+        examGuide.setIsDeleted(true);
+        examGuideMapper.updateById(examGuide);
+        log.info("软删除备考指南成功: id={}", id);
     }
 
     @Override
@@ -109,7 +119,6 @@ public class ExamGuideServiceImpl implements ExamGuideService {
             throw new BusinessException(404, "备考指南不存在");
         }
         examGuide.setIsDeleted(status == 0);
-        examGuide.setUpdatedAt(OffsetDateTime.now());
         examGuideMapper.updateById(examGuide);
         log.info("更新备考指南状态成功: id={}, status={}", id, status);
     }
@@ -117,97 +126,11 @@ public class ExamGuideServiceImpl implements ExamGuideService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        for (Long id : ids) {
-            ExamGuide examGuide = examGuideMapper.selectById(id);
-            if (examGuide != null) {
-                examGuideMapper.deleteById(id);
-            }
-        }
+        examGuideMapper.update(null,
+                Wrappers.lambdaUpdate(ExamGuide.class)
+                        .set(ExamGuide::getIsDeleted, true)
+                        .in(ExamGuide::getId, ids));
         log.info("批量删除备考指南成功: count={}", ids.size());
     }
 
-    @Override
-    public String preValidate(MultipartFile file) {
-        List<ExamGuideExcelDTO> list = readExcel(file);
-        StringBuilder errorMsg = new StringBuilder();
-        int row = 1;
-        for (ExamGuideExcelDTO dto : list) {
-            row++;
-            List<String> errors = new ArrayList<>();
-            if (!StringUtils.hasText(dto.getGuideCategory())) {
-                errors.add("指南类别不能为空");
-            }
-            if (!StringUtils.hasText(dto.getTitle())) {
-                errors.add("标题不能为空");
-            }
-            if (!errors.isEmpty()) {
-                errorMsg.append("第").append(row).append("行: ");
-                errorMsg.append(String.join("; ", errors));
-                errorMsg.append("\n");
-            }
-        }
-        return errorMsg.length() > 0 ? errorMsg.toString() : null;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
-        List<ExamGuideExcelDTO> list = readExcel(file);
-        StringBuilder errorMsg = new StringBuilder();
-        int row = 1;
-        for (ExamGuideExcelDTO dto : list) {
-            row++;
-            List<String> errors = new ArrayList<>();
-            if (!StringUtils.hasText(dto.getGuideCategory())) errors.add("指南类别不能为空");
-            if (!StringUtils.hasText(dto.getTitle())) errors.add("标题不能为空");
-            if (!errors.isEmpty()) {
-                errorMsg.append("第").append(row).append("行: ").append(String.join("; ", errors)).append("\n");
-            }
-        }
-        if (errorMsg.length() > 0) {
-            throw new BusinessException(400, errorMsg.toString());
-        }
-
-        OffsetDateTime now = OffsetDateTime.now();
-        for (ExamGuideExcelDTO dto : list) {
-            ExamGuide entity = ExamGuide.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .guideCategory(dto.getGuideCategory())
-                    .guideType(dto.getGuideType())
-                    .title(dto.getTitle())
-                    .subtitle(dto.getSubtitle())
-                    .coverImage(dto.getCoverImage())
-                    .iconClass(dto.getIconClass())
-                    .summary(dto.getSummary())
-                    .content(dto.getContent())
-                    .tags(StringUtils.hasText(dto.getTags()) ? dto.getTags().split(",") : new String[0])
-                    .difficultyLevel(dto.getDifficultyLevel())
-                    .targetAudience(dto.getTargetAudience())
-                    .authorName(dto.getAuthorName())
-                    .authorTitle(dto.getAuthorTitle())
-                    .isTop(dto.getIsTop() != null && dto.getIsTop())
-                    .isRecommended(dto.getIsRecommended() != null && dto.getIsRecommended())
-                    .sortOrder(dto.getSortOrder())
-                    .viewCount(0)
-                    .likeCount(0)
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            examGuideMapper.insert(entity);
-        }
-        log.info("导入备考指南成功: count={}", list.size());
-    }
-
-    private List<ExamGuideExcelDTO> readExcel(MultipartFile file) {
-        try {
-            return EasyExcel.read(file.getInputStream())
-                    .head(ExamGuideExcelDTO.class)
-                    .sheet()
-                    .doReadSync();
-        } catch (IOException e) {
-            log.error("读取Excel失败", e);
-            throw new BusinessException(400, "读取Excel文件失败");
-        }
-    }
 }

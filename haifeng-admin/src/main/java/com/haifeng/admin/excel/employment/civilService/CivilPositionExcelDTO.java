@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.employment.civilService;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -30,8 +31,8 @@ public class CivilPositionExcelDTO {
     @ExcelProperty("备注") private String remark;
     @ExcelProperty("官网") private String officialWebsite;
     @ExcelProperty("联系电话") private String contactPhone;
-    @ExcelProperty("报名开始") private OffsetDateTime regStartDate;
-    @ExcelProperty("报名截止") private OffsetDateTime regEndDate;
+    @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
+    @ExcelProperty(value = "报名截止", converter = OffsetDateTimeConverter.class) private OffsetDateTime regEndDate;
     @ExcelProperty("报名状态") private String regStatus;
     @ExcelProperty("报名人数") private Integer applicantCount;
     @ExcelProperty("排序") private Integer sortOrder;

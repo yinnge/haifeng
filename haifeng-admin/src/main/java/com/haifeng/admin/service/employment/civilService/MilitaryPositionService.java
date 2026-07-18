@@ -14,7 +14,7 @@ public interface MilitaryPositionService {
     MilitaryPositionDetailVO detail(Long id);
     void update(Long id, MilitaryPositionUpdateDTO dto);
     void delete(Long id);
-    void updateStatus(Long id, Integer status);
+    void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
     String preValidate(MultipartFile file);
     void importExcel(MultipartFile file);

@@ -14,6 +14,7 @@ import com.haifeng.common.mapper.algorithm.ProvinceConfigMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -42,6 +43,7 @@ public class ProvinceConfigServiceImpl implements ProvinceConfigService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(String province, ProvinceConfigUpdateDTO dto) {
         ProvinceConfig entity = provinceConfigMapper.selectByProvince(province);
         if (entity == null) {
@@ -62,6 +64,7 @@ public class ProvinceConfigServiceImpl implements ProvinceConfigService {
         vo.setDensityK(entity.getDensityK());
         vo.setLineSteepness(entity.getLineSteepness());
         vo.setRankSteepness(entity.getRankSteepness());
+        vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;
     }
 
@@ -72,6 +75,8 @@ public class ProvinceConfigServiceImpl implements ProvinceConfigService {
         vo.setLineSteepness(entity.getLineSteepness());
         vo.setRankSteepness(entity.getRankSteepness());
         vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
+        vo.setVersion(entity.getVersion());
         return vo;
     }
 }

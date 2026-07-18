@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 public class MemberUpgradeDTO {
 
     @NotBlank(message = "目标会员类型不能为空")
-    @Pattern(regexp = "pro|vip", message = "目标会员类型只能是pro或vip")
+    @Pattern(regexp = "^(pro|vip)$", message = "目标会员类型只能是pro或vip")
     private String targetType;
 
     @NotNull(message = "时长不能为空")

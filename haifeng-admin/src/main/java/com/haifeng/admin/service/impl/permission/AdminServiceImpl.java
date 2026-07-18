@@ -43,7 +43,6 @@ public class AdminServiceImpl implements AdminService {
         Page<SysAdmin> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<SysAdmin> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysAdmin::getDeleted, false);
 
         if (StringUtils.hasText(dto.getUsername())) {
             wrapper.like(SysAdmin::getUsername, dto.getUsername());
@@ -87,7 +86,6 @@ public class AdminServiceImpl implements AdminService {
         Long count = adminMapper.selectCount(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getUsername, dto.getUsername())
-                        .eq(SysAdmin::getDeleted, false)
         );
         if (count > 0) {
             throw new BusinessException(400, "用户名已存在");
@@ -97,7 +95,6 @@ public class AdminServiceImpl implements AdminService {
         count = adminMapper.selectCount(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getPhone, dto.getPhone())
-                        .eq(SysAdmin::getDeleted, false)
         );
         if (count > 0) {
             throw new BusinessException(400, "手机号已存在");
@@ -149,7 +146,6 @@ public class AdminServiceImpl implements AdminService {
         Long count = adminMapper.selectCount(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getUsername, dto.getUsername())
-                        .eq(SysAdmin::getDeleted, false)
                         .ne(SysAdmin::getId, id)
         );
         if (count > 0) {
@@ -160,7 +156,6 @@ public class AdminServiceImpl implements AdminService {
         count = adminMapper.selectCount(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getPhone, dto.getPhone())
-                        .eq(SysAdmin::getDeleted, false)
                         .ne(SysAdmin::getId, id)
         );
         if (count > 0) {

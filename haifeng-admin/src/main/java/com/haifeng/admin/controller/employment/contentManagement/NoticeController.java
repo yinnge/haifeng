@@ -11,9 +11,11 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,6 +26,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/employment/content-management/notice")
 @RequiredArgsConstructor
 @RequireAdminModule("emp_content_notice")
+@Validated
 public class NoticeController {
 
     private final NoticeService noticeService;
@@ -59,23 +62,10 @@ public class NoticeController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch-delete")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "招聘内容管理", action = "批量删除公告")
-    public R<Void> batchDelete(@Valid @RequestBody List<Long> ids) {
+    public R<Void> batchDelete(@RequestBody @NotEmpty @Size(max = 100) List<Long> ids) {
         noticeService.batchDelete(ids);
-        return R.ok();
-    }
-
-    @PostMapping("/pre-validate")
-    public R<String> preValidate(@RequestParam("file") MultipartFile file) {
-        String result = noticeService.preValidate(file);
-        return result == null ? R.ok("校验通过") : R.ok(result);
-    }
-
-    @PostMapping("/import")
-    @OperationLog(module = "招聘内容管理", action = "导入公告")
-    public R<Void> importExcel(@RequestParam("file") MultipartFile file) {
-        noticeService.importExcel(file);
         return R.ok();
     }
 }

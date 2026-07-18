@@ -25,7 +25,6 @@ import java.util.List;
 public class ProvinceReformServiceImpl implements ProvinceReformService {
 
     private final ProvinceReformMapper provinceReformMapper;
-    private final SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Override
     public IPage<ProvinceReformListVO> page(ProvinceReformQueryDTO dto) {
@@ -34,7 +33,6 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
         wrapper.orderByAsc(ProvinceReform::getProvince);
 
         IPage<ProvinceReform> resultPage = provinceReformMapper.selectPage(page, wrapper);
-
         return resultPage.convert(this::convertToListVO);
     }
 
@@ -48,18 +46,30 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long add(ProvinceReformAddDTO dto) {
-        // 检查省份唯一性
+        Long deletedId = provinceReformMapper.selectDeletedIdByProvince(dto.getProvince());
+        if (deletedId != null) {
+            ProvinceReform deleted = provinceReformMapper.selectByIdIgnoreDeleted(deletedId);
+            deleted.setIsDeleted(false);
+            deleted.setReformYear(dto.getReformYear());
+            deleted.setReformModel(dto.getReformModel());
+            provinceReformMapper.updateById(deleted);
+            log.info("恢复省份改革配置，id={}, province={}", deletedId, dto.getProvince());
+            return deletedId;
+        }
+
         Long existingId = provinceReformMapper.selectIdByProvince(dto.getProvince());
         if (existingId != null) {
             throw new BusinessException(400, "该省份配置已存在");
         }
 
         ProvinceReform entity = ProvinceReform.builder()
-                .id(snowflakeIdGenerator.nextId())
+                .id(SnowflakeIdGenerator.nextId())
                 .province(dto.getProvince())
                 .reformYear(dto.getReformYear())
                 .reformModel(dto.getReformModel())
+                .isDeleted(false)
                 .build();
 
         provinceReformMapper.insert(entity);
@@ -68,13 +78,13 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ProvinceReformAddDTO dto) {
         ProvinceReform existing = provinceReformMapper.selectById(id);
         if (existing == null) {
             throw new BusinessException(404, "省份改革配置不存在");
         }
 
-        // 检查省份唯一性（排除自身）
         Long existingId = provinceReformMapper.selectIdByProvince(dto.getProvince());
         if (existingId != null && !existingId.equals(id)) {
             throw new BusinessException(400, "该省份配置已存在");
@@ -89,11 +99,13 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        int rows = provinceReformMapper.deleteById(id);
-        if (rows == 0) {
+        ProvinceReform entity = provinceReformMapper.selectById(id);
+        if (entity == null) {
             throw new BusinessException(404, "省份改革配置不存在");
         }
+        provinceReformMapper.deleteById(id);
         log.info("删除省份改革配置，id={}", id);
     }
 
@@ -103,8 +115,8 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
         if (ids == null || ids.isEmpty()) {
             throw new BusinessException(400, "请选择要删除的记录");
         }
-        provinceReformMapper.deleteBatchIds(ids);
-        log.info("批量删除省份改革配置，ids={}", ids);
+        provinceReformMapper.batchSoftDelete(ids);
+        log.info("批量删除省份改革配置，count={}", ids.size());
     }
 
     private ProvinceReformListVO convertToListVO(ProvinceReform entity) {
@@ -123,6 +135,8 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
         vo.setReformYear(entity.getReformYear());
         vo.setReformModel(entity.getReformModel());
         vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
+        vo.setVersion(entity.getVersion());
         return vo;
     }
 }

@@ -18,10 +18,10 @@ import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.SubjectEvaluationMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -71,25 +71,39 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
 
         IPage<SubjectEvaluation> evalPage = subjectEvaluationMapper.selectPage(page, wrapper);
 
-        return evalPage.convert(eval -> {
-            SubjectEvaluationListVO vo = new SubjectEvaluationListVO();
-            BeanUtils.copyProperties(eval, vo);
-            vo.setStatus(eval.getStatus() != null ? eval.getStatus().intValue() : null);
-            return vo;
-        });
+        return evalPage.convert(eval -> SubjectEvaluationListVO.builder()
+                .id(eval.getId())
+                .universityId(eval.getUniversityId())
+                .universityName(eval.getUniversityName())
+                .disciplineCode(eval.getDisciplineCode())
+                .disciplineName(eval.getDisciplineName())
+                .evaluationRound(eval.getEvaluationRound())
+                .evaluationGrade(eval.getEvaluationGrade())
+                .status(eval.getStatus() != null ? eval.getStatus().intValue() : null)
+                .createdAt(eval.getCreatedAt())
+                .build());
     }
 
     @Override
     public SubjectEvaluationDetailVO detail(Long id) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
-        if (eval == null || eval.getStatus() == 0) {
-            throw new BusinessException(404, "学科评估记录不存在");
+        if (eval == null || (eval.getStatus() != null && eval.getStatus() == 0)) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 
-        SubjectEvaluationDetailVO vo = new SubjectEvaluationDetailVO();
-        BeanUtils.copyProperties(eval, vo);
-        vo.setStatus(eval.getStatus() != null ? eval.getStatus().intValue() : null);
-        return vo;
+        return SubjectEvaluationDetailVO.builder()
+                .id(eval.getId())
+                .universityId(eval.getUniversityId())
+                .universityName(eval.getUniversityName())
+                .disciplineCode(eval.getDisciplineCode())
+                .disciplineName(eval.getDisciplineName())
+                .evaluationRound(eval.getEvaluationRound())
+                .evaluationGrade(eval.getEvaluationGrade())
+                .sortOrder(eval.getSortOrder())
+                .status(eval.getStatus() != null ? eval.getStatus().intValue() : null)
+                .createdAt(eval.getCreatedAt())
+                .updatedAt(eval.getUpdatedAt())
+                .build();
     }
 
     @Override
@@ -132,7 +146,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     public void update(Long id, SubjectEvaluationUpdateDTO dto) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
         if (eval == null || eval.getStatus() == 0) {
-            throw new BusinessException(404, "学科评估记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 
         if (dto.getDisciplineCode() != null) eval.setDisciplineCode(dto.getDisciplineCode());
@@ -152,7 +166,10 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     public void updateStatus(Long id, Integer status) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
         if (eval == null) {
-            throw new BusinessException(404, "学科评估记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
+        }
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(400, "状态值无效，只允许0或1");
         }
 
         LambdaUpdateWrapper<SubjectEvaluation> wrapper = new LambdaUpdateWrapper<>();
@@ -175,7 +192,10 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     public void hardDelete(Long id) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
         if (eval == null) {
-            throw new BusinessException(404, "学科评估记录不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
+        }
+        if (eval.getStatus() != null && eval.getStatus() == 0) {
+            throw new BusinessException(400, "该记录已软删除，不可硬删除");
         }
         subjectEvaluationMapper.deleteById(id);
         log.info("硬删除学科评估，id={}", id);
@@ -185,6 +205,10 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
+        int count = subjectEvaluationMapper.selectBatchIds(ids).size();
+        if (count != ids.size()) {
+            throw new BusinessException(400, "部分记录不存在，共查询到" + count + "条");
+        }
         LambdaUpdateWrapper<SubjectEvaluation> wrapper = new LambdaUpdateWrapper<>();
         wrapper.in(SubjectEvaluation::getId, ids)
                .set(SubjectEvaluation::getStatus, (short) 0)
@@ -197,6 +221,15 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Transactional(rollbackFor = Exception.class)
     public void batchHardDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
+        List<SubjectEvaluation> records = subjectEvaluationMapper.selectBatchIds(ids);
+        if (records.size() != ids.size()) {
+            throw new BusinessException(400, "部分记录不存在");
+        }
+        boolean hasSoftDeleted = records.stream()
+                .anyMatch(r -> r.getStatus() != null && r.getStatus() == 0);
+        if (hasSoftDeleted) {
+            throw new BusinessException(400, "包含已软删除的记录，不可硬删除");
+        }
         subjectEvaluationMapper.deleteBatchIds(ids);
         log.info("批量硬删除学科评估，ids={}", ids);
     }
@@ -280,7 +313,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误，已全部回滚。错误信息：" + String.join("；", errorMsgs));
             }
 
             if (!evaluations.isEmpty()) {

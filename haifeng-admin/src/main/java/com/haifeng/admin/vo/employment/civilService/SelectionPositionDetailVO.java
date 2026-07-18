@@ -39,7 +39,6 @@ public class SelectionPositionDetailVO {
     private String officialLink;
     private String content;
     private Integer sortOrder;
-    private Boolean isDeleted;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

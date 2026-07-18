@@ -27,6 +27,9 @@ public class AdmissionImportDTO {
     @ExcelProperty("专业组代码")
     private String groupCode;
 
+    @ExcelProperty("专业组名称")
+    private String groupName;
+
     @ExcelProperty("专业组简介")
     private String groupDescription;
 
@@ -46,11 +49,17 @@ public class AdmissionImportDTO {
     @ExcelProperty("层次")
     private String educationLevel;
 
+    @ExcelProperty("学制")
+    private String duration;
+
     @ExcelProperty("学费")
     private String tuition;
 
     @ExcelProperty("专业简介")
     private String majorDescription;
+
+    @ExcelProperty("报考限制条件")
+    private String constraintsStr;
 
     @ExcelProperty("录取人数")
     private Integer admissionCount;

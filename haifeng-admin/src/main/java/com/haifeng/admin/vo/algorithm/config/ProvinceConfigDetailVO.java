@@ -12,4 +12,6 @@ public class ProvinceConfigDetailVO {
     private BigDecimal lineSteepness;
     private BigDecimal rankSteepness;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private Integer version;
 }

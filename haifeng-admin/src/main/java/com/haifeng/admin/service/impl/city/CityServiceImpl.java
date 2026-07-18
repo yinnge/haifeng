@@ -28,6 +28,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -38,6 +39,10 @@ public class CityServiceImpl implements CityService {
 
     private final CityMapper cityMapper;
     private final CityDetailMapper cityDetailMapper;
+
+    private static final int MAX_IMPORT_ROWS = 500;
+    private static final Set<String> VALID_CITY_LEVELS = Set.of("直辖市", "省会城市", "地级市", "县级市");
+    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     @Override
     public IPage<CityListVO> page(CityQueryDTO dto) {
@@ -371,6 +376,10 @@ public class CityServiceImpl implements CityService {
                 throw new BusinessException(400, "导入失败：Excel文件为空");
             }
 
+            if (mainData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+
             List<City> cities = new ArrayList<>();
             List<CityDetail> cityDetails = new ArrayList<>();
             Set<String> cityNamesInFile = new HashSet<>();
@@ -382,6 +391,24 @@ public class CityServiceImpl implements CityService {
                 // 校验必填字段
                 if (!StringUtils.hasText(data.getCityName())) {
                     errorMsgs.add("第" + rowNum + "行：城市名称不能为空");
+                    continue;
+                }
+                if (!StringUtils.hasText(data.getProvince())) {
+                    errorMsgs.add("第" + rowNum + "行：省份不能为空");
+                    continue;
+                }
+
+                // 校验字段长度
+                if (data.getCityName().length() > 50) {
+                    errorMsgs.add("第" + rowNum + "行：城市名称不能超过50个字符");
+                    continue;
+                }
+                if (data.getProvince().length() > 30) {
+                    errorMsgs.add("第" + rowNum + "行：省份不能超过30个字符");
+                    continue;
+                }
+                if (data.getRegion() != null && data.getRegion().length() > 20) {
+                    errorMsgs.add("第" + rowNum + "行：所属地区不能超过20个字符");
                     continue;
                 }
 
@@ -441,9 +468,14 @@ public class CityServiceImpl implements CityService {
                 log.info("导入城市主表成功，数量={}", cities.size());
             }
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(500, "读取Excel文件失败");
+        } catch (Exception e) {
+            log.error("解析Excel数据失败", e);
+            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
         }
     }
 
@@ -458,6 +490,14 @@ public class CityServiceImpl implements CityService {
                     .head(CityDetailExcelDTO.class)
                     .sheet(0)
                     .doReadSync();
+
+            if (detailData == null || detailData.isEmpty()) {
+                throw new BusinessException(400, "导入失败：Sheet0(详情基础字段)为空");
+            }
+
+            if (detailData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet1: industry_structure
             List<IndustryStructureExcelDTO> industryStructureData = EasyExcel.read(file.getInputStream())
@@ -686,6 +726,27 @@ public class CityServiceImpl implements CityService {
                         return m;
                     });
 
+            // 校验Sheet1~13中的城市名是否都在Sheet0中存在
+            Set<String> sheet0CityNames = new HashSet<>();
+            for (CityDetailExcelDTO dto : detailData) {
+                if (StringUtils.hasText(dto.getCityName())) {
+                    sheet0CityNames.add(dto.getCityName());
+                }
+            }
+            validateSheetCityNames(industryStructureData, "Sheet1(产业结构)", IndustryStructureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(housingPriceData, "Sheet2(房价水平)", HousingPriceLevelExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(highEducationData, "Sheet3(高等教育)", HighEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(basicEducationData, "Sheet4(基础教育)", BasicEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(transportationData, "Sheet5(交通)", TransportationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(employmentData, "Sheet6(就业)", EmploymentExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(enterpriseStatsData, "Sheet7(企业统计)", EnterpriseStatsExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(futurePlanData, "Sheet8(未来规划)", FuturePlanExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(cultureData, "Sheet9(文化)", CultureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(consumptionData, "Sheet10(消费)", ConsumptionExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(medicalData, "Sheet11(医疗)", MedicalExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(housingPolicyData, "Sheet12(住房政策)", HousingPolicyExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(rentalCostData, "Sheet13(租房成本)", RentalCostExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+
             // 缓存城市ID
             Map<String, Long> cityIdCache = new HashMap<>();
 
@@ -699,6 +760,28 @@ public class CityServiceImpl implements CityService {
                     errorMsgs.add("Sheet0第" + rowNum + "行：城市名称不能为空");
                     continue;
                 }
+
+                // 校验cityLevel枚举值
+                if (data.getCityLevel() != null && !VALID_CITY_LEVELS.contains(data.getCityLevel())) {
+                    errorMsgs.add("Sheet0第" + rowNum + "行：城市级别'" + data.getCityLevel() + "'不合法，可选值：直辖市、省会城市、地级市、县级市");
+                    continue;
+                }
+
+                // 校验subtitle长度
+                if (data.getSubtitle() != null && data.getSubtitle().length() > 200) {
+                    errorMsgs.add("Sheet0第" + rowNum + "行：副标题不能超过200个字符");
+                    continue;
+                }
+
+                // 校验百分比字段范围0-100
+                String pctError = validatePercentageRange(data.getUrbanizationRate(), "城镇化率", rowNum);
+                if (pctError != null) { errorMsgs.add(pctError); continue; }
+                pctError = validatePercentageRange(data.getRuralPopRatio(), "农村人口比例", rowNum);
+                if (pctError != null) { errorMsgs.add(pctError); continue; }
+                pctError = validatePercentageRange(data.getAgingRate(), "老龄化率", rowNum);
+                if (pctError != null) { errorMsgs.add(pctError); continue; }
+                pctError = validatePercentageRange(data.getMigrantPopRatio(), "外来人口比例", rowNum);
+                if (pctError != null) { errorMsgs.add(pctError); continue; }
 
                 // 查询城市ID
                 Long cityId = cityIdCache.get(data.getCityName());
@@ -764,14 +847,19 @@ public class CityServiceImpl implements CityService {
 
             log.info("导入城市详情成功，更新数量={}", updatedCount);
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(500, "读取Excel文件失败");
+        } catch (Exception e) {
+            log.error("解析Excel数据失败", e);
+            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
         }
     }
 
     /**
-     * 构建JSONB Map的辅助方法
+     * 构建JSONB Map的辅助方法（过滤null值）
      */
     private <T> Map<String, Map<String, Object>> buildJsonbMap(
             List<T> dataList,
@@ -782,10 +870,37 @@ public class CityServiceImpl implements CityService {
             for (T data : dataList) {
                 String key = keyExtractor.apply(data);
                 if (StringUtils.hasText(key)) {
-                    result.put(key, valueExtractor.apply(data));
+                    Map<String, Object> m = valueExtractor.apply(data);
+                    m.values().removeIf(Objects::isNull);
+                    result.put(key, m);
                 }
             }
         }
         return result;
+    }
+
+    /**
+     * 校验百分比字段范围0-100
+     */
+    private String validatePercentageRange(BigDecimal value, String fieldName, int rowNum) {
+        if (value != null && (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(HUNDRED) > 0)) {
+            return "Sheet0第" + rowNum + "行：" + fieldName + "必须在0-100之间";
+        }
+        return null;
+    }
+
+    /**
+     * 校验Sheet中的城市名是否都在Sheet0中存在
+     */
+    private <T> void validateSheetCityNames(List<T> dataList, String sheetName,
+                                             java.util.function.Function<T, String> nameExtractor,
+                                             Set<String> validNames, List<String> errorMsgs) {
+        if (dataList == null) return;
+        for (int i = 0; i < dataList.size(); i++) {
+            String cityName = nameExtractor.apply(dataList.get(i));
+            if (StringUtils.hasText(cityName) && !validNames.contains(cityName)) {
+                errorMsgs.add(sheetName + "第" + (i + 2) + "行：城市名称'" + cityName + "'在Sheet0中不存在");
+            }
+        }
     }
 }

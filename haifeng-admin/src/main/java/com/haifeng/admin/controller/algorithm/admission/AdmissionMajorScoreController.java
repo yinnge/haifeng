@@ -10,11 +10,15 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/admission/major-score")
 @RequiredArgsConstructor
@@ -60,9 +64,9 @@ public class AdmissionMajorScoreController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch")
     @OperationLog(module = "专业录取明细管理", action = "批量删除专业明细")
-    public R<Void> batchDelete(@RequestBody List<Integer> ids) {
+    public R<Void> batchDelete(@Valid @RequestBody @NotEmpty(message = "ids不能为空") @Size(max = 100) List<Integer> ids) {
         admissionMajorScoreService.batchDelete(ids);
         return R.ok();
     }

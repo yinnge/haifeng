@@ -9,6 +9,7 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
 /**
  * 系统管理 - 系统设置（含服务商与模型配置）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/system/settings")
 @RequiredArgsConstructor
@@ -46,7 +48,6 @@ public class SystemSettingsController {
      * 获取所有启用的服务商列表
      */
     @GetMapping("/providers")
-    @OperationLog(module = "系统管理", action = "获取服务商列表")
     public R<List<String>> listProviders() {
         return R.ok(settingsService.listProviders());
     }

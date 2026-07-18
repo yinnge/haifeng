@@ -20,7 +20,7 @@ public interface DepartmentService {
 
     void update(Long id, DepartmentUpdateDTO dto);
 
-    void updateStatus(Long id, Integer status);
+    void updateStatus(Long id, Short status);
 
     void delete(Long id);
 

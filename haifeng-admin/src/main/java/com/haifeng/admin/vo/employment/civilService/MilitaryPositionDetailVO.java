@@ -20,7 +20,6 @@ public class MilitaryPositionDetailVO {
     private String[] responsibilities;
     private String[] qualifications;
     private Integer sortOrder;
-    private Boolean isDeleted;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

@@ -19,10 +19,12 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
 
     @Select("SELECT COUNT(*) FROM t_admission_major_score " +
             "WHERE group_id = #{groupId} AND major_code = #{majorCode} " +
-            "AND is_deleted = FALSE")
+            "AND is_deleted = FALSE " +
+            "AND (#{excludeId} IS NULL OR id != #{excludeId})")
     int countByGroupIdAndMajorCode(
             @Param("groupId") Integer groupId,
-            @Param("majorCode") String majorCode);
+            @Param("majorCode") String majorCode,
+            @Param("excludeId") Integer excludeId);
 
     /**
      * 批量查询专业历史数据（原始 Map 形式）

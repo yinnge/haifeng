@@ -12,8 +12,10 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/constraint/safety-level")
 @RequiredArgsConstructor
@@ -53,7 +55,7 @@ public class SafetyLevelController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "安全系数管理", action = "批量删除安全系数等级")
     public R<Void> batchDelete(@Valid @RequestBody SafetyLevelBatchDeleteDTO dto) {
         safetyLevelService.batchDelete(dto.getLevels());

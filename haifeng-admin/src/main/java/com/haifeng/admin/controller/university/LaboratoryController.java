@@ -14,6 +14,7 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/admin/university/laboratory")
 @RequiredArgsConstructor
 @RequireAdminModule("university_lab")
+@Validated
 public class LaboratoryController {
 
     private final LaboratoryService laboratoryService;
@@ -96,7 +98,7 @@ public class LaboratoryController {
     /**
      * 批量软删除实验室
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "实验室管理", action = "批量软删除实验室")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         laboratoryService.batchDelete(dto.getIds());
@@ -106,7 +108,7 @@ public class LaboratoryController {
     /**
      * 批量硬删除实验室
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "实验室管理", action = "批量硬删除实验室")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         laboratoryService.batchHardDelete(dto.getIds());

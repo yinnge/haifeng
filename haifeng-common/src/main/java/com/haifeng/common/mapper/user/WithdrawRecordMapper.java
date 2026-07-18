@@ -21,4 +21,13 @@ public interface WithdrawRecordMapper extends BaseMapper<WithdrawRecord> {
 
     @Update("UPDATE t_withdraw_record SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
     int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
+
+    @Update("UPDATE t_withdraw_record SET status = #{status}, operator_id = #{operatorId}, operator_name = #{operatorName}, remark = #{remark}, updated_at = #{updatedAt} WHERE id = #{id} AND status = #{expectedStatus}")
+    int updateStatusCas(@Param("id") Long id,
+                        @Param("expectedStatus") String expectedStatus,
+                        @Param("status") String status,
+                        @Param("operatorId") Long operatorId,
+                        @Param("operatorName") String operatorName,
+                        @Param("remark") String remark,
+                        @Param("updatedAt") OffsetDateTime updatedAt);
 }

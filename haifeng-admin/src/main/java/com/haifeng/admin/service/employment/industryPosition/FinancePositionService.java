@@ -14,7 +14,7 @@ public interface FinancePositionService {
     FinancePositionDetailVO detail(Long id);
     void update(Long id, FinancePositionUpdateDTO dto);
     void delete(Long id);
-    void updateStatus(Long id, Integer status);
+    void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
     void importExcel(MultipartFile file);
     String preValidate(MultipartFile file);

@@ -8,7 +8,9 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/user/commission")
 @RequiredArgsConstructor
 @RequireAdminModule("user_commission")
+@Validated
 public class CommissionController {
 
     private final CommissionService commissionService;
@@ -35,7 +38,7 @@ public class CommissionController {
      */
     @DeleteMapping("/{id}")
     @OperationLog(module = "用户管理", action = "禁用佣金记录")
-    public R<Void> delete(@PathVariable Long id) {
+    public R<Void> delete(@PathVariable @Min(1) Long id) {
         commissionService.delete(id);
         return R.ok();
     }
@@ -45,7 +48,7 @@ public class CommissionController {
      */
     @DeleteMapping("/{id}/hard")
     @OperationLog(module = "用户管理", action = "硬删除佣金记录")
-    public R<Void> hardDelete(@PathVariable Long id) {
+    public R<Void> hardDelete(@PathVariable @Min(1) Long id) {
         commissionService.hardDelete(id);
         return R.ok();
     }
@@ -55,7 +58,7 @@ public class CommissionController {
      */
     @PutMapping("/{id}/restore")
     @OperationLog(module = "用户管理", action = "恢复佣金记录")
-    public R<Void> restore(@PathVariable Long id) {
+    public R<Void> restore(@PathVariable @Min(1) Long id) {
         commissionService.restore(id);
         return R.ok();
     }

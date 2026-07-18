@@ -31,6 +31,9 @@ public class StrongBaseUnivAddDTO {
     @Size(max = 500, message = "默认录取公式长度不能超过500")
     private String defaultAdmissionFormula;
 
+    @Size(max = 50, message = "可用专业数量不能超过50")
     private String[] availableMajors;
+
+    @Size(max = 2000, message = "特殊说明长度不能超过2000")
     private String specialNotes;
 }
