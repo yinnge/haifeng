@@ -20,15 +20,16 @@ import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.LaboratoryMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -72,25 +73,56 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
 
         IPage<Laboratory> labPage = laboratoryMapper.selectPage(page, wrapper);
 
-        return labPage.convert(lab -> {
-            LaboratoryListVO vo = new LaboratoryListVO();
-            BeanUtils.copyProperties(lab, vo);
-            vo.setStatus(lab.getStatus() != null ? lab.getStatus().intValue() : null);
-            return vo;
-        });
+        return labPage.convert(lab -> LaboratoryListVO.builder()
+                .id(lab.getId())
+                .universityId(lab.getUniversityId())
+                .universityName(lab.getUniversityName())
+                .name(lab.getName())
+                .labType(lab.getLabType())
+                .region(lab.getRegion())
+                .department(lab.getDepartment())
+                .director(lab.getDirector())
+                .status(lab.getStatus() != null ? lab.getStatus().intValue() : null)
+                .createdAt(lab.getCreatedAt())
+                .build());
     }
 
     @Override
     public LaboratoryDetailVO detail(Long id) {
         Laboratory lab = laboratoryMapper.selectById(id);
-        if (lab == null || lab.getStatus() == 0) {
-            throw new BusinessException(404, "实验室不存在");
+        if (lab == null || (lab.getStatus() != null && lab.getStatus() == 0)) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 
-        LaboratoryDetailVO vo = new LaboratoryDetailVO();
-        BeanUtils.copyProperties(lab, vo);
-        vo.setStatus(lab.getStatus() != null ? lab.getStatus().intValue() : null);
-        return vo;
+        return LaboratoryDetailVO.builder()
+                .id(lab.getId())
+                .universityId(lab.getUniversityId())
+                .universityName(lab.getUniversityName())
+                .name(lab.getName())
+                .labType(lab.getLabType())
+                .establishedYear(lab.getEstablishedYear())
+                .region(lab.getRegion())
+                .department(lab.getDepartment())
+                .director(lab.getDirector())
+                .staffCount(lab.getStaffCount())
+                .studentCount(lab.getStudentCount())
+                .email(lab.getEmail())
+                .phone(lab.getPhone())
+                .introduction(lab.getIntroduction())
+                .researchDescription(lab.getResearchDescription())
+                .labSpace(lab.getLabSpace())
+                .openTopics(lab.getOpenTopics())
+                .cooperation(lab.getCooperation())
+                .visitingScholars(lab.getVisitingScholars())
+                .researchFields(lab.getResearchFields())
+                .statistics(lab.getStatistics())
+                .majorEquipment(lab.getMajorEquipment())
+                .coreTeam(lab.getCoreTeam())
+                .sortOrder(lab.getSortOrder())
+                .status(lab.getStatus() != null ? lab.getStatus().intValue() : null)
+                .createdAt(lab.getCreatedAt())
+                .updatedAt(lab.getUpdatedAt())
+                .build();
     }
 
     @Override
@@ -148,7 +180,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     public void update(Long id, LaboratoryUpdateDTO dto) {
         Laboratory lab = laboratoryMapper.selectById(id);
         if (lab == null || lab.getStatus() == 0) {
-            throw new BusinessException(404, "实验室不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 
         if (StringUtils.hasText(dto.getName()) && !dto.getName().equals(lab.getName())) {
@@ -190,7 +222,10 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     public void updateStatus(Long id, Integer status) {
         Laboratory lab = laboratoryMapper.selectById(id);
         if (lab == null) {
-            throw new BusinessException(404, "实验室不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
+        }
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(400, "状态值无效，只允许0或1");
         }
 
         LambdaUpdateWrapper<Laboratory> wrapper = new LambdaUpdateWrapper<>();
@@ -213,7 +248,10 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     public void hardDelete(Long id) {
         Laboratory lab = laboratoryMapper.selectById(id);
         if (lab == null) {
-            throw new BusinessException(404, "实验室不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
+        }
+        if (lab.getStatus() != null && lab.getStatus() == 0) {
+            throw new BusinessException(400, "该记录已软删除，不可硬删除");
         }
         laboratoryMapper.deleteById(id);
         log.info("硬删除实验室，id={}", id);
@@ -223,6 +261,10 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
+        int count = laboratoryMapper.selectBatchIds(ids).size();
+        if (count != ids.size()) {
+            throw new BusinessException(400, "部分记录不存在，共查询到" + count + "条");
+        }
         LambdaUpdateWrapper<Laboratory> wrapper = new LambdaUpdateWrapper<>();
         wrapper.in(Laboratory::getId, ids)
                .set(Laboratory::getStatus, (short) 0)
@@ -235,6 +277,15 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Transactional(rollbackFor = Exception.class)
     public void batchHardDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
+        List<Laboratory> records = laboratoryMapper.selectBatchIds(ids);
+        if (records.size() != ids.size()) {
+            throw new BusinessException(400, "部分记录不存在");
+        }
+        boolean hasSoftDeleted = records.stream()
+                .anyMatch(r -> r.getStatus() != null && r.getStatus() == 0);
+        if (hasSoftDeleted) {
+            throw new BusinessException(400, "包含已软删除的记录，不可硬删除");
+        }
         laboratoryMapper.deleteBatchIds(ids);
         log.info("批量硬删除实验室，ids={}", ids);
     }
@@ -245,20 +296,22 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         List<String> errorMsgs = new ArrayList<>();
 
         try {
+            byte[] fileBytes = file.getBytes();
+
             // Sheet0: 主表数据
-            List<LaboratoryExcelDTO> mainData = EasyExcel.read(file.getInputStream())
+            List<LaboratoryExcelDTO> mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(LaboratoryExcelDTO.class)
                     .sheet(0)
                     .doReadSync();
 
             // Sheet1: core_team数据
-            List<CoreTeamExcelDTO> coreTeamData = EasyExcel.read(file.getInputStream())
+            List<CoreTeamExcelDTO> coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(CoreTeamExcelDTO.class)
                     .sheet(1)
                     .doReadSync();
 
             // Sheet2: statistics数据
-            List<StatisticsExcelDTO> statisticsData = EasyExcel.read(file.getInputStream())
+            List<StatisticsExcelDTO> statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(StatisticsExcelDTO.class)
                     .sheet(2)
                     .doReadSync();
@@ -367,7 +420,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误，已全部回滚。错误信息：" + String.join("；", errorMsgs));
             }
 
             if (!laboratories.isEmpty()) {

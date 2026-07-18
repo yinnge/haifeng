@@ -2,6 +2,7 @@ package com.haifeng.admin.service.impl.algorithm.admission;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionMajorScoreAddDTO;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionMajorScoreQueryDTO;
@@ -15,8 +16,8 @@ import com.haifeng.common.mapper.algorithm.AdmissionGroupMapper;
 import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -73,6 +74,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Integer add(AdmissionMajorScoreAddDTO dto) {
         // 检查专业组是否存在且未删除
         validateGroupExists(dto.getGroupId());
@@ -83,7 +85,23 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         }
 
         AdmissionMajorScore entity = new AdmissionMajorScore();
-        BeanUtils.copyProperties(dto, entity);
+        entity.setGroupId(dto.getGroupId());
+        entity.setMajorId(dto.getMajorId());
+        entity.setMajorCode(dto.getMajorCode());
+        entity.setMajorName(dto.getMajorName());
+        entity.setEducationLevel(dto.getEducationLevel());
+        entity.setDuration(dto.getDuration());
+        entity.setTuition(dto.getTuition());
+        entity.setDescription(dto.getDescription());
+        entity.setAdmissionCount(dto.getAdmissionCount());
+        entity.setMinScore(dto.getMinScore());
+        entity.setMinRank(dto.getMinRank());
+        entity.setAvgScore(dto.getAvgScore());
+        entity.setAvgRank(dto.getAvgRank());
+        entity.setMaxScore(dto.getMaxScore());
+        entity.setMaxRank(dto.getMaxRank());
+        entity.setConstraints(dto.getConstraints());
+        entity.setIsDeleted(false);
 
         admissionMajorScoreMapper.insert(entity);
         log.info("新增专业录取明细成功，id={}, groupId={}, majorCode={}",
@@ -92,9 +110,10 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionMajorScoreAddDTO dto) {
         AdmissionMajorScore existing = admissionMajorScoreMapper.selectById(id);
-        if (existing == null) {
+        if (existing == null || existing.getIsDeleted()) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
@@ -106,13 +125,28 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
             throw new BusinessException(400, "该专业组内已存在相同的专业代码");
         }
 
-        BeanUtils.copyProperties(dto, existing);
-        existing.setId(id);
+        if (dto.getGroupId() != null) existing.setGroupId(dto.getGroupId());
+        if (dto.getMajorId() != null) existing.setMajorId(dto.getMajorId());
+        if (dto.getMajorCode() != null) existing.setMajorCode(dto.getMajorCode());
+        if (dto.getMajorName() != null) existing.setMajorName(dto.getMajorName());
+        if (dto.getEducationLevel() != null) existing.setEducationLevel(dto.getEducationLevel());
+        if (dto.getDuration() != null) existing.setDuration(dto.getDuration());
+        if (dto.getTuition() != null) existing.setTuition(dto.getTuition());
+        if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
+        if (dto.getAdmissionCount() != null) existing.setAdmissionCount(dto.getAdmissionCount());
+        if (dto.getMinScore() != null) existing.setMinScore(dto.getMinScore());
+        if (dto.getMinRank() != null) existing.setMinRank(dto.getMinRank());
+        if (dto.getAvgScore() != null) existing.setAvgScore(dto.getAvgScore());
+        if (dto.getAvgRank() != null) existing.setAvgRank(dto.getAvgRank());
+        if (dto.getMaxScore() != null) existing.setMaxScore(dto.getMaxScore());
+        if (dto.getMaxRank() != null) existing.setMaxRank(dto.getMaxRank());
+        if (dto.getConstraints() != null) existing.setConstraints(dto.getConstraints());
         admissionMajorScoreMapper.updateById(existing);
         log.info("更新专业录取明细成功，id={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Integer id, Boolean isDeleted) {
         AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
         if (entity == null) {
@@ -123,23 +157,30 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Integer id) {
         AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
-        if (entity == null) {
+        if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
-        admissionMajorScoreMapper.deleteById(id);
-        log.info("删除专业录取明细成功，id={}", id);
+        entity.setIsDeleted(true);
+        admissionMajorScoreMapper.updateById(entity);
+        log.info("软删除专业录取明细成功，id={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Integer> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        admissionMajorScoreMapper.deleteBatchIds(ids);
-        log.info("批量删除专业录取明细成功，ids={}", ids);
+        int affected = admissionMajorScoreMapper.update(null,
+                Wrappers.lambdaUpdate(AdmissionMajorScore.class)
+                        .set(AdmissionMajorScore::getIsDeleted, true)
+                        .in(AdmissionMajorScore::getId, ids)
+                        .eq(AdmissionMajorScore::getIsDeleted, false));
+        log.info("批量软删除专业录取明细成功，请求{}条，实际删除{}条", ids.size(), affected);
     }
 
     private void validateGroupExists(Integer groupId) {
@@ -152,27 +193,46 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     }
 
     private boolean existsByGroupIdAndMajorCode(Integer groupId, String majorCode, Integer excludeId) {
-        int count = admissionMajorScoreMapper.countByGroupIdAndMajorCode(groupId, majorCode);
-        if (excludeId != null) {
-            // 如果是更新操作，需要检查是否是当前记录本身
-            AdmissionMajorScore existing = admissionMajorScoreMapper.selectById(excludeId);
-            if (existing != null && existing.getGroupId().equals(groupId)
-                    && existing.getMajorCode().equals(majorCode)) {
-                return count > 1;
-            }
-        }
-        return count > 0;
+        return admissionMajorScoreMapper.countByGroupIdAndMajorCode(groupId, majorCode, excludeId) > 0;
     }
 
     private AdmissionMajorScoreListVO convertToListVO(AdmissionMajorScore entity) {
         AdmissionMajorScoreListVO vo = new AdmissionMajorScoreListVO();
-        BeanUtils.copyProperties(entity, vo);
+        vo.setId(entity.getId());
+        vo.setGroupId(entity.getGroupId());
+        vo.setMajorCode(entity.getMajorCode());
+        vo.setMajorName(entity.getMajorName());
+        vo.setEducationLevel(entity.getEducationLevel());
+        vo.setAdmissionCount(entity.getAdmissionCount());
+        vo.setMinScore(entity.getMinScore());
+        vo.setMinRank(entity.getMinRank());
+        vo.setAvgScore(entity.getAvgScore());
+        vo.setIsDeleted(entity.getIsDeleted());
         return vo;
     }
 
     private AdmissionMajorScoreDetailVO convertToDetailVO(AdmissionMajorScore entity) {
         AdmissionMajorScoreDetailVO vo = new AdmissionMajorScoreDetailVO();
-        BeanUtils.copyProperties(entity, vo);
+        vo.setId(entity.getId());
+        vo.setGroupId(entity.getGroupId());
+        vo.setMajorId(entity.getMajorId());
+        vo.setMajorCode(entity.getMajorCode());
+        vo.setMajorName(entity.getMajorName());
+        vo.setEducationLevel(entity.getEducationLevel());
+        vo.setDuration(entity.getDuration());
+        vo.setTuition(entity.getTuition());
+        vo.setDescription(entity.getDescription());
+        vo.setAdmissionCount(entity.getAdmissionCount());
+        vo.setMinScore(entity.getMinScore());
+        vo.setMinRank(entity.getMinRank());
+        vo.setAvgScore(entity.getAvgScore());
+        vo.setAvgRank(entity.getAvgRank());
+        vo.setMaxScore(entity.getMaxScore());
+        vo.setMaxRank(entity.getMaxRank());
+        vo.setConstraints(entity.getConstraints());
+        vo.setIsDeleted(entity.getIsDeleted());
+        vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;
     }
 }

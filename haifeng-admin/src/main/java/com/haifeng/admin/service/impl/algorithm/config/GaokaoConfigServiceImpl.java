@@ -8,7 +8,9 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.GaokaoConfigMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -27,6 +29,7 @@ public class GaokaoConfigServiceImpl implements GaokaoConfigService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(GaokaoConfigUpdateDTO dto) {
         GaokaoConfig entity = gaokaoConfigMapper.selectSingleton();
         if (entity == null) {
@@ -49,7 +52,10 @@ public class GaokaoConfigServiceImpl implements GaokaoConfigService {
         if (entity.getCreatedAt() == null) {
             gaokaoConfigMapper.insert(entity);
         } else {
-            gaokaoConfigMapper.updateById(entity);
+            int rows = gaokaoConfigMapper.updateById(entity);
+            if (rows == 0) {
+                throw new OptimisticLockingFailureException("配置已被其他管理员修改，请刷新后重试");
+            }
         }
         log.info("修改高考算法全局配置");
     }
@@ -67,6 +73,8 @@ public class GaokaoConfigServiceImpl implements GaokaoConfigService {
         vo.setWeightSoftBoth(entity.getWeightSoftBoth());
         vo.setYearWeights(entity.getYearWeights());
         vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
+        vo.setVersion(entity.getVersion());
         return vo;
     }
 }

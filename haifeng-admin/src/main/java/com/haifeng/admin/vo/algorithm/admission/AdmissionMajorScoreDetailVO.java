@@ -24,6 +24,7 @@ public class AdmissionMajorScoreDetailVO {
     private Integer maxScore;
     private Integer maxRank;
     private List<String> constraints;
+    private Boolean isDeleted;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

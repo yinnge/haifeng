@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS t_province_reform (
     province            VARCHAR(20)     NOT NULL UNIQUE,
     reform_year         SMALLINT,
     reform_model        VARCHAR(20),
-    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     DEFAULT NOW(),
+    is_deleted          BOOLEAN         DEFAULT FALSE,
+    version             INTEGER         DEFAULT 0
 );
 
 -- 注释
@@ -38,6 +41,9 @@ CREATE TABLE IF NOT EXISTS t_score_rank (
     same_score_count    INTEGER,
     cumulative_count    INTEGER,
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     DEFAULT NOW(),
+    is_deleted          BOOLEAN         DEFAULT FALSE,
+    version             INTEGER         DEFAULT 0,
 
     CONSTRAINT uk_score_rank UNIQUE (province, year, subject_type, score)
 );

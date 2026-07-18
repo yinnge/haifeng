@@ -38,4 +38,6 @@ public class MemberNotification {
     private Boolean deleted;
 
     private OffsetDateTime createdAt;
+
+    private OffsetDateTime updatedAt;
 }

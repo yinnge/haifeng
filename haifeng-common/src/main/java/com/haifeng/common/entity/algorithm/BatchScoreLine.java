@@ -58,4 +58,14 @@ public class BatchScoreLine {
 
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
+
+    @TableLogic
+    @TableField("is_deleted")
+    private Boolean isDeleted;
+
+    @Version
+    private Integer version;
 }

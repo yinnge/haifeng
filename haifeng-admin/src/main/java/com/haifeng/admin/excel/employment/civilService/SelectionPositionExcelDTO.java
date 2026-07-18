@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.employment.civilService;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.converter.StringToArrayConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
@@ -30,9 +31,9 @@ public class SelectionPositionExcelDTO {
     @ExcelProperty("招录人数") private Integer recruitmentCount;
     @ExcelProperty("考试科目") private String examSubjects;
     @ExcelProperty("面试形式") private String interviewForm;
-    @ExcelProperty("报名开始") private OffsetDateTime regStartDate;
-    @ExcelProperty("报名截止") private OffsetDateTime regEndDate;
-    @ExcelProperty("考试时间") private OffsetDateTime examTime;
+    @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
+    @ExcelProperty(value = "报名截止", converter = OffsetDateTimeConverter.class) private OffsetDateTime regEndDate;
+    @ExcelProperty(value = "考试时间", converter = OffsetDateTimeConverter.class) private OffsetDateTime examTime;
     @ExcelProperty("报名链接") private String applyLink;
     @ExcelProperty("状态") private String positionStatus;
     @ExcelProperty("备注") private String remark;

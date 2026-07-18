@@ -6,10 +6,13 @@ import com.haifeng.admin.service.user.MemberOrderService;
 import com.haifeng.admin.vo.user.OrderDetailVO;
 import com.haifeng.admin.vo.user.OrderListVO;
 import com.haifeng.common.annotation.OperationLog;
+import com.haifeng.common.annotation.RateLimit;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/user/order")
 @RequiredArgsConstructor
 @RequireAdminModule("user_order")
+@Validated
 public class MemberOrderController {
 
     private final MemberOrderService orderService;
@@ -35,7 +39,7 @@ public class MemberOrderController {
      * 获取订单详情
      */
     @GetMapping("/{id}")
-    public R<OrderDetailVO> detail(@PathVariable Long id) {
+    public R<OrderDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(orderService.detail(id));
     }
 
@@ -44,7 +48,8 @@ public class MemberOrderController {
      */
     @GetMapping("/{id}/wechat")
     @OperationLog(module = "用户管理", action = "查看订单微信明文")
-    public R<String> getWechat(@PathVariable Long id) {
+    @RateLimit(value = 10, time = 60)
+    public R<String> getWechat(@PathVariable @Min(1) Long id) {
         return R.ok(orderService.getWechatPlaintext(id));
     }
 
@@ -53,7 +58,7 @@ public class MemberOrderController {
      */
     @DeleteMapping("/{id}")
     @OperationLog(module = "用户管理", action = "禁用订单")
-    public R<Void> delete(@PathVariable Long id) {
+    public R<Void> delete(@PathVariable @Min(1) Long id) {
         orderService.delete(id);
         return R.ok();
     }
@@ -63,7 +68,7 @@ public class MemberOrderController {
      */
     @DeleteMapping("/{id}/hard")
     @OperationLog(module = "用户管理", action = "硬删除订单")
-    public R<Void> hardDelete(@PathVariable Long id) {
+    public R<Void> hardDelete(@PathVariable @Min(1) Long id) {
         orderService.hardDelete(id);
         return R.ok();
     }
@@ -73,7 +78,7 @@ public class MemberOrderController {
      */
     @PutMapping("/{id}/restore")
     @OperationLog(module = "用户管理", action = "恢复订单")
-    public R<Void> restore(@PathVariable Long id) {
+    public R<Void> restore(@PathVariable @Min(1) Long id) {
         orderService.restore(id);
         return R.ok();
     }

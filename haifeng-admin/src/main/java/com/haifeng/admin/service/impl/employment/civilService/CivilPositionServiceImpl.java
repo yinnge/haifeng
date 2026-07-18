@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.impl.employment.civilService;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionQueryDTO;
@@ -82,13 +83,41 @@ public class CivilPositionServiceImpl implements CivilPositionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, CivilPositionUpdateDTO dto) {
         CivilPosition entity = civilPositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "公务员职位不存在");
         }
-        BeanUtils.copyProperties(dto, entity);
-        entity.setUpdatedAt(OffsetDateTime.now());
+        if (dto.getPositionName() != null) entity.setPositionName(dto.getPositionName());
+        if (dto.getExamType() != null) entity.setExamType(dto.getExamType());
+        if (dto.getRecruitingDept() != null) entity.setRecruitingDept(dto.getRecruitingDept());
+        if (dto.getDeptCode() != null) entity.setDeptCode(dto.getDeptCode());
+        if (dto.getPositionCode() != null) entity.setPositionCode(dto.getPositionCode());
+        if (dto.getAffiliatedBureau() != null) entity.setAffiliatedBureau(dto.getAffiliatedBureau());
+        if (dto.getMajorRequirement() != null) entity.setMajorRequirement(dto.getMajorRequirement());
+        if (dto.getMinEducation() != null) entity.setMinEducation(dto.getMinEducation());
+        if (dto.getDegreeRequirement() != null) entity.setDegreeRequirement(dto.getDegreeRequirement());
+        if (dto.getPoliticalStatus() != null) entity.setPoliticalStatus(dto.getPoliticalStatus());
+        if (dto.getWorkExperience() != null) entity.setWorkExperience(dto.getWorkExperience());
+        if (dto.getGrassrootsExperience() != null) entity.setGrassrootsExperience(dto.getGrassrootsExperience());
+        if (dto.getExamCategory() != null) entity.setExamCategory(dto.getExamCategory());
+        if (dto.getInterviewRatio() != null) entity.setInterviewRatio(dto.getInterviewRatio());
+        if (dto.getRecruitmentCount() != null) entity.setRecruitmentCount(dto.getRecruitmentCount());
+        if (dto.getHasProfessionalTest() != null) entity.setHasProfessionalTest(dto.getHasProfessionalTest());
+        if (dto.getWorkLocation() != null) entity.setWorkLocation(dto.getWorkLocation());
+        if (dto.getWorkLocationDetail() != null) entity.setWorkLocationDetail(dto.getWorkLocationDetail());
+        if (dto.getHouseholdRequirement() != null) entity.setHouseholdRequirement(dto.getHouseholdRequirement());
+        if (dto.getHouseholdLocation() != null) entity.setHouseholdLocation(dto.getHouseholdLocation());
+        if (dto.getPositionIntro() != null) entity.setPositionIntro(dto.getPositionIntro());
+        if (dto.getRemark() != null) entity.setRemark(dto.getRemark());
+        if (dto.getOfficialWebsite() != null) entity.setOfficialWebsite(dto.getOfficialWebsite());
+        if (dto.getContactPhone() != null) entity.setContactPhone(dto.getContactPhone());
+        if (dto.getRegStartDate() != null) entity.setRegStartDate(dto.getRegStartDate());
+        if (dto.getRegEndDate() != null) entity.setRegEndDate(dto.getRegEndDate());
+        if (dto.getRegStatus() != null) entity.setRegStatus(dto.getRegStatus());
+        if (dto.getApplicantCount() != null) entity.setApplicantCount(dto.getApplicantCount());
+        if (dto.getSortOrder() != null) entity.setSortOrder(dto.getSortOrder());
         civilPositionMapper.updateById(entity);
         log.info("更新公务员职位成功: id={}", id);
     }
@@ -100,8 +129,10 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         if (entity == null) {
             throw new BusinessException(404, "公务员职位不存在");
         }
-        civilPositionMapper.deleteById(id);
-        log.info("硬删除公务员职位成功: id={}", id);
+        entity.setIsDeleted(true);
+        entity.setUpdatedAt(OffsetDateTime.now());
+        civilPositionMapper.updateById(entity);
+        log.info("软删除公务员职位成功: id={}", id);
     }
 
     @Override
@@ -111,44 +142,33 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         if (entity == null) {
             throw new BusinessException(404, "公务员职位不存在");
         }
-        entity.setIsDeleted(status == 0);
+        if (status == 0) {
+            entity.setRegStatus("报名中");
+        } else if (status == 1) {
+            entity.setRegStatus("已结束");
+        } else {
+            throw new BusinessException(400, "状态值不合法，0=报名中，1=已结束");
+        }
         entity.setUpdatedAt(OffsetDateTime.now());
         civilPositionMapper.updateById(entity);
-        log.info("更新公务员职位状态成功: id={}, status={}", id, status);
+        log.info("更新公务员职位状态成功: id={}, status={}", id, entity.getRegStatus());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int successCount = 0;
-        for (Long id : ids) {
-            CivilPosition entity = civilPositionMapper.selectById(id);
-            if (entity != null) {
-                civilPositionMapper.deleteById(id);
-                successCount++;
-            }
-        }
-        log.info("批量删除公务员职位成功: total={}, success={}", ids.size(), successCount);
+        int updated = civilPositionMapper.update(null,
+                Wrappers.lambdaUpdate(CivilPosition.class)
+                        .set(CivilPosition::getIsDeleted, true)
+                        .set(CivilPosition::getUpdatedAt, OffsetDateTime.now())
+                        .in(CivilPosition::getId, ids));
+        log.info("批量删除公务员职位成功: requested={}, actual={}", ids.size(), updated);
     }
 
     @Override
     public String preValidate(MultipartFile file) {
         List<CivilPositionExcelDTO> list = readExcel(file);
-        StringBuilder errorMsg = new StringBuilder();
-        int row = 1;
-        for (CivilPositionExcelDTO dto : list) {
-            row++;
-            List<String> errors = new ArrayList<>();
-            if (!StringUtils.hasText(dto.getPositionName())) {
-                errors.add("职位名称不能为空");
-            }
-            if (!StringUtils.hasText(dto.getExamType())) {
-                errors.add("考试类型不能为空");
-            }
-            if (!errors.isEmpty()) {
-                errorMsg.append("第").append(row).append("行: ").append(String.join("; ", errors)).append("\n");
-            }
-        }
+        StringBuilder errorMsg = validateExcelRows(list);
         return errorMsg.length() > 0 ? errorMsg.toString() : null;
     }
 
@@ -156,23 +176,24 @@ public class CivilPositionServiceImpl implements CivilPositionService {
     @Transactional(rollbackFor = Exception.class)
     public void importExcel(MultipartFile file) {
         List<CivilPositionExcelDTO> list = readExcel(file);
-        StringBuilder errorMsg = new StringBuilder();
-        int row = 1;
-        for (CivilPositionExcelDTO dto : list) {
-            row++;
-            List<String> errors = new ArrayList<>();
-            if (!StringUtils.hasText(dto.getPositionName())) errors.add("职位名称不能为空");
-            if (!StringUtils.hasText(dto.getExamType())) errors.add("考试类型不能为空");
-            if (!errors.isEmpty()) {
-                errorMsg.append("第").append(row).append("行: ").append(String.join("; ", errors)).append("\n");
-            }
-        }
+        StringBuilder errorMsg = validateExcelRows(list);
         if (errorMsg.length() > 0) {
             throw new BusinessException(400, errorMsg.toString());
         }
 
         OffsetDateTime now = OffsetDateTime.now();
+        int imported = 0;
         for (CivilPositionExcelDTO dto : list) {
+            if (StringUtils.hasText(dto.getDeptCode()) && StringUtils.hasText(dto.getPositionCode())) {
+                long count = civilPositionMapper.selectCount(
+                        Wrappers.lambdaQuery(CivilPosition.class)
+                                .eq(CivilPosition::getExamType, dto.getExamType())
+                                .eq(CivilPosition::getDeptCode, dto.getDeptCode())
+                                .eq(CivilPosition::getPositionCode, dto.getPositionCode()));
+                if (count > 0) {
+                    continue;
+                }
+            }
             CivilPosition entity = CivilPosition.builder()
                     .id(SnowflakeIdGenerator.nextId())
                     .positionName(dto.getPositionName())
@@ -209,8 +230,28 @@ public class CivilPositionServiceImpl implements CivilPositionService {
                     .updatedAt(now)
                     .build();
             civilPositionMapper.insert(entity);
+            imported++;
         }
-        log.info("导入公务员职位成功: count={}", list.size());
+        log.info("导入公务员职位成功: total={}, imported={}", list.size(), imported);
+    }
+
+    private StringBuilder validateExcelRows(List<CivilPositionExcelDTO> list) {
+        StringBuilder errorMsg = new StringBuilder();
+        int row = 1;
+        for (CivilPositionExcelDTO dto : list) {
+            row++;
+            List<String> errors = new ArrayList<>();
+            if (!StringUtils.hasText(dto.getPositionName())) {
+                errors.add("职位名称不能为空");
+            }
+            if (!StringUtils.hasText(dto.getExamType())) {
+                errors.add("考试类型不能为空");
+            }
+            if (!errors.isEmpty()) {
+                errorMsg.append("第").append(row).append("行: ").append(String.join("; ", errors)).append("\n");
+            }
+        }
+        return errorMsg;
     }
 
     private List<CivilPositionExcelDTO> readExcel(MultipartFile file) {

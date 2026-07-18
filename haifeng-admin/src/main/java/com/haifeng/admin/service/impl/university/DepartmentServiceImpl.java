@@ -18,6 +18,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.DepartmentMapper;
 import com.haifeng.common.mapper.university.DepartmentReportMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,8 +66,15 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
         return deptPage.convert(dept -> {
             DepartmentListVO vo = new DepartmentListVO();
-            BeanUtils.copyProperties(dept, vo);
+            vo.setId(dept.getId());
+            vo.setUniversityId(dept.getUniversityId());
+            vo.setUniversityName(dept.getUniversityName());
+            vo.setDepartmentName(dept.getDepartmentName());
+            vo.setDepartmentType(dept.getDepartmentType());
+            vo.setPageTitle(dept.getPageTitle());
+            vo.setSortOrder(dept.getSortOrder());
             vo.setStatus(dept.getStatus() != null ? dept.getStatus().intValue() : null);
+            vo.setCreatedAt(dept.getCreatedAt());
             return vo;
         });
     }
@@ -75,7 +83,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     public DepartmentDetailVO detail(Long id) {
         Department dept = departmentMapper.selectById(id);
         if (dept == null || dept.getStatus() == 0) {
-            throw new BusinessException(404, "院系不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 
         DepartmentDetailVO vo = new DepartmentDetailVO();
@@ -134,29 +142,43 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
         departmentMapper.insert(dept);
 
-        // 创建关联报告
-        Long reportId = SnowflakeIdGenerator.nextId();
-        DepartmentReport report = DepartmentReport.builder()
-                .id(reportId)
-                .departmentId(deptId)
-                .subtitle(dto.getSubtitle())
-                .overview(dto.getOverview())
-                .subjectsDetail(dto.getSubjectsDetail())
-                .postgraduate(dto.getPostgraduate())
-                .citySalary(dto.getCitySalary())
-                .salary(dto.getSalary())
-                .career(dto.getCareer())
-                .trends(dto.getTrends())
-                .prospects(dto.getProspects())
-                .disclaimer(dto.getDisclaimer())
-                .majorCompose(dto.getMajorCompose())
-                .sortOrder(0)
-                .status((short) 1)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
+        // 仅当报告字段不全为空时创建关联报告
+        boolean hasReportData = dto.getSubtitle() != null
+                || dto.getOverview() != null
+                || dto.getSubjectsDetail() != null
+                || dto.getPostgraduate() != null
+                || dto.getCitySalary() != null
+                || dto.getSalary() != null
+                || dto.getCareer() != null
+                || dto.getTrends() != null
+                || dto.getProspects() != null
+                || dto.getDisclaimer() != null
+                || dto.getMajorCompose() != null;
 
-        departmentReportMapper.insert(report);
+        if (hasReportData) {
+            Long reportId = SnowflakeIdGenerator.nextId();
+            DepartmentReport report = DepartmentReport.builder()
+                    .id(reportId)
+                    .departmentId(deptId)
+                    .subtitle(dto.getSubtitle())
+                    .overview(dto.getOverview())
+                    .subjectsDetail(dto.getSubjectsDetail())
+                    .postgraduate(dto.getPostgraduate())
+                    .citySalary(dto.getCitySalary())
+                    .salary(dto.getSalary())
+                    .career(dto.getCareer())
+                    .trends(dto.getTrends())
+                    .prospects(dto.getProspects())
+                    .disclaimer(dto.getDisclaimer())
+                    .majorCompose(dto.getMajorCompose())
+                    .sortOrder(0)
+                    .status((short) 1)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            departmentReportMapper.insert(report);
+        }
 
         log.info("新增院系成功，id={}, name={}", deptId, dto.getDepartmentName());
         return deptId;
@@ -167,7 +189,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     public void update(Long id, DepartmentUpdateDTO dto) {
         Department dept = departmentMapper.selectById(id);
         if (dept == null || dept.getStatus() == 0) {
-            throw new BusinessException(404, "院系不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 
         if (StringUtils.hasText(dto.getDepartmentName()) && !dto.getDepartmentName().equals(dept.getDepartmentName())) {
@@ -184,11 +206,36 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         if (dto.getStatus() != null) dept.setStatus(dto.getStatus().shortValue());
 
         dept.setUpdatedAt(OffsetDateTime.now());
-        departmentMapper.updateById(dept);
+        int affected = departmentMapper.updateById(dept);
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
 
-        // 更新报告
+        // 更新或创建报告
         DepartmentReport report = departmentReportMapper.selectByDepartmentId(id);
-        if (report != null) {
+        if (report == null) {
+            // 报告不存在时创建一条空报告，确保 1:1 对应
+            report = DepartmentReport.builder()
+                    .id(SnowflakeIdGenerator.nextId())
+                    .departmentId(id)
+                    .subtitle(dto.getSubtitle())
+                    .overview(dto.getOverview())
+                    .subjectsDetail(dto.getSubjectsDetail())
+                    .postgraduate(dto.getPostgraduate())
+                    .citySalary(dto.getCitySalary())
+                    .salary(dto.getSalary())
+                    .career(dto.getCareer())
+                    .trends(dto.getTrends())
+                    .prospects(dto.getProspects())
+                    .disclaimer(dto.getDisclaimer())
+                    .majorCompose(dto.getMajorCompose())
+                    .sortOrder(0)
+                    .status((short) 1)
+                    .createdAt(OffsetDateTime.now())
+                    .updatedAt(OffsetDateTime.now())
+                    .build();
+            departmentReportMapper.insert(report);
+        } else {
             if (dto.getSubtitle() != null) report.setSubtitle(dto.getSubtitle());
             if (dto.getOverview() != null) report.setOverview(dto.getOverview());
             if (dto.getSubjectsDetail() != null) report.setSubjectsDetail(dto.getSubjectsDetail());
@@ -202,7 +249,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             if (dto.getMajorCompose() != null) report.setMajorCompose(dto.getMajorCompose());
 
             report.setUpdatedAt(OffsetDateTime.now());
-            departmentReportMapper.updateById(report);
+            int reportAffected = departmentReportMapper.updateById(report);
+            if (reportAffected == 0) {
+                throw new BusinessException(400, "报告数据已被其他人修改，请刷新后重试");
+            }
         }
 
         log.info("更新院系成功，id={}", id);
@@ -210,24 +260,24 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateStatus(Long id, Integer status) {
+    public void updateStatus(Long id, Short status) {
         Department dept = departmentMapper.selectById(id);
         if (dept == null) {
-            throw new BusinessException(404, "院系不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
 
         LambdaUpdateWrapper<Department> deptWrapper = new LambdaUpdateWrapper<>();
         deptWrapper.eq(Department::getId, id)
-                   .set(Department::getStatus, status.shortValue())
+                   .set(Department::getStatus, status)
                    .set(Department::getUpdatedAt, now);
         departmentMapper.update(null, deptWrapper);
 
         // 同步更新报告状态
         LambdaUpdateWrapper<DepartmentReport> reportWrapper = new LambdaUpdateWrapper<>();
         reportWrapper.eq(DepartmentReport::getDepartmentId, id)
-                     .set(DepartmentReport::getStatus, status.shortValue())
+                     .set(DepartmentReport::getStatus, status)
                      .set(DepartmentReport::getUpdatedAt, now);
         departmentReportMapper.update(null, reportWrapper);
 
@@ -237,7 +287,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        updateStatus(id, 0);
+        updateStatus(id, (short) 0);
         log.info("软删除院系，id={}", id);
     }
 
@@ -246,7 +296,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     public void hardDelete(Long id) {
         Department dept = departmentMapper.selectById(id);
         if (dept == null) {
-            throw new BusinessException(404, "院系不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 
         // 先删除报告
@@ -267,17 +317,19 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
         LambdaUpdateWrapper<Department> deptWrapper = new LambdaUpdateWrapper<>();
         deptWrapper.in(Department::getId, ids)
+                   .ne(Department::getStatus, (short) 0)
                    .set(Department::getStatus, (short) 0)
                    .set(Department::getUpdatedAt, now);
         departmentMapper.update(null, deptWrapper);
 
         LambdaUpdateWrapper<DepartmentReport> reportWrapper = new LambdaUpdateWrapper<>();
         reportWrapper.in(DepartmentReport::getDepartmentId, ids)
+                     .ne(DepartmentReport::getStatus, (short) 0)
                      .set(DepartmentReport::getStatus, (short) 0)
                      .set(DepartmentReport::getUpdatedAt, now);
         departmentReportMapper.update(null, reportWrapper);
 
-        log.info("批量软删除院系，ids={}", ids);
+        log.info("批量软删除院系，数量={}", ids.size());
     }
 
     @Override
@@ -290,20 +342,20 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         departmentReportMapper.delete(reportWrapper);
 
         departmentMapper.deleteBatchIds(ids);
-        log.info("批量硬删除院系，ids={}", ids);
+        log.info("批量硬删除院系，数量={}", ids.size());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importDepartments(MultipartFile file) {
         // Excel导入实现 - 见Task 11
-        throw new BusinessException(500, "待实现");
+        throw new BusinessException(400, "该功能暂未开放");
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void importDepartmentReports(MultipartFile file) {
         // Excel导入实现 - 见Task 11
-        throw new BusinessException(500, "待实现");
+        throw new BusinessException(400, "该功能暂未开放");
     }
 }

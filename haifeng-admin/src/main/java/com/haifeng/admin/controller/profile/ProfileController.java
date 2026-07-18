@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.profile.TotpVerifyDTO;
 import com.haifeng.admin.service.profile.ProfileService;
 import com.haifeng.admin.vo.profile.ProfileVO;
 import com.haifeng.admin.vo.profile.TotpEnableVO;
+import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -31,30 +32,35 @@ public class ProfileController {
     }
 
     @PutMapping
-    public R<Void> updateProfile(@RequestBody ProfileUpdateDTO dto) {
+    @OperationLog(module = "个人中心", action = "修改个人信息")
+    public R<Void> updateProfile(@Valid @RequestBody ProfileUpdateDTO dto) {
         profileService.updateProfile(dto);
         return R.ok();
     }
 
     @PutMapping("/password")
+    @OperationLog(module = "个人中心", action = "修改密码")
     public R<Void> updatePassword(@Valid @RequestBody PasswordUpdateDTO dto) {
         profileService.updatePassword(dto);
         return R.ok();
     }
 
     @PostMapping("/totp/enable")
+    @OperationLog(module = "个人中心", action = "开启 TOTP")
     public R<TotpEnableVO> enableTotp() {
         TotpEnableVO vo = profileService.enableTotp();
         return R.ok(vo);
     }
 
     @PostMapping("/totp/verify")
+    @OperationLog(module = "个人中心", action = "验证 TOTP")
     public R<Void> verifyTotp(@Valid @RequestBody TotpVerifyDTO dto) {
         profileService.verifyTotp(dto);
         return R.ok();
     }
 
     @PostMapping("/totp/disable")
+    @OperationLog(module = "个人中心", action = "关闭 TOTP")
     public R<Void> disableTotp(@Valid @RequestBody TotpDisableDTO dto) {
         profileService.disableTotp(dto);
         return R.ok();

@@ -27,7 +27,7 @@
         <spring-boot.version>3.3.5</spring-boot.version>
 
         <!-- MyBatis-Plus -->
-        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <mybatis-plus.version>.0</mybatis-plus.version>
 
         <!-- JWT -->
         <jjwt.version>0.12.6</jjwt.version>
@@ -100,6 +100,23 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- 编译插件：显式声明 Lombok 注解处理器，确保 @Data/@Slf4j/@Getter 等注解在编译期生效 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.15.0</version>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>1.18.34</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>

@@ -10,12 +10,16 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/score-rank")
 @RequiredArgsConstructor
@@ -54,17 +58,16 @@ public class ScoreRankController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "一分一段管理", action = "批量删除一分一段记录")
-    public R<Void> batchDelete(@RequestBody List<Long> ids) {
+    public R<Void> batchDelete(@Valid @RequestBody @NotEmpty @Size(max = 100) List<Long> ids) {
         scoreRankService.batchDelete(ids);
         return R.ok();
     }
 
     @PostMapping("/import")
     @OperationLog(module = "一分一段管理", action = "导入一分一段数据")
-    public R<Void> importData(@RequestParam("file") MultipartFile file) {
-        scoreRankService.importData(file);
-        return R.ok();
+    public R<Integer> importData(@RequestParam("file") MultipartFile file) {
+        return R.ok(scoreRankService.importData(file));
     }
 }

@@ -19,4 +19,6 @@ public class GaokaoConfigDetailVO {
     private BigDecimal weightSoftBoth;
     private List<BigDecimal> yearWeights;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private Integer version;
 }

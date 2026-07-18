@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.employment.grassrootsPosition;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -28,7 +29,7 @@ public class GrassrootsProjectPositionExcelDTO {
     @ExcelProperty("政治面貌") private String politicalStatus;
     @ExcelProperty("其他要求") private String otherRequirement;
     @ExcelProperty("笔试内容") private String examContent;
-    @ExcelProperty("考试时间") private OffsetDateTime examTime;
+    @ExcelProperty(value = "考试时间", converter = OffsetDateTimeConverter.class) private OffsetDateTime examTime;
     @ExcelProperty("面试形式") private String interviewForm;
     @ExcelProperty("月补贴标准") private String monthlySubsidy;
     @ExcelProperty("社保缴纳") private String socialInsurance;
@@ -40,8 +41,8 @@ public class GrassrootsProjectPositionExcelDTO {
     @ExcelProperty("考试加分") private String examBonusPoints;
     @ExcelProperty("学费补偿") private String tuitionCompensation;
     @ExcelProperty("考研加分") private String postgradBonus;
-    @ExcelProperty("报名开始") private OffsetDateTime regStartDate;
-    @ExcelProperty("报名截止") private OffsetDateTime regEndDate;
+    @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
+    @ExcelProperty(value = "报名截止", converter = OffsetDateTimeConverter.class) private OffsetDateTime regEndDate;
     @ExcelProperty("报名链接") private String applyLink;
     @ExcelProperty("状态") private String positionStatus;
     @ExcelProperty("联系电话") private String contactPhone;

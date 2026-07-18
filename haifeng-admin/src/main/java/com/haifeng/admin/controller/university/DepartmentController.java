@@ -14,6 +14,7 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/admin/university/department")
 @RequiredArgsConstructor
 @RequireAdminModule("university_dept")
+@Validated
 public class DepartmentController {
 
     private final DepartmentService departmentService;
@@ -69,7 +71,7 @@ public class DepartmentController {
     @PutMapping("/{id}/status")
     @OperationLog(module = "院系管理", action = "修改院系状态")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
-        departmentService.updateStatus(id, dto.getStatus().intValue());
+        departmentService.updateStatus(id, dto.getStatus());
         return R.ok();
     }
 
@@ -96,7 +98,7 @@ public class DepartmentController {
     /**
      * 批量软删除院系
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "院系管理", action = "批量软删除院系")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         departmentService.batchDelete(dto.getIds());
@@ -106,7 +108,7 @@ public class DepartmentController {
     /**
      * 批量硬删除院系
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "院系管理", action = "批量硬删除院系")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         departmentService.batchHardDelete(dto.getIds());

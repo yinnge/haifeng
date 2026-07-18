@@ -26,6 +26,7 @@ public class ProvinceReformService {
         List<ProvinceReform> reforms = provinceReformMapper.selectList(
                 new LambdaQueryWrapper<ProvinceReform>()
                         .eq(ProvinceReform::getProvince, province)
+                        .eq(ProvinceReform::getIsDeleted, false)
                         .orderByAsc(ProvinceReform::getReformYear)
         );
 
@@ -52,6 +53,7 @@ public class ProvinceReformService {
         List<ProvinceReform> reforms = provinceReformMapper.selectList(
                 new LambdaQueryWrapper<ProvinceReform>()
                         .eq(ProvinceReform::getProvince, province)
+                        .eq(ProvinceReform::getIsDeleted, false)
                         .orderByAsc(ProvinceReform::getReformYear)
         );
 
@@ -91,6 +93,7 @@ public class ProvinceReformService {
         List<ProvinceReform> reforms = provinceReformMapper.selectList(
                 new LambdaQueryWrapper<ProvinceReform>()
                         .eq(ProvinceReform::getProvince, province)
+                        .eq(ProvinceReform::getIsDeleted, false)
                         .orderByAsc(ProvinceReform::getReformYear)
         );
 

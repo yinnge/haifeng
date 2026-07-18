@@ -59,8 +59,8 @@ public class ConstraintServiceImpl implements ConstraintService {
                     .build();
         }
 
-        // 批量查询约束详情
-        List<ConstraintDict> constraints = constraintDictMapper.selectBatchIds(codes);
+        // 批量查询约束详情（仅未删除的）
+        List<ConstraintDict> constraints = constraintDictMapper.selectActiveBatchIds(codes);
 
         List<ConstraintDetailVO> details = constraints.stream()
                 .map(this::toDetailVO)
@@ -115,8 +115,8 @@ public class ConstraintServiceImpl implements ConstraintService {
                     .build();
         }
 
-        // 查询冲突约束的详情
-        List<ConstraintDict> conflictConstraints = constraintDictMapper.selectBatchIds(conflictCodes);
+        // 查询冲突约束的详情（仅未删除的）
+        List<ConstraintDict> conflictConstraints = constraintDictMapper.selectActiveBatchIds(conflictCodes);
 
         // 按严重程度分类
         List<ConstraintConflictVO> hardConflicts = new ArrayList<>();

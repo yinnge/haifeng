@@ -12,11 +12,13 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * 特殊通道 - 招生通道管理（如强基计划、综合评价等）
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/special/channel")
 @RequiredArgsConstructor
@@ -63,7 +65,7 @@ public class SpecialChannelController {
         return R.ok();
     }
 
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "特殊通道管理", action = "批量删除招生通道")
     public R<Void> batchDelete(@Valid @RequestBody SpecialChannelBatchDeleteDTO dto) {
         specialChannelService.batchDelete(dto.getIds());

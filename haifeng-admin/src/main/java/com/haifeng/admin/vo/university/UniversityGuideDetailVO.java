@@ -1,13 +1,20 @@
 package com.haifeng.admin.vo.university;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 @Data
-public class UniversityGuideDetailVO {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UniversityGuideDetailVO implements Serializable {
 
     private Long id;
 

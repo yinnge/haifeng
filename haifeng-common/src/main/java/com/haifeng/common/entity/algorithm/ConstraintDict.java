@@ -29,6 +29,10 @@ public class ConstraintDict {
     private String extraValue;
     private Integer sortOrder;
     private Boolean isActive;
+    @TableLogic
+    private Boolean isDeleted;
+    @Version
+    private Integer version;
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

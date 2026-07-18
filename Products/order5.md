@@ -120,7 +120,7 @@
 
 ## 接口列表
 
-### 1. 院校管理接口（9个）
+### 1. 院校管理接口（11个）
 
 #### 1.1 分页查询院校列表
 
@@ -130,9 +130,9 @@
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| name | String | | 院校名称（模糊搜索） |
-| provinceName | String | | 省份（精确匹配） |
-| category | String | | 院校类别（精确匹配） |
+| name | String | | 院校名称（模糊搜索，最长50字符） |
+| provinceName | String | | 省份（精确匹配，最长50字符） |
+| category | String | | 院校类别（精确匹配，最长50字符） |
 | status | Integer | | 状态：0-下架 1-展示 |
 | page | Integer | Y | 页码，从1开始 |
 | size | Integer | Y | 每页条数：10/20/30/50/100/200/500/1000 |
@@ -277,7 +277,34 @@
 - **URL:** `PUT /api/v1/admin/university/{id}`
 - **方法:** PUT
 - **路径参数:** id - 院校ID
-- **请求体:** 同新增院校
+- **说明:** 全量替换模式。必填字段不可为空，可选字段传null会覆盖为null（与Excel导入行为一致）
+- **请求体:**
+```json
+{
+  "name": "清华大学",
+  "nameEn": "Tsinghua University",
+  "provinceName": "北京",
+  "cityName": "北京",
+  "region": "华北",
+  "category": "综合",
+  "majorCount": 82,
+  "educationLevel": "本科",
+  "nature": "公办",
+  "recommendationRate": 50.00,
+  "recommendationYear": 2025,
+  "hasDoctorate": true,
+  "hasMaster": true,
+  "department": "教育部",
+  "tags": ["985", "211", "双一流"],
+  "famousUnion": "C9",
+  "imageUrl": "https://xxx.com/tsinghua.jpg",
+  "introduction": "清华大学是中国顶尖学府..."
+}
+```
+
+- **字段说明:**
+  - `name`、`nameEn`、`provinceName`、`cityName`、`region`、`category`：必填
+  - 其余字段：可选，不传或传null则数据库中对应字段设为null
 
 ---
 
@@ -286,6 +313,7 @@
 - **URL:** `PUT /api/v1/admin/university/{id}/detail`
 - **方法:** PUT
 - **路径参数:** id - 院校ID
+- **说明:** 所有字段均为可选，不传或传null则数据库中对应字段设为null
 - **请求体:**
 ```json
 {
@@ -310,24 +338,40 @@
 
 ---
 
-#### 1.6 删除院校
+#### 1.6 软删除院校（可恢复）
 
 - **URL:** `DELETE /api/v1/admin/university/{id}`
 - **方法:** DELETE
-- **说明:** 软删除，将status置为0
+- **说明:** 将status置为0，数据可恢复
 
 ---
 
-#### 1.7 批量删除院校
+#### 1.6.1 硬删除院校（永久删除）
 
-- **URL:** `DELETE /api/v1/admin/university/batch`
+- **URL:** `DELETE /api/v1/admin/university/{id}/hard`
 - **方法:** DELETE
+- **说明:** 物理删除，同时删除关联的详情和适应指南。已软删除的院校不可硬删除
+
+---
+
+#### 1.7 批量软删除院校
+
+- **URL:** `POST /api/v1/admin/university/batch-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
   "ids": [1234567890123456789, 1234567890123456790]
 }
 ```
+
+---
+
+#### 1.7.1 批量硬删除院校
+
+- **URL:** `POST /api/v1/admin/university/batch-hard-delete`
+- **方法:** POST
+- **请求体:** 同批量软删除
 
 ---
 
@@ -467,7 +511,7 @@
 
 ---
 
-### 3. 院校适应指南接口（7个）
+### 3. 院校适应指南接口（9个）
 
 #### 3.1 分页查询院校适应指南列表
 
@@ -477,7 +521,7 @@
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| universityName | String | | 院校名称（模糊搜索） |
+| universityName | String | | 院校名称（模糊搜索，最长50字符） |
 | status | Integer | | 状态 |
 | page | Integer | Y | 页码 |
 | size | Integer | Y | 每页条数 |
@@ -575,27 +619,53 @@
 
 - **URL:** `PUT /api/v1/admin/university/guide/{id}`
 - **方法:** PUT
-- **请求体:** 同新增
+- **说明:** 所有字段均为可选，不传或传null则数据库中对应字段设为null
+- **请求体:**
+```json
+{
+  "customTags": ["学术氛围好", "社团丰富"],
+  "campusFacilities": {
+    "教学楼分布": ["主楼", "新清华学堂"]
+  },
+  "remark": "备注信息",
+  "status": 1
+}
+```
 
 ---
 
-#### 3.5 删除院校适应指南
+#### 3.5 删除院校适应指南（可恢复）
 
 - **URL:** `DELETE /api/v1/admin/university/guide/{id}`
 - **方法:** DELETE
 
 ---
 
-#### 3.6 批量删除院校适应指南
+#### 3.5.1 硬删除院校适应指南（永久删除）
 
-- **URL:** `DELETE /api/v1/admin/university/guide/batch`
+- **URL:** `DELETE /api/v1/admin/university/guide/{id}/hard`
 - **方法:** DELETE
+
+---
+
+#### 3.6 批量软删除院校适应指南
+
+- **URL:** `POST /api/v1/admin/university/guide/batch-delete`
+- **方法:** POST
 - **请求体:**
 ```json
 {
   "ids": [1234567890123456789, 1234567890123456790]
 }
 ```
+
+---
+
+#### 3.6.1 批量硬删除院校适应指南
+
+- **URL:** `POST /api/v1/admin/university/guide/batch-hard-delete`
+- **方法:** POST
+- **请求体:** 同批量软删除
 
 ---
 
@@ -623,7 +693,7 @@
 ```json
 {
   "code": 400,
-  "msg": "导入失败：第3行：'院校名称'不能为空；第5行：院校名称'未知大学'在主表中不存在",
+  "msg": "导入失败，共2行数据存在错误，已全部回滚。错误信息：第3行: 院校名称不能为空; 第5行: 院校[未知大学]不存在",
   "data": null,
   "timestamp": 1234567890
 }

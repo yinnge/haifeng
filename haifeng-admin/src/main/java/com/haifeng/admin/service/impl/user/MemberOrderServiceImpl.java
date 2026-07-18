@@ -10,13 +10,17 @@ import com.haifeng.admin.vo.user.OrderListVO;
 import com.haifeng.common.config.SecurityProperties;
 import com.haifeng.common.entity.user.MemberOrder;
 import com.haifeng.common.exception.BusinessException;
+import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
+import com.haifeng.common.mapper.user.ReferralCommissionMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.DesensitizeUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -27,6 +31,8 @@ import java.time.OffsetDateTime;
 public class MemberOrderServiceImpl implements MemberOrderService {
 
     private final MemberOrderMapper memberOrderMapper;
+    private final ReferralCommissionMapper commissionMapper;
+    private final MemberMapper memberMapper;
     private final SecurityProperties securityProperties;
 
     @Override
@@ -75,7 +81,7 @@ public class MemberOrderServiceImpl implements MemberOrderService {
     public OrderDetailVO detail(Long id) {
         MemberOrder order = memberOrderMapper.selectById(id);
         if (order == null || order.getDeleted()) {
-            throw new BusinessException(404, "订单不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
 
         OrderDetailVO vo = new OrderDetailVO();
@@ -97,30 +103,44 @@ public class MemberOrderServiceImpl implements MemberOrderService {
     public String getWechatPlaintext(Long id) {
         MemberOrder order = memberOrderMapper.selectById(id);
         if (order == null || order.getDeleted()) {
-            throw new BusinessException(404, "订单不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
         return order.getWechatId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         MemberOrder order = memberOrderMapper.selectById(id);
         if (order == null || order.getDeleted()) {
-            throw new BusinessException(404, "订单不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
 
         order.setDeleted(true);
         order.setUpdatedAt(OffsetDateTime.now());
-        memberOrderMapper.updateById(order);
+        int affected = memberOrderMapper.updateById(order);
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
 
         log.info("删除订单成功: orderId={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void hardDelete(Long id) {
         MemberOrder order = memberOrderMapper.selectByIdIgnoreDeleted(id);
         if (order == null) {
-            throw new BusinessException(404, "订单不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
+        }
+
+        // 检查是否有佣金记录引用此订单
+        Long commissionCount = commissionMapper.selectCount(
+                new LambdaQueryWrapper<com.haifeng.common.entity.user.ReferralCommission>()
+                        .eq(com.haifeng.common.entity.user.ReferralCommission::getOrderId, id)
+                        .eq(com.haifeng.common.entity.user.ReferralCommission::getDeleted, false));
+        if (commissionCount > 0) {
+            throw new BusinessException(400, "该订单存在关联的佣金记录，无法硬删除");
         }
 
         memberOrderMapper.hardDeleteById(id);
@@ -128,17 +148,28 @@ public class MemberOrderServiceImpl implements MemberOrderService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
         MemberOrder order = memberOrderMapper.selectByIdIgnoreDeleted(id);
         if (order == null) {
-            throw new BusinessException(404, "订单不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "订单不存在");
         }
 
         if (!order.getDeleted()) {
             throw new BusinessException(400, "该订单未被禁用，无需恢复");
         }
 
-        memberOrderMapper.restoreById(id, OffsetDateTime.now());
+        // 校验订单所属会员是否仍有效
+        com.haifeng.common.entity.user.Member member = memberMapper.selectById(order.getMemberId());
+        if (member == null || member.getDeleted()) {
+            throw new BusinessException(400, "该订单所属会员已不存在，无法恢复");
+        }
+
+        int affected = memberOrderMapper.restoreById(id, OffsetDateTime.now());
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
+
         log.info("恢复订单成功: orderId={}", id);
     }
 }

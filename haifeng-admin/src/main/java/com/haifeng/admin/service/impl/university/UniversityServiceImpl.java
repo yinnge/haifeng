@@ -10,16 +10,18 @@ import com.haifeng.admin.vo.university.UniversityDetailVO;
 import com.haifeng.admin.vo.university.UniversityListVO;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.entity.university.UniversityDetail;
+import com.haifeng.common.entity.university.UniversityGuide;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.UniversityDetailMapper;
+import com.haifeng.common.mapper.university.UniversityGuideMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
 import com.haifeng.admin.excel.university.UniversityExcelDTO;
 import com.haifeng.admin.excel.university.UniversityDetailExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -41,6 +43,7 @@ public class UniversityServiceImpl implements UniversityService {
 
     private final UniversityMapper universityMapper;
     private final UniversityDetailMapper universityDetailMapper;
+    private final UniversityGuideMapper universityGuideMapper;
 
     @Override
     public IPage<UniversityListVO> page(UniversityQueryDTO dto) {
@@ -73,26 +76,53 @@ public class UniversityServiceImpl implements UniversityService {
 
         IPage<University> universityPage = universityMapper.selectPage(page, wrapper);
 
-        return universityPage.convert(university -> {
-            UniversityListVO vo = new UniversityListVO();
-            BeanUtils.copyProperties(university, vo);
-            // 转换status类型
-            vo.setStatus(university.getStatus() != null ? university.getStatus().intValue() : null);
-            return vo;
-        });
+        return universityPage.convert(university -> UniversityListVO.builder()
+                .id(university.getId())
+                .name(university.getName())
+                .provinceName(university.getProvinceName())
+                .cityName(university.getCityName())
+                .region(university.getRegion())
+                .category(university.getCategory())
+                .majorCount(university.getMajorCount())
+                .educationLevel(university.getEducationLevel())
+                .nature(university.getNature())
+                .status(university.getStatus() != null ? university.getStatus().intValue() : null)
+                .createdAt(university.getCreatedAt() != null ? university.getCreatedAt().toLocalDateTime() : null)
+                .build());
     }
 
     @Override
     public UniversityDetailVO detail(Long id) {
         University university = universityMapper.selectById(id);
         if (university == null || university.getStatus() == 0) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
-        UniversityDetailVO vo = new UniversityDetailVO();
-        BeanUtils.copyProperties(university, vo);
-        // 转换status类型
-        vo.setStatus(university.getStatus() != null ? university.getStatus().intValue() : null);
+        UniversityDetailVO vo = UniversityDetailVO.builder()
+                .id(university.getId())
+                .name(university.getName())
+                .nameEn(university.getNameEn())
+                .provinceName(university.getProvinceName())
+                .cityName(university.getCityName())
+                .region(university.getRegion())
+                .category(university.getCategory())
+                .majorCount(university.getMajorCount())
+                .educationLevel(university.getEducationLevel())
+                .nature(university.getNature())
+                .recommendationRate(university.getRecommendationRate())
+                .recommendationYear(university.getRecommendationYear())
+                .hasDoctorate(university.getHasDoctorate())
+                .hasMaster(university.getHasMaster())
+                .department(university.getDepartment())
+                .tags(university.getTags())
+                .famousUnion(university.getFamousUnion())
+                .imageUrl(university.getImageUrl())
+                .introduction(university.getIntroduction())
+                .sortOrder(university.getSortOrder())
+                .status(university.getStatus() != null ? university.getStatus().intValue() : null)
+                .createdAt(university.getCreatedAt() != null ? university.getCreatedAt().toLocalDateTime() : null)
+                .updatedAt(university.getUpdatedAt() != null ? university.getUpdatedAt().toLocalDateTime() : null)
+                .build();
 
         // 查询详情表
         LambdaQueryWrapper<UniversityDetail> wrapper = new LambdaQueryWrapper<>();
@@ -113,13 +143,14 @@ public class UniversityServiceImpl implements UniversityService {
 
             // 转换rankings Map为RankingsVO
             if (detail.getRankings() != null && !detail.getRankings().isEmpty()) {
-                RankingsVO rankingsVO = new RankingsVO();
                 Map<String, Integer> rankings = detail.getRankings();
-                rankingsVO.setRuanke(rankings.get("ruanke"));
-                rankingsVO.setXiaoyouhui(rankings.get("xiaoyouhui"));
-                rankingsVO.setWushulian(rankings.get("wushulian"));
-                rankingsVO.setQs(rankings.get("qs"));
-                rankingsVO.setUsnews(rankings.get("usnews"));
+                RankingsVO rankingsVO = RankingsVO.builder()
+                        .ruanke(rankings.get("ruanke"))
+                        .xiaoyouhui(rankings.get("xiaoyouhui"))
+                        .wushulian(rankings.get("wushulian"))
+                        .qs(rankings.get("qs"))
+                        .usnews(rankings.get("usnews"))
+                        .build();
                 vo.setRankings(rankingsVO);
             }
         }
@@ -178,7 +209,7 @@ public class UniversityServiceImpl implements UniversityService {
     public void update(Long id, UniversityUpdateDTO dto) {
         University university = universityMapper.selectById(id);
         if (university == null || university.getStatus() == 0) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
         // 如果名称变更，检查是否与其他院校重复
@@ -226,7 +257,7 @@ public class UniversityServiceImpl implements UniversityService {
     public void updateDetail(Long id, UniversityDetailUpdateDTO dto) {
         University university = universityMapper.selectById(id);
         if (university == null || university.getStatus() == 0) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
         LambdaQueryWrapper<UniversityDetail> wrapper = new LambdaQueryWrapper<>();
@@ -290,7 +321,11 @@ public class UniversityServiceImpl implements UniversityService {
     public void updateStatus(Long id, Short status) {
         University university = universityMapper.selectById(id);
         if (university == null) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
+        }
+
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(400, "状态值无效，仅支持0（下架）或1（展示）");
         }
 
         university.setStatus(status);
@@ -305,7 +340,7 @@ public class UniversityServiceImpl implements UniversityService {
     public void delete(Long id) {
         University university = universityMapper.selectById(id);
         if (university == null) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
         // 软删除：status = 0
@@ -321,13 +356,22 @@ public class UniversityServiceImpl implements UniversityService {
     public void hardDelete(Long id) {
         University university = universityMapper.selectById(id);
         if (university == null) {
-            throw new BusinessException(404, "院校不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
+        }
+
+        if (university.getStatus() == 0) {
+            throw new BusinessException(400, "该院校已软删除，无法硬删除");
         }
 
         // 先删除关联的详情记录
         LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
         detailWrapper.eq(UniversityDetail::getUniversityId, id);
         universityDetailMapper.delete(detailWrapper);
+
+        // 删除关联的适应指南
+        LambdaQueryWrapper<UniversityGuide> guideWrapper = new LambdaQueryWrapper<>();
+        guideWrapper.eq(UniversityGuide::getUniversityId, id);
+        universityGuideMapper.delete(guideWrapper);
 
         // 硬删除：物理删除
         universityMapper.deleteById(id);
@@ -461,8 +505,8 @@ public class UniversityServiceImpl implements UniversityService {
         }
 
         if (!errors.isEmpty()) {
-            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
-                    successCount, errors.size(), String.join("; ", errors));
+            String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
+                    errors.size(), String.join("; ", errors));
             throw new BusinessException(400, errorMsg);
         }
 
@@ -560,8 +604,8 @@ public class UniversityServiceImpl implements UniversityService {
         }
 
         if (!errors.isEmpty()) {
-            String errorMsg = String.format("导入完成，成功%d条，失败%d条。错误信息：%s",
-                    successCount, errors.size(), String.join("; ", errors));
+            String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
+                    errors.size(), String.join("; ", errors));
             throw new BusinessException(400, errorMsg);
         }
 

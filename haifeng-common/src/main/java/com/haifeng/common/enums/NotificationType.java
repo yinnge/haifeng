@@ -10,6 +10,7 @@ public enum NotificationType {
     MEMBER_EXPIRED("member_expired", "会员已过期"),
     COMMISSION_EARNED("commission_earned", "佣金到账"),
     COMMISSION_PAID("commission_paid", "佣金已发放"),
+    COMMISSION_REJECTED("commission_rejected", "提现被拒绝"),
     SYSTEM_NOTICE("system_notice", "系统公告"),
     MEMBER_RENEWED("member_renewed", "会员续费成功"),
     MEMBER_ACTIVATION_SUCCESS("member_activation_success", "会员开通成功");

@@ -1,6 +1,7 @@
 package com.haifeng.admin.dto.university;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -8,6 +9,7 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class CampusGalleryQueryDTO extends BasePageQueryDTO {
 
+    @Size(max = 50, message = "院校名称长度不能超过50")
     private String universityName;
 
     private String imageType;

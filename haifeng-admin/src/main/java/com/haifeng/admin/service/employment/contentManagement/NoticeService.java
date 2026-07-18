@@ -5,7 +5,6 @@ import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeUpdateDTO;
 import com.haifeng.admin.vo.employment.contentManagement.notice.NoticeDetailVO;
 import com.haifeng.admin.vo.employment.contentManagement.notice.NoticeListVO;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -16,6 +15,4 @@ public interface NoticeService {
     void delete(Long id);
     void updateStatus(Long id, Integer status);
     void batchDelete(List<Long> ids);
-    void importExcel(MultipartFile file);
-    String preValidate(MultipartFile file);
 }

@@ -13,11 +13,12 @@ import com.haifeng.admin.vo.resource.ResourceListVO;
 import com.haifeng.common.entity.resource.Resource;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.resource.ResourceMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -55,22 +56,45 @@ public class ResourceServiceImpl implements ResourceService {
 
         IPage<Resource> resourcePage = resourceMapper.selectPage(page, wrapper);
 
-        return resourcePage.convert(resource -> {
-            ResourceListVO vo = new ResourceListVO();
-            BeanUtils.copyProperties(resource, vo);
-            return vo;
-        });
+        return resourcePage.convert(resource -> ResourceListVO.builder()
+                .id(resource.getId())
+                .resourceName(resource.getResourceName())
+                .category(resource.getCategory())
+                .fileType(resource.getFileType())
+                .viewCount(resource.getViewCount())
+                .sortOrder(resource.getSortOrder())
+                .isDeleted(resource.getIsDeleted())
+                .updatedAt(resource.getUpdatedAt())
+                .build());
     }
 
     @Override
     public ResourceDetailVO detail(Long id) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
-            throw new BusinessException(404, "资源不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
-        ResourceDetailVO vo = new ResourceDetailVO();
-        BeanUtils.copyProperties(resource, vo);
+        ResourceDetailVO vo = ResourceDetailVO.builder()
+                .id(resource.getId())
+                .resourceName(resource.getResourceName())
+                .coverUrl(resource.getCoverUrl())
+                .description(resource.getDescription())
+                .resourceUrl(resource.getResourceUrl())
+                .accessCode(resource.getAccessCode())
+                .category(resource.getCategory())
+                .fileType(resource.getFileType())
+                .viewCount(resource.getViewCount())
+                .sortOrder(resource.getSortOrder())
+                .isDeleted(resource.getIsDeleted())
+                .createdAt(resource.getCreatedAt())
+                .updatedAt(resource.getUpdatedAt())
+                .build();
+
+        if (Boolean.TRUE.equals(resource.getIsDeleted())) {
+            log.warn("查看已删除资源详情: id={}", id);
+        }
+
         return vo;
     }
 
@@ -102,10 +126,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ResourceUpdateDTO dto) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
-            throw new BusinessException(404, "资源不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
         resource.setResourceName(dto.getResourceName());
@@ -126,10 +151,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, ResourceStatusDTO dto) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
-            throw new BusinessException(404, "资源不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
         resource.setIsDeleted(dto.getIsDeleted());
@@ -141,30 +167,41 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
-            throw new BusinessException(404, "资源不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
-        resourceMapper.deleteById(id);
+        if (Boolean.TRUE.equals(resource.getIsDeleted())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "资源已删除");
+        }
 
-        log.info("硬删除资源成功: id={}", id);
+        resource.setIsDeleted(true);
+        resource.setUpdatedAt(OffsetDateTime.now());
+        resourceMapper.updateById(resource);
+
+        log.info("软删除资源成功: id={}", id);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
-            throw new BusinessException(400, "请选择要删除的资源");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请选择要删除的资源");
         }
 
-        int deleted = resourceMapper.deleteBatchIds(ids);
+        OffsetDateTime now = OffsetDateTime.now();
+        int updated = resourceMapper.batchSoftDelete(ids, now);
 
-        log.info("批量硬删除资源成功: 删除数量={}, ids={}", deleted, ids);
+        log.info("批量软删除资源成功: 更新数量={}, ids={}", updated, ids);
     }
 
     @Override
     public List<String> getCategories() {
-        return resourceMapper.selectDistinctCategories();
+        List<String> categories = resourceMapper.selectDistinctCategories();
+        log.debug("查询资源分类列表: 数量={}", categories.size());
+        return categories;
     }
 }

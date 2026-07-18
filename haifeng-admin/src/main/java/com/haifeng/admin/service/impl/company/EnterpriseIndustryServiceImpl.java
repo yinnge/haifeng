@@ -37,6 +37,8 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
     private final EnterpriseMapper enterpriseMapper;
     private final IndustryMapper industryMapper;
 
+    private static final int MAX_IMPORT_ROWS = 500;
+
     @Override
     public IPage<EnterpriseIndustryListVO> page(EnterpriseIndustryQueryDTO dto) {
         Page<EnterpriseIndustry> page = new Page<>(dto.getPage(), dto.getSize());
@@ -128,6 +130,10 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
                 throw new BusinessException(400, "导入失败：数据Sheet为空");
             }
 
+            if (excelData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
+            }
+
             // 用于检查文件内(enterpriseId, industryId)重复
             Set<String> pairsInFile = new HashSet<>();
             // 待插入的记录列表
@@ -148,6 +154,16 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
                 // 校验行业名称必填
                 if (!StringUtils.hasText(dto.getIndustryName())) {
                     errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
+                    continue;
+                }
+
+                // 校验字段长度
+                if (dto.getEnterpriseName().length() > 200) {
+                    errorMsgs.add("第" + rowNum + "行：企业名称长度不能超过200个字符");
+                    continue;
+                }
+                if (dto.getIndustryName().length() > 100) {
+                    errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
                     continue;
                 }
 
@@ -219,7 +235,7 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             throw new BusinessException(500, "读取Excel文件失败");
         } catch (Exception e) {
             log.error("导入企业行业关联数据失败", e);
-            throw new BusinessException(500, "导入企业行业关联数据失败：" + e.getMessage());
+            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
         }
     }
 }

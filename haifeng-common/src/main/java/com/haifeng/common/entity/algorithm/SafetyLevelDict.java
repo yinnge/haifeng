@@ -1,14 +1,13 @@
 package com.haifeng.common.entity.algorithm;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -28,4 +27,12 @@ public class SafetyLevelDict {
     private String confidence;
     private String confidenceReason;
     private String description;
+    @TableLogic
+    private Boolean isDeleted;
+    @Version
+    private Integer version;
+    @TableField(fill = FieldFill.INSERT)
+    private OffsetDateTime createdAt;
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
 }

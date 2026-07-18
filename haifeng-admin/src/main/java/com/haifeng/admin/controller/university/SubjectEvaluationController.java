@@ -14,6 +14,7 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/admin/university/subject-evaluation")
 @RequiredArgsConstructor
 @RequireAdminModule("university_eval")
+@Validated
 public class SubjectEvaluationController {
 
     private final SubjectEvaluationService subjectEvaluationService;
@@ -96,7 +98,7 @@ public class SubjectEvaluationController {
     /**
      * 批量软删除学科评估
      */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "学科评估管理", action = "批量软删除学科评估")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         subjectEvaluationService.batchDelete(dto.getIds());
@@ -106,7 +108,7 @@ public class SubjectEvaluationController {
     /**
      * 批量硬删除学科评估
      */
-    @DeleteMapping("/batch/hard")
+    @PostMapping("/batch-hard-delete")
     @OperationLog(module = "学科评估管理", action = "批量硬删除学科评估")
     public R<Void> batchHardDelete(@Valid @RequestBody BatchDeleteDTO dto) {
         subjectEvaluationService.batchHardDelete(dto.getIds());

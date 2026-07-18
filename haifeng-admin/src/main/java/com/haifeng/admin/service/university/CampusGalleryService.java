@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.university.CampusGalleryAddDTO;
 import com.haifeng.admin.dto.university.CampusGalleryQueryDTO;
 import com.haifeng.admin.dto.university.CampusGalleryUpdateDTO;
+import com.haifeng.admin.vo.university.CampusGalleryDetailVO;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +22,14 @@ public interface CampusGalleryService {
      * @return 分页结果
      */
     IPage<CampusGalleryListVO> page(CampusGalleryQueryDTO dto);
+
+    /**
+     * 获取校园图册详情
+     *
+     * @param id 图册ID
+     * @return 图册详情
+     */
+    CampusGalleryDetailVO detail(Long id);
 
     /**
      * 新增校园图册

@@ -59,6 +59,9 @@ public class MemberOrder {
     @TableField("is_deleted")
     private Boolean deleted;
 
+    @Version
+    private Integer version;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

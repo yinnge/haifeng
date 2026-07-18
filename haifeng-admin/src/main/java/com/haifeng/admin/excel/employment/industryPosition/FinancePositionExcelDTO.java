@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.employment.industryPosition;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.excel.university.StringArrayConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
@@ -36,10 +37,10 @@ public class FinancePositionExcelDTO {
     @ExcelProperty("薪资文本说明") private String salaryText;
     @ExcelProperty("福利待遇") private String benefits;
     @ExcelProperty("考试内容") private String examContent;
-    @ExcelProperty("考试时间") private OffsetDateTime examTime;
+    @ExcelProperty(value = "考试时间", converter = OffsetDateTimeConverter.class) private OffsetDateTime examTime;
     @ExcelProperty("面试轮次说明") private String interviewRounds;
-    @ExcelProperty("报名开始") private OffsetDateTime regStartDate;
-    @ExcelProperty("报名截止") private OffsetDateTime regEndDate;
+    @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
+    @ExcelProperty(value = "报名截止", converter = OffsetDateTimeConverter.class) private OffsetDateTime regEndDate;
     @ExcelProperty("网申链接") private String applyLink;
     @ExcelProperty("状态") private String positionStatus;
     @ExcelProperty("联系方式") private String contactInfo;

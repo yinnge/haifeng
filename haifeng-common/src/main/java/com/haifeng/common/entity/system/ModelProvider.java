@@ -1,8 +1,6 @@
 package com.haifeng.common.entity.system;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,7 +16,7 @@ import java.time.OffsetDateTime;
 @TableName("t_model_provider")
 public class ModelProvider {
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     @ToString.Exclude
@@ -36,7 +34,9 @@ public class ModelProvider {
 
     private Integer status;
 
+    @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
 
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
 }

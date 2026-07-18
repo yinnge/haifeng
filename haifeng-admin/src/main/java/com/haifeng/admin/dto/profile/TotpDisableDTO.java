@@ -8,4 +8,7 @@ public class TotpDisableDTO {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    @NotBlank(message = "TOTP 验证码不能为空")
+    private String code;
 }

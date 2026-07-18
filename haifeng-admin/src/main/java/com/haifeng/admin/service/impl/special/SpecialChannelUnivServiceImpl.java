@@ -15,7 +15,6 @@ import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -33,11 +32,14 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         LambdaQueryWrapper<SpecialChannelUniversity> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByAsc(SpecialChannelUniversity::getSortOrder).orderByDesc(SpecialChannelUniversity::getCreatedAt);
         IPage<SpecialChannelUniversity> result = specialChannelUniversityMapper.selectPage(page, wrapper);
-        return result.convert(entity -> {
-            SpecialChannelUnivListVO vo = new SpecialChannelUnivListVO();
-            BeanUtils.copyProperties(entity, vo);
-            return vo;
-        });
+        return result.convert(entity -> SpecialChannelUnivListVO.builder()
+                .id(entity.getId())
+                .channelName(entity.getChannelName())
+                .universityName(entity.getUniversityName())
+                .year(entity.getYear())
+                .regionTag(entity.getRegionTag())
+                .isActive(entity.getIsActive())
+                .build());
     }
 
     @Override
@@ -46,9 +48,24 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         if (entity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "通道-大学关联不存在");
         }
-        SpecialChannelUnivDetailVO vo = new SpecialChannelUnivDetailVO();
-        BeanUtils.copyProperties(entity, vo);
-        return vo;
+        return SpecialChannelUnivDetailVO.builder()
+                .id(entity.getId())
+                .channelCode(entity.getChannelCode())
+                .channelName(entity.getChannelName())
+                .universityId(entity.getUniversityId())
+                .universityName(entity.getUniversityName())
+                .year(entity.getYear())
+                .regionTag(entity.getRegionTag())
+                .signupStart(entity.getSignupStart())
+                .signupEnd(entity.getSignupEnd())
+                .officialUrl(entity.getOfficialUrl())
+                .brochureTitle(entity.getBrochureTitle())
+                .brochureContent(entity.getBrochureContent())
+                .sortOrder(entity.getSortOrder())
+                .isActive(entity.getIsActive())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
     }
 
     @Override
@@ -57,11 +74,22 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         if (specialChannelUniversityMapper.countByUnique(dto.getChannelCode(), dto.getUniversityId(), dto.getYear()) > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该通道下该大学该年份的记录已存在");
         }
-        SpecialChannelUniversity entity = new SpecialChannelUniversity();
-        BeanUtils.copyProperties(dto, entity);
-        entity.setId(SnowflakeIdGenerator.nextId());
-        entity.setIsActive(true);
-        entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+        SpecialChannelUniversity entity = SpecialChannelUniversity.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .channelCode(dto.getChannelCode())
+                .channelName(dto.getChannelName())
+                .universityId(dto.getUniversityId())
+                .universityName(dto.getUniversityName())
+                .year(dto.getYear())
+                .regionTag(dto.getRegionTag())
+                .signupStart(dto.getSignupStart())
+                .signupEnd(dto.getSignupEnd())
+                .officialUrl(dto.getOfficialUrl())
+                .brochureTitle(dto.getBrochureTitle())
+                .brochureContent(dto.getBrochureContent())
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                .isActive(true)
+                .build();
         specialChannelUniversityMapper.insert(entity);
         log.info("新增通道-大学关联: channelCode={}, universityId={}, year={}", dto.getChannelCode(), dto.getUniversityId(), dto.getYear());
     }
@@ -79,7 +107,21 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         if (keyChanged && specialChannelUniversityMapper.countByUniqueExclude(dto.getChannelCode(), dto.getUniversityId(), dto.getYear(), id) > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该通道下该大学该年份的记录已存在");
         }
-        BeanUtils.copyProperties(dto, entity);
+        entity.setChannelCode(dto.getChannelCode());
+        entity.setChannelName(dto.getChannelName());
+        entity.setUniversityId(dto.getUniversityId());
+        entity.setUniversityName(dto.getUniversityName());
+        entity.setYear(dto.getYear());
+        entity.setRegionTag(dto.getRegionTag());
+        entity.setSignupStart(dto.getSignupStart());
+        entity.setSignupEnd(dto.getSignupEnd());
+        entity.setOfficialUrl(dto.getOfficialUrl());
+        entity.setBrochureTitle(dto.getBrochureTitle());
+        entity.setBrochureContent(dto.getBrochureContent());
+        if (dto.getSortOrder() != null) {
+            entity.setSortOrder(dto.getSortOrder());
+        }
+        entity.setUpdatedAt(java.time.OffsetDateTime.now());
         specialChannelUniversityMapper.updateById(entity);
         log.info("修改通道-大学关联: id={}", id);
     }
@@ -110,9 +152,13 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "ID列表不能为空");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "请选择要删除的记录");
+        }
+        List<SpecialChannelUniversity> records = specialChannelUniversityMapper.selectBatchIds(ids);
+        if (records.size() != ids.size()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "部分通道-大学关联不存在");
         }
         specialChannelUniversityMapper.deleteBatchIds(ids);
-        log.info("批量删除通道-大学关联: ids={}", ids);
+        log.info("批量删除通道-大学关联: count={}", ids.size());
     }
 }

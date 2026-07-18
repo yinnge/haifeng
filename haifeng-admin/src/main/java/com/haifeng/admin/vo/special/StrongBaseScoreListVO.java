@@ -1,9 +1,17 @@
 package com.haifeng.admin.vo.special;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.io.Serializable;
 
 @Data
-public class StrongBaseScoreListVO {
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class StrongBaseScoreListVO implements Serializable {
+    private static final long serialVersionUID = 1L;
     private Long id;
     private String universityName;
     private Short year;

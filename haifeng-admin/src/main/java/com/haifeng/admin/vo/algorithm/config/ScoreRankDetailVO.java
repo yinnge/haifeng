@@ -14,4 +14,6 @@ public class ScoreRankDetailVO {
     private Integer sameScoreCount;
     private Integer cumulativeCount;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private Integer version;
 }

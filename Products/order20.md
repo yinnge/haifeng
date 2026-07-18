@@ -2,7 +2,7 @@
 
 ## 概述
 
-本文档包含两部分：
+本文档包含三部分：
 
 | 模块 | 说明 | 表 |
 |------|------|-----|
@@ -373,7 +373,7 @@ GET /api/v1/admin/system/model-providers/balance
 |-----------|--------|--------|
 | ProvinceConfigController | 省份算法配置 | 修改省份算法参数 |
 | GaokaoConfigController | 高考算法全局配置 | 修改全局参数 |
-| ModelProviderController | — | （余额查询为只读接口，无操作日志） |
+| ModelProviderController | 系统管理 | 查询AI厂商余额 |
 
 ---
 
@@ -408,11 +408,8 @@ haifeng-admin/src/main/java/com/haifeng/admin/
 │   ├── ProvinceConfigQueryDTO.java
 │   ├── ProvinceConfigUpdateDTO.java
 │   └── GaokaoConfigUpdateDTO.java
-└── vo/
-    ├── algorithm/config/
-    │   ├── ProvinceConfigListVO.java
-    │   ├── ProvinceConfigDetailVO.java
-    │   └── GaokaoConfigDetailVO.java
-    └── system/
-        └── AiBalanceVO.java
+└── vo/algorithm/config/
+    ├── ProvinceConfigListVO.java
+    ├── ProvinceConfigDetailVO.java
+    └── GaokaoConfigDetailVO.java
 ```

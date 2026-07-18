@@ -19,7 +19,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("t_finance_position")
+@TableName(value = "t_finance_position", autoResultMap = true)
 public class FinancePosition implements Serializable {
 
     private static final long serialVersionUID = 1L;

@@ -23,6 +23,7 @@ import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
 import com.haifeng.common.mapper.user.ReferralCommissionMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.DesensitizeUtil;
 import com.haifeng.common.util.SecurityUtil;
@@ -93,7 +94,7 @@ public class MemberServiceImpl implements MemberService {
     public MemberDetailVO detail(Long id) {
         Member member = memberMapper.selectById(id);
         if (member == null || member.getDeleted()) {
-            throw new BusinessException(404, "用户不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
         MemberDetailVO vo = new MemberDetailVO();
@@ -104,15 +105,19 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, MemberStatusDTO dto) {
         Member member = memberMapper.selectById(id);
         if (member == null || member.getDeleted()) {
-            throw new BusinessException(404, "用户不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
         member.setStatus(dto.getStatus());
         member.setUpdatedAt(OffsetDateTime.now());
-        memberMapper.updateById(member);
+        int affected = memberMapper.updateById(member);
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
 
         log.info("修改用户状态成功: userId={}, status={}", id, dto.getStatus());
     }
@@ -121,7 +126,7 @@ public class MemberServiceImpl implements MemberService {
     public String getWechatPlaintext(Long id) {
         Member member = memberMapper.selectById(id);
         if (member == null || member.getDeleted()) {
-            throw new BusinessException(404, "用户不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
         // 微信号已通过 TypeHandler 自动解密
@@ -129,12 +134,12 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Long upgradeMember(Long id, MemberUpgradeDTO dto) {
         // 1. 校验用户存在
         Member member = memberMapper.selectById(id);
         if (member == null || member.getDeleted()) {
-            throw new BusinessException(404, "用户不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
         // 2. 校验目标类型合法性（vip不能降级为pro）
@@ -142,7 +147,6 @@ public class MemberServiceImpl implements MemberService {
         MemberType targetType = MemberType.fromValue(dto.getTargetType());
 
         if (currentType == MemberType.VIP && targetType == MemberType.PRO) {
-            // VIP用户只有在会员过期后才允许降级
             if (member.getExpireAt() != null && member.getExpireAt().isAfter(OffsetDateTime.now())) {
                 throw new BusinessException(400, "VIP会员未过期，不能降级为Pro");
             }
@@ -153,19 +157,18 @@ public class MemberServiceImpl implements MemberService {
         OffsetDateTime beforeExpireAt = member.getExpireAt();
         OffsetDateTime newExpireAt;
 
-        // 判断是否过期或新开通
         boolean isExpired = beforeExpireAt == null || beforeExpireAt.isBefore(now);
-        boolean isTypeChange = currentType != targetType;
 
-        if (isExpired || isTypeChange) {
-            // 已过期或类型变更：从当前时间开始计算
+        if (isExpired) {
+            // 已过期或新开通：从当前时间开始计算
             newExpireAt = now.plusMonths(dto.getDurationMonths());
         } else {
-            // 未过期且同类型续费：从原到期时间叠加
+            // 未过期：从原到期时间叠加（无论类型是否变更）
             newExpireAt = beforeExpireAt.plusMonths(dto.getDurationMonths());
         }
 
         // 4. 判断订单类型：同类型=RENEWAL，不同类型=NEW
+        boolean isTypeChange = currentType != targetType;
         OrderType orderType;
         if (currentType == MemberType.NORMAL || isTypeChange) {
             orderType = OrderType.NEW;
@@ -173,22 +176,43 @@ public class MemberServiceImpl implements MemberService {
             orderType = OrderType.RENEWAL;
         }
 
-        // 5. 计算金额（如果未传入，则自动计算）
-        BigDecimal finalAmount = dto.getAmount();
-        if (finalAmount == null) {
-            finalAmount = calculateAmount(dto.getTargetType(), dto.getDurationMonths());
+        // 5. 幂等检查：同一用户不可重复创建同类型未删除订单
+        Long duplicateCount = orderMapper.selectCount(
+                new LambdaQueryWrapper<MemberOrder>()
+                        .eq(MemberOrder::getMemberId, id)
+                        .eq(MemberOrder::getOrderType, orderType)
+                        .eq(MemberOrder::getDeleted, false));
+        if (duplicateCount > 0) {
+            throw new BusinessException(400, "该用户已有同类未完成订单，请勿重复操作");
         }
 
-        // 6. 更新用户表
+        // 6. 查询系统设置（一次查询，复用于金额计算和佣金处理）
+        SystemSettings settings = settingsMapper.selectOne(
+                new LambdaQueryWrapper<SystemSettings>().last("LIMIT 1"));
+        if (settings == null) {
+            throw new BusinessException(500, "系统设置不存在，无法处理");
+        }
+
+        // 7. 计算金额（如果未传入，则自动计算）
+        BigDecimal finalAmount = dto.getAmount();
+        if (finalAmount == null) {
+            finalAmount = calculateAmount(settings, dto.getTargetType(), dto.getDurationMonths());
+        }
+
+        // 8. 更新用户表
         member.setMemberType(dto.getTargetType());
         member.setExpireAt(newExpireAt);
         member.setUpdatedAt(now);
-        memberMapper.updateById(member);
+        int affected = memberMapper.updateById(member);
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
 
-        // 7. 创建订单记录
+        // 9. 创建订单记录
         Long orderId = SnowflakeIdGenerator.nextId();
         Long operatorId = SecurityUtil.getCurrentAdminId();
-        String operatorName = SecurityUtil.getCurrentUser() != null ? SecurityUtil.getCurrentUser().getUsername() : null;
+        com.haifeng.common.security.AuthUser currentUser = SecurityUtil.getCurrentUser();
+        String operatorName = currentUser != null ? currentUser.getUsername() : null;
 
         MemberOrder order = MemberOrder.builder()
                 .id(orderId)
@@ -214,12 +238,12 @@ public class MemberServiceImpl implements MemberService {
                 .build();
         orderMapper.insert(order);
 
-        // 8. 处理佣金（如有推荐人）
+        // 10. 处理佣金（如有推荐人）
         if (member.getReferrerId() != null) {
-            processCommission(member, order, dto.getTargetType());
+            processCommission(member, order, dto.getTargetType(), settings);
         }
 
-        // 9. 发送通知
+        // 11. 发送通知
         NotificationType notificationType = orderType == OrderType.NEW
                 ? NotificationType.MEMBER_ACTIVATION_SUCCESS
                 : NotificationType.MEMBER_RENEWED;
@@ -233,7 +257,7 @@ public class MemberServiceImpl implements MemberService {
         log.info("会员开通/续费成功: userId={}, orderType={}, targetType={}, orderId={}, amount={}",
                 id, orderType.getValue(), dto.getTargetType(), orderId, finalAmount);
 
-        // 10. 返回订单ID
+        // 12. 返回订单ID
         return orderId;
     }
 
@@ -241,13 +265,7 @@ public class MemberServiceImpl implements MemberService {
      * 根据会员类型和时长自动计算金额
      * 公式：(年价格 / 12) * 月数
      */
-    private BigDecimal calculateAmount(String targetType, Integer durationMonths) {
-        SystemSettings settings = settingsMapper.selectOne(
-                new LambdaQueryWrapper<SystemSettings>().last("LIMIT 1"));
-        if (settings == null) {
-            throw new BusinessException(500, "系统设置不存在，无法计算金额");
-        }
-
+    private BigDecimal calculateAmount(SystemSettings settings, String targetType, Integer durationMonths) {
         Integer yearPrice;
         if ("vip".equals(targetType)) {
             yearPrice = settings.getVipPrice();
@@ -282,7 +300,7 @@ public class MemberServiceImpl implements MemberService {
     /**
      * 处理推荐佣金
      */
-    private void processCommission(Member referee, MemberOrder order, String targetType) {
+    private void processCommission(Member referee, MemberOrder order, String targetType, SystemSettings settings) {
         // 1. 获取推荐人
         Member referrer = memberMapper.selectById(referee.getReferrerId());
         if (referrer == null || referrer.getDeleted()) {
@@ -296,14 +314,7 @@ public class MemberServiceImpl implements MemberService {
             return;
         }
 
-        // 2. 获取佣金比例（pro用proCommissionRate，vip用vipCommissionRate）
-        SystemSettings settings = settingsMapper.selectOne(
-                new LambdaQueryWrapper<SystemSettings>().last("LIMIT 1"));
-        if (settings == null) {
-            log.warn("系统设置不存在，无法计算佣金");
-            return;
-        }
-
+        // 3. 获取佣金比例（pro用proCommissionRate，vip用vipCommissionRate）
         Integer commissionRatePercent;
         if ("vip".equals(targetType)) {
             commissionRatePercent = settings.getVipCommissionRate();

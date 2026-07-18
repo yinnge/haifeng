@@ -30,7 +30,6 @@ public class ModuleServiceImpl implements ModuleService {
     @Override
     public List<ModuleTreeVO> listTree(ModuleQueryDTO dto) {
         LambdaQueryWrapper<SysModule> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysModule::getDeleted, false);
 
         boolean hasFilter = false;
 

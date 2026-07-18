@@ -9,7 +9,9 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin/user/withdraw")
 @RequiredArgsConstructor
 @RequireAdminModule("user_withdraw")
+@Validated
 public class WithdrawController {
 
     private final WithdrawService withdrawService;
@@ -36,7 +39,7 @@ public class WithdrawController {
      */
     @GetMapping("/{id}/wechat")
     @OperationLog(module = "用户管理", action = "查看提现微信明文")
-    public R<String> getWechat(@PathVariable Long id) {
+    public R<String> getWechat(@PathVariable @Min(1) Long id) {
         return R.ok(withdrawService.getWechatPlaintext(id));
     }
 
@@ -45,7 +48,7 @@ public class WithdrawController {
      */
     @PutMapping("/{id}/process")
     @OperationLog(module = "用户管理", action = "处理提现")
-    public R<Void> process(@PathVariable Long id, @Valid @RequestBody WithdrawProcessDTO dto) {
+    public R<Void> process(@PathVariable @Min(1) Long id, @Valid @RequestBody WithdrawProcessDTO dto) {
         withdrawService.process(id, dto);
         return R.ok();
     }
@@ -55,7 +58,7 @@ public class WithdrawController {
      */
     @DeleteMapping("/{id}")
     @OperationLog(module = "用户管理", action = "禁用提现记录")
-    public R<Void> delete(@PathVariable Long id) {
+    public R<Void> delete(@PathVariable @Min(1) Long id) {
         withdrawService.delete(id);
         return R.ok();
     }
@@ -65,7 +68,7 @@ public class WithdrawController {
      */
     @DeleteMapping("/{id}/hard")
     @OperationLog(module = "用户管理", action = "硬删除提现记录")
-    public R<Void> hardDelete(@PathVariable Long id) {
+    public R<Void> hardDelete(@PathVariable @Min(1) Long id) {
         withdrawService.hardDelete(id);
         return R.ok();
     }
@@ -75,7 +78,7 @@ public class WithdrawController {
      */
     @PutMapping("/{id}/restore")
     @OperationLog(module = "用户管理", action = "恢复提现记录")
-    public R<Void> restore(@PathVariable Long id) {
+    public R<Void> restore(@PathVariable @Min(1) Long id) {
         withdrawService.restore(id);
         return R.ok();
     }

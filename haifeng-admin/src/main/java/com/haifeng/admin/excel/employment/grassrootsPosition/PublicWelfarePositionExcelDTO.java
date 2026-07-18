@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.employment.grassrootsPosition;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.converter.StringToArrayConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
@@ -34,8 +35,8 @@ public class PublicWelfarePositionExcelDTO {
     @ExcelProperty("其他福利") private String otherBenefits;
     @ExcelProperty("工作时间") private String workSchedule;
     @ExcelProperty("是否倒班") private Boolean isShiftWork;
-    @ExcelProperty("报名开始") private OffsetDateTime regStartDate;
-    @ExcelProperty("报名截止") private OffsetDateTime regEndDate;
+    @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
+    @ExcelProperty(value = "报名截止", converter = OffsetDateTimeConverter.class) private OffsetDateTime regEndDate;
     @ExcelProperty("报名方式") private String applyMethod;
     @ExcelProperty("报名地址") private String applyAddress;
     @ExcelProperty("所需材料") private String requiredDocuments;

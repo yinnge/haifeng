@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -21,47 +20,6 @@ public class ScoreBasedCalculator {
 
     private final ProvinceReformService provinceReformService;
     private final GaokaoConfigMapper gaokaoConfigMapper;
-
-    // 年份权重：最近1年权重1.0，依次递减
-    private double[] YEAR_WEIGHTS;
-
-    // 默认参数
-    private double DEFAULT_DENSITY_K;
-    private double DEFAULT_LINE_STEEPNESS;
-    private double DEFAULT_RANK_STEEPNESS;
-
-    // 新高考权重
-    private double NEW_GAOKAO_LINE_WEIGHT;
-    private double NEW_GAOKAO_RANK_WEIGHT;
-
-    // 旧高考权重
-    private double OLD_GAOKAO_LINE_WEIGHT;
-    private double OLD_GAOKAO_RANK_WEIGHT;
-
-    @PostConstruct
-    void init() {
-        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
-        if (config == null) {
-            log.error("gaokao_config 表无数据，无法初始化 ScoreBasedCalculator");
-            throw new IllegalStateException("gaokao_config 表无数据，无法初始化 ScoreBasedCalculator");
-        }
-        if (config.getYearWeights() == null || config.getYearWeights().isEmpty()) {
-            log.error("gaokao_config.year_weights 为空");
-            throw new IllegalStateException("gaokao_config.year_weights 为空");
-        }
-        List<BigDecimal> yw = config.getYearWeights();
-        YEAR_WEIGHTS = new double[yw.size()];
-        for (int i = 0; i < yw.size(); i++) {
-            YEAR_WEIGHTS[i] = yw.get(i).doubleValue();
-        }
-        DEFAULT_DENSITY_K = config.getDefaultDensityK().doubleValue();
-        DEFAULT_LINE_STEEPNESS = config.getDefaultLineSteepness().doubleValue();
-        DEFAULT_RANK_STEEPNESS = config.getDefaultRankSteepness().doubleValue();
-        NEW_GAOKAO_LINE_WEIGHT = config.getNewGaokaoLineWeight().doubleValue();
-        NEW_GAOKAO_RANK_WEIGHT = config.getNewGaokaoRankWeight().doubleValue();
-        OLD_GAOKAO_LINE_WEIGHT = config.getOldGaokaoLineWeight().doubleValue();
-        OLD_GAOKAO_RANK_WEIGHT = config.getOldGaokaoRankWeight().doubleValue();
-    }
 
     /**
      * 计算基础分
@@ -80,18 +38,37 @@ public class ScoreBasedCalculator {
             return 0.5; // 无数据返回中性值
         }
 
+        // 每次计算实时加载配置，确保配置更新即时生效
+        GaokaoConfig config = gaokaoConfigMapper.selectSingleton();
+        if (config == null || config.getYearWeights() == null || config.getYearWeights().isEmpty()) {
+            log.error("gaokao_config 表无数据或 year_weights 为空，无法计算");
+            return 0.5;
+        }
+
+        double[] yearWeights = new double[config.getYearWeights().size()];
+        for (int i = 0; i < config.getYearWeights().size(); i++) {
+            yearWeights[i] = config.getYearWeights().get(i).doubleValue();
+        }
+        double defaultDensityK = config.getDefaultDensityK().doubleValue();
+        double defaultLineSteepness = config.getDefaultLineSteepness().doubleValue();
+        double defaultRankSteepness = config.getDefaultRankSteepness().doubleValue();
+        double newGaokaoLineWeight = config.getNewGaokaoLineWeight().doubleValue();
+        double newGaokaoRankWeight = config.getNewGaokaoRankWeight().doubleValue();
+        double oldGaokaoLineWeight = config.getOldGaokaoLineWeight().doubleValue();
+        double oldGaokaoRankWeight = config.getOldGaokaoRankWeight().doubleValue();
+
         // 获取配置参数
         double densityK = provinceConfig != null && provinceConfig.getDensityK() != null
-                ? provinceConfig.getDensityK().doubleValue() : DEFAULT_DENSITY_K;
+                ? provinceConfig.getDensityK().doubleValue() : defaultDensityK;
         double lineSteepness = provinceConfig != null && provinceConfig.getLineSteepness() != null
-                ? provinceConfig.getLineSteepness().doubleValue() : DEFAULT_LINE_STEEPNESS;
+                ? provinceConfig.getLineSteepness().doubleValue() : defaultLineSteepness;
         double rankSteepness = provinceConfig != null && provinceConfig.getRankSteepness() != null
-                ? provinceConfig.getRankSteepness().doubleValue() : DEFAULT_RANK_STEEPNESS;
+                ? provinceConfig.getRankSteepness().doubleValue() : defaultRankSteepness;
 
         // 判断新旧高考
         boolean isNewGaokao = isNewGaokao(gaokao.getGaokaoProvince(), gaokao.getGaokaoYear());
-        double lineWeight = isNewGaokao ? NEW_GAOKAO_LINE_WEIGHT : OLD_GAOKAO_LINE_WEIGHT;
-        double rankWeight = isNewGaokao ? NEW_GAOKAO_RANK_WEIGHT : OLD_GAOKAO_RANK_WEIGHT;
+        double lineWeight = isNewGaokao ? newGaokaoLineWeight : oldGaokaoLineWeight;
+        double rankWeight = isNewGaokao ? newGaokaoRankWeight : oldGaokaoRankWeight;
 
         // 计算加权平均线差和位次
         double weightedLineDiff = 0;
@@ -108,7 +85,7 @@ public class ScoreBasedCalculator {
             int yearAgo = currentYear - group.getYear();
             if (yearAgo < 1 || yearAgo > 5) continue;
 
-            double w = YEAR_WEIGHTS[yearAgo - 1];
+            double w = yearWeights[yearAgo - 1];
             validYears++;
 
             // 线差计算：最低分 - 批次线（需要额外查询批次线，这里用 min_score 近似）

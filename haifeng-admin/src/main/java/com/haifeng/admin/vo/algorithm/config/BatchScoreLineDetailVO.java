@@ -14,4 +14,5 @@ public class BatchScoreLineDetailVO {
     private Integer rankLine;
     private String remark;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

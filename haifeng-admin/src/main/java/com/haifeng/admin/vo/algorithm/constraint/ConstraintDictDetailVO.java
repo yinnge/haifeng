@@ -18,6 +18,7 @@ public class ConstraintDictDetailVO {
     private String extraValue;
     private Integer sortOrder;
     private Boolean isActive;
+    private Integer version;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

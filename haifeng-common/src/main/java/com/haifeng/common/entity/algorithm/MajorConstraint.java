@@ -20,6 +20,12 @@ public class MajorConstraint {
     private String constraintCode;
     private String constraintName;
     private String remark;
+    @TableLogic
+    private Boolean isDeleted;
+    @Version
+    private Integer version;
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
 }

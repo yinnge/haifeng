@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.haifeng.common.config.StringArrayTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -39,6 +40,7 @@ public class InstitutionPosition implements Serializable {
     private Integer recruitmentCount;
     private String salaryRange;
     private String regDeadline;
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] majorRequirements;
     private String specialPosition;
     private String otherRequirement;

@@ -1,5 +1,6 @@
 package com.haifeng.common.entity.system;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -19,7 +20,7 @@ import java.time.OffsetDateTime;
 @TableName(value = "system_settings", autoResultMap = true)
 public class SystemSettings {
 
-    @TableId(type = IdType.ASSIGN_ID)
+    @TableId(type = IdType.INPUT)
     private Long id;
 
     private String siteName;
@@ -90,7 +91,9 @@ public class SystemSettings {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private BasicMessage basicMessage;
 
+    @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
 
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
 }

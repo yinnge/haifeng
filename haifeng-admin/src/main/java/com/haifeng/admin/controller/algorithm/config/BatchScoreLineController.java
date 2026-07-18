@@ -10,12 +10,16 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/config/batch-score-line")
 @RequiredArgsConstructor
@@ -54,10 +58,24 @@ public class BatchScoreLineController {
         return R.ok();
     }
 
+    @DeleteMapping("/{id}/hard")
+    @OperationLog(module = "批次分数线管理", action = "硬删除批次分数线记录")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        batchScoreLineService.hardDelete(id);
+        return R.ok();
+    }
+
     @DeleteMapping("/batch")
     @OperationLog(module = "批次分数线管理", action = "批量删除批次分数线记录")
-    public R<Void> batchDelete(@RequestBody List<Long> ids) {
+    public R<Void> batchDelete(@RequestBody @NotEmpty(message = "请选择要删除的记录") @Size(max = 100, message = "单次删除最多100条") List<Long> ids) {
         batchScoreLineService.batchDelete(ids);
+        return R.ok();
+    }
+
+    @DeleteMapping("/batch/hard")
+    @OperationLog(module = "批次分数线管理", action = "批量硬删除批次分数线记录")
+    public R<Void> batchHardDelete(@RequestBody @NotEmpty(message = "请选择要删除的记录") @Size(max = 100, message = "单次删除最多100条") List<Long> ids) {
+        batchScoreLineService.batchHardDelete(ids);
         return R.ok();
     }
 

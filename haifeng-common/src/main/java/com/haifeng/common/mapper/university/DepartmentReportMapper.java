@@ -11,7 +11,4 @@ public interface DepartmentReportMapper extends BaseMapper<DepartmentReport> {
 
     @Select("SELECT * FROM department_reports WHERE department_id = #{departmentId} AND status = 1 LIMIT 1")
     DepartmentReport selectByDepartmentId(@Param("departmentId") Long departmentId);
-
-    @Select("SELECT EXISTS(SELECT 1 FROM department_reports WHERE department_id = #{departmentId})")
-    boolean existsByDepartmentId(@Param("departmentId") Long departmentId);
 }

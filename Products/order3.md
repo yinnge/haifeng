@@ -15,10 +15,11 @@
 ## 技术亮点
 
 ### 1. 会员升级路径控制
-- 严格的升级路径：normal→pro→vip，禁止降级
+- 升级路径：normal→pro→vip
 - Pro 会员可续费 Pro 或升级 VIP
-- VIP 会员只能续费 VIP
-- 过期会员续费从当前时间计算，未过期从到期时间延续
+- VIP 会员可续费 VIP；过期后可降级为 Pro
+- 未过期续费从原到期时间叠加，已过期或类型变更从当前时间计算
+- VIP→PRO 降级时保留剩余时长（从原到期时间叠加）
 
 ### 2. 推荐佣金自动计算
 - 订单创建时自动检查推荐人关系
@@ -53,7 +54,152 @@
 
 ### 会员管理接口 (端口: 8081)
 
-#### 1. 会员开通/升级/续费
+> **乐观锁：** 所有写操作（updateStatus、upgrade）基于 `version` 字段实现乐观锁，数据被并发修改时返回 `400: 数据已被其他人修改，请刷新后重试`。
+
+#### 1. 分页查询用户列表
+```
+GET /api/v1/admin/user/list
+Authorization: Bearer {accessToken}
+```
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| page | Integer | 否 | 页码，默认1 |
+| size | Integer | 否 | 每页条数：10/20/30/50/100，默认10 |
+| phone | String | 否 | 手机号（模糊查询，最长50字符） |
+| memberType | String | 否 | 会员类型：normal/pro/vip |
+| status | String | 否 | 账号状态：active/disabled |
+| wechatId | String | 否 | 微信号（精确查询，后端转盲索引） |
+| inviteCode | String | 否 | 邀请码（模糊查询，最长50字符） |
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "records": [
+      {
+        "id": 1234567890123456789,
+        "username": "张三",
+        "phone": "138****5678",
+        "memberType": "pro",
+        "wechatId": "wxid***23",
+        "status": "active",
+        "lastLoginAt": "2026-05-06T10:00:00",
+        "lastLoginIp": "192.168.1.1",
+        "createdAt": "2026-05-06T10:00:00"
+      }
+    ],
+    "total": 100,
+    "size": 10,
+    "current": 1,
+    "pages": 10
+  },
+  "timestamp": 1714300000000
+}
+```
+
+---
+
+#### 2. 获取用户详情
+```
+GET /api/v1/admin/user/{id}
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 用户ID |
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "id": 1234567890123456789,
+    "username": "张三",
+    "avatar": "https://example.com/avatar.jpg",
+    "phone": "138****5678",
+    "inviteCode": "ABC12345",
+    "memberType": "pro",
+    "expireAt": "2027-05-06T10:00:00",
+    "wechatId": "wxid***23",
+    "referrerId": 1111111111111111111,
+    "referrerUsername": "推荐人",
+    "commissionBalance": 50.00,
+    "commissionTotalEarned": 200.00,
+    "commissionTotalPaid": 150.00,
+    "status": "active",
+    "lastLoginAt": "2026-05-06T10:00:00",
+    "lastLoginIp": "192.168.1.1",
+    "createdAt": "2026-05-06T10:00:00",
+    "updatedAt": "2026-05-06T10:00:00"
+  },
+  "timestamp": 1714300000000
+}
+```
+
+---
+
+#### 3. 修改用户状态
+```
+PUT /api/v1/admin/user/{id}/status
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 用户ID |
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | String | 是 | 状态：active（启用）或 disabled（禁用） |
+
+**请求示例：**
+```json
+{
+  "status": "disabled"
+}
+```
+
+**操作日志：** 此接口自动记录操作日志
+
+---
+
+#### 4. 查看用户微信明文
+```
+GET /api/v1/admin/user/{id}/wechat
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 用户ID |
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": "wxid_abc123456",
+  "timestamp": 1714300000000
+}
+```
+
+**操作日志：** 此接口强制记录操作日志（敏感操作）
+**频率限制：** 每IP每分钟最多10次
+
+---
+
+#### 5. 会员开通/升级/续费
 ```
 POST /api/v1/admin/user/{id}/upgrade
 Content-Type: application/json
@@ -69,14 +215,15 @@ Authorization: Bearer {accessToken}
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | targetType | String | 是 | 目标会员类型：pro/vip |
-| amount | BigDecimal | 是 | 支付金额（>=0） |
-| remark | String | 否 | 备注（最多200字符） |
+| durationMonths | Integer | 是 | 购买时长（月），范围1-120 |
+| amount | BigDecimal | 否 | 支付金额（>0），不传则根据系统设置自动计算 |
+| remark | String | 否 | 备注 |
 
 **请求示例：**
 ```json
 {
   "targetType": "pro",
-  "amount": 199.00,
+  "durationMonths": 12,
   "remark": "后台手动开通"
 }
 ```
@@ -96,14 +243,19 @@ Authorization: Bearer {accessToken}
 **业务规则：**
 - normal 用户可开通 pro 或 vip
 - pro 用户可续费 pro 或升级 vip
-- vip 用户只能续费 vip
-- 禁止降级（vip→pro 不允许）
+- vip 用户可续费 vip；过期后可降级为 pro
+- 未过期续费：从原到期时间叠加
+- 已过期或类型变更：从当前时间开始计算
+- **幂等防重复**：同一用户不可创建同类型未删除订单，已存在则返回 `400: 该用户已有同类未完成订单，请勿重复操作`
+- VIP→PRO 降级时保留剩余时长（从原到期时间叠加）
 
 **操作日志：** 此接口自动记录操作日志
 
 ---
 
 ### 订单管理接口 (端口: 8081)
+
+> **乐观锁：** 所有写操作（delete、restore）基于 `version` 字段实现乐观锁，数据被并发修改时返回 `400: 数据已被其他人修改，请刷新后重试`。
 
 #### 1. 分页查询订单列表
 ```
@@ -115,12 +267,11 @@ Authorization: Bearer {accessToken}
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | page | Integer | 否 | 页码，默认1 |
-| size | Integer | 否 | 每页条数，可选：10,20,30,50,100,200,500,1000 |
-| memberId | Long | 否 | 用户ID |
-| orderNo | String | 否 | 订单号（模糊查询） |
-| orderType | String | 否 | 订单类型：new/renewal |
-| memberType | String | 否 | 会员类型：pro/vip |
+| size | Integer | 否 | 每页条数：10/20/30/50/100，默认10 |
+| phone | String | 否 | 手机号（模糊查询，最长50字符） |
 | wechatId | String | 否 | 微信号（精确查询，后端转盲索引） |
+| operatorName | String | 否 | 操作人名称（模糊查询，最长50字符） |
+| orderType | String | 否 | 订单类型：new/renewal |
 
 **响应示例：**
 ```json
@@ -131,15 +282,16 @@ Authorization: Bearer {accessToken}
     "records": [
       {
         "id": 1234567890123456789,
-        "memberId": 9876543210987654321,
-        "username": "张*",
-        "wechatId": "wxid***23",
         "orderNo": "ORD202605061234567890",
+        "memberName": "张三",
+        "phone": "138****5678",
+        "wechatId": "wxid***23",
         "orderType": "new",
-        "memberType": "pro",
+        "beforeType": "normal",
+        "afterType": "pro",
+        "durationMonths": 12,
         "amount": 199.00,
-        "remark": "首次开通",
-        "createdAt": "2026-05-06T10:00:00+08:00"
+        "createdAt": "2026-05-06T10:00:00"
       }
     ],
     "total": 100,
@@ -171,16 +323,22 @@ Authorization: Bearer {accessToken}
   "msg": "success",
   "data": {
     "id": 1234567890123456789,
-    "memberId": 9876543210987654321,
-    "username": "张三",
+    "orderNo": "ORD202605061234567890",
+    "memberName": "张三",
     "phone": "138****5678",
     "wechatId": "wxid***23",
-    "orderNo": "ORD202605061234567890",
     "orderType": "new",
-    "memberType": "pro",
+    "beforeType": "normal",
+    "afterType": "pro",
+    "durationMonths": 12,
     "amount": 199.00,
-    "remark": "首次开通",
-    "createdAt": "2026-05-06T10:00:00+08:00"
+    "memberId": 9876543210987654321,
+    "beforeExpireAt": null,
+    "afterExpireAt": "2027-05-06T10:00:00",
+    "operatorId": 1111111111111111111,
+    "operatorName": "admin",
+    "remark": "后台手动开通",
+    "createdAt": "2026-05-06T10:00:00"
   },
   "timestamp": 1714300000000
 }
@@ -210,6 +368,7 @@ Authorization: Bearer {accessToken}
 ```
 
 **操作日志：** 此接口强制记录操作日志（敏感操作）
+**频率限制：** 每IP每分钟最多10次
 
 ---
 
@@ -259,7 +418,9 @@ Authorization: Bearer {accessToken}
 }
 ```
 
-**业务说明：** 物理删除记录，数据不可恢复
+**业务说明：**
+- 物理删除记录，数据不可恢复
+- 若该订单存在关联的佣金记录，拒绝硬删除并返回 `400: 该订单存在关联的佣金记录，无法硬删除`
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -286,7 +447,9 @@ Authorization: Bearer {accessToken}
 }
 ```
 
-**业务说明：** 将已禁用的订单恢复为正常状态
+**业务说明：**
+- 将已禁用的订单恢复为正常状态
+- 恢复前校验订单所属会员是否仍存在且未删除，否则返回 `400: 该订单所属会员已不存在，无法恢复`
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -305,9 +468,11 @@ Authorization: Bearer {accessToken}
 |------|------|------|------|
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数 |
-| referrerId | Long | 否 | 推荐人ID |
-| refereeId | Long | 否 | 被推荐人ID |
-| memberType | String | 否 | 会员类型：pro/vip |
+| referrerPhone | String | 否 | 推荐人手机号（前缀匹配，最长20字符） |
+| referrerName | String | 否 | 推荐人名称（模糊查询，最长50字符） |
+| refereePhone | String | 否 | 被推荐人手机号（前缀匹配，最长20字符） |
+| refereeName | String | 否 | 被推荐人名称（模糊查询，最长50字符） |
+| orderNo | String | 否 | 订单号（模糊查询，最长50字符） |
 
 **响应示例：**
 ```json
@@ -318,13 +483,11 @@ Authorization: Bearer {accessToken}
     "records": [
       {
         "id": 1234567890123456789,
-        "referrerId": 1111111111111111111,
-        "referrerUsername": "推*人",
-        "refereeId": 2222222222222222222,
-        "refereeUsername": "被*荐",
+        "referrerName": "推荐人",
+        "referrerPhone": "138****5678",
+        "refereeName": "被推荐人",
+        "refereePhone": "139****1234",
         "orderId": 3333333333333333333,
-        "orderNo": "ORD202605061234567890",
-        "memberType": "pro",
         "orderAmount": 199.00,
         "commissionRate": 10,
         "commissionAmount": 19.90,
@@ -388,7 +551,7 @@ Authorization: Bearer {accessToken}
 }
 ```
 
-**业务说明：** 物理删除记录，数据不可恢复
+**业务说明：** 物理删除记录，数据不可恢复。**必须先禁用（软删除）才能硬删除**，未禁用的记录执行硬删除会返回 `400: 请先禁用该佣金记录，再执行硬删除`
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -435,7 +598,7 @@ Authorization: Bearer {accessToken}
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数 |
 | memberId | Long | 否 | 用户ID |
-| type | String | 否 | 通知类型（见类型说明） |
+| notificationType | String | 否 | 通知类型（见类型说明），最长50字符 |
 | isRead | Boolean | 否 | 是否已读 |
 
 **通知类型说明：**
@@ -444,7 +607,8 @@ Authorization: Bearer {accessToken}
 | member_expire_soon | 会员即将过期 |
 | member_expired | 会员已过期 |
 | commission_earned | 佣金到账 |
-| commission_paid | 佣金已提现 |
+| commission_paid | 佣金已发放 |
+| commission_rejected | 提现被拒绝 |
 | system_notice | 系统公告 |
 | member_renewed | 会员续费成功 |
 | member_activation_success | 会员开通成功 |
@@ -459,12 +623,13 @@ Authorization: Bearer {accessToken}
       {
         "id": 1234567890123456789,
         "memberId": 9876543210987654321,
-        "username": "张*",
-        "type": "system_notice",
+        "memberName": "张*",
+        "notificationType": "system_notice",
         "title": "系统升级公告",
         "content": "系统将于今晚22:00进行升级维护...",
         "isRead": false,
-        "createdAt": "2026-05-06T10:00:00+08:00"
+        "createdAt": "2026-05-06T10:00:00+08:00",
+        "readAt": null
       }
     ],
     "total": 200,
@@ -488,16 +653,14 @@ Authorization: Bearer {accessToken}
 **请求参数：**
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| title | String | 是 | 公告标题（最多100字符） |
-| content | String | 是 | 公告内容（最多500字符） |
-| targetMemberTypes | List | 否 | 目标会员类型列表，为空则发送给所有用户 |
+| title | String | 是 | 公告标题（最多200字符） |
+| content | String | 是 | 公告内容（最多5000字符） |
 
 **请求示例：**
 ```json
 {
   "title": "系统升级公告",
-  "content": "系统将于今晚22:00进行升级维护，届时服务暂停约30分钟。",
-  "targetMemberTypes": ["pro", "vip"]
+  "content": "系统将于今晚22:00进行升级维护，届时服务暂停约30分钟。"
 }
 ```
 
@@ -506,12 +669,17 @@ Authorization: Bearer {accessToken}
 {
   "code": 200,
   "msg": "success",
-  "data": 1500,
+  "data": "群发任务已提交",
   "timestamp": 1714300000000
 }
 ```
 
-**返回值说明：** data 为群发成功的用户数量
+**返回值说明：** data 为提交确认信息，实际群发为异步执行（发送给所有 active 状态用户）
+
+**业务说明：**
+- 异步执行，后台线程池批量插入通知记录
+- 发送范围：所有状态为 active 且未删除的用户
+- 使用 BATCH 模式批量插入，保证性能
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -609,9 +777,10 @@ Authorization: Bearer {accessToken}
 |------|------|------|------|
 | page | Integer | 否 | 页码，默认1 |
 | size | Integer | 否 | 每页条数 |
-| memberId | Long | 否 | 用户ID |
-| status | String | 否 | 状态：pending/paid/rejected |
-| wechatId | String | 否 | 微信号（精确查询，后端转盲索引） |
+| memberName | String | 否 | 用户名（模糊查询，最长50字符） |
+| phone | String | 否 | 手机号（模糊查询，最长50字符） |
+| wechatId | String | 否 | 微信号（精确查询，后端转盲索引，最长100字符） |
+| status | String | 否 | 状态：pending/paid/rejected（最长20字符） |
 
 **响应示例：**
 ```json
@@ -623,13 +792,15 @@ Authorization: Bearer {accessToken}
       {
         "id": 1234567890123456789,
         "memberId": 9876543210987654321,
-        "username": "张*",
+        "memberName": "张*",
+        "phone": "138****5678",
         "wechatId": "wxid***23",
         "amount": 100.00,
         "status": "pending",
+        "operatorName": null,
         "remark": null,
-        "processedAt": null,
-        "createdAt": "2026-05-06T10:00:00+08:00"
+        "createdAt": "2026-05-06T10:00:00+08:00",
+        "updatedAt": null
       }
     ],
     "total": 30,
@@ -683,13 +854,13 @@ Authorization: Bearer {accessToken}
 **请求参数：**
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| status | String | 是 | 处理结果：paid（已支付）或 rejected（已拒绝） |
-| remark | String | 否 | 备注（最多200字符） |
+| action | String | 是 | 处理动作：paid（已支付）或 rejected（已拒绝） |
+| remark | String | 否 | 备注（最多500字符） |
 
 **请求示例（支付）：**
 ```json
 {
-  "status": "paid",
+  "action": "paid",
   "remark": "已通过微信转账"
 }
 ```
@@ -697,7 +868,7 @@ Authorization: Bearer {accessToken}
 **请求示例（拒绝）：**
 ```json
 {
-  "status": "rejected",
+  "action": "rejected",
   "remark": "微信号无效，请核实后重新申请"
 }
 ```
@@ -714,8 +885,11 @@ Authorization: Bearer {accessToken}
 
 **业务规则：**
 - 只能处理状态为 pending 的提现申请
-- 拒绝时自动将提现金额退回用户佣金余额
-- 处理后自动发送通知给用户
+- 采用 SQL 层 CAS 更新（`WHERE status = 'pending'`），保证并发安全
+- 并发处理同一记录时，后到的请求返回 `400: 处理失败，该提现记录状态已变更，请刷新后重试`
+- 打款（paid）：更新状态为 PAID，累加用户 `commissionTotalPaid`
+- 拒绝（rejected）：更新状态为 REJECTED，将提现金额退回用户 `commissionBalance`
+- 处理后自动发送通知给用户：打款发送 `commission_paid` 类型，拒绝发送 `commission_rejected` 类型
 
 **操作日志：** 此接口自动记录操作日志
 
@@ -807,13 +981,24 @@ Authorization: Bearer {accessToken}
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | BIGINT | 主键（雪花算法） |
+| order_no | VARCHAR(50) | 订单号（唯一） |
 | member_id | BIGINT | 用户ID |
-| order_no | VARCHAR(32) | 订单号（唯一） |
+| member_name | VARCHAR(50) | 用户名 |
+| phone | VARCHAR(20) | 手机号 |
+| wechat_id | VARCHAR(255) | 微信号（AES加密存储） |
+| wechat_id_index | VARCHAR(64) | 微信号盲索引（SHA-256哈希） |
 | order_type | VARCHAR(20) | 订单类型：new/renewal |
-| member_type | VARCHAR(20) | 会员类型：pro/vip |
+| before_type | VARCHAR(20) | 变更前会员类型：normal/pro/vip |
+| after_type | VARCHAR(20) | 变更后会员类型：normal/pro/vip |
+| duration_months | INTEGER | 购买时长（月） |
 | amount | DECIMAL(10,2) | 支付金额 |
-| remark | VARCHAR(200) | 备注 |
+| before_expire_at | TIMESTAMPTZ | 变更前到期时间 |
+| after_expire_at | TIMESTAMPTZ | 变更后到期时间 |
+| operator_id | BIGINT | 操作人ID |
+| operator_name | VARCHAR(50) | 操作人姓名 |
+| remark | VARCHAR(500) | 备注 |
 | is_deleted | BOOLEAN | 软删除标记 |
+| version | INTEGER | 乐观锁版本号（默认0） |
 | created_at | TIMESTAMPTZ | 创建时间 |
 | updated_at | TIMESTAMPTZ | 更新时间 |
 
@@ -857,11 +1042,12 @@ CREATE INDEX idx_commission_order_id ON t_referral_commission(order_id) WHERE is
 |------|------|------|
 | id | BIGINT | 主键（雪花算法） |
 | member_id | BIGINT | 用户ID |
-| type | VARCHAR(50) | 通知类型（见类型说明） |
+| notification_type | VARCHAR(50) | 通知类型（见类型说明） |
 | title | VARCHAR(100) | 标题 |
-| content | VARCHAR(500) | 内容 |
+| content | VARCHAR(5000) | 内容 |
 | related_id | BIGINT | 关联业务ID |
 | is_read | BOOLEAN | 是否已读 |
+| read_at | TIMESTAMPTZ | 用户阅读时间 |
 | is_deleted | BOOLEAN | 软删除标记 |
 | created_at | TIMESTAMPTZ | 创建时间 |
 | updated_at | TIMESTAMPTZ | 更新时间 |
@@ -869,7 +1055,7 @@ CREATE INDEX idx_commission_order_id ON t_referral_commission(order_id) WHERE is
 **索引：**
 ```sql
 CREATE INDEX idx_notification_member_id ON t_member_notification(member_id) WHERE is_deleted = FALSE;
-CREATE INDEX idx_notification_type ON t_member_notification(type) WHERE is_deleted = FALSE;
+CREATE INDEX idx_notification_type ON t_member_notification(notification_type) WHERE is_deleted = FALSE;
 CREATE INDEX idx_notification_is_read ON t_member_notification(is_read) WHERE is_deleted = FALSE;
 ```
 
@@ -881,12 +1067,15 @@ CREATE INDEX idx_notification_is_read ON t_member_notification(is_read) WHERE is
 |------|------|------|
 | id | BIGINT | 主键（雪花算法） |
 | member_id | BIGINT | 用户ID |
-| amount | DECIMAL(10,2) | 提现金额 |
+| member_name | VARCHAR(50) | 用户名 |
+| phone | VARCHAR(20) | 手机号 |
 | wechat_id | VARCHAR(255) | 微信号（AES加密） |
 | wechat_id_index | VARCHAR(64) | 微信号盲索引 |
+| amount | DECIMAL(10,2) | 提现金额 |
 | status | VARCHAR(20) | 状态：pending/paid/rejected |
-| remark | VARCHAR(200) | 备注 |
-| processed_at | TIMESTAMPTZ | 处理时间 |
+| operator_id | BIGINT | 处理人ID |
+| operator_name | VARCHAR(50) | 处理人姓名 |
+| remark | VARCHAR(500) | 备注 |
 | is_deleted | BOOLEAN | 软删除标记 |
 | created_at | TIMESTAMPTZ | 创建时间 |
 | updated_at | TIMESTAMPTZ | 更新时间 |
@@ -921,7 +1110,8 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 | member_expire_soon | 会员即将过期 |
 | member_expired | 会员已过期 |
 | commission_earned | 佣金到账 |
-| commission_paid | 佣金已提现 |
+| commission_paid | 佣金已发放 |
+| commission_rejected | 提现被拒绝 |
 | system_notice | 系统公告 |
 | member_renewed | 会员续费成功 |
 | member_activation_success | 会员开通成功 |
@@ -958,6 +1148,10 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 
 | 文件 | 修改内容 |
 |------|------|
+| entity/user/Member.java | 新增 @Version 乐观锁字段 |
+| entity/user/MemberOrder.java | 新增 @Version 乐观锁字段 |
+| entity/user/MemberNotification.java | 新增 updatedAt 字段 |
+| mapper/user/WithdrawRecordMapper.java | 新增 updateStatusCas 方法（CAS 更新提现状态） |
 | util/DesensitizeUtil.java | 新增 desensitizeName 方法 |
 
 ### haifeng-admin 新增
@@ -966,14 +1160,14 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 |------|------|
 | dto/user/MemberUpgradeDTO.java | 会员升级参数 |
 | dto/user/OrderQueryDTO.java | 订单查询参数 |
-| dto/user/CommissionQueryDTO.java | 佣金查询参数 |
+| dto/user/CommissionQueryDTO.java | 佣金查询参数（手机号前缀匹配、名称模糊、订单号模糊） |
 | dto/user/NotificationQueryDTO.java | 通知查询参数 |
 | dto/user/NotificationBroadcastDTO.java | 群发公告参数 |
 | dto/user/WithdrawQueryDTO.java | 提现查询参数 |
 | dto/user/WithdrawProcessDTO.java | 提现处理参数 |
 | vo/user/OrderListVO.java | 订单列表VO |
 | vo/user/OrderDetailVO.java | 订单详情VO |
-| vo/user/CommissionListVO.java | 佣金列表VO |
+| vo/user/CommissionListVO.java | 佣金列表VO（含推荐人/被推荐人名称和手机号） |
 | vo/user/NotificationListVO.java | 通知列表VO |
 | vo/user/WithdrawListVO.java | 提现列表VO |
 | service/user/MemberOrderService.java | 订单服务接口 |
@@ -993,15 +1187,18 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 
 | 文件 | 修改内容 |
 |------|------|
-| controller/user/MemberController.java | 新增 upgrade 接口 |
+| controller/user/MemberController.java | 新增 upgrade/list/detail/updateStatus/getWechat 接口，加 @Validated、@RateLimit |
+| controller/user/MemberOrderController.java | 加 @Validated、@RateLimit |
 | service/user/MemberService.java | 新增 upgradeMember 方法 |
-| service/impl/user/MemberServiceImpl.java | 实现会员升级、订单创建、佣金计算逻辑 |
+| service/impl/user/MemberServiceImpl.java | 实现会员升级、订单创建、佣金计算逻辑；加乐观锁检查、幂等防重复、SystemSettings 去重查询、VIP→PRO 降级修复 |
+| service/impl/user/MemberOrderServiceImpl.java | 加乐观锁检查、硬删除外键校验、恢复校验 |
 
 ### 数据库迁移
 
 | 文件 | 说明 |
 |------|------|
 | V3__create_member_tables.sql | 新增：订单、佣金、通知、提现表 |
+| V32__add_optimistic_lock_member_tables.sql | 新增：t_member 和 member_orders 的 version 字段 |
 
 ---
 
@@ -1010,13 +1207,52 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 | 错误码 | 说明 |
 |--------|------|
 | 200 | 成功 |
-| 400 | 参数错误（如：目标会员类型不能低于当前类型） |
+| 400 | 参数错误 / 乐观锁冲突 / 幂等防重复 / 外键校验失败 |
 | 401 | 未登录或Token过期 |
 | 403 | 无权限 |
 | 404 | 资源不存在（用户/订单/佣金/通知/提现记录不存在） |
+| 429 | 请求过于频繁（频率限制） |
 | 500 | 服务器内部错误 |
 | 1001 | 用户不存在 |
 | 1006 | 提现记录已处理，不能重复操作 |
+
+**常见 400 错误示例：**
+```json
+{
+  "code": 400,
+  "msg": "数据已被其他人修改，请刷新后重试"
+}
+```
+```json
+{
+  "code": 400,
+  "msg": "该用户已有同类未完成订单，请勿重复操作"
+}
+```
+```json
+{
+  "code": 400,
+  "msg": "该订单存在关联的佣金记录，无法硬删除"
+}
+```
+```json
+{
+  "code": 400,
+  "msg": "请先禁用该佣金记录，再执行硬删除"
+}
+```
+```json
+{
+  "code": 400,
+  "msg": "该订单所属会员已不存在，无法恢复"
+}
+```
+```json
+{
+  "code": 400,
+  "msg": "处理失败，该提现记录状态已变更，请刷新后重试"
+}
+```
 
 ---
 
@@ -1026,6 +1262,8 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 
 以下操作强制记录操作日志：
 - 会员开通/升级/续费
+- 修改用户状态
+- 查看用户微信明文
 - 查看订单微信明文
 - 禁用订单（软删除）
 - 硬删除订单（物理删除）
@@ -1042,6 +1280,25 @@ CREATE INDEX idx_withdraw_wechat_index ON t_withdraw_record(wechat_id_index) WHE
 - 禁用提现记录（软删除）
 - 硬删除提现记录（物理删除）
 - 恢复提现记录
+
+### 频率限制
+
+以下敏感接口启用 IP 级频率限制（每IP每分钟最多10次）：
+- 查看用户微信明文 `GET /api/v1/admin/user/{id}/wechat`
+- 查看订单微信明文 `GET /api/v1/admin/user/order/{id}/wechat`
+- 查看提现微信明文 `GET /api/v1/admin/user/withdraw/{id}/wechat`
+
+### 乐观锁保护
+
+所有写操作（更新、删除、恢复）基于 `version` 字段实现乐观锁，数据被并发修改时返回 `400: 数据已被其他人修改，请刷新后重试`。
+
+### 幂等防重复
+
+会员开通/升级接口在创建订单前检查同类型未删除订单是否已存在，防止重复开单。
+
+### 外键校验
+
+硬删除订单前检查是否存在关联的佣金记录，有则拒绝硬删除，避免孤儿引用。
 
 ### 微信号加密存储
 

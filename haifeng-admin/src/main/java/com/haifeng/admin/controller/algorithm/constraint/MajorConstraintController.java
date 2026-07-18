@@ -2,6 +2,7 @@ package com.haifeng.admin.controller.algorithm.constraint;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.algorithm.constraint.MajorConstraintAddDTO;
+import com.haifeng.admin.dto.algorithm.constraint.MajorConstraintBatchDeleteDTO;
 import com.haifeng.admin.dto.algorithm.constraint.MajorConstraintQueryDTO;
 import com.haifeng.admin.service.algorithm.constraint.MajorConstraintService;
 import com.haifeng.admin.vo.algorithm.constraint.MajorConstraintDetailVO;
@@ -11,14 +12,15 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.List;
 
 /**
  * 专业-约束关联管理
  * 将约束字典中的约束项（如视力≥4.8）关联到具体专业，构成专业录取约束
  */
+@Validated
 @RestController
 @RequestMapping("/api/v1/admin/algorithm/constraint/major")
 @RequiredArgsConstructor
@@ -55,18 +57,17 @@ public class MajorConstraintController {
     }
 
     /** 批量删除关联 */
-    @DeleteMapping("/batch")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "专业约束管理", action = "批量删除专业约束关联")
-    public R<Void> batchDelete(@RequestBody List<Long> ids) {
-        majorConstraintService.batchDelete(ids);
+    public R<Void> batchDelete(@Valid @RequestBody MajorConstraintBatchDeleteDTO dto) {
+        majorConstraintService.batchDelete(dto.getIds());
         return R.ok();
     }
 
     /** 通过 Excel 批量导入 专业与约束的关联 */
     @PostMapping("/import")
     @OperationLog(module = "专业约束管理", action = "导入专业约束关联")
-    public R<Void> importData(@RequestParam("file") MultipartFile file) {
-        majorConstraintService.importData(file);
-        return R.ok();
+    public R<Integer> importData(@RequestParam("file") MultipartFile file) {
+        return R.ok(majorConstraintService.importData(file));
     }
 }

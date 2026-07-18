@@ -1,8 +1,6 @@
 package com.haifeng.common.entity.algorithm;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,5 +22,13 @@ public class ProvinceConfig {
     private BigDecimal densityK;
     private BigDecimal lineSteepness;
     private BigDecimal rankSteepness;
+
+    @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
+
+    @Version
+    private Integer version;
 }

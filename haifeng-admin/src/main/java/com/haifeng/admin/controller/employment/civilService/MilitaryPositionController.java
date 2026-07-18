@@ -3,7 +3,7 @@ package com.haifeng.admin.controller.employment.civilService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionUpdateDTO;
-import com.haifeng.admin.dto.employment.grassrootsPosition.StatusDTO;
+import com.haifeng.admin.dto.employment.civilService.PositionStatusUpdateDTO;
 import com.haifeng.admin.service.employment.civilService.MilitaryPositionService;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionListVO;
@@ -11,7 +11,10 @@ import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,6 +27,7 @@ import java.util.List;
 @RequestMapping("/api/v1/admin/employment/civil-service/military-position")
 @RequiredArgsConstructor
 @RequireAdminModule("emp_civil_military")
+@Validated
 public class MilitaryPositionController {
 
     private final MilitaryPositionService militaryPositionService;
@@ -53,23 +57,31 @@ public class MilitaryPositionController {
     }
 
     @PatchMapping("/{id}/status")
-    @OperationLog(module = "体制内招录", action = "启用/禁用部队文职岗位")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
-        militaryPositionService.updateStatus(id, dto.getStatus());
+    @OperationLog(module = "体制内招录", action = "更新部队文职岗位状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody PositionStatusUpdateDTO dto) {
+        militaryPositionService.updateStatus(id, dto.getPositionStatus());
         return R.ok();
     }
 
-    @DeleteMapping("/batch-delete")
+    @PostMapping("/batch-delete")
     @OperationLog(module = "体制内招录", action = "批量删除部队文职岗位")
-    public R<Void> batchDelete(@Valid @RequestBody List<Long> ids) {
+    public R<Void> batchDelete(
+            @Valid @RequestBody
+            @NotEmpty(message = "ids不能为空")
+            @Size(max = 100, message = "单次最多删除100条")
+            List<Long> ids
+    ) {
         militaryPositionService.batchDelete(ids);
         return R.ok();
     }
 
     @PostMapping("/pre-validate")
-    public R<String> preValidate(@RequestParam("file") MultipartFile file) {
+    public R<Void> preValidate(@RequestParam("file") MultipartFile file) {
         String result = militaryPositionService.preValidate(file);
-        return result == null ? R.ok("校验通过") : R.ok(result);
+        if (result != null) {
+            return R.fail(400, result);
+        }
+        return R.ok();
     }
 
     @PostMapping("/import")

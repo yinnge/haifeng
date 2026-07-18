@@ -14,5 +14,5 @@ public class CampusGalleryUpdateDTO {
 
     private Integer sortOrder;
 
-    private Integer status;
+    private Short status;
 }

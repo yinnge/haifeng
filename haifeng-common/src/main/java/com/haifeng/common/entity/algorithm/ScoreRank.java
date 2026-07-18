@@ -58,4 +58,13 @@ public class ScoreRank {
 
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private OffsetDateTime updatedAt;
+
+    @TableLogic
+    private Boolean isDeleted;
+
+    @Version
+    private Integer version;
 }

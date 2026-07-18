@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS t_constraint_dict (
     is_active           BOOLEAN         DEFAULT TRUE,
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    is_deleted          BOOLEAN         DEFAULT FALSE,
+    version             INTEGER         DEFAULT 0,
     CONSTRAINT chk_severity CHECK (severity IN ('HARD', 'SOFT'))
 );
 
@@ -51,6 +53,9 @@ CREATE TABLE IF NOT EXISTS t_major_constraint (
     constraint_name     VARCHAR(100)    NOT NULL,
     remark              VARCHAR(200),
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    is_deleted          BOOLEAN         DEFAULT FALSE,
+    version             INTEGER         DEFAULT 0,
     CONSTRAINT uk_major_constraint UNIQUE (major_code, constraint_code)
 );
 
@@ -62,6 +67,10 @@ COMMENT ON COLUMN t_major_constraint.constraint_name IS '约束名称';
 
 CREATE INDEX idx_mc_major ON t_major_constraint (major_code);
 CREATE INDEX idx_mc_constraint ON t_major_constraint (constraint_code);
+
+CREATE TRIGGER trg_major_constraint_updated_at
+    BEFORE UPDATE ON t_major_constraint
+    FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
 
 -- ============================================================
 -- 3. 安全系数等级字典 (t_safety_level_dict)
@@ -77,6 +86,10 @@ CREATE TABLE IF NOT EXISTS t_safety_level_dict (
     confidence          VARCHAR(20),
     confidence_reason   VARCHAR(150),
     description         TEXT,
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    is_deleted          BOOLEAN         DEFAULT FALSE,
+    version             INTEGER         DEFAULT 0,
     CONSTRAINT chk_coeff_range CHECK (min_coefficient < max_coefficient)
 );
 
@@ -87,6 +100,10 @@ COMMENT ON COLUMN t_safety_level_dict.name IS '中文名称';
 COMMENT ON COLUMN t_safety_level_dict.name_short IS '简称';
 COMMENT ON COLUMN t_safety_level_dict.min_coefficient IS '系数下界';
 COMMENT ON COLUMN t_safety_level_dict.max_coefficient IS '系数上界';
+
+CREATE TRIGGER trg_safety_level_dict_updated_at
+    BEFORE UPDATE ON t_safety_level_dict
+    FOR EACH ROW EXECUTE FUNCTION fn_update_timestamp();
 
 -- 初始化安全系数等级数据
 INSERT INTO t_safety_level_dict

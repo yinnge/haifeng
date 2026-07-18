@@ -3,6 +3,7 @@ package com.haifeng.admin.dto.algorithm.config;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -57,5 +58,6 @@ public class GaokaoConfigUpdateDTO {
     private BigDecimal weightSoftBoth;
 
     @NotNull(message = "年份衰减权重不能为空")
+    @Size(min = 3, max = 5, message = "年份衰减权重数组长度须为3~5")
     private List<BigDecimal> yearWeights;
 }

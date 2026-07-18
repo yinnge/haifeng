@@ -61,6 +61,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                         .eq(ScoreRank::getYear, year.shortValue())
                         .eq(ScoreRank::getSubjectType, subjectType)
                         .eq(ScoreRank::getScore, score.shortValue())
+                        .eq(ScoreRank::getIsDeleted, false)
         );
 
         if (rank == null) {
@@ -75,12 +76,13 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
 
     @Override
     public BatchLineListVO getBatchLines(String province, Integer year, String subjectType) {
-        // 1. 先查当年数据
+        // 1. 先查当年数据（仅查未删除记录）
         List<BatchScoreLine> lines = batchScoreLineMapper.selectList(
                 new LambdaQueryWrapper<BatchScoreLine>()
                         .eq(BatchScoreLine::getProvince, province)
                         .eq(BatchScoreLine::getYear, year.shortValue())
                         .eq(BatchScoreLine::getSubjectType, subjectType)
+                        .eq(BatchScoreLine::getIsDeleted, false)
                         .orderByAsc(BatchScoreLine::getScoreLine)
         );
 
@@ -92,11 +94,12 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                     .build();
         }
 
-        // 2. 当年无数据，查最近5年
+        // 2. 当年无数据，查最近5年（仅查未删除记录）
         lines = batchScoreLineMapper.selectList(
                 new LambdaQueryWrapper<BatchScoreLine>()
                         .eq(BatchScoreLine::getProvince, province)
                         .eq(BatchScoreLine::getSubjectType, subjectType)
+                        .eq(BatchScoreLine::getIsDeleted, false)
                         .ge(BatchScoreLine::getYear, (short) (year - 5))
                         .orderByDesc(BatchScoreLine::getYear)
                         .orderByAsc(BatchScoreLine::getScoreLine)

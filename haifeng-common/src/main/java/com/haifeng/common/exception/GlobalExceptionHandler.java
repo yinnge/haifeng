@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -111,6 +112,16 @@ public class GlobalExceptionHandler {
     public R<Void> handleAccessDeniedException(AccessDeniedException e) {
         log.warn("访问被拒绝: {}", e.getMessage());
         return R.fail(ResultCode.FORBIDDEN);
+    }
+
+    /**
+     * 乐观锁冲突
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleOptimisticLockingFailureException(OptimisticLockingFailureException e) {
+        log.warn("乐观锁冲突: {}", e.getMessage());
+        return R.fail(ResultCode.BAD_REQUEST.getCode(), "数据已被其他人修改，请刷新后重试");
     }
 
     /**
