@@ -485,96 +485,96 @@ public class CityServiceImpl implements CityService {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
-            // Sheet0: 详情基础字段
+            // Sheet: 详情基础字段
             List<CityDetailExcelDTO> detailData = EasyExcel.read(file.getInputStream())
                     .head(CityDetailExcelDTO.class)
-                    .sheet(0)
+                    .sheet("详情基础字段")
                     .doReadSync();
 
             if (detailData == null || detailData.isEmpty()) {
-                throw new BusinessException(400, "导入失败：Sheet0(详情基础字段)为空");
+                throw new BusinessException(400, "导入失败：详情基础字段Sheet为空");
             }
 
             if (detailData.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
             }
 
-            // Sheet1: industry_structure
+            // Sheet: 产业结构
             List<IndustryStructureExcelDTO> industryStructureData = EasyExcel.read(file.getInputStream())
                     .head(IndustryStructureExcelDTO.class)
-                    .sheet(1)
+                    .sheet("产业结构")
                     .doReadSync();
 
-            // Sheet2: housing_price_level
+            // Sheet: 房价水平
             List<HousingPriceLevelExcelDTO> housingPriceData = EasyExcel.read(file.getInputStream())
                     .head(HousingPriceLevelExcelDTO.class)
-                    .sheet(2)
+                    .sheet("房价水平")
                     .doReadSync();
 
-            // Sheet3: high_education
+            // Sheet: 高等教育
             List<HighEducationExcelDTO> highEducationData = EasyExcel.read(file.getInputStream())
                     .head(HighEducationExcelDTO.class)
-                    .sheet(3)
+                    .sheet("高等教育")
                     .doReadSync();
 
-            // Sheet4: basic_education
+            // Sheet: 基础教育
             List<BasicEducationExcelDTO> basicEducationData = EasyExcel.read(file.getInputStream())
                     .head(BasicEducationExcelDTO.class)
-                    .sheet(4)
+                    .sheet("基础教育")
                     .doReadSync();
 
-            // Sheet5: transportation
+            // Sheet: 交通
             List<TransportationExcelDTO> transportationData = EasyExcel.read(file.getInputStream())
                     .head(TransportationExcelDTO.class)
-                    .sheet(5)
+                    .sheet("交通")
                     .doReadSync();
 
-            // Sheet6: employment
+            // Sheet: 就业
             List<EmploymentExcelDTO> employmentData = EasyExcel.read(file.getInputStream())
                     .head(EmploymentExcelDTO.class)
-                    .sheet(6)
+                    .sheet("就业")
                     .doReadSync();
 
-            // Sheet7: enterprise_stats
+            // Sheet: 企业统计
             List<EnterpriseStatsExcelDTO> enterpriseStatsData = EasyExcel.read(file.getInputStream())
                     .head(EnterpriseStatsExcelDTO.class)
-                    .sheet(7)
+                    .sheet("企业统计")
                     .doReadSync();
 
-            // Sheet8: future_plan
+            // Sheet: 未来规划
             List<FuturePlanExcelDTO> futurePlanData = EasyExcel.read(file.getInputStream())
                     .head(FuturePlanExcelDTO.class)
-                    .sheet(8)
+                    .sheet("未来规划")
                     .doReadSync();
 
-            // Sheet9: culture
+            // Sheet: 文化旅游
             List<CultureExcelDTO> cultureData = EasyExcel.read(file.getInputStream())
                     .head(CultureExcelDTO.class)
-                    .sheet(9)
+                    .sheet("文化旅游")
                     .doReadSync();
 
-            // Sheet10: consumption
+            // Sheet: 消费
             List<ConsumptionExcelDTO> consumptionData = EasyExcel.read(file.getInputStream())
                     .head(ConsumptionExcelDTO.class)
-                    .sheet(10)
+                    .sheet("消费")
                     .doReadSync();
 
-            // Sheet11: medical
+            // Sheet: 医疗
             List<MedicalExcelDTO> medicalData = EasyExcel.read(file.getInputStream())
                     .head(MedicalExcelDTO.class)
-                    .sheet(11)
+                    .sheet("医疗")
                     .doReadSync();
 
-            // Sheet12: housing_policy
+            // Sheet: 住房政策
             List<HousingPolicyExcelDTO> housingPolicyData = EasyExcel.read(file.getInputStream())
                     .head(HousingPolicyExcelDTO.class)
-                    .sheet(12)
+                    .sheet("住房政策")
                     .doReadSync();
 
-            // Sheet13: rental_cost
+            // Sheet: 租房成本
             List<RentalCostExcelDTO> rentalCostData = EasyExcel.read(file.getInputStream())
                     .head(RentalCostExcelDTO.class)
-                    .sheet(13)
+                    .sheet("租房成本")
                     .doReadSync();
 
             // 按城市名称分组JSONB数据
@@ -726,26 +726,26 @@ public class CityServiceImpl implements CityService {
                         return m;
                     });
 
-            // 校验Sheet1~13中的城市名是否都在Sheet0中存在
+            // 校验其他Sheet中的城市名是否都在详情基础字段Sheet中存在
             Set<String> sheet0CityNames = new HashSet<>();
             for (CityDetailExcelDTO dto : detailData) {
                 if (StringUtils.hasText(dto.getCityName())) {
                     sheet0CityNames.add(dto.getCityName());
                 }
             }
-            validateSheetCityNames(industryStructureData, "Sheet1(产业结构)", IndustryStructureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(housingPriceData, "Sheet2(房价水平)", HousingPriceLevelExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(highEducationData, "Sheet3(高等教育)", HighEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(basicEducationData, "Sheet4(基础教育)", BasicEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(transportationData, "Sheet5(交通)", TransportationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(employmentData, "Sheet6(就业)", EmploymentExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(enterpriseStatsData, "Sheet7(企业统计)", EnterpriseStatsExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(futurePlanData, "Sheet8(未来规划)", FuturePlanExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(cultureData, "Sheet9(文化)", CultureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(consumptionData, "Sheet10(消费)", ConsumptionExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(medicalData, "Sheet11(医疗)", MedicalExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(housingPolicyData, "Sheet12(住房政策)", HousingPolicyExcelDTO::getCityName, sheet0CityNames, errorMsgs);
-            validateSheetCityNames(rentalCostData, "Sheet13(租房成本)", RentalCostExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(industryStructureData, "产业结构", IndustryStructureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(housingPriceData, "房价水平", HousingPriceLevelExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(highEducationData, "高等教育", HighEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(basicEducationData, "基础教育", BasicEducationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(transportationData, "交通", TransportationExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(employmentData, "就业", EmploymentExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(enterpriseStatsData, "企业统计", EnterpriseStatsExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(futurePlanData, "未来规划", FuturePlanExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(cultureData, "文化旅游", CultureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(consumptionData, "消费", ConsumptionExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(medicalData, "医疗", MedicalExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(housingPolicyData, "住房政策", HousingPolicyExcelDTO::getCityName, sheet0CityNames, errorMsgs);
+            validateSheetCityNames(rentalCostData, "租房成本", RentalCostExcelDTO::getCityName, sheet0CityNames, errorMsgs);
 
             // 缓存城市ID
             Map<String, Long> cityIdCache = new HashMap<>();
@@ -757,19 +757,19 @@ public class CityServiceImpl implements CityService {
                 CityDetailExcelDTO data = detailData.get(i);
 
                 if (!StringUtils.hasText(data.getCityName())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：城市名称不能为空");
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称不能为空");
                     continue;
                 }
 
                 // 校验cityLevel枚举值
                 if (data.getCityLevel() != null && !VALID_CITY_LEVELS.contains(data.getCityLevel())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：城市级别'" + data.getCityLevel() + "'不合法，可选值：直辖市、省会城市、地级市、县级市");
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市级别'" + data.getCityLevel() + "'不合法，可选值：直辖市、省会城市、地级市、县级市");
                     continue;
                 }
 
                 // 校验subtitle长度
                 if (data.getSubtitle() != null && data.getSubtitle().length() > 200) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：副标题不能超过200个字符");
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：副标题不能超过200个字符");
                     continue;
                 }
 
@@ -791,7 +791,7 @@ public class CityServiceImpl implements CityService {
                            .eq(City::getIsDeleted, false);
                     City city = cityMapper.selectOne(wrapper);
                     if (city == null) {
-                        errorMsgs.add("Sheet0第" + rowNum + "行：城市名称'" + data.getCityName() + "'不存在");
+                        errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称'" + data.getCityName() + "'不存在");
                         continue;
                     }
                     cityId = city.getId();
@@ -801,7 +801,7 @@ public class CityServiceImpl implements CityService {
                 // 查询详情记录
                 CityDetail detail = cityDetailMapper.findByCityId(cityId);
                 if (detail == null) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：城市'" + data.getCityName() + "'的详情记录不存在");
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市'" + data.getCityName() + "'的详情记录不存在");
                     continue;
                 }
 
@@ -884,13 +884,13 @@ public class CityServiceImpl implements CityService {
      */
     private String validatePercentageRange(BigDecimal value, String fieldName, int rowNum) {
         if (value != null && (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(HUNDRED) > 0)) {
-            return "Sheet0第" + rowNum + "行：" + fieldName + "必须在0-100之间";
+            return "详情基础字段第" + rowNum + "行：" + fieldName + "必须在0-100之间";
         }
         return null;
     }
 
     /**
-     * 校验Sheet中的城市名是否都在Sheet0中存在
+     * 校验Sheet中的城市名是否都在详情基础字段Sheet中存在
      */
     private <T> void validateSheetCityNames(List<T> dataList, String sheetName,
                                              java.util.function.Function<T, String> nameExtractor,
@@ -899,7 +899,7 @@ public class CityServiceImpl implements CityService {
         for (int i = 0; i < dataList.size(); i++) {
             String cityName = nameExtractor.apply(dataList.get(i));
             if (StringUtils.hasText(cityName) && !validNames.contains(cityName)) {
-                errorMsgs.add(sheetName + "第" + (i + 2) + "行：城市名称'" + cityName + "'在Sheet0中不存在");
+                errorMsgs.add(sheetName + "第" + (i + 2) + "行：城市名称'" + cityName + "'在详情基础字段Sheet中不存在");
             }
         }
     }

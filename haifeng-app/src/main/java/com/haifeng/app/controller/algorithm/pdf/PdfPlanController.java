@@ -64,9 +64,10 @@ public class PdfPlanController {
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Integer recordId) {
         Long userId = SecurityUtil.getCurrentMemberId();
         byte[] pdfBytes = pdfReportService.renderPdf(userId, recordId);
+        String filename = pdfReportService.getDownloadFilename(userId, recordId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("inline", "haifeng-report-" + recordId + ".pdf");
+        headers.setContentDispositionFormData("inline", filename + ".pdf");
         headers.setContentLength(pdfBytes.length);
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }

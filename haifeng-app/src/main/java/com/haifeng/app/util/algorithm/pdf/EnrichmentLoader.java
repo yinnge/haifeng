@@ -14,9 +14,15 @@ import com.haifeng.common.mapper.major.MajorMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * PDF 报告数据增强加载器
@@ -105,25 +111,78 @@ public class EnrichmentLoader {
 
             MajorDetail detail = majorDetailMapper.selectByMajorId(majorId);
 
-            MajorEnrichmentVO.MajorEnrichmentVOBuilder builder = MajorEnrichmentVO.builder()
-                    .majorName(major.getMajorName())
-                    .majorCategory(major.getMajorCategory())
-                    .parentCategory(major.getParentCategory())
-                    .majorTags(major.getMajorTags())
-                    .degreeAwarded(major.getDegreeAwarded())
-                    .employmentRate(major.getEmploymentRate())
-                    .salaryMin(major.getSalaryMin())
-                    .salaryMax(major.getSalaryMax())
-                    .description(major.getDescription());
-
-            if (detail != null) {
-                builder.careerProspect(detail.getCareerProspect());
-            }
-
-            return builder.build();
+            return buildMajorEnrichment(major, detail);
         } catch (Exception e) {
             log.warn("加载专业增强数据失败, majorId={}: {}", majorId, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 批量按专业ID加载专业增强数据，避免 N+1 查询。
+     * <p>对 t_major 和 t_major_detail 各执行一次批量查询（selectBatchIds / IN），
+     * 在内存中按 majorId 关联。查询失败时返回空 Map（不抛异常，调用方应做 null 防御）。
+     *
+     * @param majorIds 专业ID集合
+     * @return majorId -> 专业增强数据 的映射，未命中的 majorId 不在 Map 中
+     */
+    public Map<Long, MajorEnrichmentVO> loadMajorsBatch(Collection<Long> majorIds) {
+        if (CollectionUtils.isEmpty(majorIds)) {
+            return Collections.emptyMap();
+        }
+        try {
+            List<Long> ids = majorIds.stream().filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+            if (ids.isEmpty()) {
+                return Collections.emptyMap();
+            }
+
+            // 1. 批量查 t_major
+            List<Major> majors = majorMapper.selectBatchIds(ids);
+            if (CollectionUtils.isEmpty(majors)) {
+                return Collections.emptyMap();
+            }
+            Map<Long, Major> majorMap = majors.stream()
+                    .collect(Collectors.toMap(Major::getId, m -> m, (a, b) -> a));
+
+            // 2. 批量查 t_major_detail（按 major_id IN）
+            List<MajorDetail> details = majorDetailMapper.selectList(
+                    new LambdaQueryWrapper<MajorDetail>()
+                            .in(MajorDetail::getMajorId, ids)
+                            .eq(MajorDetail::getStatus, 1));
+            Map<Long, MajorDetail> detailMap = CollectionUtils.isEmpty(details)
+                    ? Collections.emptyMap()
+                    : details.stream()
+                            .filter(d -> d.getMajorId() != null)
+                            .collect(Collectors.toMap(MajorDetail::getMajorId, d -> d, (a, b) -> a));
+
+            // 3. 合并
+            Map<Long, MajorEnrichmentVO> result = new HashMap<>(majors.size());
+            for (Major major : majors) {
+                MajorDetail detail = major.getId() != null ? detailMap.get(major.getId()) : null;
+                result.put(major.getId(), buildMajorEnrichment(major, detail));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("批量加载专业增强数据失败, majorIds.size={}: {}", majorIds.size(), e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    private MajorEnrichmentVO buildMajorEnrichment(Major major, MajorDetail detail) {
+        MajorEnrichmentVO.MajorEnrichmentVOBuilder builder = MajorEnrichmentVO.builder()
+                .majorName(major.getMajorName())
+                .majorCategory(major.getMajorCategory())
+                .parentCategory(major.getParentCategory())
+                .majorTags(major.getMajorTags())
+                .degreeAwarded(major.getDegreeAwarded())
+                .employmentRate(major.getEmploymentRate())
+                .salaryMin(major.getSalaryMin())
+                .salaryMax(major.getSalaryMax())
+                .description(major.getDescription());
+
+        if (detail != null) {
+            builder.careerProspect(detail.getCareerProspect());
+        }
+        return builder.build();
     }
 }

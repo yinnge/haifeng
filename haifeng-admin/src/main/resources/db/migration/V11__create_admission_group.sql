@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS t_admission_group(
     max_rank                INTEGER,
     avg_score               NUMERIC(6,2),
     avg_rank                INTEGER,
+    version                 INTEGER         DEFAULT 0,
     is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -51,6 +52,7 @@ CREATE INDEX idx_ag_year ON t_admission_group (year) WHERE is_deleted = FALSE;
 CREATE INDEX idx_ag_req_type ON t_admission_group (requirement_type) WHERE is_deleted = FALSE;
 CREATE INDEX idx_ag_subjects_gin ON t_admission_group USING GIN (subjects);
 CREATE INDEX idx_ag_constraints_gin ON t_admission_group USING GIN (constraints);
+CREATE INDEX idx_ag_list_query ON t_admission_group (province, batch, year, min_rank) WHERE is_deleted = FALSE;
 
 -- 注释
 COMMENT ON TABLE t_admission_group IS '专业组录取表：记录高校各专业组的录取信息';
@@ -76,6 +78,7 @@ COMMENT ON COLUMN t_admission_group.max_rank IS '最高分对应位次';
 COMMENT ON COLUMN t_admission_group.avg_score IS '平均分';
 COMMENT ON COLUMN t_admission_group.avg_rank IS '平均位次';
 COMMENT ON COLUMN t_admission_group.is_deleted IS '是否删除：FALSE=正常，TRUE=已删除';
+COMMENT ON COLUMN t_admission_group.version IS '乐观锁版本号';
 COMMENT ON COLUMN t_admission_group.created_at IS '创建时间';
 COMMENT ON COLUMN t_admission_group.updated_at IS '更新时间';
 

@@ -7,6 +7,7 @@ import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit;
  * - 上限来源：system_settings.api_number（缓存 Redis 5 分钟，默认 3）
  * - 含义：每天可生成 PDF 报告的次数（1 次 PDF = 1 额度，内部 N+1 次 AI 调用不另计）
  * - 超额抛 QuotaExceededException（HTTP 429）
+ * - incrAndCheck 与 decr 均通过 Lua 脚本保证原子性，避免 TTL 竞态与负数回退
  */
 @Slf4j
 @Service
@@ -36,22 +38,61 @@ public class AiQuotaService {
     private static final int DEFAULT_API_NUMBER = 3;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    /**
+     * Lua 脚本：原子化 INCR + EXPIREAT + 上限校验
+     * KEYS[1] = quota key
+     * ARGV[1] = end-of-day epoch seconds (for EXPIREAT)
+     * ARGV[2] = limit
+     * 返回 1 表示允许，0 表示超额
+     */
+    private static final String INCR_LUA =
+            "local c = redis.call('INCR', KEYS[1]) " +
+            "if c == 1 then redis.call('EXPIREAT', KEYS[1], ARGV[1]) end " +
+            "if c > tonumber(ARGV[2]) then return 0 end " +
+            "return 1";
+
+    /**
+     * Lua 脚本：原子化 DECR（仅在值 > 0 时执行，避免负数）
+     * KEYS[1] = quota key
+     * 返回扣减后的值
+     */
+    private static final String DECR_LUA =
+            "local c = tonumber(redis.call('GET', KEYS[1]) or '0') " +
+            "if c > 0 then return redis.call('DECR', KEYS[1]) end " +
+            "return 0";
+
     private final RedisTemplate<String, Object> redisTemplate;
     private final SystemSettingsMapper settingsMapper;
+
+    private final DefaultRedisScript<Long> incrScript = new DefaultRedisScript<>(INCR_LUA, Long.class);
+    private final DefaultRedisScript<Long> decrScript = new DefaultRedisScript<>(DECR_LUA, Long.class);
 
     public void incrAndCheck(Long userId) {
         int limit = getApiNumberLimit();
         String key = quotaKey(userId);
-        Long count = redisTemplate.opsForValue().increment(key);
-        long current = count == null ? 0L : count;
+        Long allowed = redisTemplate.execute(
+                incrScript,
+                List.of(key),
+                String.valueOf(endOfTodayEpochSeconds()),
+                String.valueOf(limit));
 
-        if (current == 1L) {
-            redisTemplate.expireAt(key, endOfTodayDate());
-        }
-
-        if (current > limit) {
-            log.warn("PDF report quota exceeded for userId={}, current={}, limit={}", userId, current, limit);
+        if (allowed == null || allowed == 0L) {
+            log.warn("PDF report quota exceeded for userId={}, limit={}", userId, limit);
             throw new QuotaExceededException();
+        }
+    }
+
+    /**
+     * 配额回退：在 doGenerate 失败分支调用，避免用户损失当日额度。
+     * 仅在当前计数 > 0 时执行 DECR，避免产生负数。
+     */
+    public void decr(Long userId) {
+        try {
+            String key = quotaKey(userId);
+            Long after = redisTemplate.execute(decrScript, List.of(key));
+            log.info("PDF report quota decremented for userId={}, after={}", userId, after);
+        } catch (Exception e) {
+            log.warn("Failed to decrement PDF quota for userId={}: {}", userId, e.getMessage());
         }
     }
 
@@ -74,8 +115,8 @@ public class AiQuotaService {
         return QUOTA_KEY_PREFIX + userId + ":" + LocalDate.now().format(DATE_FMT);
     }
 
-    private Date endOfTodayDate() {
+    private long endOfTodayEpochSeconds() {
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.of(23, 59, 59));
-        return Date.from(endOfDay.atZone(ZoneId.systemDefault()).toInstant());
+        return endOfDay.atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 }

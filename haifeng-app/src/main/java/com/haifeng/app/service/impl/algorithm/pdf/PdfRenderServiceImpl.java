@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -65,6 +66,9 @@ public class PdfRenderServiceImpl implements PdfRenderService {
     private final TemplateEngine templateEngine;
 
     private volatile String cachedLogoDataUri;
+
+    private record CachedPdf(byte[] data, OffsetDateTime updatedAt) {}
+    private final ConcurrentHashMap<Integer, CachedPdf> pdfCache = new ConcurrentHashMap<>();
 
     public PdfRenderServiceImpl(PdfReportMapper pdfReportMapper,
                                  WishGroupSnapshotMapper wishGroupSnapshotMapper,
@@ -104,6 +108,13 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "报告尚未生成完成");
         }
 
+        // 2. 检查缓存
+        CachedPdf cached = pdfCache.get(recordId);
+        if (cached != null && cached.updatedAt().equals(report.getUpdatedAt())) {
+            log.debug("PDF cache hit, recordId={}", recordId);
+            return cached.data();
+        }
+
         // 2. 解析 JSONB
         PlanSnapshot planSnapshot = parseJson(report.getPlanSnapshot(), PlanSnapshot.class);
         List<MapResultItem> mapResults = parseJsonList(report.getMapResults(), MapResultItem.class);
@@ -115,6 +126,32 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                 new LambdaQueryWrapper<WishGroupSnapshot>()
                         .eq(WishGroupSnapshot::getPlanId, planId)
                         .orderByAsc(WishGroupSnapshot::getGroupSortOrder));
+
+        // 3.1 批量加载所有专业快照（避免按组逐次查询）
+        List<Integer> groupSnapshotIds = groupSnapshots.stream()
+                .map(WishGroupSnapshot::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Integer, List<WishMajorSnapshot>> majorsByGroup = new HashMap<>();
+        if (!groupSnapshotIds.isEmpty()) {
+            List<WishMajorSnapshot> allMajors = wishMajorSnapshotMapper.selectList(
+                    new LambdaQueryWrapper<WishMajorSnapshot>()
+                            .in(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotIds)
+                            .eq(WishMajorSnapshot::getIsExported, true)
+                            .orderByAsc(WishMajorSnapshot::getMajorSortOrder));
+            for (WishMajorSnapshot m : allMajors) {
+                majorsByGroup.computeIfAbsent(m.getGroupSnapshotId(), k -> new ArrayList<>()).add(m);
+            }
+        }
+
+        // 3.2 批量加载所有专业增强数据（避免 N+1 查询）
+        List<Long> allMajorIds = majorsByGroup.values().stream()
+                .flatMap(List::stream)
+                .map(WishMajorSnapshot::getMajorId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, MajorEnrichmentVO> majorEnrichmentMap = enrichmentLoader.loadMajorsBatch(allMajorIds);
 
         // 4. 组装渲染数据
         List<PdfRenderData.GroupRenderData> groupRenderList = new ArrayList<>();
@@ -128,12 +165,8 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                     .findFirst()
                     .orElse(null);
 
-            // 加载可导出专业
-            List<WishMajorSnapshot> majorSnapshots = wishMajorSnapshotMapper.selectList(
-                    new LambdaQueryWrapper<WishMajorSnapshot>()
-                            .eq(WishMajorSnapshot::getGroupSnapshotId, gs.getId())
-                            .eq(WishMajorSnapshot::getIsExported, true)
-                            .orderByAsc(WishMajorSnapshot::getMajorSortOrder));
+            // 从批量加载结果中获取可导出专业
+            List<WishMajorSnapshot> majorSnapshots = majorsByGroup.getOrDefault(gs.getId(), Collections.emptyList());
 
             if (majorSnapshots.isEmpty()) {
                 continue;
@@ -175,8 +208,9 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                                         .collect(Collectors.toList())
                                 : null;
 
-                        // 加载专业增强数据
-                        MajorEnrichmentVO majorEnrichment = enrichmentLoader.loadMajor(m.getMajorId());
+                        // 从批量加载结果中获取专业增强数据
+                        MajorEnrichmentVO majorEnrichment = m.getMajorId() != null
+                                ? majorEnrichmentMap.get(m.getMajorId()) : null;
 
                         return PdfRenderData.MajorRenderData.builder()
                                 .majorId(m.getMajorId())
@@ -263,7 +297,9 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             builder.toStream(os);
             builder.run();
             log.info("PDF rendered successfully, recordId={}, size={}bytes", recordId, os.size());
-            return os.toByteArray();
+            byte[] pdfBytes = os.toByteArray();
+            pdfCache.put(recordId, new CachedPdf(pdfBytes, report.getUpdatedAt()));
+            return pdfBytes;
         } catch (Exception e) {
             log.error("PDF rendering failed, recordId={}", recordId, e);
             throw new BusinessException(ResultCode.INTERNAL_ERROR, "PDF渲染失败: " + e.getMessage());
@@ -308,11 +344,12 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         log.warn("No CJK font found, Chinese characters may not render correctly in PDF");
     }
 
-    private String getLogoDataUri() {
+    private synchronized String getLogoDataUri() {
         if (cachedLogoDataUri != null) return cachedLogoDataUri;
+        HttpURLConnection conn = null;
         try {
             URL url = new URL(LOGO_URL);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(3000);
             conn.setReadTimeout(5000);
             try (InputStream is = conn.getInputStream();
@@ -329,7 +366,11 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             }
         } catch (Exception e) {
             log.warn("Failed to download logo: {}", e.getMessage());
-            cachedLogoDataUri = "";
+            // M2: 失败时不缓存空串，保持 null 以便下次请求可以重试
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
         return cachedLogoDataUri;
     }

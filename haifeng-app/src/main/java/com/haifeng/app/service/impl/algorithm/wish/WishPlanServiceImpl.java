@@ -15,6 +15,7 @@ import com.haifeng.app.util.algorithm.wish.WishPlanExcelUtil;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
+import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
@@ -22,7 +23,6 @@ import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanMajorVO;
-import com.haifeng.app.util.algorithm.wish.WishPlanExcelUtil;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.algorithm.*;
 import com.haifeng.common.entity.algorithm.wish.WishGroupSnapshot;
@@ -49,12 +49,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.CollectionUtils;
 
-import java.math.BigDecimal;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -84,6 +86,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     private final ProvinceReformService provinceReformService;
     private final WishPlanExcelUtil wishPlanExcelUtil;
     private final EnrichmentLoader enrichmentLoader;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     public WishPlanLimitVO getDefaultLimits() {
@@ -114,29 +117,33 @@ public class WishPlanServiceImpl implements WishPlanService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public WishPlanListVO addMajors(WishPlanAddMajorsDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
-        if (memberId == null) {
-            throw new BusinessException(401, "未登录");
-        }
 
         // 1. 获取高考档案
         MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
         if (gaokao == null) {
-            throw new BusinessException(400, "请先填写高考档案");
+            throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }
 
         // 2. 查询专业明细
         List<AdmissionMajorScore> majorScores = admissionMajorScoreMapper.selectBatchIds(dto.getMajorIds());
         if (majorScores.size() != dto.getMajorIds().size()) {
-            throw new BusinessException(400, "部分专业明细不存在");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "部分专业明细不存在");
         }
 
         // 3. 查询专业组
         AdmissionGroup group = admissionGroupMapper.selectById(dto.getGroupId());
         if (group == null || Boolean.TRUE.equals(group.getIsDeleted())) {
-            throw new BusinessException(400, "专业组不存在");
+            throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
+        }
+
+        // C7. 校验专业是否属于指定的专业组
+        for (AdmissionMajorScore ms : majorScores) {
+            if (!ms.getGroupId().equals(dto.getGroupId())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "专业「" + ms.getMajorName() + "」不属于指定的专业组");
+            }
         }
 
         // 4. 预查询安全系数计算所需上下文
@@ -180,7 +187,8 @@ public class WishPlanServiceImpl implements WishPlanService {
                     gaokao, major, group, constraintCodes, ctx);
 
             if ("禁".equals(result.getLevelShort())) {
-                throw new BusinessException(400, "专业「" + major.getMajorName() + "」为'禁'级别，不允许添加到志愿表");
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "专业「" + major.getMajorName() + "」为'禁'级别，不允许添加到志愿表");
             }
 
             // 构建 HistoryScore 用于存储到 snapshot
@@ -201,129 +209,148 @@ public class WishPlanServiceImpl implements WishPlanService {
             majorInfos.add(new MajorSafetyInfo(major, result, historyScores));
         }
 
-        // 6. 校验用户 plan 数量限制
-        long planCount = wishPlanMapper.selectCount(
-                new LambdaQueryWrapper<WishPlan>().eq(WishPlan::getMemberId, memberId));
-        String memberType = SecurityUtil.getCurrentMemberType();
-        int maxPlans = getMaxPlans(memberType);
-        if (planCount >= maxPlans) {
-            throw new BusinessException(400, "当前会员类型最多允许 " + maxPlans + " 个志愿表");
-        }
-
-        // 7. 获取或创建 WishPlan
-        WishPlan plan = getOrCreatePlan(memberId, gaokao);
-
-        // 8. 校验档位数量限制
-        WishPlanLimitVO limits = getDefaultLimits();
-        Map<String, Integer> planCounts = new HashMap<>();
-        planCounts.put("搏", plan.getBoLimit());
-        planCounts.put("冲", plan.getChongLimit());
-        planCounts.put("稳", plan.getWenLimit());
-        planCounts.put("保", plan.getBaoLimit());
-        planCounts.put("垫", plan.getDieLimit());
-
-        Map<String, Integer> maxLimits = new HashMap<>();
-        maxLimits.put("搏", limits.getReachHighCount());
-        maxLimits.put("冲", limits.getReachCount());
-        maxLimits.put("稳", limits.getMatchCount());
-        maxLimits.put("保", limits.getSafeCount());
-        maxLimits.put("垫", limits.getFloorCount());
-
-        Map<String, Integer> newCounts = new HashMap<>();
-        for (MajorSafetyInfo info : majorInfos) {
-            String ls = info.result.getLevelShort();
-            newCounts.merge(ls, 1, Integer::sum);
-        }
-
-        for (Map.Entry<String, Integer> entry : newCounts.entrySet()) {
-            String level = entry.getKey();
-            int newCnt = entry.getValue();
-            int current = planCounts.getOrDefault(level, 0);
-            int maxAllowed = maxLimits.getOrDefault(level, Integer.MAX_VALUE);
-            if (current + newCnt > maxAllowed) {
-                throw new BusinessException(400,
-                        level + "档专业已选" + current + "个，最多" + maxAllowed + "个，本次添加" + newCnt + "个超出限制");
+        // L3. 仅包裹 DB 写操作，CPU 密集型计算已在事务外完成
+        return transactionTemplate.execute(status -> {
+            // 6. 获取或创建 WishPlan（plan 数量限制检查在 getOrCreatePlan 内部，仅新建时检查）
+            WishPlan plan;
+            if (dto.getPlanId() != null) {
+                plan = wishPlanMapper.selectById(dto.getPlanId());
+                if (plan == null || plan.getDeleted() || !memberId.equals(plan.getMemberId())) {
+                    throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+                }
+            } else {
+                plan = getOrCreatePlan(memberId, gaokao);
             }
-        }
 
-        // 9. 创建/获取 WishGroupSnapshot (去重: 一个 plan 一个 groupId 只存一条)
-        WishGroupSnapshot groupSnap = wishGroupSnapshotMapper.selectOne(
-                new LambdaQueryWrapper<WishGroupSnapshot>()
-                        .eq(WishGroupSnapshot::getPlanId, plan.getId())
-                        .eq(WishGroupSnapshot::getGroupId, dto.getGroupId())
-                        .last("LIMIT 1"));
+            // 7. 校验档位数量限制
+            WishPlanLimitVO limits = getDefaultLimits();
+            Map<String, Integer> planCounts = new HashMap<>();
+            planCounts.put("搏", plan.getBoLimit() != null ? plan.getBoLimit() : 0);
+            planCounts.put("冲", plan.getChongLimit() != null ? plan.getChongLimit() : 0);
+            planCounts.put("稳", plan.getWenLimit() != null ? plan.getWenLimit() : 0);
+            planCounts.put("保", plan.getBaoLimit() != null ? plan.getBaoLimit() : 0);
+            planCounts.put("垫", plan.getDieLimit() != null ? plan.getDieLimit() : 0);
 
-        if (groupSnap == null) {
-            University univ = universityMapper.selectById(group.getUniversityId());
+            Map<String, Integer> maxLimits = new HashMap<>();
+            maxLimits.put("搏", limits.getReachHighCount());
+            maxLimits.put("冲", limits.getReachCount());
+            maxLimits.put("稳", limits.getMatchCount());
+            maxLimits.put("保", limits.getSafeCount());
+            maxLimits.put("垫", limits.getFloorCount());
 
-            groupSnap = WishGroupSnapshot.builder()
-                    .planId(plan.getId())
-                    .groupId(dto.getGroupId())
-                    .groupSortOrder(0)
-                    .universityId(group.getUniversityId())
-                    .universityName(group.getUniversityName())
-                    .cityName(group.getCityName())
-                    .year(group.getYear())
-                    .province(group.getProvince())
-                    .batch(group.getBatch())
-                    .enrollmentCode(group.getEnrollmentCode())
-                    .groupCode(group.getGroupCode())
-                    .groupName(group.getGroupName())
-                    .subjects(group.getSubjects())
-                    .description(group.getDescription())
-                    .constraintsDescription(group.getConstraintsDescription())
-                    .category(univ != null ? univ.getCategory() : null)
-                    .majorCount(univ != null ? univ.getMajorCount() : 0)
-                    .nature(univ != null ? univ.getNature() : null)
-                    .tags(univ != null ? univ.getTags() : null)
-                    .recommendationYear(univ != null ? univ.getRecommendationYear() : null)
-                    .recommendationRate(univ != null ? univ.getRecommendationRate() : null)
-                    .build();
-            wishGroupSnapshotMapper.insert(groupSnap);
-        }
+            Map<String, Integer> newCounts = new HashMap<>();
+            for (MajorSafetyInfo info : majorInfos) {
+                String ls = info.result.getLevelShort();
+                newCounts.merge(ls, 1, Integer::sum);
+            }
 
-        // 10. 批量创建 WishMajorSnapshot
-        Integer finalGroupSnapId = groupSnap.getId();
-        List<WishMajorSnapshot> majorSnapshots = majorInfos.stream()
-                .map(info -> WishMajorSnapshot.builder()
+            for (Map.Entry<String, Integer> entry : newCounts.entrySet()) {
+                String level = entry.getKey();
+                int newCnt = entry.getValue();
+                int current = planCounts.getOrDefault(level, 0);
+                int maxAllowed = maxLimits.getOrDefault(level, Integer.MAX_VALUE);
+                if (current + newCnt > maxAllowed) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST,
+                            level + "档专业已选" + current + "个，最多" + maxAllowed + "个，本次添加" + newCnt + "个超出限制");
+                }
+            }
+
+            // 8. 创建/获取 WishGroupSnapshot (去重: 一个 plan 一个 groupId 只存一条)
+            WishGroupSnapshot groupSnap = wishGroupSnapshotMapper.selectOne(
+                    new LambdaQueryWrapper<WishGroupSnapshot>()
+                            .eq(WishGroupSnapshot::getPlanId, plan.getId())
+                            .eq(WishGroupSnapshot::getGroupId, dto.getGroupId())
+                            .last("LIMIT 1"));
+
+            if (groupSnap == null) {
+                University univ = universityMapper.selectById(group.getUniversityId());
+
+                groupSnap = WishGroupSnapshot.builder()
                         .planId(plan.getId())
-                        .groupSnapshotId(finalGroupSnapId)
-                        .majorId(info.major.getId().longValue())
-                        .majorSortOrder(0)
-                        .isExported(true)
-                        .majorCode(info.major.getMajorCode())
-                        .majorName(info.major.getMajorName())
-                        .duration(info.major.getDuration())
-                        .tuition(parseTuition(info.major.getTuition()))
-                        .description(info.major.getDescription())
-                        .admissionCount(info.major.getAdmissionCount())
-                        .safetyLevel(info.result.getSafetyLevel())
-                        .levelShort(info.result.getLevelShort())
-                        .historyScores(info.historyScores)
-                        .build())
-                .collect(Collectors.toList());
-        for (WishMajorSnapshot ms : majorSnapshots) {
-            wishMajorSnapshotMapper.insert(ms);
-        }
+                        .groupId(dto.getGroupId())
+                        .groupSortOrder(0)
+                        .universityId(group.getUniversityId())
+                        .universityName(group.getUniversityName())
+                        .cityName(group.getCityName())
+                        .year(group.getYear())
+                        .province(group.getProvince())
+                        .batch(group.getBatch())
+                        .enrollmentCode(group.getEnrollmentCode())
+                        .groupCode(group.getGroupCode())
+                        .groupName(group.getGroupName())
+                        .subjects(group.getSubjects())
+                        .description(group.getDescription())
+                        .constraintsDescription(group.getConstraints())
+                        .category(univ != null ? univ.getCategory() : null)
+                        .majorCount(group.getMajorCount())
+                        .nature(univ != null ? univ.getNature() : null)
+                        .tags(univ != null ? univ.getTags() : null)
+                        .recommendationYear(univ != null ? univ.getRecommendationYear() : null)
+                        .recommendationRate(univ != null ? univ.getRecommendationRate() : null)
+                        .build();
+                wishGroupSnapshotMapper.insert(groupSnap);
+            }
 
-        // 11. 更新 plan 的 bo~die_limit
-        int newBo = planCounts.getOrDefault("搏", 0) + newCounts.getOrDefault("搏", 0);
-        int newChong = planCounts.getOrDefault("冲", 0) + newCounts.getOrDefault("冲", 0);
-        int newWen = planCounts.getOrDefault("稳", 0) + newCounts.getOrDefault("稳", 0);
-        int newBao = planCounts.getOrDefault("保", 0) + newCounts.getOrDefault("保", 0);
-        int newDie = planCounts.getOrDefault("垫", 0) + newCounts.getOrDefault("垫", 0);
+            // M3. 校验重复添加专业
+            List<Long> newMajorIds = majorInfos.stream()
+                    .map(m -> m.major.getId().longValue())
+                    .collect(Collectors.toList());
+            List<Long> existingMajorIds = wishMajorSnapshotMapper.selectList(
+                    new LambdaQueryWrapper<WishMajorSnapshot>()
+                            .eq(WishMajorSnapshot::getPlanId, plan.getId())
+                            .in(WishMajorSnapshot::getMajorId, newMajorIds)
+                            .select(WishMajorSnapshot::getMajorId))
+                    .stream()
+                    .map(WishMajorSnapshot::getMajorId)
+                    .collect(Collectors.toList());
+            if (!existingMajorIds.isEmpty()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST,
+                        "以下专业已在志愿表中: " + existingMajorIds);
+            }
 
-        plan.setBoLimit(newBo);
-        plan.setChongLimit(newChong);
-        plan.setWenLimit(newWen);
-        plan.setBaoLimit(newBao);
-        plan.setDieLimit(newDie);
-        wishPlanMapper.updateById(plan);
+            // 9. 批量创建 WishMajorSnapshot
+            Integer finalGroupSnapId = groupSnap.getId();
+            List<WishMajorSnapshot> majorSnapshots = majorInfos.stream()
+                    .map(info -> WishMajorSnapshot.builder()
+                            .planId(plan.getId())
+                            .groupSnapshotId(finalGroupSnapId)
+                            .majorId(info.major.getId().longValue())
+                            .majorSortOrder(0)
+                            .isExported(true)
+                            .majorCode(info.major.getMajorCode())
+                            .majorName(info.major.getMajorName())
+                            .duration(info.major.getDuration())
+                            .tuition(info.major.getTuition())
+                            .description(info.major.getDescription())
+                            .admissionCount(info.major.getAdmissionCount())
+                            .safetyLevel(info.result.getSafetyLevel())
+                            .levelShort(info.result.getLevelShort())
+                            .historyScores(info.historyScores)
+                            .build())
+                    .collect(Collectors.toList());
+            for (WishMajorSnapshot ms : majorSnapshots) {
+                wishMajorSnapshotMapper.insert(ms);
+            }
 
-        log.info("会员 {} 添加专业到志愿表 planId={}, 新增专业数={}, 各档 搏={} 冲={} 稳={} 保={} 垫={}",
-                memberId, plan.getId(), majorInfos.size(), newBo, newChong, newWen, newBao, newDie);
+            // 10. 更新 plan 的 bo~die_limit
+            int newBo = planCounts.get("搏") + newCounts.getOrDefault("搏", 0);
+            int newChong = planCounts.get("冲") + newCounts.getOrDefault("冲", 0);
+            int newWen = planCounts.get("稳") + newCounts.getOrDefault("稳", 0);
+            int newBao = planCounts.get("保") + newCounts.getOrDefault("保", 0);
+            int newDie = planCounts.get("垫") + newCounts.getOrDefault("垫", 0);
 
-        return toPlanListVO(plan);
+            plan.setBoLimit(newBo);
+            plan.setChongLimit(newChong);
+            plan.setWenLimit(newWen);
+            plan.setBaoLimit(newBao);
+            plan.setDieLimit(newDie);
+            wishPlanMapper.updateById(plan);
+
+            log.info("会员 {} 添加专业到志愿表 planId={}, 新增专业数={}, 各档 搏={} 冲={} 稳={} 保={} 垫={}",
+                    memberId, plan.getId(), majorInfos.size(), newBo, newChong, newWen, newBao, newDie);
+
+            return toPlanListVO(plan);
+        });
     }
 
     @Override
@@ -342,9 +369,9 @@ public class WishPlanServiceImpl implements WishPlanService {
         Long memberId = SecurityUtil.getCurrentMemberId();
         WishPlan plan = wishPlanMapper.selectById(planId);
         if (plan == null || !memberId.equals(plan.getMemberId())) {
-            throw new BusinessException(400, "志愿表不存在或无权限");
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
-        wishPlanMapper.deleteById(planId);
+        // 先删子表再删父表，避免孤儿引用
         List<WishGroupSnapshot> groups = wishGroupSnapshotMapper.selectList(
                 new LambdaQueryWrapper<WishGroupSnapshot>().eq(WishGroupSnapshot::getPlanId, planId));
         if (!CollectionUtils.isEmpty(groups)) {
@@ -354,11 +381,15 @@ public class WishPlanServiceImpl implements WishPlanService {
             wishGroupSnapshotMapper.delete(
                     new LambdaQueryWrapper<WishGroupSnapshot>().eq(WishGroupSnapshot::getPlanId, planId));
         }
+        wishPlanMapper.deleteById(planId);
         log.info("会员 {} 删除志愿表 planId={}", memberId, planId);
     }
 
     @Override
     public IPage<WishPlanGroupVO> pageGroups(Integer planId, Integer page, Integer size) {
+        // C3. 验证 plan 所有权
+        validatePlanOwnership(planId);
+
         Page<WishGroupSnapshot> p = new Page<>(page, size);
         IPage<WishGroupSnapshot> snapPage = wishGroupSnapshotMapper.selectPage(p,
                 new LambdaQueryWrapper<WishGroupSnapshot>()
@@ -374,6 +405,9 @@ public class WishPlanServiceImpl implements WishPlanService {
 
     @Override
     public IPage<WishPlanMajorVO> pageMajors(Integer planId, Integer groupSnapshotId, Integer page, Integer size) {
+        // C3. 验证 plan 所有权
+        validatePlanOwnership(planId);
+
         Page<WishMajorSnapshot> p = new Page<>(page, size);
         IPage<WishMajorSnapshot> snapPage = wishMajorSnapshotMapper.selectPage(p,
                 new LambdaQueryWrapper<WishMajorSnapshot>()
@@ -403,14 +437,25 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 3. 批量更新专业组排序
-        for (WishGroupSortDTO.GroupSortItem item : dto.getItems()) {
-            // 验证专业组属于该志愿方案
-            WishGroupSnapshot groupSnapshot = wishGroupSnapshotMapper.selectById(item.getGroupId());
-            if (groupSnapshot == null || !groupSnapshot.getPlanId().equals(planId)) {
+        // M5. 批量验证
+        List<Integer> groupIds = dto.getItems().stream()
+                .map(WishGroupSortDTO.GroupSortItem::getGroupId)
+                .collect(Collectors.toList());
+        List<WishGroupSnapshot> existing = wishGroupSnapshotMapper.selectList(
+                new LambdaQueryWrapper<WishGroupSnapshot>()
+                        .eq(WishGroupSnapshot::getPlanId, planId)
+                        .in(WishGroupSnapshot::getId, groupIds));
+        Set<Integer> foundIds = existing.stream()
+                .map(WishGroupSnapshot::getId)
+                .collect(Collectors.toSet());
+        for (Integer id : groupIds) {
+            if (!foundIds.contains(id)) {
                 throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
             }
+        }
 
+        // 批量更新专业组排序
+        for (WishGroupSortDTO.GroupSortItem item : dto.getItems()) {
             LambdaUpdateWrapper<WishGroupSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
             updateWrapper.eq(WishGroupSnapshot::getPlanId, planId)
                     .eq(WishGroupSnapshot::getId, item.getGroupId())
@@ -440,15 +485,27 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_GROUP_NOT_FOUND);
         }
 
-        // 4. 批量更新专业排序
-        for (WishMajorSortDTO.MajorSortItem item : dto.getItems()) {
-            // 验证专业属于该志愿方案和专业组
-            WishMajorSnapshot majorSnapshot = wishMajorSnapshotMapper.selectById(item.getMajorId());
-            if (majorSnapshot == null || !majorSnapshot.getPlanId().equals(planId) ||
-                !majorSnapshot.getGroupSnapshotId().equals(groupSnapshotId)) {
+        // M5. 批量验证
+        List<Long> majorIds = dto.getItems().stream()
+                .map(WishMajorSortDTO.MajorSortItem::getMajorId)
+                .collect(Collectors.toList());
+        List<WishMajorSnapshot> existing = wishMajorSnapshotMapper.selectList(
+                new LambdaQueryWrapper<WishMajorSnapshot>()
+                        .eq(WishMajorSnapshot::getPlanId, planId)
+                        .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)
+                        .in(WishMajorSnapshot::getId, majorIds));
+        Set<Long> foundIds = existing.stream()
+                .map(WishMajorSnapshot::getId)
+                .map(Integer::longValue)
+                .collect(Collectors.toSet());
+        for (Long id : majorIds) {
+            if (!foundIds.contains(id)) {
                 throw new BusinessException(ResultCode.WISH_MAJOR_NOT_FOUND);
             }
+        }
 
+        // 批量更新专业排序
+        for (WishMajorSortDTO.MajorSortItem item : dto.getItems()) {
             LambdaUpdateWrapper<WishMajorSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
             updateWrapper.eq(WishMajorSnapshot::getPlanId, planId)
                     .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)
@@ -482,8 +539,8 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_MAJOR_NOT_FOUND);
         }
 
-        // 4. 存入Redis
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
+        // 4. 存入Redis（key 含 memberId 做用户隔离）
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
         String field = "major:" + majorId + ":isExported";
         try {
             redisTemplate.opsForHash().put(key, field, dto.getIsExported().toString());
@@ -519,8 +576,8 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId);
         List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(queryWrapper);
 
-        // 5. 批量存入Redis
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
+        // 5. 批量存入Redis（key 含 memberId 做用户隔离）
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
         Map<String, String> fieldMap = new HashMap<>();
         for (WishMajorSnapshot major : majors) {
             String field = "major:" + major.getId() + ":isExported";
@@ -548,40 +605,27 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 3. 查询专业组数量
-        LambdaQueryWrapper<WishGroupSnapshot> groupQuery = new LambdaQueryWrapper<>();
-        groupQuery.eq(WishGroupSnapshot::getPlanId, planId);
-        long totalGroups = wishGroupSnapshotMapper.selectCount(groupQuery);
+        // M17. 进度改为基于导出专业数/总专业数
+        long totalMajors = wishMajorSnapshotMapper.selectCount(
+                new LambdaQueryWrapper<WishMajorSnapshot>()
+                        .eq(WishMajorSnapshot::getPlanId, planId));
 
-        // 4. 查询已导出的专业
-        Set<Integer> exportMajors = getExportMajors(planId);
+        Set<Integer> exportMajors = getExportMajors(planId, currentMemberId);
+        int exportedCount = exportMajors.size();
 
-        // 5. 计算已完成的专业组数量（包含至少一个导出专业的专业组）
-        int completedGroups = 0;
-        if (!exportMajors.isEmpty()) {
-            LambdaQueryWrapper<WishMajorSnapshot> majorQuery = new LambdaQueryWrapper<>();
-            majorQuery.eq(WishMajorSnapshot::getPlanId, planId)
-                    .in(WishMajorSnapshot::getId, exportMajors)
-                    .select(WishMajorSnapshot::getGroupSnapshotId)
-                    .groupBy(WishMajorSnapshot::getGroupSnapshotId);
-            List<WishMajorSnapshot> completedMajors = wishMajorSnapshotMapper.selectList(majorQuery);
-            completedGroups = completedMajors.size();
-        }
-
-        // 6. 计算进度
-        int percentage = totalGroups > 0 ? (int) (completedGroups * 100 / totalGroups) : 0;
+        int percentage = totalMajors > 0 ? (int) (exportedCount * 100 / totalMajors) : 0;
 
         return WishPlanExportProgressVO.builder()
-                .totalGroups((int) totalGroups)
-                .completedGroups(completedGroups)
+                .totalMajors((int) totalMajors)
+                .exportedMajors(exportedCount)
                 .percentage(percentage)
-                .status("processing")
-                .message("正在准备导出...")
+                .status(percentage >= 100 ? "completed" : "processing")
+                .message(percentage >= 100 ? "导出完成" : "正在准备导出...")
                 .build();
     }
 
     @Override
-    public WishPlanExportFileVO downloadExportFile(Integer planId) {
+    public WishPlanExportFileVO generateExportFile(Integer planId) {
         // 1. 验证志愿方案存在
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
         if (wishPlan == null || wishPlan.getDeleted()) {
@@ -594,27 +638,29 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 3. 查询专业组和专业数据
+        // 3. 查询专业组和专业数据 (M4: 一次性查询再分组)
         LambdaQueryWrapper<WishGroupSnapshot> groupQuery = new LambdaQueryWrapper<>();
         groupQuery.eq(WishGroupSnapshot::getPlanId, planId)
                 .orderByAsc(WishGroupSnapshot::getGroupSortOrder);
         List<WishGroupSnapshot> groups = wishGroupSnapshotMapper.selectList(groupQuery);
 
-        Map<Integer, List<WishMajorSnapshot>> majorsMap = new HashMap<>();
-        for (WishGroupSnapshot group : groups) {
-            LambdaQueryWrapper<WishMajorSnapshot> majorQuery = new LambdaQueryWrapper<>();
-            majorQuery.eq(WishMajorSnapshot::getPlanId, planId)
-                    .eq(WishMajorSnapshot::getGroupSnapshotId, group.getId())
-                    .orderByAsc(WishMajorSnapshot::getMajorSortOrder);
-            List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(majorQuery);
-            majorsMap.put(group.getId(), majors);
-        }
+        List<WishMajorSnapshot> allMajors = wishMajorSnapshotMapper.selectList(
+                new LambdaQueryWrapper<WishMajorSnapshot>()
+                        .eq(WishMajorSnapshot::getPlanId, planId)
+                        .orderByAsc(WishMajorSnapshot::getMajorSortOrder));
+        Map<Integer, List<WishMajorSnapshot>> majorsMap = allMajors.stream()
+                .collect(Collectors.groupingBy(WishMajorSnapshot::getGroupSnapshotId));
 
         // 4. 获取导出的专业
-        Set<Integer> exportMajors = getExportMajors(planId);
+        Set<Integer> exportMajors = getExportMajors(planId, currentMemberId);
 
-        // 5. 生成Excel文件到临时目录
-        String fileName = wishPlan.getPlanName() + ".xlsx";
+        // 5. 生成Excel文件到临时目录 (C2: 净化文件名 + 用户隔离)
+        String rawName = wishPlan.getPlanName();
+        String sanitized = rawName == null ? "wish-plan" : rawName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\-_]", "_");
+        if (sanitized.isBlank()) {
+            sanitized = "wish-plan";
+        }
+        String fileName = sanitized + "_" + currentMemberId + ".xlsx";
         String tempDir = System.getProperty("java.io.tmpdir");
         String filePath = tempDir + File.separator + fileName;
 
@@ -625,13 +671,66 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.EXPORT_FAILED);
         }
 
-        // 6. 返回文件信息（实际项目中应该返回临时文件的访问URL）
+        // M1. downloadUrl 指向 GET /download 端点（非自身 POST /generate）
         String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download?file=" + fileName;
+
+        log.info("会员 {} 生成导出文件 planId={}, fileName={}", currentMemberId, planId, fileName);
 
         return WishPlanExportFileVO.builder()
                 .downloadUrl(downloadUrl)
                 .fileName(fileName)
                 .build();
+    }
+
+    @Override
+    public byte[] readExportFile(Integer planId, String fileName) {
+        // 1. 验证志愿方案存在
+        WishPlan wishPlan = wishPlanMapper.selectById(planId);
+        if (wishPlan == null || wishPlan.getDeleted()) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // 2. 验证当前用户是志愿方案的所有者
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        if (!currentMemberId.equals(wishPlan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+
+        // C2. 净化文件名，防止路径穿越
+        String sanitized = fileName == null ? "" : fileName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\-_]", "_");
+        if (sanitized.isBlank() || !sanitized.endsWith(".xlsx")) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "非法文件名");
+        }
+
+        String tempDir = System.getProperty("java.io.tmpdir");
+        File file = new File(tempDir, sanitized);
+
+        // 确认解析后的规范路径仍在临时目录内
+        try {
+            String canonicalTemp = new File(tempDir).getCanonicalPath();
+            String canonicalFile = file.getCanonicalPath();
+            if (!canonicalFile.startsWith(canonicalTemp + File.separator)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "非法文件路径");
+            }
+        } catch (IOException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "文件路径解析失败");
+        }
+
+        if (!file.exists()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "导出文件不存在，请先调用生成接口");
+        }
+
+        try {
+            byte[] content = Files.readAllBytes(file.toPath());
+            // M15. 读取后删除临时文件，防止磁盘占满
+            if (!file.delete()) {
+                log.warn("临时文件删除失败: {}", file.getAbsolutePath());
+            }
+            return content;
+        } catch (IOException e) {
+            log.error("读取导出文件失败: {}", file.getAbsolutePath(), e);
+            throw new BusinessException(ResultCode.EXPORT_FAILED);
+        }
     }
 
     @Override
@@ -649,33 +748,56 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
         }
 
-        // 3. 从Redis获取所有is_exported状态
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+        // M11. Redis 异常降级处理（key 含 memberId 做用户隔离）
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
+        Map<Object, Object> entries;
+        try {
+            entries = redisTemplate.opsForHash().entries(key);
+        } catch (Exception e) {
+            log.warn("Redis 读取导出状态失败: key={}", key, e);
+            return;
+        }
 
         if (entries.isEmpty()) {
             return;
         }
 
-        // 4. 批量更新数据库
+        // 4. 按导出状态分组，批量更新数据库
+        List<Integer> exportTrueIds = new ArrayList<>();
+        List<Integer> exportFalseIds = new ArrayList<>();
         for (Map.Entry<Object, Object> entry : entries.entrySet()) {
             String field = entry.getKey().toString();
             String value = entry.getValue().toString();
-
             if (field.startsWith("major:") && field.endsWith(":isExported")) {
                 Integer majorId = Integer.parseInt(field.replace("major:", "").replace(":isExported", ""));
-                Boolean isExported = Boolean.parseBoolean(value);
-
-                LambdaUpdateWrapper<WishMajorSnapshot> updateWrapper = new LambdaUpdateWrapper<>();
-                updateWrapper.eq(WishMajorSnapshot::getId, majorId)
-                        .eq(WishMajorSnapshot::getPlanId, planId)
-                        .set(WishMajorSnapshot::getIsExported, isExported);
-                wishMajorSnapshotMapper.update(null, updateWrapper);
+                if (Boolean.parseBoolean(value)) {
+                    exportTrueIds.add(majorId);
+                } else {
+                    exportFalseIds.add(majorId);
+                }
             }
+        }
+        if (!exportTrueIds.isEmpty()) {
+            wishMajorSnapshotMapper.update(null,
+                    new LambdaUpdateWrapper<WishMajorSnapshot>()
+                            .in(WishMajorSnapshot::getId, exportTrueIds)
+                            .eq(WishMajorSnapshot::getPlanId, planId)
+                            .set(WishMajorSnapshot::getIsExported, true));
+        }
+        if (!exportFalseIds.isEmpty()) {
+            wishMajorSnapshotMapper.update(null,
+                    new LambdaUpdateWrapper<WishMajorSnapshot>()
+                            .in(WishMajorSnapshot::getId, exportFalseIds)
+                            .eq(WishMajorSnapshot::getPlanId, planId)
+                            .set(WishMajorSnapshot::getIsExported, false));
         }
 
         // 5. 删除Redis缓存
-        redisTemplate.delete(key);
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            log.warn("Redis 删除导出状态失败: key={}", key, e);
+        }
 
         log.info("会员 {} 保存导出状态到数据库 planId={}", currentMemberId, planId);
     }
@@ -690,7 +812,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     }
 
     @Override
-    public List<WishExportMajorVO> getExportableMajorIds(Integer groupSnapshotId) {
+    public List<WishExportMajorVO> getExportableMajors(Integer groupSnapshotId) {
         List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(
                 new LambdaQueryWrapper<WishMajorSnapshot>()
                         .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)
@@ -715,24 +837,51 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .eq(WishGroupSnapshot::getPlanId, planId)
                         .orderByAsc(WishGroupSnapshot::getGroupSortOrder));
 
+        // 第一轮：收集每个组的可导出专业，并汇总所有 majorId 用于批量加载
         List<ExportGroupContextVO> result = new ArrayList<>();
         Map<String, CityEnrichmentVO> cityEnrichmentCache = new HashMap<>();
+        List<Long> allMajorIds = new ArrayList<>();
+
+        // 临时保存每组的专业列表，避免二次查询
+        List<List<WishExportMajorVO>> perGroupMajors = new ArrayList<>();
+
         for (WishGroupSnapshot g : groups) {
-            List<WishExportMajorVO> exportableMajors = getExportableMajorIds(g.getId());
+            List<WishExportMajorVO> exportableMajors = getExportableMajors(g.getId());
             if (CollectionUtils.isEmpty(exportableMajors)) {
                 // 该专业组下所有专业 is_exported=false，跳过（不进入 AI 分析）
+                perGroupMajors.add(Collections.emptyList());
                 continue;
+            }
+            for (WishExportMajorVO m : exportableMajors) {
+                if (m.getMajorId() != null) {
+                    allMajorIds.add(m.getMajorId());
+                }
+            }
+            perGroupMajors.add(exportableMajors);
+        }
+
+        // 批量加载专业增强数据（避免 N+1 查询）
+        Map<Long, MajorEnrichmentVO> majorEnrichmentMap = enrichmentLoader.loadMajorsBatch(allMajorIds);
+
+        // 第二轮：组装结果
+        for (int i = 0; i < groups.size(); i++) {
+            WishGroupSnapshot g = groups.get(i);
+            List<WishExportMajorVO> exportableMajors = perGroupMajors.get(i);
+            if (CollectionUtils.isEmpty(exportableMajors)) {
+                continue;
+            }
+
+            // 填充专业增强数据
+            for (WishExportMajorVO m : exportableMajors) {
+                if (m.getMajorId() != null) {
+                    m.setMajorEnrichment(majorEnrichmentMap.get(m.getMajorId()));
+                }
             }
 
             // 加载城市增强数据（同城缓存）
             CityEnrichmentVO cityEnrichment = g.getCityName() != null
                     ? cityEnrichmentCache.computeIfAbsent(g.getCityName(), enrichmentLoader::loadCity)
                     : null;
-
-            // 加载专业增强数据
-            for (WishExportMajorVO m : exportableMajors) {
-                m.setMajorEnrichment(enrichmentLoader.loadMajor(m.getMajorId()));
-            }
 
             result.add(ExportGroupContextVO.builder()
                     .groupSnapshotId(g.getId())
@@ -749,9 +898,15 @@ public class WishPlanServiceImpl implements WishPlanService {
         return result;
     }
 
-    private Set<Integer> getExportMajors(Integer planId) {
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + planId;
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key);
+    private Set<Integer> getExportMajors(Integer planId, Long memberId) {
+        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + memberId + ":" + planId;
+        Map<Object, Object> entries;
+        try {
+            entries = redisTemplate.opsForHash().entries(key);
+        } catch (Exception e) {
+            log.warn("Redis 读取导出专业列表失败，降级返回空集合: key={}", key, e);
+            return Collections.emptySet();
+        }
 
         Set<Integer> exportMajors = new HashSet<>();
         for (Map.Entry<Object, Object> entry : entries.entrySet()) {
@@ -768,17 +923,36 @@ public class WishPlanServiceImpl implements WishPlanService {
 
     // ===================== 私有方法 =====================
 
+    /**
+     * C3. 验证 plan 所有权
+     */
+    private void validatePlanOwnership(Integer planId) {
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        WishPlan plan = wishPlanMapper.selectById(planId);
+        if (plan == null || plan.getDeleted() || !currentMemberId.equals(plan.getMemberId())) {
+            throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
+        }
+    }
+
     private WishPlan getOrCreatePlan(Long memberId, MemberGaokao gaokao) {
         WishPlan existing = wishPlanMapper.selectOne(
                 new LambdaQueryWrapper<WishPlan>()
                         .eq(WishPlan::getMemberId, memberId)
                         .orderByDesc(WishPlan::getCreatedAt)
-                        .last("LIMIT 1"));
+                        .last("LIMIT 1 FOR UPDATE"));
         if (existing != null) {
             return existing;
         }
+        // C4. plan 数量限制检查仅在需要新建时执行
         long count = wishPlanMapper.selectCount(
                 new LambdaQueryWrapper<WishPlan>().eq(WishPlan::getMemberId, memberId));
+        String memberType = SecurityUtil.getCurrentMemberType();
+        int maxPlans = getMaxPlans(memberType);
+        if (count >= maxPlans) {
+            throw new BusinessException(ResultCode.BAD_REQUEST,
+                    "当前会员类型最多允许 " + maxPlans + " 个志愿表");
+        }
+
         String planName = "我的志愿方案" + (count + 1);
 
         WishPlan plan = WishPlan.builder()
@@ -878,15 +1052,6 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .levelShort(snap.getLevelShort())
                 .historyScores(historyScores)
                 .build();
-    }
-
-    private BigDecimal parseTuition(String tuition) {
-        if (tuition == null || tuition.isBlank()) return null;
-        try {
-            return new BigDecimal(tuition.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     private BigDecimal queryDensity(MemberGaokao gaokao) {

@@ -20,8 +20,8 @@ import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.ai.AiQuotaService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -32,16 +32,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PdfReportServiceImpl implements PdfReportService {
 
-    private static final int MAP_MAX_CONCURRENCY = 3;
+    /**
+     * Map 阶段全部完成的最大等待时间：3 分钟。
+     * 覆盖单组 AI 调用 60s 超时 × 多组串行 fallback 场景，避免无限阻塞。
+     */
+    private static final long MAP_ALL_OF_TIMEOUT_SECONDS = 180L;
 
     private final PdfReportMapper pdfReportMapper;
     private final AiChatService aiChatService;
@@ -50,10 +52,29 @@ public class PdfReportServiceImpl implements PdfReportService {
     private final ObjectMapper objectMapper;
     private final WishPlanMapper wishPlanMapper;
     private final PdfRenderService pdfRenderService;
+    private final ExecutorService pdfMapExecutor;
+
+    public PdfReportServiceImpl(PdfReportMapper pdfReportMapper,
+                                AiChatService aiChatService,
+                                AiQuotaService quotaService,
+                                WishPlanService wishPlanService,
+                                ObjectMapper objectMapper,
+                                WishPlanMapper wishPlanMapper,
+                                PdfRenderService pdfRenderService,
+                                @Qualifier("pdfMapExecutor") ExecutorService pdfMapExecutor) {
+        this.pdfReportMapper = pdfReportMapper;
+        this.aiChatService = aiChatService;
+        this.quotaService = quotaService;
+        this.wishPlanService = wishPlanService;
+        this.objectMapper = objectMapper;
+        this.wishPlanMapper = wishPlanMapper;
+        this.pdfRenderService = pdfRenderService;
+        this.pdfMapExecutor = pdfMapExecutor;
+    }
 
     @Override
     public Flux<ServerSentEvent<String>> generateReport(Long userId, Integer planId) {
-        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().multicast().onBackpressureBuffer();
+        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -64,7 +85,7 @@ public class PdfReportServiceImpl implements PdfReportService {
             } finally {
                 sink.tryEmitComplete();
             }
-        });
+        }, pdfMapExecutor);
 
         return sink.asFlux();
     }
@@ -94,6 +115,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
         if (wishPlan == null || Boolean.TRUE.equals(wishPlan.getDeleted())) {
             updateReportFailed(recordId, "志愿方案不存在");
+            quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("志愿方案不存在", 404));
             return;
         }
@@ -111,6 +133,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         List<ExportGroupContextVO> groups = wishPlanService.getExportGroupContexts(planId);
         if (groups == null || groups.isEmpty()) {
             updateReportFailed(recordId, "没有可导出的专业组");
+            quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("没有可导出的专业组，请先在志愿方案中勾选导出专业", 400));
             return;
         }
@@ -125,7 +148,11 @@ public class PdfReportServiceImpl implements PdfReportService {
             report.setPlanSnapshot(objectMapper.writeValueAsString(snapshot));
             pdfReportMapper.updateById(report);
         } catch (Exception e) {
-            log.error("Failed to serialize map_results", e);
+            log.error("Failed to serialize map_results, recordId={}", recordId, e);
+            updateReportFailed(recordId, "Map结果序列化失败: " + e.getMessage());
+            quotaService.decr(userId);
+            sink.tryEmitNext(errorEvent("Map结果序列化失败", recordId, 500));
+            return;
         }
 
         // 7. Reduce 阶段
@@ -141,19 +168,38 @@ public class PdfReportServiceImpl implements PdfReportService {
             String reduceResponse = aiChatService.chatSync(userId, reduceMessages);
 
             ReduceResult reduceResult = parseReduceResult(reduceResponse);
+
+            // M8: 若 Reduce 三段内容全空，视为失败
+            if (isReduceResultEmpty(reduceResult)) {
+                log.warn("Reduce result is empty, recordId={}", recordId);
+                updateReportFailed(recordId, "Reduce阶段返回空内容");
+                quotaService.decr(userId);
+                sink.tryEmitNext(errorEvent("Reduce阶段返回空内容，请稍后重试", recordId, 500));
+                return;
+            }
+
             reduceJson = objectMapper.writeValueAsString(reduceResult);
             sink.tryEmitNext(sseEvent("{\"stage\":\"reduce\",\"status\":\"done\"}"));
         } catch (Exception e) {
             log.error("Reduce phase failed, recordId={}", recordId, e);
             updateReportFailed(recordId, "Reduce阶段失败: " + e.getMessage());
+            quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("Reduce阶段失败", recordId, 500));
             return;
         }
 
         // 8. 更新 status=SUCCESS
-        report.setReduceResult(reduceJson);
-        report.setStatus(PdfReportStatus.SUCCESS);
-        pdfReportMapper.updateById(report);
+        try {
+            report.setReduceResult(reduceJson);
+            report.setStatus(PdfReportStatus.SUCCESS);
+            pdfReportMapper.updateById(report);
+        } catch (Exception e) {
+            log.error("Failed to save final result, recordId={}", recordId, e);
+            updateReportFailed(recordId, "保存最终结果失败: " + e.getMessage());
+            quotaService.decr(userId);
+            sink.tryEmitNext(errorEvent("保存最终结果失败", recordId, 500));
+            return;
+        }
         log.info("PDF report generation completed, recordId={}, planId={}", recordId, planId);
 
         // 9. 完成
@@ -163,47 +209,43 @@ public class PdfReportServiceImpl implements PdfReportService {
     private List<MapResultItem> runMapPhase(Long userId, List<ExportGroupContextVO> groups,
                                             Sinks.Many<ServerSentEvent<String>> sink) {
         int total = groups.size();
-        Semaphore semaphore = new Semaphore(MAP_MAX_CONCURRENCY);
-        ExecutorService executor = Executors.newFixedThreadPool(MAP_MAX_CONCURRENCY);
 
         List<CompletableFuture<MapResultItem>> futures = new ArrayList<>();
         for (int i = 0; i < total; i++) {
             final int index = i;
             final ExportGroupContextVO group = groups.get(i);
 
-            futures.add(CompletableFuture.supplyAsync(() -> {
-                try {
-                    semaphore.acquire();
-                    try {
-                        sink.tryEmitNext(sseEvent(
-                                "{\"stage\":\"map\",\"current\":" + (index + 1) +
-                                ",\"total\":" + total +
-                                ",\"university\":\"" + escapeJson(group.getGroupName()) + "\"}"));
+            sink.tryEmitNext(sseEvent(
+                    "{\"stage\":\"map\",\"current\":" + (index + 1) +
+                    ",\"total\":" + total +
+                    ",\"university\":\"" + escapeJson(group.getGroupName()) + "\"}"));
 
-                        return callMapAI(userId, group);
-                    } finally {
-                        semaphore.release();
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return MapResultItem.builder()
-                            .success(false)
-                            .commentary(null)
-                            .build();
-                }
-            }, executor));
+            futures.add(CompletableFuture.supplyAsync(() -> callMapAI(userId, group), pdfMapExecutor));
         }
 
         try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } finally {
-            executor.shutdown();
+            // H2: 为 allOf 加超时，避免 AI 调用挂起导致整条链路无限阻塞
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .orTimeout(MAP_ALL_OF_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .join();
+        } catch (java.util.concurrent.CompletionException e) {
+            log.error("Map phase timed out or failed after {}s", MAP_ALL_OF_TIMEOUT_SECONDS, e);
         }
 
         sink.tryEmitNext(sseEvent("{\"stage\":\"map_done\"}"));
 
         return futures.stream()
-                .map(CompletableFuture::join)
+                .map(f -> {
+                    try {
+                        return f.join();
+                    } catch (Exception e) {
+                        log.warn("Map future join failed: {}", e.getMessage());
+                        return MapResultItem.builder()
+                                .success(false)
+                                .commentary(null)
+                                .build();
+                    }
+                })
                 .collect(Collectors.toList());
     }
 
@@ -267,50 +309,53 @@ public class PdfReportServiceImpl implements PdfReportService {
     }
 
     private String buildMapInput(ExportGroupContextVO group, List<MapResultItem.MajorBrief> majors) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"university\":\"").append(escapeJson(group.getGroupName()))
-          .append("\",\"city\":\"").append(escapeJson(group.getCityName()))
-          .append("\"");
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode root = objectMapper.createObjectNode();
+            root.put("university", group.getGroupName());
+            root.put("city", group.getCityName());
 
-        // cityInfo
-        if (group.getCityEnrichment() != null) {
-            CityEnrichmentVO ci = group.getCityEnrichment();
-            sb.append(",\"cityInfo\":{");
-            sb.append("\"mainIndustries\":");
-            sb.append(ci.getMainIndustries() != null ? jsonArray(ci.getMainIndustries()) : "[]");
-            sb.append(",\"gdp\":").append(ci.getGdp() != null ? ci.getGdp() : "null");
-            sb.append(",\"gdpGrowthRate\":").append(ci.getGdpGrowthRate() != null ? ci.getGdpGrowthRate() : "null");
-            sb.append(",\"fortune500Count\":").append(ci.getFortune500Count() != null ? ci.getFortune500Count() : "null");
-            sb.append(",\"avgSalary\":").append(ci.getAvgSalary() != null ? ci.getAvgSalary() : "null");
-            sb.append("}");
+            if (group.getCityEnrichment() != null) {
+                CityEnrichmentVO ci = group.getCityEnrichment();
+                com.fasterxml.jackson.databind.node.ObjectNode cityInfo = objectMapper.createObjectNode();
+                if (ci.getMainIndustries() != null) {
+                    cityInfo.set("mainIndustries", objectMapper.valueToTree(ci.getMainIndustries()));
+                } else {
+                    cityInfo.set("mainIndustries", objectMapper.createArrayNode());
+                }
+                if (ci.getGdp() != null) cityInfo.put("gdp", ci.getGdp());
+                else cityInfo.putNull("gdp");
+                if (ci.getGdpGrowthRate() != null) cityInfo.put("gdpGrowthRate", ci.getGdpGrowthRate());
+                else cityInfo.putNull("gdpGrowthRate");
+                if (ci.getFortune500Count() != null) cityInfo.put("fortune500Count", ci.getFortune500Count());
+                else cityInfo.putNull("fortune500Count");
+                if (ci.getAvgSalary() != null) cityInfo.put("avgSalary", ci.getAvgSalary());
+                else cityInfo.putNull("avgSalary");
+                root.set("cityInfo", cityInfo);
+            }
+
+            com.fasterxml.jackson.databind.node.ArrayNode majorsNode = objectMapper.createArrayNode();
+            for (MapResultItem.MajorBrief m : majors) {
+                com.fasterxml.jackson.databind.node.ObjectNode mNode = objectMapper.createObjectNode();
+                mNode.put("name", m.getMajorName());
+                mNode.put("safetyLevel", m.getSafetyLevel() != null ? m.getSafetyLevel().doubleValue() : 0);
+                mNode.put("levelShort", m.getLevelShort());
+                if (m.getEmploymentRate() != null) mNode.put("employmentRate", m.getEmploymentRate());
+                if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
+                    String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
+                            + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
+                    mNode.put("salaryRange", range);
+                }
+                if (m.getMajorCategory() != null) mNode.put("category", m.getMajorCategory());
+                if (m.getCareerProspect() != null) mNode.put("careerProspect", m.getCareerProspect());
+                majorsNode.add(mNode);
+            }
+            root.set("majors", majorsNode);
+
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            log.error("Failed to build map input JSON", e);
+            return "{}";
         }
-
-        sb.append(",\"majors\":[");
-        for (int i = 0; i < majors.size(); i++) {
-            MapResultItem.MajorBrief m = majors.get(i);
-            if (i > 0) sb.append(",");
-            sb.append("{\"name\":\"").append(escapeJson(m.getMajorName()))
-              .append("\",\"safetyLevel\":").append(m.getSafetyLevel() != null ? m.getSafetyLevel() : "0")
-              .append(",\"levelShort\":\"").append(escapeJson(m.getLevelShort())).append("\"");
-
-            if (m.getEmploymentRate() != null) {
-                sb.append(",\"employmentRate\":").append(m.getEmploymentRate());
-            }
-            if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
-                String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
-                        + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
-                sb.append(",\"salaryRange\":\"").append(range).append("\"");
-            }
-            if (m.getMajorCategory() != null) {
-                sb.append(",\"category\":\"").append(escapeJson(m.getMajorCategory())).append("\"");
-            }
-            if (m.getCareerProspect() != null) {
-                sb.append(",\"careerProspect\":\"").append(escapeJson(m.getCareerProspect())).append("\"");
-            }
-            sb.append("}");
-        }
-        sb.append("]}");
-        return sb.toString();
     }
 
     private String buildMapSystemPrompt() {
@@ -327,61 +372,58 @@ public class PdfReportServiceImpl implements PdfReportService {
     }
 
     private String buildReduceInput(List<MapResultItem> mapResults, List<ExportGroupContextVO> groups) {
-        // 按 groupSnapshotId 索引 cityEnrichment 和 majorEnrichment
-        Map<Integer, ExportGroupContextVO> groupMap = groups.stream()
-                .collect(Collectors.toMap(ExportGroupContextVO::getGroupSnapshotId, g -> g, (a, b) -> a));
+        try {
+            Map<Integer, ExportGroupContextVO> groupMap = groups.stream()
+                    .collect(Collectors.toMap(ExportGroupContextVO::getGroupSnapshotId, g -> g, (a, b) -> a));
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        for (int i = 0; i < mapResults.size(); i++) {
-            MapResultItem item = mapResults.get(i);
-            if (i > 0) sb.append(",");
-            sb.append("{\"大学\":\"").append(escapeJson(item.getGroupName()))
-              .append("\",\"城市\":\"").append(escapeJson(item.getCityName()))
-              .append("\",\"专业\":[");
+            com.fasterxml.jackson.databind.node.ArrayNode root = objectMapper.createArrayNode();
+            for (MapResultItem item : mapResults) {
+                com.fasterxml.jackson.databind.node.ObjectNode node = objectMapper.createObjectNode();
+                node.put("大学", item.getGroupName());
+                node.put("城市", item.getCityName());
 
-            List<MapResultItem.MajorBrief> majors = item.getMajors();
-            if (majors != null) {
-                for (int j = 0; j < majors.size(); j++) {
-                    if (j > 0) sb.append(",");
-                    MapResultItem.MajorBrief m = majors.get(j);
-                    sb.append("{\"name\":\"").append(escapeJson(m.getMajorName())).append("\"");
-                    if (m.getEmploymentRate() != null) {
-                        sb.append(",\"就业率\":").append(m.getEmploymentRate());
+                com.fasterxml.jackson.databind.node.ArrayNode majorsNode = objectMapper.createArrayNode();
+                if (item.getMajors() != null) {
+                    for (MapResultItem.MajorBrief m : item.getMajors()) {
+                        com.fasterxml.jackson.databind.node.ObjectNode mNode = objectMapper.createObjectNode();
+                        mNode.put("name", m.getMajorName());
+                        if (m.getEmploymentRate() != null) mNode.put("就业率", m.getEmploymentRate());
+                        if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
+                            String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
+                                    + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
+                            mNode.put("薪资", range);
+                        }
+                        majorsNode.add(mNode);
                     }
-                    if (m.getSalaryMin() != null || m.getSalaryMax() != null) {
-                        String range = (m.getSalaryMin() != null ? m.getSalaryMin() : "?")
-                                + "-" + (m.getSalaryMax() != null ? m.getSalaryMax() : "?");
-                        sb.append(",\"薪资\":\"").append(range).append("\"");
+                }
+                node.set("专业", majorsNode);
+
+                String probability = "";
+                if (item.getMajors() != null && !item.getMajors().isEmpty()) {
+                    probability = item.getMajors().stream()
+                            .map(m -> m.getLevelShort() != null ? m.getLevelShort() : "")
+                            .distinct()
+                            .collect(Collectors.joining("/"));
+                }
+                node.put("录取概率", probability);
+
+                ExportGroupContextVO group = item.getGroupSnapshotId() != null
+                        ? groupMap.get(item.getGroupSnapshotId()) : null;
+                if (group != null && group.getCityEnrichment() != null) {
+                    CityEnrichmentVO ci = group.getCityEnrichment();
+                    if (ci.getMainIndustries() != null && !ci.getMainIndustries().isEmpty()) {
+                        node.set("城市产业", objectMapper.valueToTree(ci.getMainIndustries()));
                     }
-                    sb.append("}");
                 }
-            }
-            sb.append("],\"录取概率\":\"");
-            if (majors != null && !majors.isEmpty()) {
-                sb.append(majors.stream()
-                        .map(m -> m.getLevelShort() != null ? m.getLevelShort() : "")
-                        .distinct()
-                        .collect(Collectors.joining("/")));
-            }
-            sb.append("\"");
 
-            // 城市产业信息
-            ExportGroupContextVO group = item.getGroupSnapshotId() != null
-                    ? groupMap.get(item.getGroupSnapshotId()) : null;
-            if (group != null && group.getCityEnrichment() != null) {
-                CityEnrichmentVO ci = group.getCityEnrichment();
-                if (ci.getMainIndustries() != null && !ci.getMainIndustries().isEmpty()) {
-                    sb.append(",\"城市产业\":").append(jsonArray(ci.getMainIndustries()));
-                }
+                node.put("AI简评", item.getCommentary() != null ? item.getCommentary() : "暂无简评");
+                root.add(node);
             }
-
-            sb.append(",\"AI简评\":\"")
-              .append(item.getCommentary() != null ? escapeJson(item.getCommentary()) : "暂无简评")
-              .append("\"}");
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            log.error("Failed to build reduce input JSON", e);
+            return "[]";
         }
-        sb.append("]");
-        return sb.toString();
     }
 
     private String buildReduceSystemPrompt() {
@@ -467,6 +509,14 @@ public class PdfReportServiceImpl implements PdfReportService {
         pdfReportMapper.updateById(update);
     }
 
+    private boolean isReduceResultEmpty(ReduceResult reduceResult) {
+        if (reduceResult == null) return true;
+        boolean gEmpty = reduceResult.getGlobalAnalysis() == null || reduceResult.getGlobalAnalysis().isBlank();
+        boolean sEmpty = reduceResult.getSwot() == null || reduceResult.getSwot().isBlank();
+        boolean rEmpty = reduceResult.getRecommendation() == null || reduceResult.getRecommendation().isBlank();
+        return gEmpty && sEmpty && rEmpty;
+    }
+
     private ServerSentEvent<String> sseEvent(String data) {
         return ServerSentEvent.<String>builder().data(data).build();
     }
@@ -482,21 +532,27 @@ public class PdfReportServiceImpl implements PdfReportService {
 
     private String escapeJson(String text) {
         if (text == null) return "";
-        return text.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
-    }
-
-    private String jsonArray(List<String> items) {
-        if (items == null || items.isEmpty()) return "[]";
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < items.size(); i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\"").append(escapeJson(items.get(i))).append("\"");
+        StringBuilder sb = new StringBuilder(text.length() + 16);
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"' -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    // JSON 规范要求转义 U+0000 ~ U+001F 控制字符
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
         }
-        sb.append("]");
         return sb.toString();
     }
 
@@ -507,13 +563,31 @@ public class PdfReportServiceImpl implements PdfReportService {
         Page<PdfReport> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<PdfReport> wrapper = new LambdaQueryWrapper<PdfReport>()
                 .eq(PdfReport::getMemberId, userId)
+                .eq(dto.getStatus() != null, PdfReport::getStatus, dto.getStatus())
+                .eq(dto.getPlanId() != null, PdfReport::getPlanId, dto.getPlanId())
                 .orderByDesc(PdfReport::getCreatedAt);
 
         IPage<PdfReport> result = pdfReportMapper.selectPage(page, wrapper);
 
+        List<Integer> planIds = result.getRecords().stream()
+                .map(PdfReport::getPlanId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Integer, String> planNameMap = new java.util.HashMap<>();
+        if (!planIds.isEmpty()) {
+            List<WishPlan> plans = wishPlanMapper.selectBatchIds(planIds);
+            for (WishPlan p : plans) {
+                planNameMap.put(p.getId(), p.getPlanName());
+            }
+        }
+
+        Map<Integer, String> finalPlanNameMap = planNameMap;
         return result.convert(report -> PdfRecordListVO.builder()
                 .id(report.getId())
                 .planId(report.getPlanId())
+                .planName(finalPlanNameMap.get(report.getPlanId()))
                 .status(report.getStatus() != null ? report.getStatus().getValue() : null)
                 .createdAt(report.getCreatedAt())
                 .build());
@@ -522,12 +596,20 @@ public class PdfReportServiceImpl implements PdfReportService {
     @Override
     public PdfRecordDetailVO getRecordDetail(Long userId, Integer recordId) {
         PdfReport report = pdfReportMapper.selectById(recordId);
-        if (report == null || !userId.equals(report.getMemberId()) || Boolean.TRUE.equals(report.getDeleted())) {
+        if (report == null || !userId.equals(report.getMemberId())) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报告记录不存在");
         }
+
+        String planName = null;
+        if (report.getPlanId() != null) {
+            WishPlan plan = wishPlanMapper.selectById(report.getPlanId());
+            planName = plan != null ? plan.getPlanName() : null;
+        }
+
         return PdfRecordDetailVO.builder()
                 .id(report.getId())
                 .planId(report.getPlanId())
+                .planName(planName)
                 .status(report.getStatus() != null ? report.getStatus().getValue() : null)
                 .mapResults(report.getMapResults())
                 .reduceResult(report.getReduceResult())
@@ -540,5 +622,26 @@ public class PdfReportServiceImpl implements PdfReportService {
     @Override
     public byte[] renderPdf(Long userId, Integer recordId) {
         return pdfRenderService.renderPdf(userId, recordId);
+    }
+
+    @Override
+    public String getDownloadFilename(Long userId, Integer recordId) {
+        PdfReport report = pdfReportMapper.selectById(recordId);
+        if (report == null || !userId.equals(report.getMemberId())) {
+            return "haifeng-report-" + recordId;
+        }
+        try {
+            if (report.getPlanSnapshot() != null && !report.getPlanSnapshot().isBlank()) {
+                PlanSnapshot snapshot = objectMapper.readValue(report.getPlanSnapshot(), PlanSnapshot.class);
+                StringBuilder name = new StringBuilder("海枫报告");
+                if (snapshot.getPlanYear() != null) name.append("-").append(snapshot.getPlanYear());
+                if (snapshot.getPlanProvince() != null) name.append(snapshot.getPlanProvince());
+                if (snapshot.getUserScore() != null) name.append("-").append(snapshot.getUserScore()).append("分");
+                return name.toString();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse planSnapshot for filename, recordId={}", recordId);
+        }
+        return "haifeng-report-" + recordId;
     }
 }

@@ -70,6 +70,12 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
         if (StringUtils.hasText(dto.getSchoolType())) {
             wrapper.eq(TeacherPosition::getSchoolType, dto.getSchoolType());
         }
+        if (StringUtils.hasText(dto.getSchoolNature())) {
+            wrapper.eq(TeacherPosition::getSchoolNature, dto.getSchoolNature());
+        }
+        if (StringUtils.hasText(dto.getRecruitmentType())) {
+            wrapper.eq(TeacherPosition::getRecruitmentType, dto.getRecruitmentType());
+        }
         if (StringUtils.hasText(dto.getProvince())) {
             wrapper.eq(TeacherPosition::getProvince, dto.getProvince());
         }
@@ -107,7 +113,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
     @Override
     public TeacherPositionDetailVO detail(Long id) {
         TeacherPosition entity = teacherPositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "教师招聘岗位不存在");
         }
         TeacherPositionDetailVO vo = new TeacherPositionDetailVO();
@@ -156,7 +162,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, TeacherPositionUpdateDTO dto) {
         TeacherPosition teacherPosition = teacherPositionMapper.selectById(id);
-        if (teacherPosition == null || teacherPosition.getIsDeleted()) {
+        if (teacherPosition == null || Boolean.TRUE.equals(teacherPosition.getIsDeleted())) {
             throw new BusinessException(404, "教师招聘岗位不存在");
         }
         if (dto.getSchoolName() != null) teacherPosition.setSchoolName(dto.getSchoolName());
@@ -201,7 +207,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         TeacherPosition teacherPosition = teacherPositionMapper.selectById(id);
-        if (teacherPosition == null || teacherPosition.getIsDeleted()) {
+        if (teacherPosition == null || Boolean.TRUE.equals(teacherPosition.getIsDeleted())) {
             throw new BusinessException(404, "教师招聘岗位不存在");
         }
         teacherPosition.setIsDeleted(true);
@@ -216,7 +222,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
             throw new BusinessException(400, "状态只能是: 招聘中、已结束、即将开始");
         }
         TeacherPosition entity = teacherPositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "教师招聘岗位不存在");
         }
         entity.setPositionStatus(positionStatus);
@@ -357,6 +363,12 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
             if (StringUtils.hasText(dto.getPositionStatus())
                     && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
                 errors.add("状态只能是: 招聘中、已结束、即将开始");
+            }
+            if (dto.getAgeLimit() != null && (dto.getAgeLimit() < 18 || dto.getAgeLimit() > 60)) {
+                errors.add("年龄上限须在18-60之间");
+            }
+            if (dto.getRecruitmentCount() != null && dto.getRecruitmentCount() <= 0) {
+                errors.add("招聘人数必须大于0");
             }
             if (!errors.isEmpty()) {
                 errorCount++;

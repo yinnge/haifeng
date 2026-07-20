@@ -1,7 +1,9 @@
 package com.haifeng.app.dto.algorithm.wish;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -13,6 +15,8 @@ import java.util.List;
 public class WishMajorSortDTO {
 
     @NotEmpty(message = "排序列表不能为空")
+    @Size(max = 100, message = "排序列表最多100项")
+    @Valid
     private List<MajorSortItem> items;
 
     @Data

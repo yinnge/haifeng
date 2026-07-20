@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.employment.grassrootsPosition;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringArrayTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,7 +31,7 @@ public class PublicWelfarePosition implements Serializable {
     private String district;
     private String workLocation;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] targetGroup;
 
     private String educationRequirement;

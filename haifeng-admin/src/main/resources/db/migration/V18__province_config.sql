@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS gaokao_config(
     weight_soft_group        NUMERIC(3,1)     DEFAULT 0.6,
     weight_soft_both         NUMERIC(3,1)     DEFAULT 0.3,
     year_weights             NUMERIC(3,2)[]   DEFAULT ARRAY[1.00,0.80,0.60,0.40,0.20]::NUMERIC(3,2)[],
+    updated_at               TIMESTAMPTZ      DEFAULT NOW(),
+    version                  INTEGER          DEFAULT 0,
     created_at               TIMESTAMPTZ      DEFAULT NOW()
 );
 
@@ -51,6 +53,8 @@ COMMENT ON COLUMN gaokao_config.old_gaokao_rank_weight IS '旧高考省份"位�
 COMMENT ON COLUMN gaokao_config.weight_soft_group IS '仅专业组命中软约束时的权重折扣（ConstraintWeightCalculator）';
 COMMENT ON COLUMN gaokao_config.weight_soft_both IS '专业组与专业同时命中软约束时的权重折扣';
 COMMENT ON COLUMN gaokao_config.year_weights IS '近 5 年历史录取数据的衰减权重数组（下标 0 对应"距今 1 年"）';
+COMMENT ON COLUMN gaokao_config.updated_at IS '更新时间';
+COMMENT ON COLUMN gaokao_config.version IS '乐观锁版本号';
 COMMENT ON COLUMN gaokao_config.created_at IS '创建时间';
 
 INSERT INTO gaokao_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

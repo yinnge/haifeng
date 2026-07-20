@@ -105,6 +105,7 @@ CREATE TABLE t_campus_gallery (
     image_url           VARCHAR(500)    NOT NULL,
     sort_order          INTEGER         DEFAULT 0,
     status              SMALLINT        DEFAULT 1 NOT NULL,
+    version             INT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ     DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at          TIMESTAMPTZ     DEFAULT CURRENT_TIMESTAMP NOT NULL
 );

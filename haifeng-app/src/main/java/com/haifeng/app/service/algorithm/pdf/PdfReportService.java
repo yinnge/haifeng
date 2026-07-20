@@ -47,4 +47,13 @@ public interface PdfReportService {
      * @return PDF 字节数组
      */
     byte[] renderPdf(Long userId, Integer recordId);
+
+    /**
+     * 获取 PDF 下载文件名
+     *
+     * @param userId   用户ID（权限校验）
+     * @param recordId 报告记录ID
+     * @return 文件名（不含 .pdf 后缀）
+     */
+    String getDownloadFilename(Long userId, Integer recordId);
 }

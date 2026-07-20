@@ -109,7 +109,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
     @Override
     public HealthcarePositionDetailVO detail(Long id) {
         HealthcarePosition entity = healthcarePositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "医疗卫生岗位不存在");
         }
         HealthcarePositionDetailVO vo = new HealthcarePositionDetailVO();
@@ -159,7 +159,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, HealthcarePositionUpdateDTO dto) {
         HealthcarePosition healthcarePosition = healthcarePositionMapper.selectById(id);
-        if (healthcarePosition == null || healthcarePosition.getIsDeleted()) {
+        if (healthcarePosition == null || Boolean.TRUE.equals(healthcarePosition.getIsDeleted())) {
             throw new BusinessException(404, "医疗卫生岗位不存在");
         }
         if (dto.getInstitutionName() != null) healthcarePosition.setInstitutionName(dto.getInstitutionName());
@@ -205,7 +205,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         HealthcarePosition healthcarePosition = healthcarePositionMapper.selectById(id);
-        if (healthcarePosition == null || healthcarePosition.getIsDeleted()) {
+        if (healthcarePosition == null || Boolean.TRUE.equals(healthcarePosition.getIsDeleted())) {
             throw new BusinessException(404, "医疗卫生岗位不存在");
         }
         healthcarePosition.setIsDeleted(true);
@@ -220,7 +220,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
             throw new BusinessException(400, "状态只能是: 招聘中、已结束、即将开始");
         }
         HealthcarePosition entity = healthcarePositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "医疗卫生岗位不存在");
         }
         entity.setPositionStatus(positionStatus);
@@ -359,6 +359,12 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
             if (StringUtils.hasText(dto.getPositionStatus())
                     && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
                 errors.add("状态只能是: 招聘中、已结束、即将开始");
+            }
+            if (dto.getAgeLimit() != null && (dto.getAgeLimit() < 18 || dto.getAgeLimit() > 65)) {
+                errors.add("年龄上限须在18-65之间");
+            }
+            if (dto.getRecruitmentCount() != null && dto.getRecruitmentCount() <= 0) {
+                errors.add("招聘人数必须大于0");
             }
             if (!errors.isEmpty()) {
                 errorCount++;

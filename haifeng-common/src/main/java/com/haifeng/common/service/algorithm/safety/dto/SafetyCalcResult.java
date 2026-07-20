@@ -28,9 +28,9 @@ public class SafetyCalcResult {
 
     public static SafetyCalcResult noData() {
         return SafetyCalcResult.builder()
-                .safetyLevel(new BigDecimal("0.50"))
-                .levelShort("稳")
-                .safetyDescription("历史数据不足，仅供参考")
+                .safetyLevel(BigDecimal.ZERO)
+                .levelShort("禁")
+                .safetyDescription("暂无专业明细数据")
                 .build();
     }
 }

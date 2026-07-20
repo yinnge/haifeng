@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.certificate;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,7 +36,7 @@ public class Certificate {
 
     private String certIntro;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> examRequirements;
 
     private String examArrangement;

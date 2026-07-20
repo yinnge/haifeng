@@ -2,6 +2,7 @@ package com.haifeng.common.entity.certificate;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,21 +27,21 @@ public class CompetitionDetail {
     @TableField(typeHandler = JacksonTypeHandler.class)
     private Map<String, Object> basicInfo;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> awards;
 
     private String background;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> purposes;
 
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<Map<String, String>> competitionRules;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> scoringCriteria;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> notices;
 
     @TableField(typeHandler = JacksonTypeHandler.class)

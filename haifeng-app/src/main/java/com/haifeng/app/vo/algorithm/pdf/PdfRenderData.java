@@ -89,7 +89,7 @@ public class PdfRenderData {
         private String majorName;
         private String majorCode;
         private String duration;
-        private BigDecimal tuition;
+        private String tuition;
         private Integer admissionCount;
         private BigDecimal safetyLevel;
         private String levelShort;
@@ -126,7 +126,7 @@ public class PdfRenderData {
         private String majorCode;
         private String levelShort;
         private BigDecimal safetyLevel;
-        private BigDecimal tuition;
+        private String tuition;
         private String cityName;
     }
 }

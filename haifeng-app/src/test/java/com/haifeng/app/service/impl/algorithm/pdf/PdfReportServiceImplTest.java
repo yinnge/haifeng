@@ -24,6 +24,8 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -37,6 +39,8 @@ class PdfReportServiceImplTest {
     private WishPlanMapper wishPlanMapper = mock(WishPlanMapper.class);
     private PdfRenderService pdfRenderService = mock(PdfRenderService.class);
     private ObjectMapper objectMapper = new ObjectMapper();
+    // 使用真实线程池而非 mock，避免 CompletableFuture.runAsync 供应链被 mock 截断
+    private ExecutorService pdfMapExecutor = Executors.newFixedThreadPool(2);
 
     private PdfReportServiceImpl service;
 
@@ -44,7 +48,7 @@ class PdfReportServiceImplTest {
     void setup() {
         service = new PdfReportServiceImpl(
                 pdfReportMapper, aiChatService, quotaService,
-                wishPlanService, objectMapper, wishPlanMapper, pdfRenderService);
+                wishPlanService, objectMapper, wishPlanMapper, pdfRenderService, pdfMapExecutor);
     }
 
     @Test

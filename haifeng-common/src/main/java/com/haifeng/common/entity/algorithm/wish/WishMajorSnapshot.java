@@ -44,7 +44,7 @@ public class WishMajorSnapshot {
 
     private String duration;
 
-    private BigDecimal tuition;
+    private String tuition;
 
     private String description;
 

@@ -32,12 +32,14 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
     /**
      * 批量查询历史数据
      * @param keys university_id + group_code 组合列表
+     * @param province 省份
      * @param minYear 最小年份
      * @return 历史数据列表
      */
     @Select("<script>" +
             "SELECT * FROM t_admission_group " +
             "WHERE is_deleted = FALSE " +
+            "AND province = #{province} " +
             "AND year >= #{minYear} " +
             "AND (university_id, group_code) IN " +
             "<foreach collection='keys' item='key' open='(' separator=',' close=')'>" +
@@ -45,23 +47,25 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</foreach> " +
             "ORDER BY university_id, group_code, year DESC" +
             "</script>")
-    List<AdmissionGroup> selectHistoryByKeys(@Param("keys") List<GroupKey> keys, @Param("minYear") Short minYear);
+    List<AdmissionGroup> selectHistoryByKeys(@Param("keys") List<GroupKey> keys, @Param("province") String province, @Param("minYear") Short minYear);
 
     /**
      * 分页查询专业组（带选科筛选）
+     * 注意：此 SQL 依赖 PostgreSQL 特有的数组操作符（&& 和 @>）
      */
     @Select("<script>" +
             "SELECT * FROM t_admission_group " +
             "WHERE province = #{province} " +
             "AND batch = #{batch} " +
+            "AND year = #{year} " +
             "AND is_deleted = FALSE " +
             "<if test='subjectFilter and userSubjects != null'>" +
             "AND (" +
             "  requirement_type = '不限' " +
             "  OR subjects = '{}' " +
             "  OR subjects IS NULL " +
-            "  OR (requirement_type IN ('2选1', '3选1') AND subjects &amp;&amp; #{userSubjects}::text[]) " +
-            "  OR (requirement_type IN ('必选1', '必选2', '必选3') AND #{userSubjects}::text[] @&gt; subjects)" +
+            "  OR (requirement_type IN ('2选1', '3选1') AND (subjects = '{}' OR subjects &amp;&amp; #{userSubjects}::text[])) " +
+            "  OR (requirement_type IN ('必选1', '必选2', '必选3') AND (subjects = '{}' OR #{userSubjects}::text[] @&gt; subjects))" +
             ")" +
             "</if>" +
             "ORDER BY min_rank ASC NULLS LAST " +
@@ -70,6 +74,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
     List<AdmissionGroup> selectPageByCondition(
             @Param("province") String province,
             @Param("batch") String batch,
+            @Param("year") Short year,
             @Param("subjectFilter") boolean subjectFilter,
             @Param("userSubjects") String userSubjects,
             @Param("size") int size,
@@ -77,25 +82,28 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
     /**
      * 统计总数（带选科筛选）
+     * 注意：此 SQL 依赖 PostgreSQL 特有的数组操作符（&& 和 @>）
      */
     @Select("<script>" +
             "SELECT COUNT(*) FROM t_admission_group " +
             "WHERE province = #{province} " +
             "AND batch = #{batch} " +
+            "AND year = #{year} " +
             "AND is_deleted = FALSE " +
             "<if test='subjectFilter and userSubjects != null'>" +
             "AND (" +
             "  requirement_type = '不限' " +
             "  OR subjects = '{}' " +
             "  OR subjects IS NULL " +
-            "  OR (requirement_type IN ('2选1', '3选1') AND subjects &amp;&amp; #{userSubjects}::text[]) " +
-            "  OR (requirement_type IN ('必选1', '必选2', '必选3') AND #{userSubjects}::text[] @&gt; subjects)" +
+            "  OR (requirement_type IN ('2选1', '3选1') AND (subjects = '{}' OR subjects &amp;&amp; #{userSubjects}::text[])) " +
+            "  OR (requirement_type IN ('必选1', '必选2', '必选3') AND (subjects = '{}' OR #{userSubjects}::text[] @&gt; subjects))" +
             ")" +
             "</if>" +
             "</script>")
     long countByCondition(
             @Param("province") String province,
             @Param("batch") String batch,
+            @Param("year") Short year,
             @Param("subjectFilter") boolean subjectFilter,
             @Param("userSubjects") String userSubjects);
 }
