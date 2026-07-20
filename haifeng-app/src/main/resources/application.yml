@@ -17,6 +17,6 @@ deepseek:
   timeout-seconds: 60
 
 submail:
-  appid: ${SUBMAIL_APPID}
-  appkey: ${SUBMAIL_APPKEY}
+  appid: ${SUBMAIL_APPID:10001}
+  appkey: ${SUBMAIL_APPKEY:replace-with-real-key}
   sign: 【海峰规划】

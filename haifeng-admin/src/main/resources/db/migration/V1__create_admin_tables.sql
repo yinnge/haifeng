@@ -14,8 +14,8 @@ CREATE TABLE sys_role (
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX uk_role_name ON sys_role(role_name) WHERE is_deleted = FALSE;
-CREATE UNIQUE INDEX uk_role_code ON sys_role(role_code) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX uk_role_name ON sys_role(role_name);
+CREATE UNIQUE INDEX uk_role_code ON sys_role(role_code);
 CREATE INDEX idx_role_status ON sys_role(status) WHERE is_deleted = FALSE;
 
 COMMENT ON TABLE sys_role IS '角色表';
@@ -41,7 +41,6 @@ CREATE TABLE sys_module (
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX uk_module_name ON sys_module(module_name) WHERE is_deleted = FALSE;
 CREATE INDEX idx_module_parent ON sys_module(parent_id);
 CREATE INDEX idx_module_status ON sys_module(status) WHERE is_deleted = FALSE;
 
@@ -159,12 +158,3 @@ COMMENT ON COLUMN t_member.phone IS '手机号（用于登录，必填）';
 COMMENT ON COLUMN t_member.invite_code IS '邀请码（8位，自动生成）';
 COMMENT ON COLUMN t_member.wechat_id IS '微信号(AES加密存储)';
 COMMENT ON COLUMN t_member.wechat_id_index IS '微信号盲索引(SHA-256哈希，用于等值查询)';
-
--- 默认管理员（密码：Admin123）
--- 注：ID 由 Java 雪花算法生成，此处只是 DDL 参考；实际种子数据通过 Java 工具插入
-INSERT INTO sys_role (role_name, role_code, description, status)
-VALUES ('超级管理员', 'super_admin', '拥有所有权限', 1);
-
-INSERT INTO sys_admin (username, password, real_name, phone, role_id, role_name, status)
-SELECT 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8ioctLkRc2xqV8k1u7QwcEVyRZCJ.', '超级管理员', '13800000000', id, role_name, 1
-FROM sys_role WHERE role_code = 'super_admin';
