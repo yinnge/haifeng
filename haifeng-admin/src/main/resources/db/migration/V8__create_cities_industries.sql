@@ -20,7 +20,7 @@ CREATE TABLE t_city (
     gdp                     NUMERIC(10, 2),
     is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
     -- 唯一约束见下方部分唯一索引 uk_city_name_active
 );
 

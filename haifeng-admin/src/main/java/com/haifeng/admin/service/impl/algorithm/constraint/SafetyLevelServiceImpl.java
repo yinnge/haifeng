@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Slf4j
-@Service
+@Service("safetyLevelDictService")
 @RequiredArgsConstructor
 public class SafetyLevelServiceImpl implements SafetyLevelService {
 
