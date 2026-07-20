@@ -88,7 +88,6 @@ public class AppAuthServiceImpl implements AppAuthService {
         }
 
         // 创建会员
-        OffsetDateTime now = OffsetDateTime.now();
         Member member = Member.builder()
                 .id(SnowflakeIdGenerator.nextId())
                 .username(dto.getUsername())
@@ -100,8 +99,6 @@ public class AppAuthServiceImpl implements AppAuthService {
                 .commissionTotalEarned(BigDecimal.ZERO)
                 .commissionTotalPaid(BigDecimal.ZERO)
                 .deleted(false)
-                .createdAt(now)
-                .updatedAt(now)
                 .build();
 
         if (referrer != null) {
@@ -133,11 +130,6 @@ public class AppAuthServiceImpl implements AppAuthService {
 
     @Override
     public TokenVO login(LoginDTO dto) {
-        // 1. 先验证验证码
-        if (!captchaService.validateCaptcha(dto.getUuid(), dto.getCaptchaCode())) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
-        }
-
         Member member = memberMapper.selectOne(
                 new LambdaQueryWrapper<Member>()
                         .eq(Member::getPhone, dto.getPhone())
@@ -147,6 +139,11 @@ public class AppAuthServiceImpl implements AppAuthService {
         if (member == null) {
             log.warn("用户登录失败，手机号不存在: {}", dto.getPhone());
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+
+        // 验证码校验（用户存在后才校验，避免用户不存在时消耗验证码）
+        if (!captchaService.validateCaptcha(dto.getUuid(), dto.getCaptchaCode())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
         if (!member.isActive()) {
@@ -246,6 +243,9 @@ public class AppAuthServiceImpl implements AppAuthService {
     @Override
     public void forgotPasswordSendCode(ForgotPasswordSendCodeDTO dto) {
         if (!captchaService.validateCaptcha(dto.getUuid(), dto.getCaptchaCode())) {
+            log.warn("图形验证码校验失败，phone={}, captchaCode长度={}",
+                    DesensitizeUtil.desensitizePhone(dto.getPhone()),
+                    dto.getCaptchaCode() != null ? dto.getCaptchaCode().length() : 0);
             throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误或已过期");
         }
 
@@ -303,6 +303,9 @@ public class AppAuthServiceImpl implements AppAuthService {
             smsService.sendSmsCode(phone, code);
         } catch (BusinessException e) {
             redisTemplate.delete(coolKey);
+            redisTemplate.delete(ipLimitKey);
+            log.error("短信发送失败，phone={}, IP={}",
+                    DesensitizeUtil.desensitizePhone(phone), clientIp, e);
             throw e;
         }
 
@@ -313,6 +316,7 @@ public class AppAuthServiceImpl implements AppAuthService {
     @Override
     public void forgotPasswordReset(ForgotPasswordResetDTO dto) {
         String phone = dto.getPhone();
+        String clientIp = IpUtil.getClientIp();
 
         Member member = memberMapper.selectOne(
                 new LambdaQueryWrapper<Member>()
@@ -339,13 +343,14 @@ public class AppAuthServiceImpl implements AppAuthService {
                 redisTemplate.expire(failKey, 30, TimeUnit.MINUTES);
             }
 
-            log.warn("短信验证码校验失败，phone={}, 已失败次数={}",
-                    DesensitizeUtil.desensitizePhone(phone), failCount);
+            log.warn("短信验证码校验失败，phone={}, 已失败次数={}, IP={}",
+                    DesensitizeUtil.desensitizePhone(phone), failCount, clientIp);
 
             if (failCount != null && failCount >= 5) {
                 redisTemplate.expire(failKey, 30, TimeUnit.MINUTES);
                 redisTemplate.delete(codeKey);
-                log.warn("短信验证码锁定，phone={}", DesensitizeUtil.desensitizePhone(phone));
+                log.warn("短信验证码锁定，phone={}, IP={}",
+                        DesensitizeUtil.desensitizePhone(phone), clientIp);
                 throw new BusinessException(ResultCode.SMS_CODE_LOCKED);
             }
 
@@ -354,13 +359,15 @@ public class AppAuthServiceImpl implements AppAuthService {
 
         redisTemplate.delete(codeKey);
         redisTemplate.delete(RedisKeyConstant.SMS_VERIFY_FAIL + phone);
+        redisTemplate.delete(RedisKeyConstant.SMS_SEND_COOL + phone);
+        String dateStr = java.time.LocalDate.now().toString().replace("-", "");
+        redisTemplate.delete(RedisKeyConstant.SMS_SEND_LIMIT + dateStr + ":" + phone);
 
         if (passwordEncoder.matches(dto.getPassword(), member.getPassword())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "新密码不能与原密码相同");
         }
 
         member.setPassword(passwordEncoder.encode(dto.getPassword()));
-        member.setUpdatedAt(java.time.OffsetDateTime.now());
         memberMapper.updateById(member);
 
         String refreshKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);

@@ -2,6 +2,7 @@ package com.haifeng.app.service.city;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.city.CityQueryDTO;
+import com.haifeng.app.vo.city.CityBriefVO;
 import com.haifeng.app.vo.city.CityDetailVO;
 import com.haifeng.app.vo.city.CityListVO;
 
@@ -23,4 +24,10 @@ public interface CityService {
      * 不存在 → BusinessException(NOT_FOUND)
      */
     CityDetailVO detailByName(String cityName);
+
+    /**
+     * 城市简要信息：通过 cityName 查询 t_city 主表返回简要信息
+     * 不存在 → BusinessException(NOT_FOUND)
+     */
+    CityBriefVO getBriefByName(String cityName);
 }

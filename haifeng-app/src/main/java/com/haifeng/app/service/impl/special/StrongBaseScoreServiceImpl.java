@@ -26,7 +26,7 @@ public class StrongBaseScoreServiceImpl implements StrongBaseScoreService {
 
     @Override
     public IPage<StrongBaseScoreListVO> page(StrongBaseScoreQueryDTO dto) {
-        if (!ProvinceEnum.isValid(dto.getProvince())) {
+        if (StringUtils.hasText(dto.getProvince()) && !ProvinceEnum.isValid(dto.getProvince())) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "省份参数不合法");
         }
         Page<StrongBaseScore> page = new Page<>(dto.getPage(), dto.getSize());
@@ -39,8 +39,7 @@ public class StrongBaseScoreServiceImpl implements StrongBaseScoreService {
                 .like(StringUtils.hasText(dto.getUniversityName()), StrongBaseScore::getUniversityName, dto.getUniversityName())
                 .like(StringUtils.hasText(dto.getMajorName()), StrongBaseScore::getMajorName, dto.getMajorName())
                 .like(StringUtils.hasText(dto.getMajorCode()), StrongBaseScore::getMajorCode, dto.getMajorCode())
-                .orderByDesc(StrongBaseScore::getYear)
-                .orderByDesc(StrongBaseScore::getId);
+                .last("ORDER BY year DESC NULLS LAST, id DESC NULLS LAST");
         return strongBaseScoreMapper.selectPage(page, wrapper).convert(this::toListVO);
     }
 

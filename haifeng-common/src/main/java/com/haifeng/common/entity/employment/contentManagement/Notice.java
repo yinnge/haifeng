@@ -43,7 +43,7 @@ public class Notice implements Serializable {
     @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] tags;
 
-    private String year;
+    private Integer year;
 
     private String source;
 

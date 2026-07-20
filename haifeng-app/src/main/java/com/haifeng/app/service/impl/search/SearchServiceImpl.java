@@ -1,6 +1,7 @@
 package com.haifeng.app.service.impl.search;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.service.search.SearchService;
 import com.haifeng.app.vo.search.SearchResultVO;
 import com.haifeng.common.entity.city.City;
@@ -40,10 +41,10 @@ public class SearchServiceImpl implements SearchService {
 
         LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(University::getName, keyword)
-                .orderByAsc(University::getName)
-                .last("LIMIT " + actualLimit);
+                .orderByAsc(University::getName);
 
-        List<University> list = universityMapper.selectList(wrapper);
+        Page<University> page = new Page<>(1, actualLimit, false);
+        List<University> list = universityMapper.selectPage(page, wrapper).getRecords();
 
         return list.stream()
                 .map(u -> SearchResultVO.builder()
@@ -63,10 +64,10 @@ public class SearchServiceImpl implements SearchService {
 
         LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(City::getCityName, keyword)
-                .orderByAsc(City::getCityName)
-                .last("LIMIT " + actualLimit);
+                .orderByAsc(City::getCityName);
 
-        List<City> list = cityMapper.selectList(wrapper);
+        Page<City> page = new Page<>(1, actualLimit, false);
+        List<City> list = cityMapper.selectPage(page, wrapper).getRecords();
 
         return list.stream()
                 .map(c -> SearchResultVO.builder()
@@ -86,10 +87,10 @@ public class SearchServiceImpl implements SearchService {
 
         LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(Major::getMajorName, keyword)
-                .orderByAsc(Major::getMajorName)
-                .last("LIMIT " + actualLimit);
+                .orderByAsc(Major::getMajorName);
 
-        List<Major> list = majorMapper.selectList(wrapper);
+        Page<Major> page = new Page<>(1, actualLimit, false);
+        List<Major> list = majorMapper.selectPage(page, wrapper).getRecords();
 
         return list.stream()
                 .map(m -> SearchResultVO.builder()

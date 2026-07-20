@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.city.CityQueryDTO;
 import com.haifeng.app.service.city.CityService;
+import com.haifeng.app.vo.city.CityBriefVO;
 import com.haifeng.app.vo.city.CityDetailVO;
 import com.haifeng.app.vo.city.CityListVO;
 import com.haifeng.common.entity.city.City;
@@ -43,6 +44,12 @@ public class CityServiceImpl implements CityService {
 
     @Override
     public CityDetailVO detail(Long cityId) {
+        City city = cityMapper.selectById(cityId);
+        if (city == null || Boolean.TRUE.equals(city.getIsDeleted())) {
+            log.debug("城市不存在或已删除, cityId={}", cityId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "城市详情不存在");
+        }
+
         CityDetail detail = cityDetailMapper.findByCityId(cityId);
         if (detail == null) {
             log.debug("城市详情不存在, cityId={}", cityId);
@@ -93,6 +100,26 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
         }
         return detail(city.getId());
+    }
+
+    @Override
+    public CityBriefVO getBriefByName(String cityName) {
+        City city = cityMapper.selectOne(
+                new LambdaQueryWrapper<City>()
+                        .eq(City::getCityName, cityName)
+                        .eq(City::getIsDeleted, false)
+                        .last("LIMIT 1"));
+        if (city == null) {
+            log.debug("城市不存在, cityName={}", cityName);
+            throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
+        }
+        return CityBriefVO.builder()
+                .cityName(city.getCityName())
+                .province(city.getProvince())
+                .region(city.getRegion())
+                .cityIntro(city.getCityIntro())
+                .collegeCount(city.getCollegeCount())
+                .build();
     }
 
     private CityListVO toListVO(City e) {

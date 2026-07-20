@@ -47,7 +47,7 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         wrapper.eq(StrUtil.isNotBlank(dto.getPoliticalStatus()), CivilPosition::getPoliticalStatus, dto.getPoliticalStatus());
         wrapper.eq(StrUtil.isNotBlank(dto.getExamCategory()), CivilPosition::getExamCategory, dto.getExamCategory());
 
-        wrapper.orderByDesc(CivilPosition::getSortOrder, CivilPosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<CivilPosition> page = new Page<>(dto.getPage(), dto.getSize());
         civilPositionMapper.selectPage(page, wrapper);
@@ -102,11 +102,37 @@ public class CivilPositionServiceImpl implements CivilPositionService {
                 .positionIntro(item.getPositionIntro())
                 .remark(item.getRemark())
                 .officialWebsite(item.getOfficialWebsite())
-                .contactPhone(item.getContactPhone())
+                .contactPhone(desensitizePhone(item.getContactPhone()))
                 .regStartDate(item.getRegStartDate())
                 .regEndDate(item.getRegEndDate())
                 .regStatus(item.getRegStatus())
                 .applicantCount(item.getApplicantCount())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return phone;
+        }
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            String prefix = phone.substring(0, atIndex);
+            String domain = phone.substring(atIndex);
+            if (prefix.length() <= 2) {
+                return prefix.charAt(0) + "***" + domain;
+            }
+            return prefix.substring(0, 2) + "***" + domain;
+        }
+        if (phone.contains("-")) {
+            String[] parts = phone.split("-", 2);
+            if (parts[1].length() >= 4) {
+                return parts[0] + "-" + "****" + parts[1].substring(parts[1].length() - 4);
+            }
+            return parts[0] + "-****";
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+        }
+        return phone.charAt(0) + "****" + phone.charAt(phone.length() - 1);
     }
 }

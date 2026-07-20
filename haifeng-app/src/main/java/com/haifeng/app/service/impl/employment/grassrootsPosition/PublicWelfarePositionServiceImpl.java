@@ -28,14 +28,14 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
         LambdaQueryWrapper<PublicWelfarePosition> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PublicWelfarePosition::getIsDeleted, false);
 
-        if (StrUtil.isNotBlank(dto.getKeyword())) {
-            wrapper.and(w -> w
-                    .like(PublicWelfarePosition::getPositionName, dto.getKeyword())
-                    .or()
-                    .like(PublicWelfarePosition::getDevelopingUnit, dto.getKeyword())
-                    .or()
-                    .like(PublicWelfarePosition::getEmployingUnit, dto.getKeyword())
-            );
+        if (StrUtil.isNotBlank(dto.getPositionName())) {
+            wrapper.like(PublicWelfarePosition::getPositionName, dto.getPositionName());
+        }
+        if (StrUtil.isNotBlank(dto.getDevelopingUnit())) {
+            wrapper.like(PublicWelfarePosition::getDevelopingUnit, dto.getDevelopingUnit());
+        }
+        if (StrUtil.isNotBlank(dto.getEmployingUnit())) {
+            wrapper.like(PublicWelfarePosition::getEmployingUnit, dto.getEmployingUnit());
         }
 
         wrapper.eq(StrUtil.isNotBlank(dto.getPositionCategory()), PublicWelfarePosition::getPositionCategory, dto.getPositionCategory());
@@ -60,8 +60,7 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
             wrapper.apply("target_group @> ARRAY[{0}]::text[]", dto.getTargetGroup());
         }
 
-        wrapper.orderByDesc(PublicWelfarePosition::getSortOrder);
-        wrapper.orderByDesc(PublicWelfarePosition::getCreatedAt);
+        wrapper.last("ORDER BY sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         Page<PublicWelfarePosition> page = new Page<>(dto.getPage(), dto.getSize());
         publicWelfarePositionMapper.selectPage(page, wrapper);
@@ -87,8 +86,11 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
 
     @Override
     public PublicWelfarePositionDetailVO detail(Long id) {
-        PublicWelfarePosition p = publicWelfarePositionMapper.selectById(id);
-        if (p == null || Boolean.TRUE.equals(p.getIsDeleted())) {
+        LambdaQueryWrapper<PublicWelfarePosition> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PublicWelfarePosition::getId, id);
+        wrapper.eq(PublicWelfarePosition::getIsDeleted, false);
+        PublicWelfarePosition p = publicWelfarePositionMapper.selectOne(wrapper);
+        if (p == null) {
             log.warn("公益性岗位不存在，id={}", id);
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -127,10 +129,29 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
                 .applyAddress(p.getApplyAddress())
                 .requiredDocuments(p.getRequiredDocuments())
                 .positionStatus(p.getPositionStatus())
-                .contactPhone(p.getContactPhone())
+                .contactPhone(desensitizePhone(p.getContactPhone()))
                 .contactPerson(p.getContactPerson())
                 .remark(p.getRemark())
                 .content(p.getContent())
                 .build();
+    }
+
+    private String desensitizePhone(String phone) {
+        if (StrUtil.isBlank(phone)) return phone;
+        if (phone.contains("@")) {
+            int atIndex = phone.indexOf("@");
+            if (atIndex > 2) {
+                return phone.substring(0, 2) + "***" + phone.substring(atIndex);
+            }
+            return phone.substring(0, 1) + "***" + phone.substring(atIndex);
+        }
+        if (phone.length() >= 11) {
+            return phone.substring(0, 3) + "****" + phone.substring(7);
+        } else if (phone.length() >= 8) {
+            return phone.substring(0, 2) + "****" + phone.substring(6);
+        } else if (phone.length() >= 4) {
+            return phone.substring(0, 1) + "****" + phone.substring(phone.length() - 1);
+        }
+        return phone;
     }
 }

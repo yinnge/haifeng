@@ -1,29 +1,29 @@
 package com.haifeng.app.dto.major;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-/** C 端考研专业列表查询 DTO（spec 任务2接口1） */
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class PostgradMajorListQueryDTO extends BasePageQueryDTO {
 
-    /** 模糊查询（LIKE %name%） */
+    @Size(max = 100, message = "考研专业名称最长100个字符")
     private String name;
 
-    /** 模糊查询（LIKE %code%） */
+    @Size(max = 20, message = "考研专业代码最长20个字符")
     private String code;
 
-    /** 精准查询 */
+    @Size(max = 20, message = "学位类型最长20个字符")
     private String degreeType;
 
-    /** 精准查询 */
+    @Size(max = 50, message = "学科门类最长50个字符")
     private String disciplineCategory;
 
-    /** 精准查询 */
+    @Size(max = 10, message = "热门程度最长10个字符")
     private String popularity;
 
-    /** 精准查询 */
+    @Size(max = 10, message = "难度最长10个字符")
     private String difficulty;
 }

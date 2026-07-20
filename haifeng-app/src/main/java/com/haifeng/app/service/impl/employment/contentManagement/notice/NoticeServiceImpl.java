@@ -25,8 +25,7 @@ public class NoticeServiceImpl implements NoticeService {
         wrapper.eq(Notice::getIsDeleted, false);
         wrapper.eq(Notice::getNoticeCategory, noticeCategory);
         wrapper.eq(StrUtil.isNotBlank(noticeType), Notice::getNoticeType, noticeType);
-        wrapper.orderByDesc(Notice::getSortOrder).last("NULLS LAST");
-        wrapper.orderByDesc(Notice::getCreatedAt);
+        wrapper.orderBy(true, false, "sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
 
         List<Notice> list = noticeMapper.selectList(wrapper);
         return list.stream().map(this::convertToDetailVO).toList();
@@ -52,10 +51,9 @@ public class NoticeServiceImpl implements NoticeService {
                 .regEndDate(notice.getRegEndDate())
                 .examTime(notice.getExamTime())
                 .recruitmentCount(notice.getRecruitmentCount())
+                .sortOrder(notice.getSortOrder())
                 .isTop(notice.getIsTop())
                 .isImportant(notice.getIsImportant())
-                .sortOrder(notice.getSortOrder())
-                .viewCount(notice.getViewCount())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
                 .build();

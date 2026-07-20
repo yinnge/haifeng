@@ -1,6 +1,7 @@
 package com.haifeng.app.dto.university;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -10,5 +11,6 @@ import lombok.EqualsAndHashCode;
 public class UniversityPostgradMajorQueryDTO extends BasePageQueryDTO {
 
     /** 精准查询（学术学位 / 专业学位） */
+    @Size(max = 20, message = "学位类型长度不能超过20")
     private String degreeType;
 }

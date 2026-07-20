@@ -33,15 +33,47 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     private static final String[] WHITE_LIST = {
-            // 登录相关
+            // 认证相关
             "/api/v1/*/auth/login",
             "/api/v1/*/auth/register",
             "/api/v1/*/auth/refresh",
             "/api/v1/*/auth/captcha",
             "/api/v1/*/auth/login/totp",
-            // 忘记密码
+            "/api/v1/*/auth/logout",
             "/api/v1/app/auth/forgot-password/send-code",
             "/api/v1/app/auth/forgot-password/reset",
+            // 首页
+            "/api/v1/app/home/**",
+            // 院校（公开部分）
+            "/api/v1/app/university/list",
+            "/api/v1/app/university/channel-options",
+            "/api/v1/app/university/*/channels",
+            // 专业（公开部分）
+            "/api/v1/app/major/list",
+            "/api/v1/app/major/category-stats",
+            // 城市
+            "/api/v1/app/city/list",
+            // 企业
+            "/api/v1/app/enterprise/list",
+            // 行业
+            "/api/v1/app/industry/categories",
+            "/api/v1/app/industry/list",
+            // 资源
+            "/api/v1/app/resource/list",
+            "/api/v1/app/resource/categories",
+            // 证书
+            "/api/v1/app/certificate/list",
+            "/api/v1/app/certificate/categories",
+            // 竞赛
+            "/api/v1/app/competition/list",
+            // 特殊通道
+            "/api/v1/app/special/channel/list",
+            "/api/v1/app/special/strong-base-score/list",
+            "/api/v1/app/special/channel-univ/list",
+            // 就业（列表公开）
+            "/api/v1/app/employment/*/list",
+            "/api/v1/app/employment/*/*/list",
+            "/api/v1/app/employment/content/*/list-by-type",
             // Actuator
             "/actuator/**",
             // Swagger

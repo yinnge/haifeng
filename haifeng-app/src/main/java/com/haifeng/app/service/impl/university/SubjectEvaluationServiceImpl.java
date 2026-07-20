@@ -8,7 +8,11 @@ import com.haifeng.app.service.university.SubjectEvaluationService;
 import com.haifeng.app.vo.university.SubjectEvaluationGradeStatsVO;
 import com.haifeng.app.vo.university.SubjectEvaluationListVO;
 import com.haifeng.common.entity.university.SubjectEvaluation;
+import com.haifeng.common.entity.university.University;
+import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.SubjectEvaluationMapper;
+import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,9 +34,16 @@ public class SubjectEvaluationServiceImpl implements SubjectEvaluationService {
             "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-");
 
     private final SubjectEvaluationMapper subjectEvaluationMapper;
+    private final UniversityMapper universityMapper;
 
     @Override
     public IPage<SubjectEvaluationListVO> page(Long universityId, SubjectEvaluationQueryDTO dto) {
+        University univ = universityMapper.selectById(universityId);
+        if (univ == null || univ.getStatus() == null || univ.getStatus() != STATUS_PUBLISHED) {
+            log.debug("院校不存在或已下架, universityId={}", universityId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
+        }
+
         Page<SubjectEvaluation> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<SubjectEvaluation> wrapper = new LambdaQueryWrapper<SubjectEvaluation>()

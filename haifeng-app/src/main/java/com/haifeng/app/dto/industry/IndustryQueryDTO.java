@@ -1,6 +1,7 @@
 package com.haifeng.app.dto.industry;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -13,5 +14,6 @@ import lombok.EqualsAndHashCode;
 public class IndustryQueryDTO extends BasePageQueryDTO {
 
     /** 行业分类精准匹配 */
+    @Size(max = 50, message = "行业分类长度不能超过50")
     private String category;
 }
