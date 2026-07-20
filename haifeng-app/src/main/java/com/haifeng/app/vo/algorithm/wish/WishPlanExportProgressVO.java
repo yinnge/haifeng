@@ -15,14 +15,14 @@ import lombok.NoArgsConstructor;
 public class WishPlanExportProgressVO {
 
     /**
-     * 总专业组数
+     * 总专业数
      */
-    private Integer totalGroups;
+    private Integer totalMajors;
 
     /**
-     * 已完成专业组数
+     * 已导出专业数
      */
-    private Integer completedGroups;
+    private Integer exportedMajors;
 
     /**
      * 进度百分比

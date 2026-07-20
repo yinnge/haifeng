@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.home;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -38,10 +38,10 @@ public class Planner {
 
     private String experienceJob;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> achievements;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> expertiseAreas;
 
     private Integer sortOrder;

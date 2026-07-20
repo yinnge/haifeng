@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
     major_code              VARCHAR(30)     NOT NULL,
     major_name              TEXT            NOT NULL,
     duration                VARCHAR(20),
-    tuition                 NUMERIC(10,2),
+    tuition                 VARCHAR(50),
     description             TEXT,
     admission_count         INTEGER,
     safety_level            NUMERIC(3,2),

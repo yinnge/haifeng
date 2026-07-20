@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS t_member (
     wechat_id                   VARCHAR(255),                       -- 微信号(AES加密存储)
     wechat_id_index             VARCHAR(64),                        -- 微信号盲索引(SHA-256)
     is_deleted                  BOOLEAN NOT NULL DEFAULT FALSE,
+    version                     INT NOT NULL DEFAULT 0,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_member_type CHECK (member_type IN ('normal', 'pro', 'vip')),

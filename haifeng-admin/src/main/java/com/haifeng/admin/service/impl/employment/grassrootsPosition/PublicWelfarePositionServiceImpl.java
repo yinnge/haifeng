@@ -156,6 +156,15 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "公益性岗位不存在");
         }
+        if (dto.getPositionStatus() != null && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
+            throw new BusinessException(400, "状态不合法");
+        }
+        if (dto.getPositionCategory() != null && !VALID_POSITION_CATEGORIES.contains(dto.getPositionCategory())) {
+            throw new BusinessException(400, "岗位类别不合法");
+        }
+        if (dto.getEducationRequirement() != null && !VALID_EDUCATION_REQUIREMENTS.contains(dto.getEducationRequirement())) {
+            throw new BusinessException(400, "学历要求不合法");
+        }
         if (dto.getDevelopingUnit() != null) entity.setDevelopingUnit(dto.getDevelopingUnit());
         if (dto.getEmployingUnit() != null) entity.setEmployingUnit(dto.getEmployingUnit());
         if (dto.getPositionName() != null) entity.setPositionName(dto.getPositionName());
@@ -252,7 +261,18 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
         }
 
         List<PublicWelfarePosition> entities = new ArrayList<>();
+        List<String> duplicateWarnings = new ArrayList<>();
         for (PublicWelfarePositionExcelDTO dto : list) {
+            boolean exists = publicWelfarePositionMapper.selectCount(
+                    Wrappers.lambdaQuery(PublicWelfarePosition.class)
+                            .eq(PublicWelfarePosition::getPositionName, dto.getPositionName())
+                            .eq(PublicWelfarePosition::getProvince, dto.getProvince())
+                            .eq(PublicWelfarePosition::getCity, dto.getCity())
+                            .eq(PublicWelfarePosition::getIsDeleted, false)) > 0;
+            if (exists) {
+                duplicateWarnings.add(dto.getPositionName() + "(" + dto.getProvince() + "/" + dto.getCity() + ")");
+                continue;
+            }
             PublicWelfarePosition entity = PublicWelfarePosition.builder()
                     .id(SnowflakeIdGenerator.nextId())
                     .developingUnit(dto.getDevelopingUnit())
@@ -298,7 +318,10 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
             entities.add(entity);
         }
         Db.saveBatch(entities);
-        log.info("导入公益性岗位成功: count={}", list.size());
+        if (!duplicateWarnings.isEmpty()) {
+            log.info("导入公益性岗位: 跳过{}条重复记录: {}", duplicateWarnings.size(), String.join(", ", duplicateWarnings));
+        }
+        log.info("导入公益性岗位成功: count={}", entities.size());
     }
 
     private String validateExcelRows(List<PublicWelfarePositionExcelDTO> list) {

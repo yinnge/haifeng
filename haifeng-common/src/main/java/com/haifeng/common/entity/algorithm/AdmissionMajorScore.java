@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,7 +51,7 @@ public class AdmissionMajorScore {
 
     private Integer maxRank;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> constraints;
 
     private Boolean isDeleted;

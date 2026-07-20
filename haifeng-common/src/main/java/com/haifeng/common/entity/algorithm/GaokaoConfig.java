@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.BigDecimalListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,7 +31,7 @@ public class GaokaoConfig {
     private BigDecimal weightSoftGroup;
     private BigDecimal weightSoftBoth;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = BigDecimalListTypeHandler.class)
     private List<BigDecimal> yearWeights;
 
     @TableField(fill = FieldFill.INSERT)

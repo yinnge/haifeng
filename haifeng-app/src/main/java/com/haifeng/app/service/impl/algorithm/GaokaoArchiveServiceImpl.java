@@ -8,9 +8,11 @@ import com.haifeng.common.entity.algorithm.BatchScoreLine;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.entity.algorithm.ScoreRank;
 import com.haifeng.common.enums.ReformModelEnum;
+import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.BatchScoreLineMapper;
 import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.mapper.algorithm.ScoreRankMapper;
+import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.algorithm.ProvinceReformService;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
@@ -44,7 +46,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
 
     @Override
     public ReformModelVO getReformModel(String province, Integer year) {
-        String reformModel = determineReformModel(province, year);
+        String reformModel = provinceReformService.getReformModel(province, year.shortValue());
         Map<String, List<String>> subjects = buildSubjectOptions(reformModel);
 
         return ReformModelVO.builder()
@@ -127,10 +129,10 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     public Long saveArchive(GaokaoArchiveSaveDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
-        // 以服务端 ProvinceReform 表为准，自动确定改革模式，前端不提供此字段
         String reformModel = provinceReformService.getReformModel(
                 dto.getGaokaoProvince(), dto.getGaokaoYear());
 
+        validateSubjects(dto, reformModel);
         processTraditionalSubjects(dto, reformModel);
 
         MemberGaokao existing = memberGaokaoMapper.selectOne(
@@ -138,30 +140,26 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                         .eq(MemberGaokao::getMemberId, memberId)
         );
 
-        MemberGaokao entity = convertToEntity(dto);
-        entity.setMemberId(memberId);
-        entity.setReformModel(reformModel);
-
-        // 自动计算线差
-        if (dto.getScore() != null && dto.getBatchLineScore() != null) {
-            entity.setScoreAboveLine(dto.getScore() - dto.getBatchLineScore());
-        }
-
         if (existing == null) {
+            MemberGaokao entity = convertToEntity(dto);
             entity.setId(SnowflakeIdGenerator.nextId());
+            entity.setMemberId(memberId);
+            entity.setReformModel(reformModel);
             entity.setCreatedAt(OffsetDateTime.now());
             entity.setUpdatedAt(OffsetDateTime.now());
+            if (dto.getScore() != null && dto.getBatchLineScore() != null) {
+                entity.setScoreAboveLine(dto.getScore() - dto.getBatchLineScore());
+            }
             memberGaokaoMapper.insert(entity);
             log.info("创建高考档案成功: memberId={}, archiveId={}", memberId, entity.getId());
+            return entity.getId();
         } else {
-            entity.setId(existing.getId());
-            entity.setCreatedAt(existing.getCreatedAt());
-            entity.setUpdatedAt(OffsetDateTime.now());
-            memberGaokaoMapper.updateById(entity);
-            log.info("更新高考档案成功: memberId={}, archiveId={}", memberId, entity.getId());
+            updateExistingFromDto(existing, dto, reformModel);
+            existing.setUpdatedAt(OffsetDateTime.now());
+            memberGaokaoMapper.updateById(existing);
+            log.info("更新高考档案成功: memberId={}, archiveId={}", memberId, existing.getId());
+            return existing.getId();
         }
-
-        return entity.getId();
     }
 
     @Override
@@ -174,6 +172,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
         );
 
         if (archive == null) {
+            log.info("用户高考档案不存在: memberId={}", memberId);
             return null;
         }
 
@@ -181,13 +180,6 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     // ==================== 私有方法 ====================
-
-    /**
-     * 判断改革模式（委托给 ProvinceReformService）
-     */
-    private String determineReformModel(String province, Integer gaokaoYear) {
-        return provinceReformService.getReformModel(province, gaokaoYear.shortValue());
-    }
 
     /**
      * 构建可选科目选项
@@ -214,6 +206,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
      * 处理传统文理模式的科目映射
      * 文科 → 政治、历史、地理
      * 理科 → 物理、化学、生物
+     * 注意：此方法会直接修改入参 DTO 的科目字段（副作用）
      */
     private void processTraditionalSubjects(GaokaoArchiveSaveDTO dto, String reformModel) {
         if (!ReformModelEnum.TRADITIONAL.getValue().equals(reformModel)) {
@@ -233,6 +226,52 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     /**
+     * 校验科目是否符合改革模式的合法选项
+     */
+    private void validateSubjects(GaokaoArchiveSaveDTO dto, String reformModel) {
+        if (ReformModelEnum.TRADITIONAL.getValue().equals(reformModel)) {
+            if (!SUBJECTS_TRADITIONAL.contains(dto.getSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "传统文理模式下科目只能是文科或理科");
+            }
+            return;
+        }
+
+        if (ReformModelEnum.THREE_PLUS_ONE_PLUS_TWO.getValue().equals(reformModel)) {
+            if (!SUBJECTS_FIRST_312.contains(dto.getSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式首选科目只能是物理或历史");
+            }
+            if (dto.getSecondSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getSecondSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
+            }
+            if (dto.getThirdSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getThirdSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
+            }
+            return;
+        }
+
+        if (ReformModelEnum.THREE_PLUS_THREE.getValue().equals(reformModel)) {
+            if (!SUBJECTS_6.contains(dto.getSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
+            }
+            if (dto.getSecondSubjectType() != null && !SUBJECTS_6.contains(dto.getSecondSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
+            }
+            if (dto.getThirdSubjectType() != null && !SUBJECTS_6.contains(dto.getThirdSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
+            }
+
+            Set<String> selected = new HashSet<>();
+            selected.add(dto.getSubjectType());
+            if (dto.getSecondSubjectType() != null && !selected.add(dto.getSecondSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "科目不能重复");
+            }
+            if (dto.getThirdSubjectType() != null && !selected.add(dto.getThirdSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "科目不能重复");
+            }
+        }
+    }
+
+    /**
      * 转换为批次线 VO 列表
      */
     private List<BatchLineVO> convertToBatchLineVOs(List<BatchScoreLine> lines) {
@@ -246,7 +285,7 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     /**
-     * DTO 转 Entity
+     * DTO 转 Entity（仅用于新增）
      */
     private MemberGaokao convertToEntity(GaokaoArchiveSaveDTO dto) {
         return MemberGaokao.builder()
@@ -283,6 +322,48 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .batchDataYear(dto.getBatchDataYear())
                 .batchLineScore(dto.getBatchLineScore())
                 .build();
+    }
+
+    /**
+     * 更新已有档案：将 DTO 字段设置到 existing 实体
+     */
+    private void updateExistingFromDto(MemberGaokao existing, GaokaoArchiveSaveDTO dto, String reformModel) {
+        existing.setGaokaoYear(dto.getGaokaoYear());
+        existing.setGaokaoProvince(dto.getGaokaoProvince());
+        existing.setScore(dto.getScore());
+        existing.setRank(dto.getRank());
+        existing.setReformModel(reformModel);
+        existing.setSubjectType(dto.getSubjectType());
+        existing.setSecondSubjectType(dto.getSecondSubjectType());
+        existing.setThirdSubjectType(dto.getThirdSubjectType());
+        existing.setScoreChinese(dto.getScoreChinese());
+        existing.setScoreMath(dto.getScoreMath());
+        existing.setScoreEnglish(dto.getScoreEnglish());
+        existing.setScoreSubject1(dto.getScoreSubject1());
+        existing.setScoreSubject2(dto.getScoreSubject2());
+        existing.setScoreSubject3(dto.getScoreSubject3());
+        existing.setForeignLanguage(dto.getForeignLanguage());
+        existing.setIsColorBlind(dto.getIsColorBlind());
+        existing.setIsColorWeak(dto.getIsColorWeak());
+        existing.setVisionLeft(dto.getVisionLeft());
+        existing.setVisionRight(dto.getVisionRight());
+        existing.setHasSmellDisorder(dto.getHasSmellDisorder());
+        existing.setHeightCm(dto.getHeightCm());
+        existing.setWeightKg(dto.getWeightKg());
+        existing.setIsLeftHanded(dto.getIsLeftHanded());
+        existing.setHasTattoo(dto.getHasTattoo());
+        existing.setHasScar(dto.getHasScar());
+        existing.setHasStutter(dto.getHasStutter());
+        existing.setIsFreshGraduate(dto.getIsFreshGraduate());
+        existing.setPoliticalStatus(dto.getPoliticalStatus());
+        existing.setHouseholdType(dto.getHouseholdType());
+        existing.setIsPovertyCounty(dto.getIsPovertyCounty());
+        existing.setBatch(dto.getBatch());
+        existing.setBatchDataYear(dto.getBatchDataYear());
+        existing.setBatchLineScore(dto.getBatchLineScore());
+        if (dto.getScore() != null && dto.getBatchLineScore() != null) {
+            existing.setScoreAboveLine(dto.getScore() - dto.getBatchLineScore());
+        }
     }
 
     /**

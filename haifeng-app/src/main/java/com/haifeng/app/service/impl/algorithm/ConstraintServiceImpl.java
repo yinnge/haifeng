@@ -35,19 +35,9 @@ public class ConstraintServiceImpl implements ConstraintService {
     @Override
     public ConstraintMatchVO matchConstraints() {
         Long memberId = SecurityUtil.getCurrentMemberId();
-
-        // 查询用户档案
-        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
-        if (gaokao == null) {
-            throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
-        }
-
-        // 调用 common 的 matcher 匹配约束
-        List<String> triggeredCodes = constraintMatcherService.matchConstraints(gaokao);
-
+        List<String> triggeredCodes = constraintMatcherService.matchConstraints(memberId);
         return ConstraintMatchVO.builder()
                 .constraintCodes(triggeredCodes)
-                .totalCount(triggeredCodes.size())
                 .build();
     }
 
@@ -75,20 +65,14 @@ public class ConstraintServiceImpl implements ConstraintService {
     public CheckGroupResultVO checkGroupConstraints(Integer groupId) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
-        // 查询用户档案
-        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
-        if (gaokao == null) {
-            throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
-        }
-
         // 查询专业组
         AdmissionGroup group = admissionGroupMapper.selectById(groupId);
         if (group == null || Boolean.TRUE.equals(group.getIsDeleted())) {
             throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
         }
 
-        // 调用 common 的 matcher 获取用户触发的约束
-        List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
+        // 调用 matcher 获取用户触发的约束（matcher 内部会查询档案）
+        List<String> userConstraints = constraintMatcherService.matchConstraints(memberId);
         Set<String> userConstraintSet = new HashSet<>(userConstraints);
 
         // 获取专业组的约束

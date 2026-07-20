@@ -60,6 +60,7 @@ CREATE TABLE t_department (
     tags                  TEXT[],
     sort_order            INTEGER       DEFAULT 0,
     status                SMALLINT      DEFAULT 1 NOT NULL,
+    version               INT NOT NULL DEFAULT 0,
     created_at            TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP
 );
@@ -92,6 +93,7 @@ CREATE TABLE department_reports (
     major_compose         JSONB         DEFAULT '[]'::JSONB,
     sort_order            INTEGER       DEFAULT 0,
     status                SMALLINT      DEFAULT 1 NOT NULL,
+    version               INT NOT NULL DEFAULT 0,
     created_at            TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP
 );

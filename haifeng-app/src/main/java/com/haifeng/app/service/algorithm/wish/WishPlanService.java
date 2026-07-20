@@ -86,12 +86,21 @@ public interface WishPlanService {
     WishPlanExportProgressVO getExportProgress(Integer planId);
 
     /**
-     * 下载导出文件
+     * 生成导出文件（POST，非幂等）
      *
      * @param planId 志愿方案ID
-     * @return 下载文件VO
+     * @return 下载文件VO（包含 downloadUrl 指向 GET /download 端点）
      */
-    WishPlanExportFileVO downloadExportFile(Integer planId);
+    WishPlanExportFileVO generateExportFile(Integer planId);
+
+    /**
+     * 读取已生成的导出文件（GET，只读）
+     *
+     * @param planId   志愿方案ID
+     * @param fileName 文件名（已净化）
+     * @return 文件字节数组
+     */
+    byte[] readExportFile(Integer planId, String fileName);
 
     /**
      * 保存导出状态到数据库
@@ -117,11 +126,11 @@ public interface WishPlanService {
      * @param groupSnapshotId 专业组快照ID
      * @return 可导出专业列表
      */
-    List<WishExportMajorVO> getExportableMajorIds(Integer groupSnapshotId);
+    List<WishExportMajorVO> getExportableMajors(Integer groupSnapshotId);
 
     /**
      * 取志愿表下所有"有可导出专业"的专业组上下文（PDF导出用）
-     * <p>按 group_sort_order 升序；复用 {@link #getExportableMajorIds(Integer)}，
+     * <p>按 group_sort_order 升序；复用 {@link #getExportableMajors(Integer)}，
      * 若某专业组的可导出专业为空（即所有专业 is_exported=false）则被过滤，不返回。
      *
      * @param planId 志愿方案ID

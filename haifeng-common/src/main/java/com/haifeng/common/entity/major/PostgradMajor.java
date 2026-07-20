@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.major;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringArrayTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,17 +35,17 @@ public class PostgradMajor {
 
     private String introduction;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] examSubjects;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] admissionRequirements;
 
     private String crossExamDifficulty;
 
     private String crossExamDescription;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] crossExamFactors;
 
     private Short status;

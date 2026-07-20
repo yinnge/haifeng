@@ -322,7 +322,7 @@ public class IndustryServiceImpl implements IndustryService {
             // 读取主表数据
             List<IndustryExcelDTO> mainData = EasyExcel.read(file.getInputStream())
                     .head(IndustryExcelDTO.class)
-                    .sheet(0)
+                    .sheet("行业主表导入")
                     .doReadSync();
 
             if (mainData == null || mainData.isEmpty()) {
@@ -480,98 +480,98 @@ public class IndustryServiceImpl implements IndustryService {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
-            // Sheet0: 详情基础字段
+            // Sheet: 详情基础字段
             List<IndustryDetailExcelDTO> detailData = EasyExcel.read(file.getInputStream())
                     .head(IndustryDetailExcelDTO.class)
-                    .sheet(0)
+                    .sheet("详情基础字段")
                     .doReadSync();
 
-            // Sheet1: industry_scale
+            // Sheet: 发展规模
             List<IndustryScaleExcelDTO> scaleData = EasyExcel.read(file.getInputStream())
                     .head(IndustryScaleExcelDTO.class)
-                    .sheet(1)
+                    .sheet("发展规模")
                     .doReadSync();
 
-            // Sheet2: industry_talent_demand
+            // Sheet: 人才需求
             List<TalentDemandExcelDTO> talentDemandData = EasyExcel.read(file.getInputStream())
                     .head(TalentDemandExcelDTO.class)
-                    .sheet(2)
+                    .sheet("人才需求")
                     .doReadSync();
 
-            // Sheet3: industry_salary
+            // Sheet: 行业薪资
             List<IndustrySalaryExcelDTO> salaryData = EasyExcel.read(file.getInputStream())
                     .head(IndustrySalaryExcelDTO.class)
-                    .sheet(3)
+                    .sheet("行业薪资")
                     .doReadSync();
 
-            // Sheet4: policy_info
+            // Sheet: 政策信息
             List<PolicyInfoExcelDTO> policyInfoData = EasyExcel.read(file.getInputStream())
                     .head(PolicyInfoExcelDTO.class)
-                    .sheet(4)
+                    .sheet("政策信息")
                     .doReadSync();
 
-            // Sheet5: development_support_info
+            // Sheet: 发展支持
             List<DevelopmentSupportExcelDTO> developmentSupportData = EasyExcel.read(file.getInputStream())
                     .head(DevelopmentSupportExcelDTO.class)
-                    .sheet(5)
+                    .sheet("发展支持")
                     .doReadSync();
 
-            // Sheet6: talent_analysis
+            // Sheet: 人才分析
             List<TalentAnalysisExcelDTO> talentAnalysisData = EasyExcel.read(file.getInputStream())
                     .head(TalentAnalysisExcelDTO.class)
-                    .sheet(6)
+                    .sheet("人才分析")
                     .doReadSync();
 
-            // Sheet7: talent_policy
+            // Sheet: 人才政策
             List<TalentPolicyExcelDTO> talentPolicyData = EasyExcel.read(file.getInputStream())
                     .head(TalentPolicyExcelDTO.class)
-                    .sheet(7)
+                    .sheet("人才政策")
                     .doReadSync();
 
-            // Sheet8: salary_data
+            // Sheet: 薪资数据
             List<SalaryDataExcelDTO> salaryDataExcelList = EasyExcel.read(file.getInputStream())
                     .head(SalaryDataExcelDTO.class)
-                    .sheet(8)
+                    .sheet("薪资数据")
                     .doReadSync();
 
             // 行数检查
             if (detailData != null && detailData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet0数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：详情基础字段Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (scaleData != null && scaleData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet1数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：发展规模Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (talentDemandData != null && talentDemandData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet2数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：人才需求Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (salaryData != null && salaryData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet3数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：行业薪资Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (policyInfoData != null && policyInfoData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet4数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：政策信息Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (developmentSupportData != null && developmentSupportData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet5数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：发展支持Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (talentAnalysisData != null && talentAnalysisData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet6数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：人才分析Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (talentPolicyData != null && talentPolicyData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet7数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：人才政策Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
             if (salaryDataExcelList != null && salaryDataExcelList.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：Sheet8数据不能超过" + MAX_IMPORT_ROWS + "行");
+                throw new BusinessException(400, "导入失败：薪资数据Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
             }
 
             // Sheet1~Sheet8 文件内去重检查
-            validateSheetDedup(scaleData, "Sheet1", errorMsgs, IndustryScaleExcelDTO::getIndustryName);
-            validateSheetDedup(talentDemandData, "Sheet2", errorMsgs, TalentDemandExcelDTO::getIndustryName);
-            validateSheetDedup(salaryData, "Sheet3", errorMsgs, IndustrySalaryExcelDTO::getIndustryName);
-            validateSheetDedup(policyInfoData, "Sheet4", errorMsgs, PolicyInfoExcelDTO::getIndustryName);
-            validateSheetDedup(developmentSupportData, "Sheet5", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName);
-            validateSheetDedup(talentAnalysisData, "Sheet6", errorMsgs, TalentAnalysisExcelDTO::getIndustryName);
-            validateSheetDedup(talentPolicyData, "Sheet7", errorMsgs, TalentPolicyExcelDTO::getIndustryName);
-            validateSheetDedup(salaryDataExcelList, "Sheet8", errorMsgs, SalaryDataExcelDTO::getIndustryName);
+            validateSheetDedup(scaleData, "发展规模", errorMsgs, IndustryScaleExcelDTO::getIndustryName);
+            validateSheetDedup(talentDemandData, "人才需求", errorMsgs, TalentDemandExcelDTO::getIndustryName);
+            validateSheetDedup(salaryData, "行业薪资", errorMsgs, IndustrySalaryExcelDTO::getIndustryName);
+            validateSheetDedup(policyInfoData, "政策信息", errorMsgs, PolicyInfoExcelDTO::getIndustryName);
+            validateSheetDedup(developmentSupportData, "发展支持", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName);
+            validateSheetDedup(talentAnalysisData, "人才分析", errorMsgs, TalentAnalysisExcelDTO::getIndustryName);
+            validateSheetDedup(talentPolicyData, "人才政策", errorMsgs, TalentPolicyExcelDTO::getIndustryName);
+            validateSheetDedup(salaryDataExcelList, "薪资数据", errorMsgs, SalaryDataExcelDTO::getIndustryName);
 
             // 按行业名称分组JSONB数据
             Map<String, Map<String, Object>> scaleMap = buildJsonbMap(scaleData,
@@ -730,14 +730,14 @@ public class IndustryServiceImpl implements IndustryService {
             }
 
             // Sheet1~Sheet8 孤儿数据校验
-            validateSheetOrphan(scaleData, "Sheet1", errorMsgs, IndustryScaleExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(talentDemandData, "Sheet2", errorMsgs, TalentDemandExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(salaryData, "Sheet3", errorMsgs, IndustrySalaryExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(policyInfoData, "Sheet4", errorMsgs, PolicyInfoExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(developmentSupportData, "Sheet5", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(talentAnalysisData, "Sheet6", errorMsgs, TalentAnalysisExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(talentPolicyData, "Sheet7", errorMsgs, TalentPolicyExcelDTO::getIndustryName, detailNamesInFile);
-            validateSheetOrphan(salaryDataExcelList, "Sheet8", errorMsgs, SalaryDataExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(scaleData, "发展规模", errorMsgs, IndustryScaleExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentDemandData, "人才需求", errorMsgs, TalentDemandExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(salaryData, "行业薪资", errorMsgs, IndustrySalaryExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(policyInfoData, "政策信息", errorMsgs, PolicyInfoExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(developmentSupportData, "发展支持", errorMsgs, DevelopmentSupportExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentAnalysisData, "人才分析", errorMsgs, TalentAnalysisExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(talentPolicyData, "人才政策", errorMsgs, TalentPolicyExcelDTO::getIndustryName, detailNamesInFile);
+            validateSheetOrphan(salaryDataExcelList, "薪资数据", errorMsgs, SalaryDataExcelDTO::getIndustryName, detailNamesInFile);
 
             if (!errorMsgs.isEmpty()) {
                 throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));

@@ -45,6 +45,27 @@ public class FieldValueExtractor {
         FIELD_GETTERS.put("subject_type", MemberGaokao::getSubjectType);
         FIELD_GETTERS.put("second_subject_type", MemberGaokao::getSecondSubjectType);
         FIELD_GETTERS.put("third_subject_type", MemberGaokao::getThirdSubjectType);
+
+        // 高考基本信息
+        FIELD_GETTERS.put("gaokao_year", MemberGaokao::getGaokaoYear);
+        FIELD_GETTERS.put("gaokao_province", MemberGaokao::getGaokaoProvince);
+        FIELD_GETTERS.put("score", MemberGaokao::getScore);
+        FIELD_GETTERS.put("rank", MemberGaokao::getRank);
+        FIELD_GETTERS.put("reform_model", MemberGaokao::getReformModel);
+
+        // 各科成绩
+        FIELD_GETTERS.put("score_chinese", MemberGaokao::getScoreChinese);
+        FIELD_GETTERS.put("score_math", MemberGaokao::getScoreMath);
+        FIELD_GETTERS.put("score_english", MemberGaokao::getScoreEnglish);
+        FIELD_GETTERS.put("score_subject1", MemberGaokao::getScoreSubject1);
+        FIELD_GETTERS.put("score_subject2", MemberGaokao::getScoreSubject2);
+        FIELD_GETTERS.put("score_subject3", MemberGaokao::getScoreSubject3);
+
+        // 批次信息
+        FIELD_GETTERS.put("batch", MemberGaokao::getBatch);
+        FIELD_GETTERS.put("batch_data_year", MemberGaokao::getBatchDataYear);
+        FIELD_GETTERS.put("batch_line_score", MemberGaokao::getBatchLineScore);
+        FIELD_GETTERS.put("score_above_line", MemberGaokao::getScoreAboveLine);
     }
 
     /**

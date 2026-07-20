@@ -2,7 +2,6 @@ package com.haifeng.app.service.impl.algorithm.pdf;
 
 import com.haifeng.app.vo.algorithm.pdf.ChatMessage;
 import com.haifeng.common.config.DeepSeekProperties;
-import com.haifeng.common.service.ai.AiQuotaService;
 import com.haifeng.common.service.ai.ApiKeyPool;
 import com.haifeng.common.service.ai.dto.ModelProviderConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +20,6 @@ import static org.mockito.Mockito.*;
 class AiChatServiceImplTest {
 
     private ApiKeyPool keyPool = mock(ApiKeyPool.class);
-    private AiQuotaService quotaService = mock(AiQuotaService.class);
     private WebClient webClient = mock(WebClient.class);
     private DeepSeekProperties properties;
 
@@ -38,9 +36,9 @@ class AiChatServiceImplTest {
         private String syncResponse;
         private RuntimeException syncError;
 
-        SyncTestableImpl(ApiKeyPool keyPool, AiQuotaService quotaService,
+        SyncTestableImpl(ApiKeyPool keyPool,
                          WebClient webClient, DeepSeekProperties properties) {
-            super(keyPool, quotaService, webClient, properties);
+            super(keyPool, webClient, properties);
         }
 
         void setSyncResponse(String response) {
@@ -78,7 +76,7 @@ class AiChatServiceImplTest {
                 provider(1L, "key-1", "deepseek-chat")
         ));
 
-        SyncTestableImpl service = new SyncTestableImpl(keyPool, quotaService, webClient, properties);
+        SyncTestableImpl service = new SyncTestableImpl(keyPool, webClient, properties);
         service.setSyncResponse("{\"choices\":[{\"message\":{\"content\":\"北交大自动化不错\"}}]}");
 
         List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", "分析大学"));
@@ -97,7 +95,7 @@ class AiChatServiceImplTest {
 
         // First call fails, second succeeds
         AtomicInteger callCount = new AtomicInteger(0);
-        AiChatServiceImpl spy = new AiChatServiceImpl(keyPool, quotaService, webClient, properties) {
+        AiChatServiceImpl spy = new AiChatServiceImpl(keyPool, webClient, properties) {
             @Override
             protected String callDeepSeekSync(String baseUrl, String key, String body) {
                 if (callCount.getAndIncrement() == 0) {
@@ -121,7 +119,7 @@ class AiChatServiceImplTest {
                 provider(2L, "key-2", "deepseek-reasoner")
         ));
 
-        SyncTestableImpl service = new SyncTestableImpl(keyPool, quotaService, webClient, properties);
+        SyncTestableImpl service = new SyncTestableImpl(keyPool, webClient, properties);
         service.setSyncError(new RuntimeException("fail"));
 
         List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", "分析大学"));
@@ -136,7 +134,47 @@ class AiChatServiceImplTest {
     void chatSync_emptyProviders_throwsBusinessException() {
         when(keyPool.orderedFallback(1L)).thenReturn(Collections.emptyList());
 
-        SyncTestableImpl service = new SyncTestableImpl(keyPool, quotaService, webClient, properties);
+        SyncTestableImpl service = new SyncTestableImpl(keyPool, webClient, properties);
+
+        List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", "分析大学"));
+
+        assertThatThrownBy(() -> service.chatSync(1L, messages))
+                .isInstanceOf(com.haifeng.common.exception.BusinessException.class)
+                .extracting("code")
+                .isEqualTo(1041);
+    }
+
+    /**
+     * M7: 空响应或非法 JSON 应抛 BusinessException（由上层统一降级处理）
+     */
+    @Test
+    void chatSync_emptyResponse_throwsBusinessException() {
+        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList(
+                provider(1L, "key-1", "deepseek-chat")
+        ));
+
+        SyncTestableImpl service = new SyncTestableImpl(keyPool, webClient, properties);
+        service.setSyncResponse("");
+
+        List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", "分析大学"));
+
+        assertThatThrownBy(() -> service.chatSync(1L, messages))
+                .isInstanceOf(com.haifeng.common.exception.BusinessException.class)
+                .extracting("code")
+                .isEqualTo(1041);
+    }
+
+    /**
+     * M7: 非法 JSON 应抛 BusinessException
+     */
+    @Test
+    void chatSync_invalidJson_throwsBusinessException() {
+        when(keyPool.orderedFallback(1L)).thenReturn(Arrays.asList(
+                provider(1L, "key-1", "deepseek-chat")
+        ));
+
+        SyncTestableImpl service = new SyncTestableImpl(keyPool, webClient, properties);
+        service.setSyncResponse("not a json");
 
         List<ChatMessage> messages = Collections.singletonList(new ChatMessage("user", "分析大学"));
 

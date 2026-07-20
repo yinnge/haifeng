@@ -15,6 +15,8 @@ public class TeacherPositionQueryDTO extends BasePageQueryDTO {
     private String positionName;
 
     private String schoolType;
+    private String schoolNature;
+    private String recruitmentType;
     private String province;
     private String city;
     private String district;

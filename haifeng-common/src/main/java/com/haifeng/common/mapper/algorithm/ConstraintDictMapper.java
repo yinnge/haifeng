@@ -24,7 +24,7 @@ public interface ConstraintDictMapper extends BaseMapper<ConstraintDict> {
     List<ConstraintDict> selectActiveList();
 
     @Select("<script>" +
-            "SELECT code, severity FROM t_constraint_dict " +
+            "SELECT * FROM t_constraint_dict " +
             "WHERE code IN " +
             "<foreach collection='codes' item='code' open='(' separator=',' close=')'>" +
             "#{code}" +
@@ -37,7 +37,7 @@ public interface ConstraintDictMapper extends BaseMapper<ConstraintDict> {
     ConstraintDict selectDeletedByCode(@Param("code") String code);
 
     @Select("<script>" +
-            "SELECT * FROM t_constraint_dict WHERE is_deleted = FALSE AND code IN " +
+            "SELECT * FROM t_constraint_dict WHERE is_deleted = FALSE AND is_active = true AND code IN " +
             "<foreach collection='codes' item='code' open='(' separator=',' close=')'>" +
             "#{code}" +
             "</foreach>" +

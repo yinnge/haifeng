@@ -163,6 +163,18 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "基层服务项目岗位不存在");
         }
+        if (dto.getPositionStatus() != null && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
+            throw new BusinessException(400, "状态不合法");
+        }
+        if (dto.getProjectType() != null && !VALID_PROJECT_TYPES.contains(dto.getProjectType())) {
+            throw new BusinessException(400, "项目类型不合法");
+        }
+        if (dto.getServiceType() != null && !VALID_SERVICE_TYPES.contains(dto.getServiceType())) {
+            throw new BusinessException(400, "服务类型不合法");
+        }
+        if (dto.getEducationRequirement() != null && !VALID_EDUCATION_REQUIREMENTS.contains(dto.getEducationRequirement())) {
+            throw new BusinessException(400, "学历要求不合法");
+        }
         if (dto.getProjectType() != null) entity.setProjectType(dto.getProjectType());
         if (dto.getYear() != null) entity.setYear(dto.getYear());
         if (dto.getPositionName() != null) entity.setPositionName(dto.getPositionName());
@@ -263,7 +275,18 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
         }
 
         List<GrassrootsProjectPosition> entities = new ArrayList<>();
+        List<String> duplicateWarnings = new ArrayList<>();
         for (GrassrootsProjectPositionExcelDTO dto : list) {
+            boolean exists = grassrootsProjectPositionMapper.selectCount(
+                    Wrappers.lambdaQuery(GrassrootsProjectPosition.class)
+                            .eq(GrassrootsProjectPosition::getPositionName, dto.getPositionName())
+                            .eq(GrassrootsProjectPosition::getYear, dto.getYear())
+                            .eq(GrassrootsProjectPosition::getProjectType, dto.getProjectType())
+                            .eq(GrassrootsProjectPosition::getIsDeleted, false)) > 0;
+            if (exists) {
+                duplicateWarnings.add(dto.getPositionName() + "(" + dto.getYear() + "/" + dto.getProjectType() + ")");
+                continue;
+            }
             GrassrootsProjectPosition entity = GrassrootsProjectPosition.builder()
                     .id(SnowflakeIdGenerator.nextId())
                     .projectType(dto.getProjectType())
@@ -313,7 +336,10 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
             entities.add(entity);
         }
         Db.saveBatch(entities);
-        log.info("导入基层服务项目岗位成功: count={}", list.size());
+        if (!duplicateWarnings.isEmpty()) {
+            log.info("导入基层服务项目岗位: 跳过{}条重复记录: {}", duplicateWarnings.size(), String.join(", ", duplicateWarnings));
+        }
+        log.info("导入基层服务项目岗位成功: count={}", entities.size());
     }
 
     private String validateExcelRows(List<GrassrootsProjectPositionExcelDTO> list) {

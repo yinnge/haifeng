@@ -194,6 +194,11 @@ public final class RedisKeyConstant {
     public static final String HOME_INSTITUTION_DETAIL_PREFIX = "haifeng:app:home:institution:detail:";
 
     /**
+     * 约束字典 - 全量活跃列表缓存
+     */
+    public static final String CONSTRAINT_ACTIVE_LIST_KEY = "haifeng:constraint:active:list";
+
+    /**
      * 首页模块缓存 TTL（分钟）
      */
     public static final long HOME_CACHE_TTL_MINUTES = 30L;

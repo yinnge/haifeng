@@ -37,7 +37,7 @@ public class DeepSeekWebClientConfig {
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .codecs(c -> c.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(4 * 1024 * 1024))
                 .build();
     }
 }

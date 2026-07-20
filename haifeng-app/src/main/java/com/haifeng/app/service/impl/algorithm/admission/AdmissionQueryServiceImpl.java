@@ -2,6 +2,7 @@ package com.haifeng.app.service.impl.algorithm.admission;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.app.converter.SubjectsArrayConverter;
 import com.haifeng.app.dto.algorithm.admission.AdmissionGroupQueryDTO;
 import com.haifeng.app.dto.algorithm.admission.AdmissionMajorQueryDTO;
 import com.haifeng.app.service.algorithm.admission.AdmissionQueryService;
@@ -21,6 +22,7 @@ import com.haifeng.common.service.algorithm.matcher.SubjectMatcher;
 import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
+import com.haifeng.common.security.AuthUser;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,26 +65,35 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         // 构建用户选科数组字符串（PostgreSQL格式）
         String userSubjects = buildUserSubjectsArray(gaokao);
 
-        // 2. SQL1: 分页查询专业组
-        int size = 20; // 固定20条
+        // 2. 分页查询专业组（year 减一 + 单级 fallback）
+        int size = dto.getSize();
         int offset = (dto.getPage() - 1) * size;
+        Short targetYear = (short) (gaokao.getGaokaoYear() - 1);
 
         List<AdmissionGroup> groups = admissionGroupMapper.selectPageByCondition(
-                province, batch, subjectFilter, userSubjects, size, offset);
+                province, batch, targetYear, subjectFilter, userSubjects, size, offset);
+        long total = admissionGroupMapper.countByCondition(province, batch, targetYear, subjectFilter, userSubjects);
 
-        long total = admissionGroupMapper.countByCondition(province, batch, subjectFilter, userSubjects);
+        // fallback: targetYear 无数据则尝试 targetYear - 1
+        Short fallbackYear = null;
+        if (groups.isEmpty() && total == 0) {
+            fallbackYear = (short) (targetYear - 1);
+            groups = admissionGroupMapper.selectPageByCondition(
+                    province, batch, fallbackYear, subjectFilter, userSubjects, size, offset);
+            total = admissionGroupMapper.countByCondition(province, batch, fallbackYear, subjectFilter, userSubjects);
+        }
 
         if (groups.isEmpty()) {
             return new Page<AdmissionGroupPageVO>(dto.getPage(), size).setTotal(total);
         }
 
-        // 3. SQL2: IN批量查历史数据
+        // 3. IN批量查历史数据（带省份过滤）
         List<GroupKey> keys = groups.stream()
                 .map(g -> new GroupKey(g.getUniversityId(), g.getGroupCode()))
                 .collect(Collectors.toList());
 
         Short minYear = (short) (Year.now().getValue() - 4);
-        List<AdmissionGroup> historyList = admissionGroupMapper.selectHistoryByKeys(keys, minYear);
+        List<AdmissionGroup> historyList = admissionGroupMapper.selectHistoryByKeys(keys, province, minYear);
 
         // 按 university_id + group_code 分组
         Map<String, List<AdmissionGroup>> historyMap = historyList.stream()
@@ -92,10 +103,30 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
 
         // 4. 判断会员类型
-        String memberType = SecurityUtil.getCurrentMemberType();
-        boolean isPremium = "pro".equals(memberType) || "vip".equals(memberType);
+        AuthUser authUser = SecurityUtil.getCurrentUser();
+        boolean isPremium = authUser != null && authUser.isProOrAbove();
 
-        // 5. 组装 VO
+        // 5. 批量查询非遮罩专业组的专业明细（消除 N+1）
+        List<Integer> nonMaskedGroupIds = new ArrayList<>();
+        for (int i = 0; i < groups.size(); i++) {
+            boolean shouldMask = !isPremium && i >= 10;
+            if (!shouldMask) {
+                nonMaskedGroupIds.add(groups.get(i).getId());
+            }
+        }
+
+        Map<Integer, List<AdmissionMajorScore>> majorsByGroupId = Collections.emptyMap();
+        if (!nonMaskedGroupIds.isEmpty()) {
+            List<AdmissionMajorScore> allMajors = admissionMajorScoreMapper.selectList(
+                    new LambdaQueryWrapper<AdmissionMajorScore>()
+                            .in(AdmissionMajorScore::getGroupId, nonMaskedGroupIds)
+                            .eq(AdmissionMajorScore::getIsDeleted, false)
+            );
+            majorsByGroupId = allMajors.stream()
+                    .collect(Collectors.groupingBy(AdmissionMajorScore::getGroupId));
+        }
+
+        // 6. 组装 VO
         List<AdmissionGroupPageVO> voList = new ArrayList<>();
         for (int i = 0; i < groups.size(); i++) {
             AdmissionGroup group = groups.get(i);
@@ -107,7 +138,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                         .masked(true)
                         .build());
             } else {
-                voList.add(buildGroupVO(group, historyMap, gaokao, userConstraints));
+                List<AdmissionMajorScore> majors = majorsByGroupId.getOrDefault(group.getId(), Collections.emptyList());
+                voList.add(buildGroupVO(group, historyMap, gaokao, userConstraints, majors));
             }
         }
 
@@ -119,13 +151,23 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     @Override
     public IPage<AdmissionMajorPageVO> pageMajors(AdmissionMajorQueryDTO dto) {
-        // 1. 查询当前专业组
+        // 1. 获取用户档案（提前到此处，用于省份校验）
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
+        if (gaokao == null) {
+            throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
+        }
+
+        // 2. 查询当前专业组并校验省份
         AdmissionGroup group = admissionGroupMapper.selectById(dto.getGroupId());
         if (group == null || Boolean.TRUE.equals(group.getIsDeleted())) {
             throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
         }
+        if (!gaokao.getGaokaoProvince().equals(group.getProvince())) {
+            throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
+        }
 
-        // 2. SQL1: 分页查询专业明细
+        // 3. 分页查询专业明细
         Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId())
@@ -138,12 +180,13 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
             return new Page<AdmissionMajorPageVO>(dto.getPage(), dto.getSize()).setTotal(0);
         }
 
-        // 3. SQL2: IN批量查历史数据
+        // 4. IN批量查历史数据（带省份过滤）
         List<String> majorCodes = majorPage.getRecords().stream()
                 .map(AdmissionMajorScore::getMajorCode)
                 .collect(Collectors.toList());
 
         Short minYear = (short) (Year.now().getValue() - 4);
+        String province = gaokao.getGaokaoProvince();
         List<Map<String, Object>> historyList = admissionMajorScoreMapper.selectHistoryByMajorCodes(
                 group.getUniversityId(), majorCodes, minYear);
 
@@ -151,29 +194,19 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         Map<String, List<Map<String, Object>>> historyMap = historyList.stream()
                 .collect(Collectors.groupingBy(m -> (String) m.get("major_code")));
 
-        // 获取用户档案和约束
-        Long memberId = SecurityUtil.getCurrentMemberId();
-        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
-        List<String> userConstraints = gaokao != null
-                ? constraintMatcherService.matchConstraints(gaokao)
-                : Collections.emptyList();
+        // 获取用户约束
+        List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
 
-        // 查询历史专业组数据
-        Short historyMinYear = (short) (Year.now().getValue() - 4);
+        // 查询历史专业组数据（带省份过滤）
         List<GroupKey> keys = Collections.singletonList(
                 new GroupKey(group.getUniversityId(), group.getGroupCode())
         );
-        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(keys, historyMinYear);
+        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(keys, province, minYear);
 
-        // 4. 组装 VO
-        final MemberGaokao finalGaokao = gaokao;
-        final AdmissionGroup finalGroup = group;
-        final List<AdmissionGroup> finalHistoryGroups = historyGroups;
-        final List<String> finalUserConstraints = userConstraints;
-
+        // 5. 组装 VO
         List<AdmissionMajorPageVO> voList = majorPage.getRecords().stream()
-                .map(major -> buildMajorVO(major, historyMap, finalGaokao, finalGroup,
-                        finalHistoryGroups, finalUserConstraints))
+                .map(major -> buildMajorVO(major, historyMap, gaokao, group,
+                        historyGroups, userConstraints))
                 .collect(Collectors.toList());
 
         Page<AdmissionMajorPageVO> result = new Page<>(dto.getPage(), dto.getSize());
@@ -195,14 +228,9 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .collect(Collectors.toList());
 
         // 计算安全系数
-        SafetyCalcResult safetyResult;
-        if (gaokao != null) {
-            safetyResult = safetyLevelService.calculateMajorSafety(
-                    gaokao, major, group, historyGroups, userConstraints
-            );
-        } else {
-            safetyResult = SafetyCalcResult.noData();
-        }
+        SafetyCalcResult safetyResult = safetyLevelService.calculateMajorSafety(
+                gaokao, major, group, historyGroups, userConstraints
+        );
 
         return AdmissionMajorPageVO.builder()
                 .id(major.getId())
@@ -222,15 +250,30 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     private YearScoreVO mapToYearScoreVO(Map<String, Object> map) {
         return YearScoreVO.builder()
-                .year(map.get("year") != null ? ((Number) map.get("year")).shortValue() : null)
-                .minScore(map.get("min_score") != null ? ((Number) map.get("min_score")).intValue() : null)
-                .minRank(map.get("min_rank") != null ? ((Number) map.get("min_rank")).intValue() : null)
-                .avgScore(map.get("avg_score") != null ? new java.math.BigDecimal(map.get("avg_score").toString()) : null)
-                .avgRank(map.get("avg_rank") != null ? ((Number) map.get("avg_rank")).intValue() : null)
-                .maxScore(map.get("max_score") != null ? ((Number) map.get("max_score")).intValue() : null)
-                .maxRank(map.get("max_rank") != null ? ((Number) map.get("max_rank")).intValue() : null)
-                .admissionCount(map.get("admission_count") != null ? ((Number) map.get("admission_count")).intValue() : null)
+                .year(shortVal(map, "year"))
+                .minScore(intVal(map, "min_score"))
+                .minRank(intVal(map, "min_rank"))
+                .avgScore(bdVal(map, "avg_score"))
+                .avgRank(intVal(map, "avg_rank"))
+                .maxScore(intVal(map, "max_score"))
+                .maxRank(intVal(map, "max_rank"))
+                .admissionCount(intVal(map, "admission_count"))
                 .build();
+    }
+
+    private Integer intVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        return v != null ? ((Number) v).intValue() : null;
+    }
+
+    private Short shortVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        return v != null ? ((Number) v).shortValue() : null;
+    }
+
+    private BigDecimal bdVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        return v != null ? new BigDecimal(v.toString()) : null;
     }
 
     private String buildUserSubjectsArray(MemberGaokao gaokao) {
@@ -239,16 +282,14 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         if (gaokao.getSecondSubjectType() != null) subjects.add(gaokao.getSecondSubjectType());
         if (gaokao.getThirdSubjectType() != null) subjects.add(gaokao.getThirdSubjectType());
 
-        if (subjects.isEmpty()) return null;
-
-        // PostgreSQL 数组格式: {物理,化学,生物}
-        return "{" + String.join(",", subjects) + "}";
+        return SubjectsArrayConverter.toPgArrayLiteral(subjects);
     }
 
     private AdmissionGroupPageVO buildGroupVO(AdmissionGroup group,
                                                Map<String, List<AdmissionGroup>> historyMap,
                                                MemberGaokao gaokao,
-                                               List<String> userConstraints) {
+                                               List<String> userConstraints,
+                                               List<AdmissionMajorScore> majors) {
         // 选科匹配
         SubjectMatchResult matchResult = subjectMatcher.match(gaokao, group);
 
@@ -265,13 +306,6 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         String levelShort = "禁";
         String safetyDescription = "";
 
-        // 查询该组下所有专业明细
-        List<AdmissionMajorScore> majors = admissionMajorScoreMapper.selectList(
-                new LambdaQueryWrapper<AdmissionMajorScore>()
-                        .eq(AdmissionMajorScore::getGroupId, group.getId())
-                        .eq(AdmissionMajorScore::getIsDeleted, false)
-        );
-
         for (AdmissionMajorScore major : majors) {
             SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
                     gaokao, major, group, history, userConstraints
@@ -283,10 +317,10 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
             }
         }
 
-        // 如果没有专业明细，使用默认值
+        // 如果没有专业明细，使用中性默认值
         if (majors.isEmpty()) {
-            maxSafetyLevel = new BigDecimal("0.50");
-            levelShort = "稳";
+            maxSafetyLevel = BigDecimal.ZERO;
+            levelShort = "禁";
             safetyDescription = "暂无专业明细数据";
         }
 

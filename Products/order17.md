@@ -5,7 +5,7 @@
 - **模块归属**: admin 端 - 就业管理 - 基层服务管理
 - **包名**: `com.haifeng.admin.controller/employment/grassrootsPosition`
 - **基础路径**: `/api/v1/admin/employment/grassroots-position`
-- **认证方式**: JWT Token (除 welfare/list 外所有接口均需登录)
+- **认证方式**: JWT Token (所有接口均需登录，通过 @RequireAdminModule 控制模块权限)
 - **统一响应格式**:
   ```json
   { "code": 200, "msg": "success", "data": {}, "timestamp": 1234567890 }
@@ -157,6 +157,15 @@ PUT /api/v1/admin/employment/grassroots-position/project/{id}/update
 
 所有 String 字段传 null 表示不修改该字段（部分更新）。
 
+**枚举字段校验**（更新时传入非法值返回 400）:
+
+| 字段 | 允许值 |
+|------|--------|
+| projectType | 三支一扶、西部计划 |
+| serviceType | 支教、支农、支医、帮扶乡村振兴、基础教育、服务三农、医疗卫生、基层青年工作、基层社会管理、服务新疆、服务西藏 |
+| educationRequirement | 大专、本科、硕士、大专及以上、本科及以上 |
+| positionStatus | 招募中、已结束、即将开始 |
+
 ---
 
 ### 1.4 软删除（单条）
@@ -249,7 +258,7 @@ POST /api/v1/admin/employment/grassroots-position/project/import
 
 **请求参数**: file (MultipartFile, .xlsx 或 .xls)
 
-导入所有表字段，失败时全部回滚。
+导入所有表字段，失败时全部回滚。**已存在的重复记录自动跳过，仅插入新记录**（去重维度：岗位名称 + 年份 + 项目类型）。
 
 **Excel 表头对照**:
 
@@ -265,10 +274,10 @@ POST /api/v1/admin/employment/grassroots-position/project/import
 | 城市 | city | 最大50字符 |
 | 区/县 | county | 最大50字符 |
 | 乡镇/街道 | township | 最大100字符 |
-| 服务期限 | servicePeriod | 最大30字符 |
+| 服务期限 | servicePeriod | 必填，最大30字符 |
 | 服务开始日期 | serviceStartDate | 最大30字符 |
 | 服务结束日期 | serviceEndDate | 最大30字符 |
-| 学历要求 | 必填，枚举：大专/本科/硕士/大专及以上/本科及以上 |
+| 学历要求 | educationRequirement | 必填，枚举：大专/本科/硕士/大专及以上/本科及以上 |
 | 专业要求 | majorRequirement | 最大500字符 |
 | 年龄上限 | ageLimit | 整数，18-35 |
 | 招募人数 | recruitmentCount | 整数，>0 |
@@ -428,6 +437,16 @@ PUT /api/v1/admin/employment/grassroots-position/community/{id}/update
 
 所有 String 字段传 null 表示不修改该字段（部分更新）。
 
+**枚举字段校验**（更新时传入非法值返回 400）:
+
+| 字段 | 允许值 |
+|------|--------|
+| positionType | 社区党务工作者、社区服务工作者、社区网格员、社区调解员、社区安全员、社区文化专干、社会工作师、综合岗、其他 |
+| employmentType | 事业编制、合同制、政府购买服务、公益性岗位 |
+| educationRequirement | 不限、高中、大专、本科、硕士 |
+| socialWorkCert | 不要求、初级社工师、中级社工师、高级社工师、优先 |
+| positionStatus | 招聘中、已结束、即将开始 |
+
 ---
 
 ### 2.4 软删除（单条）
@@ -496,6 +515,8 @@ POST /api/v1/admin/employment/grassroots-position/community/import
 
 **请求参数**: file (MultipartFile, .xlsx 或 .xls)
 
+**已存在的重复记录自动跳过，仅插入新记录**（去重维度：岗位名称 + 省份 + 城市）。
+
 **Excel 表头对照**:
 
 | Excel表头 | 对应字段 | 说明 |
@@ -551,7 +572,7 @@ POST /api/v1/admin/employment/grassroots-position/community/import
 **表**: `t_public_welfare_position`
 **路径前缀**: `/api/v1/admin/employment/grassroots-position/welfare`
 
-### 3.1 分页查询（公开接口，无需登录）
+### 3.1 分页查询
 
 ```
 GET /api/v1/admin/employment/grassroots-position/welfare/list
@@ -594,7 +615,7 @@ GET /api/v1/admin/employment/grassroots-position/welfare/list
 
 ---
 
-### 3.2 查看详情（需登录）
+### 3.2 查看详情
 
 ```
 GET /api/v1/admin/employment/grassroots-position/welfare/{id}/detail
@@ -604,7 +625,7 @@ GET /api/v1/admin/employment/grassroots-position/welfare/{id}/detail
 
 ---
 
-### 3.3 修改（需登录）
+### 3.3 修改
 
 ```
 PUT /api/v1/admin/employment/grassroots-position/welfare/{id}/update
@@ -673,6 +694,14 @@ PUT /api/v1/admin/employment/grassroots-position/welfare/{id}/update
 
 所有 String 字段传 null 表示不修改该字段（部分更新）。
 
+**枚举字段校验**（更新时传入非法值返回 400）:
+
+| 字段 | 允许值 |
+|------|--------|
+| positionCategory | 公共管理类、公共服务类、公共环境类、公共安全类、设施维护类、其他 |
+| educationRequirement | 不限、初中、高中、大专、本科 |
+| positionStatus | 招聘中、已结束、即将开始 |
+
 ---
 
 ### 3.4 软删除（单条）
@@ -733,13 +762,15 @@ POST /api/v1/admin/employment/grassroots-position/welfare/pre-validate
 
 ---
 
-### 3.8 导入 Excel（需登录）
+### 3.8 导入 Excel
 
 ```
 POST /api/v1/admin/employment/grassroots-position/welfare/import
 ```
 
 **请求参数**: file (MultipartFile, .xlsx 或 .xls)
+
+**已存在的重复记录自动跳过，仅插入新记录**（去重维度：岗位名称 + 省份 + 城市）。
 
 **Excel 表头对照**:
 
@@ -941,14 +972,16 @@ Excel 中 Boolean 类型字段的填写规则：
 | is_deleted | 默认 false（可见状态） |
 | created_at / updated_at | 由系统自动填充为导入时间 |
 | 排序 | sortOrder 默认 0 |
+| 重复记录 | 按业务维度（各模块不同）匹配已存在的未删除记录，自动跳过不插入 |
+| 重复日志 | 跳过的重复记录会在服务端日志中记录，包含重复记录的名称和维度信息 |
 | 后续操作 | 导入后可正常使用"显示/隐藏"和"更新状态"功能 |
 
 ### 5.8 事务说明
 
 - 导入操作在单个事务中执行
-- 所有行校验通过才执行插入
-- 任一行校验失败则全部回滚，无部分成功
-- 导入失败不会产生任何数据
+- 格式/枚举/必填校验失败：全部回滚，无部分成功，导入失败不会产生任何数据
+- 校验通过后，已存在的重复记录自动跳过，仅插入新记录（跳过不触发回滚）
+- 日志记录跳过的重复记录详情
 
 ---
 

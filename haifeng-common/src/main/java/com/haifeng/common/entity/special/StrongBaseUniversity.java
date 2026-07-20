@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.special;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringArrayTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,7 +37,7 @@ public class StrongBaseUniversity {
 
     private String defaultAdmissionFormula;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringArrayTypeHandler.class)
     private String[] availableMajors;
 
     private String specialNotes;

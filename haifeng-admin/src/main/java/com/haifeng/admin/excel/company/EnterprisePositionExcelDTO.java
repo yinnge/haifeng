@@ -1,10 +1,11 @@
 package com.haifeng.admin.excel.company;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.excel.university.StringArrayConverter;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -55,8 +56,8 @@ public class EnterprisePositionExcelDTO {
     @ExcelProperty("申请链接")
     private String applyLink;
 
-    @ExcelProperty("截止日期")
-    private LocalDateTime deadline;
+    @ExcelProperty(value = "截止日期", converter = OffsetDateTimeConverter.class)
+    private OffsetDateTime deadline;
 
     @ExcelProperty("岗位状态")
     private String positionStatus;

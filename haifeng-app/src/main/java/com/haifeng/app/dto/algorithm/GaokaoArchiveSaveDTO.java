@@ -46,9 +46,13 @@ public class GaokaoArchiveSaveDTO {
     private String batch;
 
     @NotNull(message = "批次数据年份不能为空")
+    @Min(value = 2020, message = "批次数据年份不能早于2020")
+    @Max(value = 2030, message = "批次数据年份不能晚于2030")
     private Short batchDataYear;
 
     @NotNull(message = "批次省控线不能为空")
+    @Min(value = 0, message = "批次省控线不能小于0")
+    @Max(value = 750, message = "批次省控线不能大于750")
     private Integer batchLineScore;
 
     // ========== 可选字段：各科成绩 ==========

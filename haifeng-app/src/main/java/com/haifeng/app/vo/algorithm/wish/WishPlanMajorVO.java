@@ -17,7 +17,7 @@ public class WishPlanMajorVO {
     private String majorCode;
     private String majorName;
     private String duration;
-    private BigDecimal tuition;
+    private String tuition;
     private String description;
     private Integer admissionCount;
     private BigDecimal safetyLevel;

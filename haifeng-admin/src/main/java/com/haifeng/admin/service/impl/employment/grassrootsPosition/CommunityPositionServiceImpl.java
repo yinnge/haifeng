@@ -146,6 +146,21 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "社区工作者岗位不存在");
         }
+        if (dto.getPositionStatus() != null && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
+            throw new BusinessException(400, "状态不合法");
+        }
+        if (dto.getPositionType() != null && !VALID_POSITION_TYPES.contains(dto.getPositionType())) {
+            throw new BusinessException(400, "岗位类型不合法");
+        }
+        if (dto.getEmploymentType() != null && !VALID_EMPLOYMENT_TYPES.contains(dto.getEmploymentType())) {
+            throw new BusinessException(400, "用工形式不合法");
+        }
+        if (dto.getEducationRequirement() != null && !VALID_EDUCATION_REQUIREMENTS.contains(dto.getEducationRequirement())) {
+            throw new BusinessException(400, "学历要求不合法");
+        }
+        if (dto.getSocialWorkCert() != null && !VALID_SOCIAL_WORK_CERTS.contains(dto.getSocialWorkCert())) {
+            throw new BusinessException(400, "社工证要求不合法");
+        }
         if (dto.getStreetOffice() != null) entity.setStreetOffice(dto.getStreetOffice());
         if (dto.getCommunityName() != null) entity.setCommunityName(dto.getCommunityName());
         if (dto.getSupervisingDept() != null) entity.setSupervisingDept(dto.getSupervisingDept());
@@ -240,7 +255,18 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
         }
 
         List<CommunityPosition> entities = new ArrayList<>();
+        List<String> duplicateWarnings = new ArrayList<>();
         for (CommunityPositionExcelDTO dto : list) {
+            boolean exists = communityPositionMapper.selectCount(
+                    Wrappers.lambdaQuery(CommunityPosition.class)
+                            .eq(CommunityPosition::getPositionName, dto.getPositionName())
+                            .eq(CommunityPosition::getProvince, dto.getProvince())
+                            .eq(CommunityPosition::getCity, dto.getCity())
+                            .eq(CommunityPosition::getIsDeleted, false)) > 0;
+            if (exists) {
+                duplicateWarnings.add(dto.getPositionName() + "(" + dto.getProvince() + "/" + dto.getCity() + ")");
+                continue;
+            }
             CommunityPosition entity = CommunityPosition.builder()
                     .id(SnowflakeIdGenerator.nextId())
                     .streetOffice(dto.getStreetOffice())
@@ -284,7 +310,10 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
             entities.add(entity);
         }
         Db.saveBatch(entities);
-        log.info("导入社区工作者岗位成功: count={}", list.size());
+        if (!duplicateWarnings.isEmpty()) {
+            log.info("导入社区工作者岗位: 跳过{}条重复记录: {}", duplicateWarnings.size(), String.join(", ", duplicateWarnings));
+        }
+        log.info("导入社区工作者岗位成功: count={}", entities.size());
     }
 
     private String validateExcelRows(List<CommunityPositionExcelDTO> list) {

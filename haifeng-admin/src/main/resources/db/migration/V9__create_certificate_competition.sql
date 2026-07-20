@@ -164,7 +164,9 @@ CREATE TABLE t_competition_major (
     major_id                BIGINT          NOT NULL,
     major_name              VARCHAR(100)    NOT NULL,
     competition_name        VARCHAR(200)    NOT NULL,
+    is_deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     -- 约束
     CONSTRAINT uk_comp_major UNIQUE (competition_id, major_id)
@@ -175,6 +177,15 @@ CREATE TABLE t_competition_major (
 CREATE INDEX idx_cm_competition ON t_competition_major (competition_id);
 -- 专业详情页：该专业能参加哪些竞赛（反向查询）
 CREATE INDEX idx_cm_major ON t_competition_major (major_id);
+-- 软删除过滤索引
+CREATE INDEX idx_cm_competition_active ON t_competition_major (competition_id) WHERE is_deleted = FALSE;
+CREATE INDEX idx_cm_major_active ON t_competition_major (major_id) WHERE is_deleted = FALSE;
+
+-- 触发器
+CREATE TRIGGER trg_competition_major_updated_at
+    BEFORE UPDATE ON t_competition_major
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_update_timestamp();
 
 -- 注释
 COMMENT ON TABLE t_competition_major IS '竞赛-专业关联表：多对多，记录竞赛适合哪些专业。关联：competition_id -> t_competition.id, major_id -> t_major.id';
@@ -183,4 +194,6 @@ COMMENT ON COLUMN t_competition_major.competition_id IS '竞赛ID（关联 t_com
 COMMENT ON COLUMN t_competition_major.major_id IS '专业ID（关联 t_major.id）';
 COMMENT ON COLUMN t_competition_major.major_name IS '专业名称（冗余，方便展示）';
 COMMENT ON COLUMN t_competition_major.competition_name IS '竞赛名称（冗余，方便展示）';
+COMMENT ON COLUMN t_competition_major.is_deleted IS '是否删除：FALSE=正常，TRUE=已删除';
 COMMENT ON COLUMN t_competition_major.created_at IS '创建时间';
+COMMENT ON COLUMN t_competition_major.updated_at IS '更新时间';

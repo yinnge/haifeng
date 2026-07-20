@@ -28,7 +28,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 
 @Slf4j
@@ -268,16 +267,16 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
-            // Sheet0: 企业主表数据
+            // Sheet: 企业主表数据
             List<EnterpriseExcelDTO> enterpriseData = EasyExcel.read(file.getInputStream())
                     .head(EnterpriseExcelDTO.class)
-                    .sheet(0)
+                    .sheet("企业主表")
                     .doReadSync();
 
-            // Sheet1: 岗位数据
+            // Sheet: 岗位数据
             List<EnterprisePositionExcelDTO> positionData = EasyExcel.read(file.getInputStream())
                     .head(EnterprisePositionExcelDTO.class)
-                    .sheet(1)
+                    .sheet("企业岗位")
                     .doReadSync();
 
             if (enterpriseData == null || enterpriseData.isEmpty()) {
@@ -303,78 +302,78 @@ public class EnterpriseServiceImpl implements EnterpriseService {
 
             OffsetDateTime now = OffsetDateTime.now();
 
-            // 1. 校验并处理企业数据（Sheet0）
+            // 1. 校验并处理企业数据（企业主表）
             for (int i = 0; i < enterpriseData.size(); i++) {
                 int rowNum = i + 2;
                 EnterpriseExcelDTO data = enterpriseData.get(i);
 
                 // 校验企业名称必填
                 if (!StringUtils.hasText(data.getEnterpriseName())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业名称不能为空");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称不能为空");
                     continue;
                 }
 
                 // 检查文件内重复
                 if (enterpriseNamesInFile.contains(data.getEnterpriseName())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'在文件中重复");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'在文件中重复");
                     continue;
                 }
                 enterpriseNamesInFile.add(data.getEnterpriseName());
 
                 // 检查数据库中是否已存在
                 if (enterpriseMapper.existsByEnterpriseName(data.getEnterpriseName())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'已存在于数据库中");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'已存在于数据库中");
                     continue;
                 }
 
                 // 校验企业性质必填
                 if (!StringUtils.hasText(data.getEnterpriseNature())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业性质不能为空");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业性质不能为空");
                     continue;
                 }
 
                 // 校验企业性质枚举值
                 if (!VALID_ENTERPRISE_NATURES.contains(data.getEnterpriseNature())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业性质'" + data.getEnterpriseNature()
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业性质'" + data.getEnterpriseNature()
                             + "'不合法，必须是：央企、国企、民企、外企、合资");
                     continue;
                 }
 
                 // 校验字段长度
                 if (data.getEnterpriseName().length() > 200) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业名称长度不能超过200个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称长度不能超过200个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getCityName()) && data.getCityName().length() > 50) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：城市名称长度不能超过50个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：城市名称长度不能超过50个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getEnterpriseType()) && data.getEnterpriseType().length() > 50) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业类型长度不能超过50个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业类型长度不能超过50个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getLogoUrl()) && data.getLogoUrl().length() > 500) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：LOGO地址长度不能超过500个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：LOGO地址长度不能超过500个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getOfficialWebsite()) && data.getOfficialWebsite().length() > 500) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：官方网站长度不能超过500个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：官方网站长度不能超过500个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getRegion()) && data.getRegion().length() > 100) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：所在地区长度不能超过100个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：所在地区长度不能超过100个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getEnterpriseScale()) && data.getEnterpriseScale().length() > 50) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：企业规模长度不能超过50个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业规模长度不能超过50个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getMainBusiness()) && data.getMainBusiness().length() > 500) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：主营业务长度不能超过500个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：主营业务长度不能超过500个字符");
                     continue;
                 }
                 if (StringUtils.hasText(data.getRecruitmentStatus()) && data.getRecruitmentStatus().length() > 20) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：招聘状态长度不能超过20个字符");
+                    errorMsgs.add("企业主表第" + rowNum + "行：招聘状态长度不能超过20个字符");
                     continue;
                 }
 
@@ -402,7 +401,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 enterprises.add(enterprise);
             }
 
-            // 2. 校验并处理岗位数据（Sheet1）
+            // 2. 校验并处理岗位数据（企业岗位）
             if (positionData != null && !positionData.isEmpty()) {
                 for (int i = 0; i < positionData.size(); i++) {
                     int rowNum = i + 2;
@@ -410,57 +409,57 @@ public class EnterpriseServiceImpl implements EnterpriseService {
 
                     // 校验企业名称必填
                     if (!StringUtils.hasText(data.getEnterpriseName())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：企业名称不能为空");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：企业名称不能为空");
                         continue;
                     }
 
-                    // 校验企业名称必须在Sheet0中存在
+                    // 校验企业名称必须在企业主表中存在
                     if (!enterpriseNameToIdMap.containsKey(data.getEnterpriseName())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：企业名称'" + data.getEnterpriseName()
+                        errorMsgs.add("企业岗位第" + rowNum + "行：企业名称'" + data.getEnterpriseName()
                                 + "'在企业数据Sheet中不存在");
                         continue;
                     }
 
                     // 校验岗位名称必填
                     if (!StringUtils.hasText(data.getPositionName())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：岗位名称不能为空");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：岗位名称不能为空");
                         continue;
                     }
 
                     // 校验字段长度
                     if (data.getPositionName().length() > 200) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：岗位名称长度不能超过200个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：岗位名称长度不能超过200个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getProvince()) && data.getProvince().length() > 30) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：省份长度不能超过30个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：省份长度不能超过30个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getCity()) && data.getCity().length() > 50) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：城市长度不能超过50个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：城市长度不能超过50个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getWorkLocation()) && data.getWorkLocation().length() > 200) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：工作地点长度不能超过200个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：工作地点长度不能超过200个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getMajorRequirement()) && data.getMajorRequirement().length() > 500) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：专业要求长度不能超过500个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：专业要求长度不能超过500个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getWorkExperience()) && data.getWorkExperience().length() > 50) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：工作经验长度不能超过50个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：工作经验长度不能超过50个字符");
                         continue;
                     }
                     if (StringUtils.hasText(data.getApplyLink()) && data.getApplyLink().length() > 500) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：申请链接长度不能超过500个字符");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：申请链接长度不能超过500个字符");
                         continue;
                     }
 
                     // 校验岗位状态枚举值
                     if (StringUtils.hasText(data.getPositionStatus())
                             && !VALID_POSITION_STATUSES.contains(data.getPositionStatus())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：岗位状态'" + data.getPositionStatus()
+                        errorMsgs.add("企业岗位第" + rowNum + "行：岗位状态'" + data.getPositionStatus()
                                 + "'不合法，必须是：招聘中、已结束");
                         continue;
                     }
@@ -468,14 +467,14 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                     // 校验薪资范围
                     if (data.getSalaryMin() != null && data.getSalaryMax() != null
                             && data.getSalaryMin() > data.getSalaryMax()) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：最低薪资不能大于最高薪资");
+                        errorMsgs.add("企业岗位第" + rowNum + "行：最低薪资不能大于最高薪资");
                         continue;
                     }
 
                     // 校验招聘类型（如果非空）
                     if (StringUtils.hasText(data.getRecruitmentType())
                             && !VALID_RECRUITMENT_TYPES.contains(data.getRecruitmentType())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：招聘类型'" + data.getRecruitmentType()
+                        errorMsgs.add("企业岗位第" + rowNum + "行：招聘类型'" + data.getRecruitmentType()
                                 + "'不合法，必须是：校招、社招、实习");
                         continue;
                     }
@@ -483,7 +482,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                     // 校验学历要求（如果非空）
                     if (StringUtils.hasText(data.getEducationRequirement())
                             && !VALID_EDUCATION_REQUIREMENTS.contains(data.getEducationRequirement())) {
-                        errorMsgs.add("Sheet1第" + rowNum + "行：学历要求'" + data.getEducationRequirement()
+                        errorMsgs.add("企业岗位第" + rowNum + "行：学历要求'" + data.getEducationRequirement()
                                 + "'不合法，必须是：不限、大专、本科、硕士、博士");
                         continue;
                     }
@@ -507,9 +506,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                             .salaryMin(data.getSalaryMin())
                             .salaryMax(data.getSalaryMax())
                             .applyLink(data.getApplyLink())
-                            .deadline(data.getDeadline() != null
-                                    ? data.getDeadline().atOffset(ZoneOffset.ofHours(8))
-                                    : null)
+                            .deadline(data.getDeadline())
                             .positionStatus(data.getPositionStatus())
                             .isDeleted(false)
                             .createdAt(now)

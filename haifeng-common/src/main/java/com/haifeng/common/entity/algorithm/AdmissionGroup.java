@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -39,21 +39,15 @@ public class AdmissionGroup {
 
     private String groupName;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> subjects;
 
     private String requirementType;
 
     private String description;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> constraints;
-
-    /**
-     * 约束的可读描述（与 constraints 一一对应或独立列表）
-     */
-    @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> constraintsDescription;
 
     private Integer majorCount;
 
@@ -74,6 +68,9 @@ public class AdmissionGroup {
     private Integer maxRank;
 
     private Boolean isDeleted;
+
+    @Version
+    private Integer version;
 
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;

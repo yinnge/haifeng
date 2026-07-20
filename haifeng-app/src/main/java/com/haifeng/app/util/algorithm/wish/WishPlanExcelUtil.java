@@ -202,8 +202,7 @@ public class WishPlanExcelUtil {
 
     private String formatDurationTuition(WishMajorSnapshot major) {
         String duration = major.getDuration() != null ? major.getDuration() : "";
-        BigDecimal tuition = major.getTuition();
-        String tuitionStr = tuition != null ? formatBigDecimal(tuition) : "";
+        String tuitionStr = major.getTuition() != null ? major.getTuition() : "";
         if (!duration.isEmpty() && !tuitionStr.isEmpty()) {
             return duration + "/" + tuitionStr;
         } else if (!duration.isEmpty()) {

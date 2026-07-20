@@ -97,7 +97,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
     @Override
     public FinancePositionDetailVO detail(Long id) {
         FinancePosition entity = financePositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "银行/金融招聘岗位不存在");
         }
         FinancePositionDetailVO vo = new FinancePositionDetailVO();
@@ -150,7 +150,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, FinancePositionUpdateDTO dto) {
         FinancePosition financePosition = financePositionMapper.selectById(id);
-        if (financePosition == null || financePosition.getIsDeleted()) {
+        if (financePosition == null || Boolean.TRUE.equals(financePosition.getIsDeleted())) {
             throw new BusinessException(404, "银行/金融招聘岗位不存在");
         }
         if (dto.getInstitutionName() != null) financePosition.setInstitutionName(dto.getInstitutionName());
@@ -199,7 +199,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         FinancePosition financePosition = financePositionMapper.selectById(id);
-        if (financePosition == null || financePosition.getIsDeleted()) {
+        if (financePosition == null || Boolean.TRUE.equals(financePosition.getIsDeleted())) {
             throw new BusinessException(404, "银行/金融招聘岗位不存在");
         }
         financePosition.setIsDeleted(true);
@@ -214,7 +214,7 @@ public class FinancePositionServiceImpl implements FinancePositionService {
             throw new BusinessException(400, "状态只能是: 招聘中、已结束、即将开始");
         }
         FinancePosition entity = financePositionMapper.selectById(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null || Boolean.TRUE.equals(entity.getIsDeleted())) {
             throw new BusinessException(404, "银行/金融招聘岗位不存在");
         }
         entity.setPositionStatus(positionStatus);
@@ -339,6 +339,15 @@ public class FinancePositionServiceImpl implements FinancePositionService {
             if (StringUtils.hasText(dto.getPositionStatus())
                     && !VALID_POSITION_STATUSES.contains(dto.getPositionStatus())) {
                 errors.add("状态只能是: 招聘中、已结束、即将开始");
+            }
+            if (dto.getAgeLimit() != null && (dto.getAgeLimit() < 18 || dto.getAgeLimit() > 45)) {
+                errors.add("年龄上限须在18-45之间");
+            }
+            if (dto.getRecruitmentCount() != null && dto.getRecruitmentCount() <= 0) {
+                errors.add("招聘人数必须大于0");
+            }
+            if (dto.getSalaryMin() != null && dto.getSalaryMax() != null && dto.getSalaryMin() > dto.getSalaryMax()) {
+                errors.add("最低月薪不能高于最高月薪");
             }
             if (!errors.isEmpty()) {
                 errorCount++;

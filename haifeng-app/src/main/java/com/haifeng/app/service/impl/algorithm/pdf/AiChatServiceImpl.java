@@ -10,7 +10,6 @@ import com.haifeng.app.vo.algorithm.pdf.ChatMessage;
 import com.haifeng.common.config.DeepSeekProperties;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.response.ResultCode;
-import com.haifeng.common.service.ai.AiQuotaService;
 import com.haifeng.common.service.ai.ApiKeyPool;
 import com.haifeng.common.service.ai.dto.ModelProviderConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -30,16 +29,13 @@ public class AiChatServiceImpl implements AiChatService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ApiKeyPool keyPool;
-    private final AiQuotaService quotaService;
     private final WebClient webClient;
     private final DeepSeekProperties properties;
 
     public AiChatServiceImpl(ApiKeyPool keyPool,
-                             AiQuotaService quotaService,
                              @Qualifier("deepSeekWebClient") WebClient webClient,
                              DeepSeekProperties properties) {
         this.keyPool = keyPool;
-        this.quotaService = quotaService;
         this.webClient = webClient;
         this.properties = properties;
     }
@@ -111,18 +107,25 @@ public class AiChatServiceImpl implements AiChatService {
 
     /**
      * 从非流式响应 JSON 中提取 choices[0].message.content
+     *
+     * @throws BusinessException 当响应为空或 JSON 解析失败时抛出，由上层 callMapAI/Reduce 的 catch 统一降级处理
      */
     private String extractSyncContent(String response) {
         if (response == null || response.isBlank()) {
-            return "";
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, "AI 响应为空");
         }
         try {
             JsonNode node = MAPPER.readTree(response);
             JsonNode content = node.path("choices").path(0).path("message").path("content");
-            return content.isMissingNode() || content.isNull() ? "" : content.asText("");
+            if (content.isMissingNode() || content.isNull()) {
+                throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, "AI 响应缺少 choices[0].message.content");
+            }
+            return content.asText("");
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to parse sync AI response: {}", response, e);
-            return "";
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, "AI 响应 JSON 解析失败: " + e.getMessage());
         }
     }
 

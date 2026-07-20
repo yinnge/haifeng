@@ -11,8 +11,10 @@ import com.haifeng.admin.vo.algorithm.constraint.ConstraintDictListVO;
 import com.haifeng.common.entity.algorithm.ConstraintDict;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
+import com.haifeng.common.constant.RedisKeyConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.Set;
 public class ConstraintDictServiceImpl implements ConstraintDictService {
 
     private final ConstraintDictMapper constraintDictMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     private static final Set<String> VALID_CHECK_FIELDS = Set.of(
             "subject_type", "second_subject_type", "third_subject_type",
@@ -78,6 +81,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
             deleted.setVersion(0);
             constraintDictMapper.updateById(deleted);
             log.info("恢复已删除约束字典，code={}", dto.getCode());
+            evictCache();
             return;
         }
         if (constraintDictMapper.selectById(dto.getCode()) != null) {
@@ -98,6 +102,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
                 .isDeleted(false).version(0).build();
         constraintDictMapper.insert(entity);
         log.info("新增约束字典，code={}", dto.getCode());
+        evictCache();
     }
 
     @Override
@@ -126,6 +131,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         existing.setIsActive(dto.getIsActive());
         constraintDictMapper.updateById(existing);
         log.info("修改约束字典，code={}", code);
+        evictCache();
     }
 
     @Override
@@ -138,6 +144,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         existing.setIsActive(!existing.getIsActive());
         constraintDictMapper.updateById(existing);
         log.info("切换约束字典状态，code={}, isActive={}", code, existing.getIsActive());
+        evictCache();
     }
 
     @Override
@@ -149,6 +156,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         }
         constraintDictMapper.deleteById(code);
         log.info("删除约束字典，code={}", code);
+        evictCache();
     }
 
     @Override
@@ -159,11 +167,20 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         }
         int count = constraintDictMapper.batchSoftDelete(codes);
         log.info("批量删除约束字典，count={}", count);
+        evictCache();
     }
 
     private void validateCheckField(String checkField) {
         if (checkField != null && !checkField.isEmpty() && !VALID_CHECK_FIELDS.contains(checkField)) {
             throw new BusinessException(400, "check_field不合法，只允许高考档案表字段");
+        }
+    }
+
+    private void evictCache() {
+        try {
+            redisTemplate.delete(RedisKeyConstant.CONSTRAINT_ACTIVE_LIST_KEY);
+        } catch (Exception e) {
+            log.warn("清除约束缓存失败", e);
         }
     }
 

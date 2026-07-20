@@ -77,6 +77,9 @@ CREATE TABLE IF NOT EXISTS t_batch_score_line (
     score_line          INTEGER         NOT NULL,
     rank_line           INTEGER,
     remark              VARCHAR(200),
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    is_deleted          BOOLEAN         NOT NULL DEFAULT FALSE,
+    version             INT             NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uk_batch_score_line UNIQUE (province, year, subject_type, batch)
@@ -96,6 +99,9 @@ COMMENT ON COLUMN t_batch_score_line.batch IS '批次名称（如：本科一批
 COMMENT ON COLUMN t_batch_score_line.score_line IS '分数线';
 COMMENT ON COLUMN t_batch_score_line.rank_line IS '分数线对应位次';
 COMMENT ON COLUMN t_batch_score_line.remark IS '备注说明';
+COMMENT ON COLUMN t_batch_score_line.updated_at IS '更新时间';
+COMMENT ON COLUMN t_batch_score_line.is_deleted IS '软删除标记';
+COMMENT ON COLUMN t_batch_score_line.version IS '乐观锁版本号';
 COMMENT ON COLUMN t_batch_score_line.created_at IS '创建时间';
 
 

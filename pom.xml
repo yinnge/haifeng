@@ -27,7 +27,7 @@
         <spring-boot.version>3.3.5</spring-boot.version>
 
         <!-- MyBatis-Plus -->
-        <mybatis-plus.version>.0</mybatis-plus.version>
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
 
         <!-- JWT -->
         <jjwt.version>0.12.6</jjwt.version>

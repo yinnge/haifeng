@@ -21,6 +21,7 @@ CREATE TABLE member_orders (
     operator_name       VARCHAR(50),
     remark              VARCHAR(500),
     is_deleted          BOOLEAN NOT NULL DEFAULT FALSE,
+    version             INT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_order_type CHECK (order_type IN ('new', 'renewal')),
