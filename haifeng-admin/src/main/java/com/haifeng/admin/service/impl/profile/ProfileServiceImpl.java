@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -36,6 +37,7 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     public ProfileVO getProfile() {
         SysAdmin admin = getCurrentAdmin();
+        List<String> moduleCodes = adminMapper.selectModuleCodesByAdminId(admin.getId());
         return ProfileVO.builder()
                 .id(admin.getId())
                 .username(admin.getUsername())
@@ -44,6 +46,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .email(admin.getEmail())
                 .avatar(admin.getAvatar())
                 .roleName(admin.getRoleName())
+                .moduleCodes(moduleCodes)
                 .isTotpEnabled(Boolean.TRUE.equals(admin.getTotpEnabled()))
                 .lastLoginAt(admin.getLastLoginAt())
                 .createdAt(admin.getCreatedAt())

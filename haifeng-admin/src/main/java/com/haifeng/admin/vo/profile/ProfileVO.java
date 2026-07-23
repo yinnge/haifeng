@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -26,6 +27,8 @@ public class ProfileVO {
     private String avatar;
 
     private String roleName;
+
+    private List<String> moduleCodes;
 
     private Boolean isTotpEnabled;
 
