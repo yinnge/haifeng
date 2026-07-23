@@ -34,7 +34,7 @@ public class CertificateServiceImpl implements CertificateService {
                         Certificate::getCategory, dto.getCategory())
                 .like(StringUtils.hasText(dto.getCertName()),
                         Certificate::getCertName, dto.getCertName())
-                .orderBy(true, false, "id ASC NULLS LAST");
+                .orderByAsc(Certificate::getId);
 
         IPage<Certificate> entityPage = certificateMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

@@ -24,7 +24,7 @@ public class ExamGuideServiceImpl implements ExamGuideService {
         wrapper.eq(ExamGuide::getIsDeleted, false);
         wrapper.eq(ExamGuide::getGuideCategory, guideCategory);
         wrapper.eq(StrUtil.isNotBlank(guideType), ExamGuide::getGuideType, guideType);
-        wrapper.orderBy(true, false, "sort_order DESC NULLS LAST, created_at DESC NULLS LAST");
+        wrapper.orderByDesc(ExamGuide::getSortOrder, ExamGuide::getCreatedAt);
 
         List<ExamGuide> list = examGuideMapper.selectList(wrapper);
         return list.stream().map(this::convertToDetailVO).toList();
