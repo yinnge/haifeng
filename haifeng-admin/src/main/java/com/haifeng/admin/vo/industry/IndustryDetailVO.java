@@ -6,11 +6,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class IndustryDetailVO {
 
     // ==================== 主表字段 ====================
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

@@ -4,8 +4,12 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class EnterprisePositionVO {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private Long enterpriseId;
     private String positionName;

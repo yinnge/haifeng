@@ -3,8 +3,12 @@ package com.haifeng.admin.vo.employment.contentManagement.guide;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class ExamGuideDetailVO {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String guideCategory;
     private String guideType;

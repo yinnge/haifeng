@@ -5,7 +5,6 @@ import com.haifeng.common.response.R;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -18,6 +17,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.nio.charset.StandardCharsets;
 
@@ -27,10 +28,16 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CorsConfigurationSource corsConfigurationSource;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.corsConfigurationSource = corsConfigurationSource;
+    }
 
     private static final String[] WHITE_LIST = {
             // 认证相关
@@ -90,6 +97,8 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 // 禁用 HTTP Basic
                 .httpBasic(AbstractHttpConfigurer::disable)
+                // CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 // 无状态会话
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
