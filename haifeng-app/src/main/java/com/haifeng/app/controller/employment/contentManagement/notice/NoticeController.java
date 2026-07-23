@@ -28,6 +28,4 @@ public class NoticeController {
             @RequestParam(defaultValue = "招聘公告") @Size(max = 20) String noticeType) {
             return R.ok(noticeService.listByCategoryAndType(noticeCategory, noticeType));
     }
-
-}
 }

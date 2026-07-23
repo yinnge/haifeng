@@ -13,7 +13,7 @@ public class NoticeUpdateDTO {
     private String province;
     private String city;
     private String[] tags;
-    private String year;
+    private Integer year;
     private String source;
     private String sourceUrl;
     private OffsetDateTime publishDate;
