@@ -49,8 +49,6 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
         Page<CampusGallery> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<CampusGallery> wrapper = new LambdaQueryWrapper<>();
-        // 只查询未删除的（status != 0）
-        wrapper.ne(CampusGallery::getStatus, (short) 0);
 
         // 院校名称模糊查询
         if (StringUtils.hasText(dto.getUniversityName())) {
@@ -60,7 +58,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
         if (StringUtils.hasText(dto.getImageType())) {
             wrapper.eq(CampusGallery::getImageType, dto.getImageType());
         }
-        // 状态筛选
+        // 状态筛选（管理员可查看所有状态）
         if (dto.getStatus() != null) {
             wrapper.eq(CampusGallery::getStatus, dto.getStatus());
         }

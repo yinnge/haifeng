@@ -224,7 +224,9 @@ public class RoleServiceImpl implements RoleService {
 
         List<Long> allModuleIds = new ArrayList<>();
         for (Long moduleId : dto.getModuleIds()) {
-            allModuleIds.add(moduleId);
+            if (!allModuleIds.contains(moduleId)) {
+                allModuleIds.add(moduleId);
+            }
             collectAllDescendantIds(moduleId, allModuleIds);
         }
 

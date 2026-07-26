@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.university;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.JsonbTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -61,13 +61,13 @@ public class Laboratory {
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> researchFields;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private List<Map<String, Object>> statistics;
 
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> majorEquipment;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private List<Map<String, Object>> coreTeam;
 
     private Integer sortOrder;

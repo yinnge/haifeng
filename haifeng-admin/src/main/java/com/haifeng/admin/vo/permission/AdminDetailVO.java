@@ -23,6 +23,7 @@ public class AdminDetailVO {
 
     private String avatar;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long roleId;
 
     private String roleName;

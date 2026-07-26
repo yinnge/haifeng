@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.university;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.JsonbTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,7 +39,7 @@ public class UniversityDetail {
 
     private String introduction;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private Map<String, Integer> rankings;
 
     private String abroadRate;
