@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.certificate;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.haifeng.common.config.JsonbTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +24,7 @@ public class CompetitionDetail {
 
     private Long competitionId;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private Map<String, Object> basicInfo;
 
     @TableField(typeHandler = StringListTypeHandler.class)
@@ -35,7 +35,7 @@ public class CompetitionDetail {
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> purposes;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private List<Map<String, String>> competitionRules;
 
     @TableField(typeHandler = StringListTypeHandler.class)
@@ -44,10 +44,10 @@ public class CompetitionDetail {
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> notices;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private List<Map<String, String>> processGuide;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbTypeHandler.class)
     private List<Map<String, String>> awardsDisplay;
 
     @TableField("is_deleted")

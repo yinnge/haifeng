@@ -7,11 +7,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class CityDetailVO {
 
     // ==================== 主表字段 ====================
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

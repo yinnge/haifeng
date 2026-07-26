@@ -75,7 +75,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public RoleDetailVO detail(Long id) {
         SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
+        if (role == null || Boolean.TRUE.equals(role.getDeleted())) {
             throw new BusinessException(404, "角色不存在");
         }
 
@@ -138,7 +138,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public void update(Long id, RoleUpdateDTO dto) {
         SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
+        if (role == null || Boolean.TRUE.equals(role.getDeleted())) {
             throw new BusinessException(404, "角色不存在");
         }
 
@@ -172,7 +172,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public void delete(Long id) {
         SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
+        if (role == null || Boolean.TRUE.equals(role.getDeleted())) {
             throw new BusinessException(404, "角色不存在");
         }
 
@@ -197,7 +197,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public void toggleStatus(Long id) {
         SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
+        if (role == null || Boolean.TRUE.equals(role.getDeleted())) {
             throw new BusinessException(404, "角色不存在");
         }
 
@@ -213,7 +213,7 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(rollbackFor = Exception.class)
     public void bindModules(Long id, RoleModuleBindDTO dto) {
         SysRole role = roleMapper.selectById(id);
-        if (role == null || role.getDeleted()) {
+        if (role == null || Boolean.TRUE.equals(role.getDeleted())) {
             throw new BusinessException(404, "角色不存在");
         }
 
@@ -224,7 +224,9 @@ public class RoleServiceImpl implements RoleService {
 
         List<Long> allModuleIds = new ArrayList<>();
         for (Long moduleId : dto.getModuleIds()) {
-            allModuleIds.add(moduleId);
+            if (!allModuleIds.contains(moduleId)) {
+                allModuleIds.add(moduleId);
+            }
             collectAllDescendantIds(moduleId, allModuleIds);
         }
 

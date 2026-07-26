@@ -8,12 +8,16 @@ import lombok.NoArgsConstructor;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProfileVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     private String username;

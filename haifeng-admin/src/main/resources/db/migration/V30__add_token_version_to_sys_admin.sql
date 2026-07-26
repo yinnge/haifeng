@@ -1,0 +1,1 @@
+ALTER TABLE sys_admin ADD COLUMN token_version INT DEFAULT 0;

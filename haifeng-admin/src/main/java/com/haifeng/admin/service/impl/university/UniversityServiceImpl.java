@@ -50,8 +50,6 @@ public class UniversityServiceImpl implements UniversityService {
         Page<University> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
-        // 只查询未删除的（status != 0）
-        wrapper.ne(University::getStatus, (short) 0);
 
         // 名称模糊查询
         if (StringUtils.hasText(dto.getName())) {
@@ -65,7 +63,7 @@ public class UniversityServiceImpl implements UniversityService {
         if (StringUtils.hasText(dto.getCategory())) {
             wrapper.eq(University::getCategory, dto.getCategory());
         }
-        // 状态筛选
+        // 状态筛选（管理员可查看所有状态）
         if (dto.getStatus() != null) {
             wrapper.eq(University::getStatus, dto.getStatus());
         }

@@ -3,8 +3,12 @@ package com.haifeng.admin.vo.employment.industryPosition.finance;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class FinancePositionListVO {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String institutionName;
     private String institutionCategory;

@@ -4,9 +4,13 @@ import lombok.Data;
 
 import java.time.OffsetDateTime;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class AdminDetailVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     private String username;
@@ -19,6 +23,7 @@ public class AdminDetailVO {
 
     private String avatar;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long roleId;
 
     private String roleName;

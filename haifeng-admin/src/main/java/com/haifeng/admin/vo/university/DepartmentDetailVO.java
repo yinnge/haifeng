@@ -6,8 +6,12 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 public class DepartmentDetailVO {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private Long universityId;
     private String universityName;

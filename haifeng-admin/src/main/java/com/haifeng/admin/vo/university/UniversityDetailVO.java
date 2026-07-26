@@ -10,6 +10,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,6 +20,7 @@ import java.util.List;
 public class UniversityDetailVO implements Serializable {
 
     // 基础信息（Tab1）
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     private String name;

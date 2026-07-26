@@ -8,12 +8,16 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class StrongBaseScoreDetailVO implements Serializable {
     private static final long serialVersionUID = 1L;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private Long universityId;
     private String universityName;
