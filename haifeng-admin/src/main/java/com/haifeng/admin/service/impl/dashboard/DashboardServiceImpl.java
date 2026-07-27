@@ -3,6 +3,7 @@ package com.haifeng.admin.service.impl.dashboard;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.haifeng.admin.service.dashboard.DashboardService;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;
+import com.haifeng.admin.vo.dashboard.TrendDataVO;
 import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.entity.user.MemberOrder;
 import com.haifeng.common.entity.university.University;
@@ -24,10 +25,19 @@ import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -43,6 +53,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final AdmissionGroupMapper admissionGroupMapper;
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final SystemSettingsMapper systemSettingsMapper;
+    private final DashboardMapper dashboardMapper;
 
     @Override
     public DashboardStatsVO getDashboardStats() {
@@ -50,6 +61,65 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setMemberStats(getMemberStats());
         vo.setOrderStats(getOrderStats());
         vo.setEntityStats(getEntityStats());
+        return vo;
+    }
+
+    @Override
+    public TrendDataVO getMemberTrend(int days) {
+        days = clampDays(days);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+
+        List<Map<String, Object>> rawList = dashboardMapper.countMembersByDate(
+            startDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime(),
+            endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime()
+        );
+
+        return buildTrendData(startDate, days, rawList);
+    }
+
+    @Override
+    public TrendDataVO getOrderTrend(int days) {
+        days = clampDays(days);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1);
+
+        List<Map<String, Object>> rawList = dashboardMapper.countOrdersByDate(
+            startDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime(),
+            endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime()
+        );
+
+        return buildTrendData(startDate, days, rawList);
+    }
+
+    private int clampDays(int days) {
+        if (days <= 7) return 7;
+        if (days <= 30) return 30;
+        return 90;
+    }
+
+    private TrendDataVO buildTrendData(LocalDate startDate, int days, List<Map<String, Object>> rawList) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        Map<String, Long> countMap = new HashMap<>();
+        for (Map<String, Object> row : rawList) {
+            String dateStr = row.get("date").toString();
+            Long count = ((Number) row.get("count")).longValue();
+            countMap.put(dateStr, count);
+        }
+
+        List<String> dates = new ArrayList<>();
+        List<Long> values = new ArrayList<>();
+        for (int i = 0; i < days; i++) {
+            LocalDate date = startDate.plusDays(i);
+            String dateStr = date.format(formatter);
+            dates.add(dateStr);
+            values.add(countMap.getOrDefault(dateStr, 0L));
+        }
+
+        TrendDataVO vo = new TrendDataVO();
+        vo.setDates(dates);
+        vo.setValues(values);
         return vo;
     }
 
@@ -103,4 +173,28 @@ public class DashboardServiceImpl implements DashboardService {
 
         return stats;
     }
+}
+
+/**
+ * Dashboard 自定义 Mapper，用于执行聚合查询
+ */
+interface DashboardMapper {
+
+    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
+            "FROM t_member " +
+            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
+            "GROUP BY DATE(created_at) " +
+            "ORDER BY DATE(created_at)")
+    List<Map<String, Object>> countMembersByDate(
+        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
+        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
+
+    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
+            "FROM t_member_order " +
+            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
+            "GROUP BY DATE(created_at) " +
+            "ORDER BY DATE(created_at)")
+    List<Map<String, Object>> countOrdersByDate(
+        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
+        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
 }
