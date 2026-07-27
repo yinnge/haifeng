@@ -18,6 +18,7 @@ public class RoleDetailVO {
     private String description;
     private Integer status;
     private OffsetDateTime createdAt;
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
     private List<Long> moduleIds;
     private List<ModuleTreeVO> modules;
 }

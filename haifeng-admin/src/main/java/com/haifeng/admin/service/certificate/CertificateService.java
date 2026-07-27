@@ -2,7 +2,9 @@ package com.haifeng.admin.service.certificate;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.certificate.CertificateAddDTO;
+import com.haifeng.admin.dto.certificate.CertificateBatchStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateQueryDTO;
+import com.haifeng.admin.dto.certificate.CertificateStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateUpdateDTO;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
 import com.haifeng.admin.vo.certificate.CertificateListVO;
@@ -32,6 +34,11 @@ public interface CertificateService {
     void updateCertificate(CertificateUpdateDTO updateDTO);
 
     /**
+     * 修改证书状态（启用/禁用）
+     */
+    void updateCertificateStatus(Long id, CertificateStatusDTO dto);
+
+    /**
      * 软删除证书
      */
     void softDeleteCertificate(Long id);
@@ -42,7 +49,12 @@ public interface CertificateService {
     void hardDeleteCertificate(Long id);
 
     /**
-     * 批量硬删除证书
+     * 批量硬删除证书（物理删除）
      */
     void batchHardDeleteCertificates(List<Long> ids);
+
+    /**
+     * 批量修改证书状态（启用/禁用）
+     */
+    void batchUpdateCertificateStatus(CertificateBatchStatusDTO dto);
 }

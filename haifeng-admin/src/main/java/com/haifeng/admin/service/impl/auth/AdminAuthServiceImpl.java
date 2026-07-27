@@ -159,7 +159,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        String accessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion);
+        String accessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion, admin.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
@@ -223,7 +223,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        String newAccessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion);
+        String newAccessToken = jwtUtil.generateAccessToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN, null, tokenVersion, admin.getUsername());
         String newRefreshToken = jwtUtil.generateRefreshToken(admin.getId(), JwtUtil.USER_TYPE_ADMIN);
 
         redisTemplate.opsForValue().set(redisKey, newRefreshToken,

@@ -1,8 +1,6 @@
 package com.haifeng.admin.dto.system;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -17,9 +15,7 @@ public class AdminLogBatchDeleteDTO {
     private String type;
 
     /**
-     * 要删除的ID列表（type=ids时必填）
+     * 要删除的ID列表（type=ids时必填，由Service层校验）
      */
-    @NotEmpty(message = "ID列表不能为空")
-    @Size(max = 100, message = "批量删除最多100条")
     private List<Long> ids;
 }

@@ -35,6 +35,7 @@ public class JwtUtil {
     private static final String CLAIM_USER_TYPE = "userType";
     private static final String CLAIM_MEMBER_TYPE = "memberType";
     private static final String CLAIM_TOKEN_VERSION = "tokenVersion";
+    private static final String CLAIM_USERNAME = "username";
     private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     public static final String USER_TYPE_ADMIN = "admin";
@@ -51,20 +52,41 @@ public class JwtUtil {
      * 生成 AccessToken（2小时）- 简化版本，向后兼容
      */
     public String generateAccessToken(Long userId) {
-        return generateAccessToken(userId, USER_TYPE_MEMBER, null);
+        return generateAccessToken(userId, USER_TYPE_MEMBER, null, 0, null);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 带 username 的简化版本
+     */
+    public String generateAccessToken(Long userId, String username) {
+        return generateAccessToken(userId, USER_TYPE_MEMBER, null, 0, username);
     }
 
     /**
      * 生成 AccessToken（2小时）- 完整版本
      */
     public String generateAccessToken(Long userId, String userType, String memberType) {
-        return generateAccessToken(userId, userType, memberType, 0);
+        return generateAccessToken(userId, userType, memberType, 0, null);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 带 username 的完整版本
+     */
+    public String generateAccessToken(Long userId, String userType, String memberType, String username) {
+        return generateAccessToken(userId, userType, memberType, 0, username);
     }
 
     /**
      * 生成 AccessToken（2小时）- 含 tokenVersion
      */
     public String generateAccessToken(Long userId, String userType, String memberType, Integer tokenVersion) {
+        return generateAccessToken(userId, userType, memberType, tokenVersion, null);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 含 tokenVersion 和 username
+     */
+    public String generateAccessToken(Long userId, String userType, String memberType, Integer tokenVersion, String username) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_USER_ID, userId);
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS);
@@ -72,6 +94,9 @@ public class JwtUtil {
         claims.put(CLAIM_TOKEN_VERSION, tokenVersion);
         if (memberType != null) {
             claims.put(CLAIM_MEMBER_TYPE, memberType);
+        }
+        if (username != null) {
+            claims.put(CLAIM_USERNAME, username);
         }
         return createToken(claims, accessTokenExpire);
     }
@@ -193,6 +218,17 @@ public class JwtUtil {
             return null;
         }
         return claims.get(CLAIM_MEMBER_TYPE, String.class);
+    }
+
+    /**
+     * 从Token中获取用户名
+     */
+    public String getUsernameFromToken(String token) {
+        Claims claims = parseToken(token);
+        if (claims == null) {
+            return null;
+        }
+        return claims.get(CLAIM_USERNAME, String.class);
     }
 
     /**

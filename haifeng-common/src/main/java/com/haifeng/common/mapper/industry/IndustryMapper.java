@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.industry.Industry;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -26,6 +27,12 @@ public interface IndustryMapper extends BaseMapper<Industry> {
 
     @Update("UPDATE t_industry SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
+
+    @Delete("DELETE FROM t_industry WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
+
+    @Delete("<script>DELETE FROM t_industry WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    int hardDeleteBatchByIds(@Param("ids") List<Long> ids);
 
     @Select("<script>" +
             "SELECT * FROM t_industry" +

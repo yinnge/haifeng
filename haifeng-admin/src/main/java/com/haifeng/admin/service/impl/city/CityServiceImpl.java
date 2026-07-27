@@ -48,38 +48,12 @@ public class CityServiceImpl implements CityService {
     public IPage<CityListVO> page(CityQueryDTO dto) {
         Page<City> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
-
-        // 删除状态筛选（默认只查未删除的）
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(City::getIsDeleted, dto.getIsDeleted());
-        } else {
-            wrapper.eq(City::getIsDeleted, false);
-        }
-
-        // 城市名称模糊查询
-        if (StringUtils.hasText(dto.getCityName())) {
-            wrapper.like(City::getCityName, dto.getCityName());
-        }
-        // 省份模糊查询
-        if (StringUtils.hasText(dto.getProvince())) {
-            wrapper.like(City::getProvince, dto.getProvince());
-        }
-        // 所属地区模糊查询
-        if (StringUtils.hasText(dto.getRegion())) {
-            wrapper.like(City::getRegion, dto.getRegion());
-        }
-
-        // 按省份升序，城市名称升序
-        wrapper.orderByAsc(City::getProvince)
-               .orderByAsc(City::getCityName);
-
-        IPage<City> cityPage = cityMapper.selectPage(page, wrapper);
+        IPage<City> cityPage = cityMapper.selectPageIgnoreLogicDelete(
+                page, dto.getIsDeleted(), dto.getCityName(), dto.getProvince(), dto.getRegion());
 
         return cityPage.convert(city -> {
             CityListVO vo = new CityListVO();
             BeanUtils.copyProperties(city, vo);
-            // 处理时间类型转换
             if (city.getCreatedAt() != null) {
                 vo.setCreatedAt(city.getCreatedAt().toLocalDateTime());
             }
@@ -90,8 +64,8 @@ public class CityServiceImpl implements CityService {
     @Override
     public CityDetailVO detail(Long id) {
         // 查询主表
-        City city = cityMapper.selectById(id);
-        if (city == null || city.getIsDeleted()) {
+        City city = cityMapper.findByIdIgnoreLogicDelete(id);
+        if (city == null) {
             throw new BusinessException(404, "城市不存在");
         }
 
@@ -218,7 +192,7 @@ public class CityServiceImpl implements CityService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, CityUpdateDTO dto) {
-        City city = cityMapper.selectById(id);
+        City city = cityMapper.findByIdIgnoreLogicDelete(id);
         if (city == null) {
             throw new BusinessException(404, "城市不存在");
         }
@@ -255,7 +229,7 @@ public class CityServiceImpl implements CityService {
     @Transactional(rollbackFor = Exception.class)
     public void updateDetail(Long id, CityDetailUpdateDTO dto) {
         // 先检查城市是否存在
-        City city = cityMapper.selectById(id);
+        City city = cityMapper.findByIdIgnoreLogicDelete(id);
         if (city == null) {
             throw new BusinessException(404, "城市不存在");
         }
@@ -303,23 +277,13 @@ public class CityServiceImpl implements CityService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, CityStatusDTO dto) {
-        City city = cityMapper.selectById(id);
+        City city = cityMapper.findByIdIgnoreLogicDelete(id);
         if (city == null) {
             throw new BusinessException(404, "城市不存在");
         }
 
-        city.setIsDeleted(dto.getIsDeleted());
-        city.setUpdatedAt(OffsetDateTime.now());
-
-        cityMapper.updateById(city);
-
-        // 同步更新详情表状态
-        CityDetail detail = cityDetailMapper.findByCityId(id);
-        if (detail != null) {
-            detail.setIsDeleted(dto.getIsDeleted());
-            detail.setUpdatedAt(OffsetDateTime.now());
-            cityDetailMapper.updateById(detail);
-        }
+        cityMapper.updateIsDeletedById(id, dto.getIsDeleted());
+        cityDetailMapper.updateIsDeletedByCityId(id, dto.getIsDeleted());
 
         log.info("更新城市状态成功: id={}, isDeleted={}", id, dto.getIsDeleted());
     }
@@ -327,19 +291,19 @@ public class CityServiceImpl implements CityService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        City city = cityMapper.selectById(id);
-        if (city == null || city.getIsDeleted()) {
+        City city = cityMapper.findByIdIgnoreLogicDelete(id);
+        if (city == null) {
             throw new BusinessException(404, "城市不存在");
         }
 
-        // 删除详情表
+        // 硬删除详情表
         CityDetail detail = cityDetailMapper.findByCityId(id);
         if (detail != null) {
-            cityDetailMapper.deleteById(detail.getId());
+            cityDetailMapper.hardDeleteById(detail.getId());
         }
 
-        // 删除主表
-        cityMapper.deleteById(id);
+        // 硬删除主表
+        cityMapper.hardDeleteById(id);
 
         log.info("硬删除城市成功: id={}, cityName={}", id, city.getCityName());
     }
@@ -351,11 +315,11 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(400, "请选择要删除的城市");
         }
 
-        // 批量删除详情记录
+        // 批量硬删除详情记录
         cityDetailMapper.deleteByCityIds(ids);
 
-        // 批量删除主表记录
-        int deleted = cityMapper.deleteBatchIds(ids);
+        // 批量硬删除主表记录
+        int deleted = cityMapper.hardDeleteBatchByIds(ids);
 
         log.info("批量硬删除城市成功: 删除数量={}, ids={}", deleted, ids);
     }

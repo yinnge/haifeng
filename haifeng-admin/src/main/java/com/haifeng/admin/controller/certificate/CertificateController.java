@@ -3,7 +3,9 @@ package com.haifeng.admin.controller.certificate;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.certificate.BatchDeleteDTO;
 import com.haifeng.admin.dto.certificate.CertificateAddDTO;
+import com.haifeng.admin.dto.certificate.CertificateBatchStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateQueryDTO;
+import com.haifeng.admin.dto.certificate.CertificateStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateUpdateDTO;
 import com.haifeng.admin.service.certificate.CertificateService;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
@@ -47,6 +49,16 @@ public class CertificateController {
         return R.ok();
     }
 
+    /**
+     * 修改证书状态（启用/禁用）
+     */
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "竞赛证书管理", action = "修改证书状态")
+    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody CertificateStatusDTO dto) {
+        certificateService.updateCertificateStatus(id, dto);
+        return R.ok();
+    }
+
     @DeleteMapping("/soft/{id}")
     @OperationLog(module = "竞赛证书管理", action = "软删除证书")
     public R<Void> softDelete(@PathVariable Long id) {
@@ -65,6 +77,16 @@ public class CertificateController {
     @OperationLog(module = "竞赛证书管理", action = "批量硬删除证书")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         certificateService.batchHardDeleteCertificates(batchDTO.getIds());
+        return R.ok();
+    }
+
+    /**
+     * 批量修改证书状态（启用/禁用）
+     */
+    @PutMapping("/batch/status")
+    @OperationLog(module = "竞赛证书管理", action = "批量修改证书状态")
+    public R<Void> batchUpdateStatus(@Valid @RequestBody CertificateBatchStatusDTO dto) {
+        certificateService.batchUpdateCertificateStatus(dto);
         return R.ok();
     }
 }
