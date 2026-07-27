@@ -92,10 +92,14 @@ public class DashboardServiceImpl implements DashboardService {
 
         stats.setUniversityCount(universityMapper.selectCount(null));
         stats.setMajorCount(majorMapper.selectCount(null));
-        stats.setIndustryCount(industryMapper.selectCount(null));
-        stats.setEnterpriseCount(enterpriseMapper.selectCount(null));
-        stats.setAdmissionGroupCount(admissionGroupMapper.selectCount(null));
-        stats.setAdmissionMajorScoreCount(admissionMajorScoreMapper.selectCount(null));
+        stats.setIndustryCount(industryMapper.selectCount(
+            new LambdaQueryWrapper<Industry>().eq(Industry::getIsDeleted, false)));
+        stats.setEnterpriseCount(enterpriseMapper.selectCount(
+            new LambdaQueryWrapper<Enterprise>().eq(Enterprise::getIsDeleted, false)));
+        stats.setAdmissionGroupCount(admissionGroupMapper.selectCount(
+            new LambdaQueryWrapper<AdmissionGroup>().eq(AdmissionGroup::getIsDeleted, false)));
+        stats.setAdmissionMajorScoreCount(admissionMajorScoreMapper.selectCount(
+            new LambdaQueryWrapper<AdmissionMajorScore>().eq(AdmissionMajorScore::getIsDeleted, false)));
 
         return stats;
     }
