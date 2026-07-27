@@ -2,6 +2,7 @@ package com.haifeng.common.entity.user;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.haifeng.common.enums.MemberType;
+import com.haifeng.common.enums.OrderStatus;
 import com.haifeng.common.enums.OrderType;
 import com.haifeng.common.handler.AESEncryptTypeHandler;
 import lombok.AllArgsConstructor;
@@ -54,6 +55,8 @@ public class MemberOrder {
     private String operatorName;
 
     private String remark;
+
+    private OrderStatus status;
 
     @TableLogic
     @TableField("is_deleted")

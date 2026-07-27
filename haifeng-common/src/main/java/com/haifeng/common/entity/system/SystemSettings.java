@@ -11,6 +11,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Data
@@ -43,6 +44,11 @@ public class SystemSettings {
     private Integer proPrice;
 
     private Integer vipPrice;
+
+    /**
+     * 累计订单总金额
+     */
+    private BigDecimal totalAmount;
 
     /**
      * 默认志愿表「搏」档（reach high）数量
