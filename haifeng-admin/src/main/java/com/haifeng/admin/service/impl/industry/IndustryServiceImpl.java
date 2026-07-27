@@ -71,7 +71,7 @@ public class IndustryServiceImpl implements IndustryService {
     @Override
     public IndustryDetailVO detail(Long id) {
         // 查询主表
-        Industry industry = industryMapper.selectById(id);
+        Industry industry = industryMapper.findByIdIgnoreLogicDelete(id);
         if (industry == null) {
             throw new BusinessException(404, "行业不存在");
         }
@@ -169,7 +169,7 @@ public class IndustryServiceImpl implements IndustryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, IndustryUpdateDTO dto) {
-        Industry industry = industryMapper.selectById(id);
+        Industry industry = industryMapper.findByIdIgnoreLogicDelete(id);
         if (industry == null) {
             throw new BusinessException(404, "行业不存在");
         }
@@ -210,7 +210,7 @@ public class IndustryServiceImpl implements IndustryService {
     @Transactional(rollbackFor = Exception.class)
     public void updateDetail(Long id, IndustryDetailUpdateDTO dto) {
         // 先检查行业是否存在
-        Industry industry = industryMapper.selectById(id);
+        Industry industry = industryMapper.findByIdIgnoreLogicDelete(id);
         if (industry == null) {
             throw new BusinessException(404, "行业不存在");
         }
@@ -256,16 +256,16 @@ public class IndustryServiceImpl implements IndustryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        Industry industry = industryMapper.selectById(id);
+        Industry industry = industryMapper.findByIdIgnoreLogicDelete(id);
         if (industry == null) {
             throw new BusinessException(404, "行业不存在");
         }
 
-        // 删除详情表（不关心 is_deleted 状态，全部硬删）
+        // 硬删除详情表
         industryDetailMapper.deleteByIndustryIds(List.of(id));
 
-        // 删除主表
-        industryMapper.deleteById(id);
+        // 硬删除主表
+        industryMapper.hardDeleteById(id);
 
         log.info("硬删除行业成功: id={}, industryName={}", id, industry.getIndustryName());
     }
@@ -277,11 +277,11 @@ public class IndustryServiceImpl implements IndustryService {
             throw new BusinessException(400, "请选择要删除的行业");
         }
 
-        // 批量删除详情表
+        // 批量硬删除详情表
         industryDetailMapper.deleteByIndustryIds(ids);
 
-        // 批量删除主表记录
-        int deleted = industryMapper.deleteBatchIds(ids);
+        // 批量硬删除主表记录
+        int deleted = industryMapper.hardDeleteBatchByIds(ids);
 
         log.info("批量硬删除行业成功: 删除数量={}, ids={}", deleted, ids);
     }

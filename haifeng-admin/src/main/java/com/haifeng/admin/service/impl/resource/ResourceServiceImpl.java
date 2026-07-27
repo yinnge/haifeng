@@ -35,26 +35,12 @@ public class ResourceServiceImpl implements ResourceService {
     public IPage<ResourceListVO> page(ResourceQueryDTO dto) {
         Page<Resource> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<Resource> wrapper = new LambdaQueryWrapper<>();
-
-        // 资源名称模糊查询
-        if (StringUtils.hasText(dto.getResourceName())) {
-            wrapper.like(Resource::getResourceName, dto.getResourceName());
-        }
-        // 分类模糊查询
-        if (StringUtils.hasText(dto.getCategory())) {
-            wrapper.like(Resource::getCategory, dto.getCategory());
-        }
-        // 删除状态筛选
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(Resource::getIsDeleted, dto.getIsDeleted());
-        }
-
-        // 按排序序号升序，更新时间降序
-        wrapper.orderByAsc(Resource::getSortOrder)
-               .orderByDesc(Resource::getUpdatedAt);
-
-        IPage<Resource> resourcePage = resourceMapper.selectPage(page, wrapper);
+        IPage<Resource> resourcePage = resourceMapper.selectPageIgnoreLogicDelete(
+            page,
+            dto.getResourceName(),
+            dto.getCategory(),
+            dto.getIsDeleted()
+        );
 
         return resourcePage.convert(resource -> ResourceListVO.builder()
                 .id(resource.getId())
@@ -70,7 +56,7 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public ResourceDetailVO detail(Long id) {
-        Resource resource = resourceMapper.selectById(id);
+        Resource resource = resourceMapper.findByIdIgnoreLogicDelete(id);
         if (resource == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
@@ -128,24 +114,22 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ResourceUpdateDTO dto) {
-        Resource resource = resourceMapper.selectById(id);
+        Resource resource = resourceMapper.findByIdIgnoreLogicDelete(id);
         if (resource == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
-        resource.setResourceName(dto.getResourceName());
-        resource.setCoverUrl(dto.getCoverUrl());
-        resource.setDescription(dto.getDescription());
-        resource.setResourceUrl(dto.getResourceUrl());
-        resource.setAccessCode(dto.getAccessCode());
-        resource.setCategory(dto.getCategory());
-        resource.setFileType(dto.getFileType());
-        if (dto.getSortOrder() != null) {
-            resource.setSortOrder(dto.getSortOrder());
-        }
-        resource.setUpdatedAt(OffsetDateTime.now());
-
-        resourceMapper.updateById(resource);
+        resourceMapper.updateIgnoreLogicDelete(
+            id,
+            dto.getResourceName(),
+            dto.getCoverUrl(),
+            dto.getDescription(),
+            dto.getResourceUrl(),
+            dto.getAccessCode(),
+            dto.getCategory(),
+            dto.getFileType(),
+            OffsetDateTime.now()
+        );
 
         log.info("更新资源成功: id={}, resourceName={}", id, dto.getResourceName());
     }
@@ -153,15 +137,12 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, ResourceStatusDTO dto) {
-        Resource resource = resourceMapper.selectById(id);
+        Resource resource = resourceMapper.findByIdIgnoreLogicDelete(id);
         if (resource == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
 
-        resource.setIsDeleted(dto.getIsDeleted());
-        resource.setUpdatedAt(OffsetDateTime.now());
-
-        resourceMapper.updateById(resource);
+        resourceMapper.updateIsDeletedById(id, dto.getIsDeleted(), OffsetDateTime.now());
 
         log.info("更新资源状态成功: id={}, isDeleted={}", id, dto.getIsDeleted());
     }

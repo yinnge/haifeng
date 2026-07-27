@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -25,4 +26,10 @@ public interface CityDetailMapper extends BaseMapper<CityDetail> {
             "(#{d.id}, #{d.cityId}, #{d.cityName}, #{d.isDeleted}, #{d.createdAt}, #{d.updatedAt})" +
             "</foreach></script>")
     void batchInsert(@Param("details") List<CityDetail> details);
+
+    @Update("UPDATE t_city_detail SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE city_id = #{cityId}")
+    int updateIsDeletedByCityId(@Param("cityId") Long cityId, @Param("isDeleted") Boolean isDeleted);
+
+    @Delete("DELETE FROM t_city_detail WHERE id = #{id}")
+    int hardDeleteById(@Param("id") Long id);
 }

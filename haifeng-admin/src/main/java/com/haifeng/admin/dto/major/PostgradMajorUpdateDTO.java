@@ -1,6 +1,5 @@
 package com.haifeng.admin.dto.major;
 
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -11,12 +10,6 @@ import lombok.Data;
  */
 @Data
 public class PostgradMajorUpdateDTO {
-
-    /**
-     * 考研专业ID
-     */
-    @NotNull(message = "专业ID不能为空")
-    private Long id;
 
     /**
      * 专业名称

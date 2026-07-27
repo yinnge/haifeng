@@ -33,6 +33,8 @@ public class CertificateListVO {
 
     private Integer examFee;
 
+    private Boolean isDeleted;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

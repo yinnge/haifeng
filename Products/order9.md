@@ -214,7 +214,47 @@ Authorization: Bearer {accessToken}
 
 ---
 
-### 1.5 软删除证书
+### 1.5 修改证书状态（启用/禁用）
+```
+PUT /api/v1/admin/certificate/{id}/status
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+```
+
+**路径参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | Long | 是 | 证书ID |
+
+**请求参数：**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| isDeleted | Boolean | 是 | true=禁用，false=启用 |
+
+**请求示例：**
+```json
+{
+  "isDeleted": true
+}
+```
+
+**响应示例：**
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null,
+  "timestamp": 1715300000000
+}
+```
+
+**业务说明：** 修改证书的启用/禁用状态，isDeleted=true表示禁用，isDeleted=false表示启用。
+
+**操作日志：** 此接口自动记录操作日志
+
+---
+
+### 1.6 软删除证书
 ```
 DELETE /api/v1/admin/certificate/soft/{id}
 Authorization: Bearer {accessToken}
@@ -241,7 +281,7 @@ Authorization: Bearer {accessToken}
 
 ---
 
-### 1.6 硬删除证书
+### 1.7 硬删除证书
 ```
 DELETE /api/v1/admin/certificate/hard/{id}
 Authorization: Bearer {accessToken}
@@ -268,7 +308,7 @@ Authorization: Bearer {accessToken}
 
 ---
 
-### 1.7 批量硬删除证书
+### 1.8 批量硬删除证书
 ```
 POST /api/v1/admin/certificate/batch/delete
 Content-Type: application/json

@@ -1,10 +1,12 @@
 package com.haifeng.admin.service.impl.certificate;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.admin.dto.certificate.CertificateAddDTO;
+import com.haifeng.admin.dto.certificate.CertificateBatchStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateQueryDTO;
+import com.haifeng.admin.dto.certificate.CertificateStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateUpdateDTO;
 import com.haifeng.admin.service.certificate.CertificateService;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
@@ -27,47 +29,30 @@ import java.util.List;
 public class CertificateServiceImpl implements CertificateService {
 
     private final CertificateMapper certificateMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public IPage<CertificateListVO> listCertificates(CertificateQueryDTO queryDTO) {
         Page<Certificate> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
 
-        LambdaQueryWrapper<Certificate> wrapper = new LambdaQueryWrapper<>();
-
-        // 按软删除状态过滤（默认只查未删除的）
-        if (queryDTO.getIsDeleted() != null) {
-            wrapper.eq(Certificate::getIsDeleted, queryDTO.getIsDeleted());
-        } else {
-            wrapper.eq(Certificate::getIsDeleted, false);
-        }
-
-        // 按证书名称模糊查询
-        if (StringUtils.hasText(queryDTO.getCertName())) {
-            wrapper.like(Certificate::getCertName, queryDTO.getCertName());
-        }
-        // 按分类精确查询
-        if (StringUtils.hasText(queryDTO.getCategory())) {
-            wrapper.eq(Certificate::getCategory, queryDTO.getCategory());
-        }
-        // 按等级精确查询
-        if (StringUtils.hasText(queryDTO.getCertLevel())) {
-            wrapper.eq(Certificate::getCertLevel, queryDTO.getCertLevel());
-        }
-        // 按适用专业模糊查询
-        if (StringUtils.hasText(queryDTO.getApplicableMajor())) {
-            wrapper.like(Certificate::getApplicableMajor, queryDTO.getApplicableMajor());
-        }
-        wrapper.orderByDesc(Certificate::getCreatedAt);
-
-        IPage<Certificate> result = certificateMapper.selectPage(page, wrapper);
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置
+        IPage<Certificate> result = certificateMapper.selectPageIgnoreLogicDelete(
+                page,
+                queryDTO.getIsDeleted(),
+                queryDTO.getCertName(),
+                queryDTO.getCategory(),
+                queryDTO.getCertLevel(),
+                queryDTO.getApplicableMajor()
+        );
 
         return result.convert(this::convertToListVO);
     }
 
     @Override
     public CertificateDetailVO getCertificateDetail(Long id) {
-        Certificate certificate = certificateMapper.selectById(id);
-        if (certificate == null || certificate.getIsDeleted()) {
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置，可以查询已禁用的数据
+        Certificate certificate = certificateMapper.findByIdIgnoreLogicDelete(id);
+        if (certificate == null) {
             throw new BusinessException(404, "证书不存在");
         }
         return convertToDetailVO(certificate);
@@ -93,8 +78,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateCertificate(CertificateUpdateDTO updateDTO) {
-        Certificate existing = certificateMapper.selectById(updateDTO.getId());
-        if (existing == null || existing.getIsDeleted()) {
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置，可以更新已禁用的数据
+        Certificate existing = certificateMapper.findByIdIgnoreLogicDelete(updateDTO.getId());
+        if (existing == null) {
             throw new BusinessException(404, "证书不存在");
         }
 
@@ -106,28 +92,67 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
 
-        BeanUtils.copyProperties(updateDTO, existing);
-        certificateMapper.updateById(existing);
+        // 将examRequirements列表转换为JSON字符串
+        String examRequirementsJson = null;
+        if (updateDTO.getExamRequirements() != null && !updateDTO.getExamRequirements().isEmpty()) {
+            try {
+                examRequirementsJson = objectMapper.writeValueAsString(updateDTO.getExamRequirements());
+            } catch (Exception e) {
+                log.warn("转换examRequirements为JSON失败", e);
+            }
+        }
+
+        // 使用自定义SQL更新，绕过MyBatis-Plus全局逻辑删除配置
+        certificateMapper.updateByIdIgnoreLogicDelete(
+                updateDTO.getId(),
+                updateDTO.getCertName(),
+                updateDTO.getCategory(),
+                updateDTO.getCertLevel(),
+                updateDTO.getApplicableMajor(),
+                updateDTO.getRegistrationTime(),
+                updateDTO.getExamTime(),
+                updateDTO.getExamFee(),
+                updateDTO.getCertIntro(),
+                examRequirementsJson,
+                updateDTO.getExamArrangement(),
+                updateDTO.getOfficialWebsite()
+        );
         log.info("更新证书成功，id={}", updateDTO.getId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void softDeleteCertificate(Long id) {
-        Certificate certificate = certificateMapper.selectById(id);
-        if (certificate == null || certificate.getIsDeleted()) {
+    public void updateCertificateStatus(Long id, CertificateStatusDTO dto) {
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置
+        Certificate certificate = certificateMapper.findByIdIgnoreLogicDelete(id);
+        if (certificate == null) {
             throw new BusinessException(404, "证书不存在");
         }
 
-        certificate.setIsDeleted(true);
-        certificateMapper.updateById(certificate);
+        // 使用自定义SQL直接更新is_deleted字段
+        certificateMapper.updateIsDeletedById(id, dto.getIsDeleted());
+        log.info("修改证书状态成功，id={}, isDeleted={}", id, dto.getIsDeleted());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void softDeleteCertificate(Long id) {
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置
+        Certificate certificate = certificateMapper.findByIdIgnoreLogicDelete(id);
+        if (certificate == null) {
+            throw new BusinessException(404, "证书不存在");
+        }
+
+        // 使用自定义SQL直接更新is_deleted字段
+        certificateMapper.updateIsDeletedById(id, true);
         log.info("软删除证书成功，id={}", id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void hardDeleteCertificate(Long id) {
-        Certificate certificate = certificateMapper.selectById(id);
+        // 使用自定义SQL绕过MyBatis-Plus全局逻辑删除配置，可以删除已禁用的数据
+        Certificate certificate = certificateMapper.findByIdIgnoreLogicDelete(id);
         if (certificate == null) {
             throw new BusinessException(404, "证书不存在");
         }
@@ -142,8 +167,20 @@ public class CertificateServiceImpl implements CertificateService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        certificateMapper.deleteBatchIds(ids);
+        // 使用自定义SQL进行物理删除，绕过MyBatis-Plus全局逻辑删除配置
+        certificateMapper.physicalDeleteBatchByIds(ids);
         log.info("批量硬删除证书成功，ids={}", ids);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchUpdateCertificateStatus(CertificateBatchStatusDTO dto) {
+        if (dto.getIds() == null || dto.getIds().isEmpty()) {
+            return;
+        }
+        // 使用自定义SQL批量更新is_deleted字段，绕过MyBatis-Plus全局逻辑删除配置
+        certificateMapper.batchUpdateIsDeletedByIds(dto.getIds(), dto.getIsDeleted());
+        log.info("批量修改证书状态成功，ids={}, isDeleted={}", dto.getIds(), dto.getIsDeleted());
     }
 
     private CertificateListVO convertToListVO(Certificate certificate) {
@@ -156,6 +193,7 @@ public class CertificateServiceImpl implements CertificateService {
                 .registrationTime(certificate.getRegistrationTime())
                 .examTime(certificate.getExamTime())
                 .examFee(certificate.getExamFee())
+                .isDeleted(certificate.getIsDeleted())
                 .createdAt(certificate.getCreatedAt())
                 .updatedAt(certificate.getUpdatedAt())
                 .build();
