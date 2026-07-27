@@ -48,7 +48,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
         LambdaQueryWrapper<AdmissionGroup> wrapper = new LambdaQueryWrapper<>();
 
-        // 按大学名称模糊查询：先查询符合条件的大学ID列表
+        // 按大学名称模糊查询：先查询符合条件的大学ID列表d
         if (StringUtils.hasText(dto.getUniversityName())) {
             LambdaQueryWrapper<University> uniWrapper = new LambdaQueryWrapper<>();
             uniWrapper.like(University::getName, dto.getUniversityName())

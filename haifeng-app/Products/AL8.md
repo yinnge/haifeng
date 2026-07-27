@@ -2,7 +2,7 @@
 
 ## 概述
 
-本模块实现用户端 PDF 报告的生成与查看功能。报告基于用户志愿方案中勾选导出的专业组，通过 **Map-Reduce AI 编排**生成逐校简评与全局研判，并使用 Thymeleaf + OpenHTMLtoPDF 渲染为 PDF 文件。生成过程通过 SSE（Server-Sent Events）流式返回进度，前端可实时展示 Map/Reduce 各阶段状态。
+本模块实现用户端 PDF 报告的完整生命周期管理，包含报告的生成、查看、重新生成和删除功能。报告基于用户志愿方案中勾选导出的专业组，通过 **Map-Reduce AI 编排**生成逐校简评与全局研判，并使用 Thymeleaf + OpenHTMLtoPDF 渲染为 PDF 文件。生成过程通过 SSE（Server-Sent Events）流式返回进度，前端可实时展示 Map/Reduce 各阶段状态。
 
 **端口：** 8080（用户端）
 
@@ -12,9 +12,11 @@
 
 **特殊说明：**
 
-- 生成接口使用 POST + SSE，不能用浏览器原生 `EventSource`（仅支持 GET），需用 `fetch` + `ReadableStream` 或第三方库
-- PDF 文件不落盘，每次查看时用存储的 AI 结果 + 志愿快照表重新渲染
+- 生成/重新生成接口使用 POST + SSE，不能用浏览器原生 `EventSource`（仅支持 GET），需用 `fetch` + `ReadableStream` 或第三方库
+- PDF 文件不落盘，每次查看时用存储的 AI 结果 + 快照表重新渲染
 - 每日配额默认 3 次（可通过 `system_settings.api_number` 配置），失败自动退回配额
+- 失败记录重新生成不扣配额，成功记录重新生成扣配额
+- 生成中（status=0）的记录不允许删除
 
 ---
 
@@ -26,6 +28,8 @@
 | GET | `/records` | 历史报告记录列表（分页） | Login + VIP |
 | GET | `/records/{recordId}` | 报告记录详情 | Login + VIP |
 | GET | `/records/{recordId}/pdf` | 下载/查看PDF（浏览器内联） | Login + VIP |
+| POST | `/records/{recordId}/regenerate` | 重新生成PDF报告（SSE流式返回进度） | Login + VIP |
+| DELETE | `/records/{recordId}` | 删除报告记录（软删除） | Login + VIP |
 
 ---
 
@@ -284,6 +288,8 @@ Reduce 阶段完成，AI 返回了有效的全局研判结果。
 | 429 | 今日PDF生成次数已用完 | 否 | 不涉及（未扣配额） |
 | 404 | 志愿方案不存在或已删除 | 否 | 是 |
 | 400 | 没有可导出的专业组（未勾选导出专业） | 否 | 是 |
+| 400 | 报告正在生成中，请稍后重试（重新生成时） | 否 | 不涉及 |
+| 404 | 报告记录不存在（重新生成时） | 否 | 不涉及 |
 | 500 | Map 结果序列化失败 | 是 | 是 |
 | 500 | Reduce 阶段调用 AI 失败 | 是 | 是 |
 | 500 | Reduce 阶段返回空内容 | 是 | 是 |
@@ -297,6 +303,7 @@ Reduce 阶段完成，AI 返回了有效的全局研判结果。
 - Map 阶段 180 秒超时，超时后未完成的组降级为 `success=false`、`commentary=null`，继续执行 Reduce 阶段
 - 配额每日 0 点重置（Redis key TTL 到当日 23:59:59），默认 3 次/天，可通过 `system_settings.api_number` 配置
 - 生成失败时自动退回配额（`decr` 原子操作）
+- 重新生成时，失败记录不扣配额，成功记录扣配额
 - 收到 `quota_checked` 事件后即可用 `recordId` 轮询 `/records/{recordId}` 查看状态（适用于 SSE 连接意外断开的场景）
 
 ---
@@ -558,7 +565,145 @@ PDF 二进制流（`byte[]`）。
 
 ---
 
-## 5. 枚举值说明
+## 5. 重新生成 PDF 报告（SSE 流式）
+
+### 5.1 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `POST /api/v1/app/algorithm/pdf/records/{recordId}/regenerate` |
+| 方法 | POST |
+| 权限 | 登录用户 + VIP 会员（`@RequireLogin` + `@RequireVip`） |
+| 响应类型 | `text/event-stream`（SSE） |
+| 请求体 | 无（空 body 即可） |
+
+### 5.2 请求头
+
+```
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+Accept: text/event-stream
+```
+
+### 5.3 路径参数
+
+| 参数名 | 类型 | 必填 | 校验规则 | 说明 |
+|--------|------|------|----------|------|
+| recordId | Integer | 是 | @Min(1) | 报告记录ID |
+
+### 5.4 请求示例
+
+```
+POST /api/v1/app/algorithm/pdf/records/123/regenerate
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+Accept: text/event-stream
+
+（空 body）
+```
+
+### 5.5 配额规则
+
+| 原记录状态 | 是否扣配额 | 说明 |
+|------------|-----------|------|
+| FAILED（失败） | 否 | 重试失败的生成，不消耗额外配额 |
+| SUCCESS（成功） | 是 | 重新分析，消耗一次配额 |
+
+### 5.6 校验规则
+
+| 条件 | 错误码 | 说明 |
+|------|--------|------|
+| 记录不存在或不属于当前用户 | 404 | 报告记录不存在 |
+| 记录状态为 GENERATING | 400 | 报告正在生成中，请稍后重试 |
+| 今日配额已用完（仅 SUCCESS 场景） | 429 | 今日PDF生成次数已用完 |
+
+### 5.7 SSE 事件类型
+
+与「1. 生成PDF报告」完全相同，复用相同的 SSE 事件结构：
+
+| stage 值 | 说明 |
+|----------|------|
+| `quota_checked` | 配额校验通过（或失败记录免配额），记录已重置 |
+| `map` | Map 阶段逐组处理中 |
+| `map_done` | Map 阶段全部完成 |
+| `reduce` | Reduce 阶段执行中（status: running / done） |
+| `done` | 报告重新生成完成 |
+| `error` | 重新生成失败 |
+
+### 5.8 前端处理建议
+
+- 失败记录的「重新生成」按钮点击后，监听 SSE 事件流，进度展示与首次生成相同
+- 成功记录的「重新生成」会覆盖原有结果（AI 分析内容可能不同）
+- 重新生成过程中，记录 status 会变为 0（生成中），前端可展示加载状态
+
+---
+
+## 6. 删除报告记录（软删除）
+
+### 6.1 接口信息
+
+| 项 | 值 |
+|----|----|
+| URL | `DELETE /api/v1/app/algorithm/pdf/records/{recordId}` |
+| 方法 | DELETE |
+| 权限 | 登录用户 + VIP 会员（`@RequireLogin` + `@RequireVip`） |
+
+### 6.2 请求头
+
+```
+Authorization: Bearer {accessToken}
+```
+
+### 6.3 路径参数
+
+| 参数名 | 类型 | 必填 | 校验规则 | 说明 |
+|--------|------|------|----------|------|
+| recordId | Integer | 是 | @Min(1) | 报告记录ID |
+
+### 6.4 请求示例
+
+```
+DELETE /api/v1/app/algorithm/pdf/records/123
+Authorization: Bearer {accessToken}
+```
+
+### 6.5 响应示例（成功）
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": null,
+  "timestamp": 1714300000000
+}
+```
+
+### 6.6 错误响应
+
+| code | 说明 | 触发场景 |
+|------|------|---------|
+| 404 | 报告记录不存在 | recordId 不存在、已删除、或不属于当前用户 |
+| 400 | 生成中的报告不能删除 | status = 0（GENERATING） |
+
+```json
+{
+  "code": 400,
+  "msg": "生成中的报告不能删除",
+  "data": null,
+  "timestamp": 1714300000000
+}
+```
+
+### 6.7 注意事项
+
+- 使用软删除（`is_deleted = true`），记录不会从数据库中物理删除
+- 删除成功后会自动清除该记录的 PDF 渲染缓存
+- 生成中（status=0）的记录不允许删除，需等待生成完成或失败后再删除
+- 删除操作不可撤销
+
+---
+
+## 7. 枚举值说明
 
 ### 5.1 报告状态（PdfReportStatus）
 
@@ -581,12 +726,12 @@ PDF 二进制流（`byte[]`）。
 
 ---
 
-## 6. 错误码说明
+## 8. 错误码说明
 
 | code | 说明 | 触发场景 |
 |------|------|---------|
 | 200 | 成功 | 正常请求 |
-| 400 | 参数错误 / 业务校验失败 | 没有可导出的专业组、报告尚未生成完成（查看PDF时） |
+| 400 | 参数错误 / 业务校验失败 | 没有可导出的专业组、报告尚未生成完成（查看PDF时）、生成中的报告不能删除（删除时） |
 | 401 | 未登录或Token过期 | 未携带/无效JWT |
 | 403 | 无权限 | 非VIP会员访问 |
 | 404 | 资源不存在 | 志愿方案不存在、报告记录不存在 |
@@ -595,7 +740,7 @@ PDF 二进制流（`byte[]`）。
 
 ---
 
-## 7. 统一响应格式
+## 9. 统一响应格式
 
 ```json
 {
@@ -617,11 +762,11 @@ PDF 二进制流（`byte[]`）。
 
 ---
 
-## 8. SSE 事件 payload 结构说明
+## 10. 详情接口 JSONB 字段说明
 
-以下三个字段在报告详情接口中以 JSON 字符串形式返回，前端需 `JSON.parse()` 后使用。
+报告详情接口（`GET /records/{recordId}`）返回的 `mapResults`、`reduceResult`、`planSnapshot` 三个字段均为 **JSON 字符串**，前端需 `JSON.parse()` 后使用。AI 生成的内容为 **Markdown 格式**，渲染时需转换为 HTML。
 
-### 8.1 mapResults（JSON 数组）
+### 10.1 mapResults（JSON 数组）
 
 Map 阶段逐校 AI 简评结果，每个数组元素对应一个专业组。
 
@@ -651,26 +796,26 @@ Map 阶段逐校 AI 简评结果，每个数组元素对应一个专业组。
 ]
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| universityId | Long | 院校ID |
-| universityName | String | 院校名称 |
-| cityName | String | 城市名称 |
-| groupName | String | 专业组名称 |
-| groupSnapshotId | Integer | 专业组快照ID |
-| majors | Array | 专业列表 |
-| majors[].majorName | String | 专业名称 |
-| majors[].safetyLevel | BigDecimal | 安全系数 0.00~1.00 |
-| majors[].levelShort | String | 安全等级简称：搏/冲/稳/保/垫 |
-| majors[].employmentRate | BigDecimal | 就业率（可为 null） |
-| majors[].salaryMin | Integer | 最低薪资（可为 null） |
-| majors[].salaryMax | Integer | 最高薪资（可为 null） |
-| majors[].majorCategory | String | 专业大类（可为 null） |
-| majors[].careerProspect | String | 就业前景（截断80字，可为 null） |
-| commentary | String | AI 简评（~300字 Markdown 格式，失败时为 null） |
-| success | Boolean | AI 调用是否成功 |
+| 字段 | 类型 | 可为空 | 说明 |
+|------|------|--------|------|
+| universityId | Long | 否 | 院校ID |
+| universityName | String | 否 | 院校名称 |
+| cityName | String | 否 | 城市名称 |
+| groupName | String | 否 | 专业组名称 |
+| groupSnapshotId | Integer | 否 | 专业组快照ID |
+| majors | Array | 否 | 专业列表（可能为空数组） |
+| majors[].majorName | String | 否 | 专业名称 |
+| majors[].safetyLevel | BigDecimal | 否 | 安全系数 0.00~1.00 |
+| majors[].levelShort | String | 否 | 安全等级简称：搏/冲/稳/保/垫 |
+| majors[].employmentRate | BigDecimal | **是** | 就业率（无数据时为 null） |
+| majors[].salaryMin | Integer | **是** | 最低薪资（无数据时为 null） |
+| majors[].salaryMax | Integer | **是** | 最高薪资（无数据时为 null） |
+| majors[].majorCategory | String | **是** | 专业大类（无数据时为 null） |
+| majors[].careerProspect | String | **是** | 就业前景，截断80字（无数据时为 null） |
+| commentary | String | **是** | AI 简评，~300字 **Markdown 格式**（AI 调用失败时为 null） |
+| success | Boolean | 否 | AI 调用是否成功 |
 
-### 8.2 reduceResult（JSON 对象）
+### 10.2 reduceResult（JSON 对象）
 
 Reduce 阶段全局研判结果。
 
@@ -682,13 +827,13 @@ Reduce 阶段全局研判结果。
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| globalAnalysis | String | 全局宏观分析（Markdown 格式） |
-| swot | String | SWOT 象限分析（Markdown 格式） |
-| recommendation | String | 推荐填报梯队顺序（Markdown 格式） |
+| 字段 | 类型 | 可为空 | 说明 |
+|------|------|--------|------|
+| globalAnalysis | String | **是** | 全局宏观分析，**Markdown 格式**（AI 失败时为 null） |
+| swot | String | **是** | SWOT 象限分析，**Markdown 格式**（AI 失败时为 null） |
+| recommendation | String | **是** | 推荐填报梯队顺序，**Markdown 格式**（AI 失败时为 null） |
 
-### 8.3 planSnapshot（JSON 对象）
+### 10.3 planSnapshot（JSON 对象）
 
 封面页数据快照，来自志愿方案主表。
 
@@ -703,20 +848,99 @@ Reduce 阶段全局研判结果。
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| planYear | Short | 高考年份 |
-| planProvince | String | 高考省份 |
-| reformModel | String | 改革模式（如：3+1+2、3+3） |
-| userScore | Integer | 用户分数 |
-| userRank | Integer | 用户位次 |
-| planBatch | String | 录取批次 |
+| 字段 | 类型 | 可为空 | 说明 |
+|------|------|--------|------|
+| planYear | Short | 否 | 高考年份 |
+| planProvince | String | 否 | 高考省份 |
+| reformModel | String | 否 | 改革模式（如：3+1+2、3+3） |
+| userScore | Integer | 否 | 用户分数 |
+| userRank | Integer | 否 | 用户位次 |
+| planBatch | String | 否 | 录取批次 |
+
+### 10.4 Markdown 渲染说明
+
+AI 生成的 `commentary`、`globalAnalysis`、`swot`、`recommendation` 字段均为 **Markdown 格式**，前端需使用 Markdown 渲染库转换为 HTML 后展示。
+
+**推荐库：**
+
+| 框架 | 推荐库 | 说明 |
+|------|--------|------|
+| Vue | `marked` + `DOMPurify` | marked 负责渲染，DOMPurify 防 XSS |
+| React | `react-markdown` 或 `marked` | react-markdown 开箱即用 |
+
+**渲染注意：**
+
+- `commentary` 含加粗、列表等基础 Markdown
+- `globalAnalysis`/`swot`/`recommendation` 含标题(`##`)、列表、加粗等
+- **必须对渲染后的 HTML 做 XSS 过滤**（使用 DOMPurify 等库），防止恶意注入
+- 若字段为 null，渲染为空内容，不要报错
+
+### 10.5 前端解析示例代码
+
+```javascript
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
+// 1. 获取详情
+const res = await fetch(`/api/v1/app/algorithm/pdf/records/${recordId}`, {
+  headers: { 'Authorization': `Bearer ${accessToken}` }
+});
+const { data } = await res.json();
+
+// 2. 解析 JSONB 字段
+const mapResults = JSON.parse(data.mapResults || '[]');
+const reduceResult = JSON.parse(data.reduceResult || '{}');
+const planSnapshot = JSON.parse(data.planSnapshot || '{}');
+
+// 3. 渲染封面信息
+const coverHtml = `
+  <h2>${planSnapshot.planYear}年 高考志愿AI分析报告</h2>
+  <p>${planSnapshot.planProvince} | ${planSnapshot.reformModel} | ${planSnapshot.userScore}分 | 第${planSnapshot.userRank}名</p>
+  <p>录取批次：${planSnapshot.planBatch}</p>
+`;
+
+// 4. 渲染各校简评（Markdown → HTML）
+mapResults.forEach(item => {
+  console.log(`${item.universityName} - ${item.groupName}`);
+
+  // AI 简评渲染
+  const commentaryHtml = item.commentary
+    ? DOMPurify.sanitize(marked.parse(item.commentary))
+    : '<p>暂无AI分析</p>';
+
+  // 专业列表
+  item.majors.forEach(major => {
+    console.log(`  ${major.majorName} | ${major.levelShort} | 安全系数${major.safetyLevel}`);
+    // 可选字段需判空
+    if (major.employmentRate != null) {
+      console.log(`    就业率: ${(major.employmentRate * 100).toFixed(0)}%`);
+    }
+    if (major.salaryMin != null && major.salaryMax != null) {
+      console.log(`    薪资: ${major.salaryMin}-${major.salaryMax}元`);
+    }
+  });
+});
+
+// 5. 渲染全局分析（Markdown → HTML，需 XSS 过滤）
+const sections = [
+  { title: '全局宏观分析', content: reduceResult.globalAnalysis },
+  { title: 'SWOT分析', content: reduceResult.swot },
+  { title: '推荐填报梯队', content: reduceResult.recommendation },
+];
+
+sections.forEach(s => {
+  if (s.content) {
+    const html = DOMPurify.sanitize(marked.parse(s.content));
+    // 渲染到页面...
+  }
+});
+```
 
 ---
 
-## 9. 数据库表结构（简表）
+## 11. 数据库表结构（简表）
 
-### 9.1 t_pdf_report（PDF报告记录表）
+### 11.1 t_pdf_report（PDF报告记录表）
 
 来源：`V25__create_pdf_report_table.sql`
 
@@ -740,9 +964,9 @@ Reduce 阶段全局研判结果。
 
 ---
 
-## 10. 前端对接注意事项
+## 12. 前端对接注意事项
 
-### 10.1 接口调用顺序建议
+### 12.1 接口调用顺序建议
 
 ```
 1. 志愿方案模块(AL7)：勾选导出专业（PUT /{planId}/majors/{id}/export 或批量）
@@ -753,7 +977,7 @@ Reduce 阶段全局研判结果。
 6. PDF模块：查看报告详情（GET /records/{recordId}）—— 展示 AI 分析结果
 ```
 
-### 10.2 SSE 客户端实现（POST + SSE）
+### 12.2 SSE 客户端实现（POST + SSE）
 
 浏览器原生 `EventSource` 仅支持 GET 请求，本接口为 POST，需使用 `fetch` + `ReadableStream` 或第三方库。
 
@@ -841,15 +1065,16 @@ while (true) {
 }
 ```
 
-### 10.3 配额管理
+### 12.3 配额管理
 
 - 每日默认 3 次（可通过 `system_settings.api_number` 配置），Redis 缓存 5 分钟
 - 配额 key：`pdf:report:quota:{userId}:{yyyyMMdd}`，TTL 到当日 23:59:59
 - **失败退回配额**：生成过程中任何阶段失败都会调用 `decr` 退回配额（原子操作，不会产生负数）
+- **重新生成配额规则**：失败记录重新生成不扣配额，成功记录重新生成扣配额
 - **前端应展示剩余次数**：当前接口未提供查询剩余配额的端点，前端可通过记录当日生成次数推算
 - 429 错误不应重试（当日已满），500 错误可重试（配额已退回）
 
-### 10.4 状态处理
+### 12.4 状态处理
 
 | status | 说明 | 前端处理 |
 |--------|------|---------|
@@ -857,7 +1082,7 @@ while (true) {
 | 1 | 成功 | 展示「查看PDF」按钮，调用 `GET /records/{recordId}/pdf` |
 | 2 | 失败 | 展示 failReason，提供「重新生成」按钮 |
 
-### 10.5 PDF 查看方式
+### 12.5 PDF 查看方式
 
 - **内联展示：** `<iframe src="...">` 或 `window.open()` 直接在浏览器中显示
 - **下载文件：** `<a href="..." download>` 或 fetch blob 后下载（文件名由后端动态生成，从响应头 `Content-Disposition` 获取）
@@ -882,7 +1107,7 @@ a.click();
 URL.revokeObjectURL(url);
 ```
 
-### 10.6 错误重试策略
+### 12.6 错误重试策略
 
 | 错误码 | 是否重试 | 说明 |
 |--------|---------|------|
@@ -891,26 +1116,125 @@ URL.revokeObjectURL(url);
 | 400 | 不重试 | 未勾选导出专业，需用户先勾选 |
 | 500 | 可重试 | 服务端异常，配额已退回，可重新生成 |
 
-### 10.7 planName 字段
+### 12.7 planName 字段
 
 - 列表和详情接口中的 `planName` 字段已从 `t_wish_plan` 表自动填充，无需前端额外调用志愿方案接口获取
 
-### 10.8 JSONB 字段解析
+### 12.8 JSONB 字段解析
 
 - `mapResults`、`reduceResult`、`planSnapshot` 三个字段在详情接口中以 JSON 字符串形式返回
 - 前端需 `JSON.parse()` 后使用，建议封装解析工具函数并处理解析异常
 - status=0（生成中）时这些字段可能为 null 或部分填充，前端需做 null 判断
 
-### 10.9 SSE 断线重连
+### 12.9 SSE 断线重连
 
 - SSE 连接意外断开时（非正常 done/error 关闭），可通过 `recordId`（从 `quota_checked` 事件获取）轮询 `GET /records/{recordId}` 查看记录状态
 - 若 status=1（成功），直接展示 PDF
-- 若 status=2（失败），展示 failReason
+- 若 status=2（失败），展示 failReason，可提供「重新生成」按钮
 - 若 status=0（生成中），继续等待（建议轮询间隔 3-5 秒，最多等待 5 分钟）
+
+### 12.10 重新生成与删除操作
+
+- **重新生成按钮**：仅对 status=1（成功）和 status=2（失败）的记录显示
+- **删除按钮**：仅对 status=1（成功）和 status=2（失败）的记录显示（status=0 生成中不允许删除）
+- **确认弹窗**：重新生成（成功记录）和删除操作建议弹出确认框，防止误操作
+- **重新生成进度**：点击重新生成后，监听 SSE 事件流，展示与首次生成相同的进度
+- **删除后刷新**：删除成功后刷新列表页
+
+### 12.11 详情页渲染指南
+
+详情页有两种渲染方式，推荐结合使用：
+
+#### 方式一：Web 页面渲染 AI 分析结果（推荐）
+
+适用于需要快速浏览、交互操作的场景。
+
+```
+┌─────────────────────────────────────────────────────┐
+│  AI 智能分析报告                                      │
+├─────────────────────────────────────────────────────┤
+│  封面信息（从 planSnapshot 渲染）                       │
+│  2025年 | 广东 | 3+1+2 | 620分 | 第15000名 | 本科批   │
+├─────────────────────────────────────────────────────┤
+│  全局宏观分析（globalAnalysis → Markdown → HTML）      │
+│  从整体填报结构来看...                                  │
+├─────────────────────────────────────────────────────┤
+│  SWOT分析（swot → Markdown → HTML）                   │
+│  优势（S）：...                                       │
+├─────────────────────────────────────────────────────┤
+│  推荐填报梯队（recommendation → Markdown → HTML）      │
+│  1. 第一梯队：...                                     │
+├─────────────────────────────────────────────────────┤
+│  各校详情（遍历 mapResults）                            │
+│  ┌─ 北京大学01组 ──────────────────────────────────┐ │
+│  │ 城市：北京                                       │ │
+│  │ 专业：计算机科学与技术                             │ │
+│  │   安全等级：保 | 安全系数：0.72                    │ │
+│  │   就业率：95% | 薪资：8000-15000元                │ │
+│  │ AI简评：（commentary → Markdown → HTML）          │ │
+│  └────────────────────────────────────────────────┘ │
+│  ┌─ 清华大学02组 ──────────────────────────────────┐ │
+│  │ ...                                             │ │
+│  └────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│  [下载 PDF]  [重新生成]  [删除]                        │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 方式二：PDF 内联预览
+
+适用于需要查看完整排版报告的场景。
+
+```
+┌─────────────────────────────────────────────────────┐
+│  AI 智能分析报告                                      │
+├─────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────┐│
+│  │                                                 ││
+│  │         <iframe> 内嵌 PDF 预览                   ││
+│  │                                                 ││
+│  │    GET /records/{recordId}/pdf                  ││
+│  │                                                 ││
+│  └─────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────┤
+│  [下载 PDF]  [重新生成]  [删除]                        │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 推荐布局（两者结合）
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Tab: [AI分析文字] [PDF预览]                          │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  AI分析文字 Tab：                                    │
+│    封面信息 + 全局分析 + SWOT + 推荐 + 各校简评       │
+│    （数据来源：GET /records/{recordId}）              │
+│                                                     │
+│  PDF预览 Tab：                                       │
+│    iframe 内嵌 PDF                                   │
+│    （数据来源：GET /records/{recordId}/pdf）           │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│  [下载 PDF]  [重新生成]  [删除]                        │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 渲染要点
+
+| 要点 | 说明 |
+|------|------|
+| JSONB 解析 | `mapResults`/`reduceResult`/`planSnapshot` 均为 JSON 字符串，需 `JSON.parse()` |
+| Markdown 渲染 | `commentary`/`globalAnalysis`/`swot`/`recommendation` 为 Markdown，需用 marked 等库转 HTML |
+| XSS 防护 | 渲染 Markdown 后必须用 DOMPurify 过滤，防止恶意注入 |
+| 空值处理 | 可为空字段（见第10节）需做 null 判断，避免渲染报错 |
+| 加载状态 | 生成中（status=0）时显示加载动画，可轮询详情接口等待完成 |
+| 错误展示 | 失败（status=2）时展示 `failReason`，提供「重新生成」按钮 |
 
 ---
 
-## 11. 文件清单
+## 13. 文件清单
 
 | 类型 | 文件路径 |
 |------|---------|

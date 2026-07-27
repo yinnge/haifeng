@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 @Builder
 public class CityBriefVO {
+    private Long id;
     private String cityName;
     private String province;
     private String region;

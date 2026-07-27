@@ -395,4 +395,10 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             return Collections.emptyList();
         }
     }
+
+    @Override
+    public void evictCache(Integer recordId) {
+        pdfCache.remove(recordId);
+        log.debug("PDF cache evicted, recordId={}", recordId);
+    }
 }

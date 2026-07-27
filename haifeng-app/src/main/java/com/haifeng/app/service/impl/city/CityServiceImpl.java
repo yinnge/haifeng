@@ -114,6 +114,7 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
         }
         return CityBriefVO.builder()
+                .id(city.getId())
                 .cityName(city.getCityName())
                 .province(city.getProvince())
                 .region(city.getRegion())

@@ -14,4 +14,11 @@ public interface PdfRenderService {
      * @return PDF 字节数组
      */
     byte[] renderPdf(Long userId, Integer recordId);
+
+    /**
+     * 清除指定记录的 PDF 渲染缓存
+     *
+     * @param recordId PDF 报告记录ID
+     */
+    void evictCache(Integer recordId);
 }

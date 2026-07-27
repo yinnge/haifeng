@@ -42,6 +42,10 @@ Authorization: Bearer {accessToken}
 | 参数名 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
 |--------|------|------|--------|----------|------|
 | batch | String | 是 | - | @NotBlank, @Size(max=50) | **精准查询**，录取批次（如：本科批、提前批、专科批） |
+| universityName | String | 否 | - | @Size(max=50) | **模糊查询**，院校名称（LIKE匹配） |
+| cityName | String | 否 | - | @Size(max=50) | **模糊查询**，城市名称（LIKE匹配） |
+| groupName | String | 否 | - | @Size(max=100) | **模糊查询**，专业组名称（LIKE匹配） |
+| enrollmentCode | String | 否 | - | @Size(max=30) | **模糊查询**，招生代码（LIKE匹配） |
 | subjectFilter | Boolean | 否 | false | - | 是否按用户选科筛选。true=只返回选科匹配的专业组 |
 | page | Integer | 否 | 1 | @Min(1) | 页码，从1开始 |
 | size | Integer | 否 | 10 | @Min(10), @Max(100) | 每页条数，可选：10, 20, 30, 50, 100 |
@@ -52,11 +56,21 @@ GET /api/v1/app/admission/group/page?batch=本科批&subjectFilter=true&page=1&s
 Authorization: Bearer {accessToken}
 ```
 
+**模糊查询示例：**
+```
+GET /api/v1/app/admission/group/page?batch=本科批&universityName=北京&cityName=北京&page=1&size=10
+Authorization: Bearer {accessToken}
+```
+
 ### 1.4 查询逻辑说明
 
 - **省份：** 从用户高考档案（`MemberGaokao.gaokaoProvince`）自动获取，无需传参
 - **年份：** 自动取 `gaokaoYear - 1`（报志愿时尚未出分，展示上一年数据）；若该年无数据，自动降级为 `gaokaoYear - 2`（单级 fallback）
 - **batch：** 精准匹配 `t_admission_group.batch` 字段
+- **universityName：** 模糊匹配 `t_admission_group.university_name` 字段（LIKE '%value%'）
+- **cityName：** 模糊匹配 `t_admission_group.city_name` 字段（LIKE '%value%'）
+- **groupName：** 模糊匹配 `t_admission_group.group_name` 字段（LIKE '%value%'）
+- **enrollmentCode：** 模糊匹配 `t_admission_group.enrollment_code` 字段（LIKE '%value%'）
 - **subjectFilter=true** 时：根据用户选科（subjectType / secondSubjectType / thirdSubjectType）筛选，匹配规则：
   - `不限` 或无选科要求 → 通过
   - `2选1` / `3选1` → 用户选科与专业组要求有交集即通过
@@ -232,6 +246,8 @@ Authorization: Bearer {accessToken}
 | 参数名 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
 |--------|------|------|--------|----------|------|
 | groupId | Integer | 是 | - | @NotNull, @Min(1) | **精准查询**，专业组ID |
+| majorName | String | 否 | - | @Size(max=100) | **模糊查询**，专业名称（LIKE匹配） |
+| majorCode | String | 否 | - | @Size(max=20) | **模糊查询**，专业代码（LIKE匹配） |
 | page | Integer | 否 | 1 | @Min(1) | 页码 |
 | size | Integer | 否 | 10 | @Min(10), @Max(100) | 每页条数 |
 
@@ -241,9 +257,17 @@ GET /api/v1/app/admission/major/page?groupId=1&page=1&size=10
 Authorization: Bearer {accessToken}
 ```
 
+**模糊查询示例：**
+```
+GET /api/v1/app/admission/major/page?groupId=1&majorName=计算机&page=1&size=10
+Authorization: Bearer {accessToken}
+```
+
 ### 2.4 查询逻辑说明
 
 - 按 `groupId` 精准查询专业组下的所有专业明细
+- **majorName：** 模糊匹配 `t_admission_major_score.major_name` 字段（LIKE '%value%'）
+- **majorCode：** 模糊匹配 `t_admission_major_score.major_code` 字段（LIKE '%value%'）
 - 需校验专业组省份与用户高考省份一致，否则返回 1011（防越权）
 - 排序：按 `majorCode` 升序
 - 无遮罩逻辑，所有会员类型均返回完整数据

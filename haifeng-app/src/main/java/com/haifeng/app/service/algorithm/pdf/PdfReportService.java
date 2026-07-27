@@ -56,4 +56,22 @@ public interface PdfReportService {
      * @return 文件名（不含 .pdf 后缀）
      */
     String getDownloadFilename(Long userId, Integer recordId);
+
+    /**
+     * 重新生成 PDF 报告（SSE 流式返回进度）
+     * <p>失败记录不扣配额，成功记录扣配额。
+     *
+     * @param userId   用户ID
+     * @param recordId 报告记录ID
+     * @return SSE 进度事件流
+     */
+    Flux<ServerSentEvent<String>> regenerateReport(Long userId, Integer recordId);
+
+    /**
+     * 删除报告记录（软删除）
+     *
+     * @param userId   用户ID
+     * @param recordId 报告记录ID
+     */
+    void deleteRecord(Long userId, Integer recordId);
 }

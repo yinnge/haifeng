@@ -150,6 +150,7 @@ public class UniversityServiceImpl implements UniversityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
         return UniversityBriefVO.builder()
+                .id(university.getId())
                 .name(university.getName())
                 .provinceName(university.getProvinceName())
                 .cityName(university.getCityName())

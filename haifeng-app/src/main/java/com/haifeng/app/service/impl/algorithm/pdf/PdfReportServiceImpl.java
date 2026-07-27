@@ -78,7 +78,7 @@ public class PdfReportServiceImpl implements PdfReportService {
 
         CompletableFuture.runAsync(() -> {
             try {
-                doGenerate(userId, planId, sink);
+                doGenerate(userId, planId, sink, null);
             } catch (Exception e) {
                 log.error("PDF report generation failed, userId={}, planId={}", userId, planId, e);
                 sink.tryEmitNext(errorEvent(e.getMessage(), 500));
@@ -90,32 +90,103 @@ public class PdfReportServiceImpl implements PdfReportService {
         return sink.asFlux();
     }
 
-    private void doGenerate(Long userId, Integer planId,
-                            Sinks.Many<ServerSentEvent<String>> sink) {
-        // 1. 配额校验
-        try {
-            quotaService.incrAndCheck(userId);
-        } catch (QuotaExceededException e) {
-            sink.tryEmitNext(errorEvent("今日PDF生成次数已用完", 429));
+    @Override
+    public Flux<ServerSentEvent<String>> regenerateReport(Long userId, Integer recordId) {
+        Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().unicast().onBackpressureBuffer();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                doRegenerate(userId, recordId, sink);
+            } catch (Exception e) {
+                log.error("PDF report regeneration failed, userId={}, recordId={}", userId, recordId, e);
+                sink.tryEmitNext(errorEvent(e.getMessage(), 500));
+            } finally {
+                sink.tryEmitComplete();
+            }
+        }, pdfMapExecutor);
+
+        return sink.asFlux();
+    }
+
+    private void doRegenerate(Long userId, Integer recordId,
+                              Sinks.Many<ServerSentEvent<String>> sink) {
+        // 1. 校验记录
+        PdfReport report = pdfReportMapper.selectById(recordId);
+        if (report == null || !userId.equals(report.getMemberId())) {
+            sink.tryEmitNext(errorEvent("报告记录不存在", 404));
+            return;
+        }
+        if (report.getStatus() == PdfReportStatus.GENERATING) {
+            sink.tryEmitNext(errorEvent("报告正在生成中，请稍后重试", 400));
             return;
         }
 
-        // 2. 创建记录 status=GENERATING
-        PdfReport report = PdfReport.builder()
-                .memberId(userId)
-                .planId(planId)
-                .status(PdfReportStatus.GENERATING)
-                .build();
-        pdfReportMapper.insert(report);
-        Integer recordId = report.getId();
-        log.info("PDF report generation started, userId={}, planId={}, recordId={}", userId, planId, recordId);
+        // 2. 配额处理：失败不扣配额，成功扣配额
+        boolean isFailed = report.getStatus() == PdfReportStatus.FAILED;
+        if (!isFailed) {
+            try {
+                quotaService.incrAndCheck(userId);
+            } catch (QuotaExceededException e) {
+                sink.tryEmitNext(errorEvent("今日PDF生成次数已用完", 429));
+                return;
+            }
+        }
+
+        // 3. 重置记录
+        report.setStatus(PdfReportStatus.GENERATING);
+        report.setMapResults(null);
+        report.setReduceResult(null);
+        report.setFailReason(null);
+        report.setPlanSnapshot(null);
+        pdfReportMapper.updateById(report);
+
+        log.info("PDF report regeneration started, userId={}, recordId={}, isFailed={}",
+                userId, recordId, isFailed);
         sink.tryEmitNext(sseEvent("{\"stage\":\"quota_checked\",\"recordId\":" + recordId + "}"));
+
+        // 4. 复用生成核心逻辑
+        doGenerate(userId, report.getPlanId(), sink, report);
+    }
+
+    private void doGenerate(Long userId, Integer planId,
+                            Sinks.Many<ServerSentEvent<String>> sink,
+                            PdfReport existingReport) {
+        // 1. 配额校验（仅新建记录时）
+        boolean quotaConsumed = existingReport != null
+                && existingReport.getStatus() != PdfReportStatus.FAILED;
+        if (existingReport == null) {
+            try {
+                quotaService.incrAndCheck(userId);
+            } catch (QuotaExceededException e) {
+                sink.tryEmitNext(errorEvent("今日PDF生成次数已用完", 429));
+                return;
+            }
+            quotaConsumed = true;
+        }
+
+        // 2. 创建或复用记录
+        PdfReport report;
+        Integer recordId;
+        if (existingReport != null) {
+            report = existingReport;
+            recordId = report.getId();
+        } else {
+            report = PdfReport.builder()
+                    .memberId(userId)
+                    .planId(planId)
+                    .status(PdfReportStatus.GENERATING)
+                    .build();
+            pdfReportMapper.insert(report);
+            recordId = report.getId();
+            log.info("PDF report generation started, userId={}, planId={}, recordId={}", userId, planId, recordId);
+            sink.tryEmitNext(sseEvent("{\"stage\":\"quota_checked\",\"recordId\":" + recordId + "}"));
+        }
 
         // 3. 查 wish_plan → 存 plan_snapshot
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
         if (wishPlan == null || Boolean.TRUE.equals(wishPlan.getDeleted())) {
             updateReportFailed(recordId, "志愿方案不存在");
-            quotaService.decr(userId);
+            if (quotaConsumed) quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("志愿方案不存在", 404));
             return;
         }
@@ -133,7 +204,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         List<ExportGroupContextVO> groups = wishPlanService.getExportGroupContexts(planId);
         if (groups == null || groups.isEmpty()) {
             updateReportFailed(recordId, "没有可导出的专业组");
-            quotaService.decr(userId);
+            if (quotaConsumed) quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("没有可导出的专业组，请先在志愿方案中勾选导出专业", 400));
             return;
         }
@@ -150,7 +221,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         } catch (Exception e) {
             log.error("Failed to serialize map_results, recordId={}", recordId, e);
             updateReportFailed(recordId, "Map结果序列化失败: " + e.getMessage());
-            quotaService.decr(userId);
+            if (quotaConsumed) quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("Map结果序列化失败", recordId, 500));
             return;
         }
@@ -173,7 +244,7 @@ public class PdfReportServiceImpl implements PdfReportService {
             if (isReduceResultEmpty(reduceResult)) {
                 log.warn("Reduce result is empty, recordId={}", recordId);
                 updateReportFailed(recordId, "Reduce阶段返回空内容");
-                quotaService.decr(userId);
+                if (quotaConsumed) quotaService.decr(userId);
                 sink.tryEmitNext(errorEvent("Reduce阶段返回空内容，请稍后重试", recordId, 500));
                 return;
             }
@@ -183,7 +254,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         } catch (Exception e) {
             log.error("Reduce phase failed, recordId={}", recordId, e);
             updateReportFailed(recordId, "Reduce阶段失败: " + e.getMessage());
-            quotaService.decr(userId);
+            if (quotaConsumed) quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("Reduce阶段失败", recordId, 500));
             return;
         }
@@ -196,7 +267,7 @@ public class PdfReportServiceImpl implements PdfReportService {
         } catch (Exception e) {
             log.error("Failed to save final result, recordId={}", recordId, e);
             updateReportFailed(recordId, "保存最终结果失败: " + e.getMessage());
-            quotaService.decr(userId);
+            if (quotaConsumed) quotaService.decr(userId);
             sink.tryEmitNext(errorEvent("保存最终结果失败", recordId, 500));
             return;
         }
@@ -643,5 +714,19 @@ public class PdfReportServiceImpl implements PdfReportService {
             log.warn("Failed to parse planSnapshot for filename, recordId={}", recordId);
         }
         return "haifeng-report-" + recordId;
+    }
+
+    @Override
+    public void deleteRecord(Long userId, Integer recordId) {
+        PdfReport report = pdfReportMapper.selectById(recordId);
+        if (report == null || !userId.equals(report.getMemberId())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告记录不存在");
+        }
+        if (report.getStatus() == PdfReportStatus.GENERATING) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "生成中的报告不能删除");
+        }
+        pdfReportMapper.deleteById(recordId);
+        pdfRenderService.evictCache(recordId);
+        log.info("PDF report deleted, userId={}, recordId={}", userId, recordId);
     }
 }

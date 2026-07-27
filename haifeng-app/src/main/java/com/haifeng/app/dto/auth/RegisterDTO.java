@@ -21,6 +21,6 @@ public class RegisterDTO {
              message = "密码必须是数字+字母，长度6-16位")
     private String password;
 
-    @Size(min = 8, max = 8, message = "邀请码必须是8位")
+    @Size(min = 8, max = 16, message = "邀请码必须是8-16位")
     private String referrerCode;
 }

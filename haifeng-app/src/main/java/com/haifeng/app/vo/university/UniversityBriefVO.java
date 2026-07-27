@@ -9,6 +9,7 @@ import java.util.List;
 @Data
 @Builder
 public class UniversityBriefVO {
+    private Long id;
     private String name;
     private String provinceName;
     private String cityName;

@@ -71,4 +71,23 @@ public class PdfPlanController {
         headers.setContentLength(pdfBytes.length);
         return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
+
+    /**
+     * 重新生成 PDF 报告（SSE 流式返回进度）
+     */
+    @PostMapping(value = "/records/{recordId}/regenerate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> regenerateReport(@PathVariable Integer recordId) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        return pdfReportService.regenerateReport(userId, recordId);
+    }
+
+    /**
+     * 删除报告记录（软删除）
+     */
+    @DeleteMapping("/records/{recordId}")
+    public R<Void> deleteRecord(@PathVariable Integer recordId) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        pdfReportService.deleteRecord(userId, recordId);
+        return R.ok();
+    }
 }
