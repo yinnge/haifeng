@@ -70,17 +70,28 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         int offset = (dto.getPage() - 1) * size;
         Short targetYear = (short) (gaokao.getGaokaoYear() - 1);
 
+        String universityName = dto.getUniversityName();
+        String cityName = dto.getCityName();
+        String groupName = dto.getGroupName();
+        String enrollmentCode = dto.getEnrollmentCode();
+
         List<AdmissionGroup> groups = admissionGroupMapper.selectPageByCondition(
-                province, batch, targetYear, subjectFilter, userSubjects, size, offset);
-        long total = admissionGroupMapper.countByCondition(province, batch, targetYear, subjectFilter, userSubjects);
+                province, batch, targetYear, subjectFilter, userSubjects,
+                universityName, cityName, groupName, enrollmentCode, size, offset);
+        long total = admissionGroupMapper.countByCondition(
+                province, batch, targetYear, subjectFilter, userSubjects,
+                universityName, cityName, groupName, enrollmentCode);
 
         // fallback: targetYear 无数据则尝试 targetYear - 1
         Short fallbackYear = null;
         if (groups.isEmpty() && total == 0) {
             fallbackYear = (short) (targetYear - 1);
             groups = admissionGroupMapper.selectPageByCondition(
-                    province, batch, fallbackYear, subjectFilter, userSubjects, size, offset);
-            total = admissionGroupMapper.countByCondition(province, batch, fallbackYear, subjectFilter, userSubjects);
+                    province, batch, fallbackYear, subjectFilter, userSubjects,
+                    universityName, cityName, groupName, enrollmentCode, size, offset);
+            total = admissionGroupMapper.countByCondition(
+                    province, batch, fallbackYear, subjectFilter, userSubjects,
+                    universityName, cityName, groupName, enrollmentCode);
         }
 
         if (groups.isEmpty()) {
@@ -171,8 +182,18 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId())
-               .eq(AdmissionMajorScore::getIsDeleted, false)
-               .orderByAsc(AdmissionMajorScore::getMajorCode);
+               .eq(AdmissionMajorScore::getIsDeleted, false);
+
+        String majorName = dto.getMajorName();
+        String majorCode = dto.getMajorCode();
+        if (majorName != null && !majorName.isBlank()) {
+            wrapper.like(AdmissionMajorScore::getMajorName, majorName);
+        }
+        if (majorCode != null && !majorCode.isBlank()) {
+            wrapper.like(AdmissionMajorScore::getMajorCode, majorCode);
+        }
+
+        wrapper.orderByAsc(AdmissionMajorScore::getMajorCode);
 
         IPage<AdmissionMajorScore> majorPage = admissionMajorScoreMapper.selectPage(page, wrapper);
 

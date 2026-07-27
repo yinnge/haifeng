@@ -42,61 +42,139 @@
             page-break-after: always;
             height: 297mm;
             width: 210mm;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding-top: 60mm;
-            background: linear-gradient(180deg, #1a3a5c 0%, #2d5f8a 40%, #f0f4f8 100%);
+            position: relative;
+            background: #0f172a;
             color: #fff;
+            overflow: hidden;
         }
-        .cover img.logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
+        /* 顶部装饰线 */
+        .cover::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #d4a843 0%, #c9952a 50%, #d4a843 100%);
         }
-        .cover h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            letter-spacing: 4px;
+        /* 右侧几何装饰 */
+        .cover::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 80mm;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(212,168,67,0.08) 0%, rgba(212,168,67,0.03) 40%, transparent 70%);
         }
-        .cover h2 {
-            font-size: 18px;
-            font-weight: 400;
-            margin-bottom: 40px;
-            opacity: 0.9;
+        .cover-content {
+            position: relative;
+            z-index: 1;
+            padding: 55mm 20mm 30mm 25mm;
+            height: 100%;
+            box-sizing: border-box;
         }
-        .cover .info-table {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            padding: 24px 40px;
-            margin-top: 20px;
+        .cover-brand {
+            margin-bottom: 45mm;
         }
-        .cover .info-table table {
+        .cover-brand table {
             border-collapse: collapse;
         }
-        .cover .info-table td {
-            padding: 6px 16px;
-            font-size: 14px;
+        .cover-brand td {
+            vertical-align: middle;
         }
-        .cover .info-table td.label {
-            color: rgba(255, 255, 255, 0.7);
-            text-align: right;
+        .cover img.logo {
+            width: 42px;
+            height: 42px;
         }
-        .cover .info-table td.value {
+        .cover-brand-text {
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            font-weight: 500;
+        }
+        .cover-title-block {
+            margin-bottom: 35mm;
+        }
+        .cover-title {
+            font-size: 36px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            line-height: 1.3;
             color: #fff;
+            margin: 0 0 8px 0;
+        }
+        .cover-title strong {
+            font-weight: 700;
+            color: #d4a843;
+        }
+        .cover-subtitle {
+            font-size: 14px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.45);
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        .cover-divider {
+            width: 48px;
+            height: 1px;
+            background: #d4a843;
+            margin: 0 0 35mm 0;
+        }
+        .cover-info {
+            width: 100%;
+            max-width: 380px;
+        }
+        .cover-info table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .cover-info-label {
+            padding: 5px 16px 5px 0;
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .cover-info-value {
+            padding: 5px 0;
+            font-size: 14px;
             font-weight: 600;
+            color: #fff;
+            vertical-align: middle;
+        }
+        .cover-info-divider td {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .cover-footer {
+            position: absolute;
+            bottom: 25mm;
+            left: 25mm;
+            right: 25mm;
+        }
+        .cover-footer table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .cover-footer-text {
+            font-size: 9px;
+            color: rgba(255,255,255,0.25);
+            letter-spacing: 0.5px;
         }
 
         /* ===================== Section Headers ===================== */
         .section-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
-            color: #1a3a5c;
-            border-left: 4px solid #2d5f8a;
-            padding-left: 10px;
-            margin: 20px 0 12px 0;
+            color: #0f172a;
+            border-left: 3px solid #d4a843;
+            padding-left: 12px;
+            margin: 24px 0 14px 0;
+            letter-spacing: 0.5px;
         }
 
         /* ===================== Analysis Sections ===================== */
@@ -114,7 +192,7 @@
         .analysis-section .content h2,
         .analysis-section .content h3 {
             font-size: 14px;
-            color: #1a3a5c;
+            color: #0f172a;
             margin: 10px 0 6px 0;
         }
         .analysis-section .content p {
@@ -128,7 +206,7 @@
             margin-bottom: 3px;
         }
         .analysis-section .content strong {
-            color: #1a3a5c;
+            color: #0f172a;
         }
         .analysis-section .content table {
             border-collapse: collapse;
@@ -156,7 +234,7 @@
             font-size: 11px;
         }
         .summary-table th {
-            background: #2d5f8a;
+            background: #0f172a;
             color: #fff;
             padding: 8px 6px;
             text-align: center;
@@ -177,15 +255,15 @@
             margin-bottom: 20px;
         }
         .university-header {
-            background: #f0f4f8;
-            border-left: 4px solid #2d5f8a;
+            background: #f8f9fa;
+            border-left: 3px solid #d4a843;
             padding: 12px 16px;
             margin-bottom: 14px;
         }
         .university-header .univ-name {
             font-size: 16px;
             font-weight: 700;
-            color: #1a3a5c;
+            color: #0f172a;
         }
         .university-header .univ-meta {
             font-size: 11px;
@@ -197,8 +275,8 @@
         }
         .university-header .tag {
             display: inline-block;
-            background: #e8eef5;
-            color: #2d5f8a;
+            background: rgba(212,168,67,0.12);
+            color: #8b6914;
             padding: 2px 8px;
             border-radius: 3px;
             font-size: 10px;
@@ -213,7 +291,7 @@
             font-size: 11px;
         }
         .major-table th {
-            background: #2d5f8a;
+            background: #0f172a;
             color: #fff;
             padding: 7px 5px;
             text-align: center;
@@ -228,7 +306,7 @@
         /* ===================== City Info Box ===================== */
         .city-info-box {
             background: #f8f9fa;
-            border: 1px solid #e0e8f0;
+            border: 1px solid #e8eef5;
             border-radius: 6px;
             padding: 10px 14px;
             margin: 10px 0 14px 0;
@@ -237,7 +315,7 @@
         .city-info-box .city-info-title {
             font-size: 12px;
             font-weight: 700;
-            color: #1a3a5c;
+            color: #0f172a;
             margin-bottom: 6px;
         }
         .city-info-box .city-info-grid {
@@ -262,8 +340,8 @@
         }
         .city-info-box .industry-tag {
             display: inline-block;
-            background: #e8eef5;
-            color: #2d5f8a;
+            background: rgba(212,168,67,0.1);
+            color: #8b6914;
             padding: 1px 6px;
             border-radius: 3px;
             font-size: 10px;
@@ -278,7 +356,7 @@
         /* ===================== Career Prospect ===================== */
         .career-prospect {
             background: #fafbfc;
-            border-left: 3px solid #2d5f8a;
+            border-left: 3px solid #d4a843;
             padding: 6px 10px;
             margin: 4px 0 10px 0;
             font-size: 10px;
@@ -287,7 +365,7 @@
         }
         .career-prospect .prospect-label {
             font-weight: 600;
-            color: #1a3a5c;
+            color: #0f172a;
         }
 
         /* ===================== History Score Table ===================== */
@@ -298,8 +376,8 @@
             font-size: 10px;
         }
         .history-table th {
-            background: #e8eef5;
-            color: #1a3a5c;
+            background: #f0f4f8;
+            color: #0f172a;
             padding: 5px;
             text-align: center;
             font-weight: 600;
@@ -321,7 +399,7 @@
         .commentary-section .title {
             font-size: 13px;
             font-weight: 700;
-            color: #1a3a5c;
+            color: #0f172a;
             margin-bottom: 8px;
         }
         .commentary-section .content {
@@ -333,7 +411,7 @@
         .commentary-section .content h2,
         .commentary-section .content h3 {
             font-size: 13px;
-            color: #1a3a5c;
+            color: #0f172a;
             margin: 8px 0 4px 0;
         }
         .commentary-section .content p {
@@ -344,7 +422,7 @@
             margin: 4px 0 4px 18px;
         }
         .commentary-section .content strong {
-            color: #1a3a5c;
+            color: #0f172a;
         }
         .commentary-unavailable {
             color: #999;
@@ -375,33 +453,74 @@
 
 <!-- ===================== Cover Page ===================== -->
 <div class="cover">
-    <img class="logo" th:if="${data.logoDataUri != null and !data.logoDataUri.isEmpty()}"
-         th:src="${data.logoDataUri}" alt="Logo"/>
-    <h1>高考志愿填报方案</h1>
-    <h2>深度分析报告</h2>
-    <div class="info-table">
+    <div class="cover-content">
+        <div class="cover-brand">
+            <table>
+                <tr>
+                    <td style="padding-right: 12px;">
+                        <img class="logo" th:if="${data.logoDataUri != null and !data.logoDataUri.isEmpty()}"
+                             th:src="${data.logoDataUri}" alt="Logo"/>
+                    </td>
+                    <td>
+                        <span class="cover-brand-text">Haifeng Future Planning Institute</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="cover-title-block">
+            <h1 class="cover-title"><strong>高考志愿</strong>填报方案</h1>
+            <p class="cover-subtitle">深度分析报告</p>
+        </div>
+
+        <div class="cover-divider"></div>
+
+        <div class="cover-info">
+            <table>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">省份</td>
+                    <td class="cover-info-value" th:text="${data.planProvince}">-</td>
+                </tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">年份</td>
+                    <td class="cover-info-value" th:text="${data.planYear}">-</td>
+                </tr>
+                <tr class="cover-info-divider"><td colspan="2"></td></tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">分数</td>
+                    <td class="cover-info-value" th:text="${data.userScore} + ' 分'">-</td>
+                </tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">排名</td>
+                    <td class="cover-info-value" th:text="${data.userRank}">-</td>
+                </tr>
+                <tr class="cover-info-divider"><td colspan="2"></td></tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">改革</td>
+                    <td class="cover-info-value" th:text="${data.reformModel}">-</td>
+                </tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">批次</td>
+                    <td class="cover-info-value" th:text="${data.planBatch}">-</td>
+                </tr>
+                <tr class="cover-info-divider"><td colspan="2"></td></tr>
+                <tr class="cover-info-row">
+                    <td class="cover-info-label">日期</td>
+                    <td class="cover-info-value" th:text="${data.generatedAt}">-</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="cover-footer">
         <table>
             <tr>
-                <td class="label">考生省份：</td>
-                <td class="value" th:text="${data.planProvince}">-</td>
-                <td class="label">高考年份：</td>
-                <td class="value" th:text="${data.planYear}">-</td>
-            </tr>
-            <tr>
-                <td class="label">高考分数：</td>
-                <td class="value" th:text="${data.userScore}">-</td>
-                <td class="label">省排名：</td>
-                <td class="value" th:text="${data.userRank}">-</td>
-            </tr>
-            <tr>
-                <td class="label">改革模式：</td>
-                <td class="value" th:text="${data.reformModel}">-</td>
-                <td class="label">批次：</td>
-                <td class="value" th:text="${data.planBatch}">-</td>
-            </tr>
-            <tr>
-                <td class="label">生成日期：</td>
-                <td class="value" th:text="${data.generatedAt}">-</td>
+                <td style="text-align: left;">
+                    <span class="cover-footer-text">CONFIDENTIAL</span>
+                </td>
+                <td style="text-align: right;">
+                    <span class="cover-footer-text">海枫未来规划院 &copy; 版权所有</span>
+                </td>
             </tr>
         </table>
     </div>
@@ -560,7 +679,7 @@
     <!-- History Scores -->
     <div th:each="major : ${group.majors}"
          th:if="${major.historyScores != null and !major.historyScores.isEmpty()}">
-        <div style="font-size:12px; font-weight:600; color:#1a3a5c; margin:10px 0 4px 0;">
+        <div style="font-size:12px; font-weight:600; color:#0f172a; margin:10px 0 4px 0;">
             <span th:text="${major.majorName}">-</span> — 历史录取数据
         </div>
         <table class="history-table">

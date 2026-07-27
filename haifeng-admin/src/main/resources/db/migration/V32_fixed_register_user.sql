@@ -1,0 +1,1 @@
+ALTER TABLE t_member ALTER COLUMN invite_code TYPE VARCHAR(16);

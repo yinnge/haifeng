@@ -15,4 +15,16 @@ public class AdmissionGroupQueryDTO extends BasePageQueryDTO {
     private String batch;
 
     private Boolean subjectFilter = false;
+
+    @Size(max = 50, message = "院校名称不能超过50字")
+    private String universityName;
+
+    @Size(max = 50, message = "城市名称不能超过50字")
+    private String cityName;
+
+    @Size(max = 100, message = "专业组名称不能超过100字")
+    private String groupName;
+
+    @Size(max = 30, message = "招生代码不能超过30字")
+    private String enrollmentCode;
 }

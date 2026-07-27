@@ -7,6 +7,8 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.haifeng.common.service.TotpService;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
+import com.warrenstrange.googleauth.GoogleAuthenticatorConfig;
+import com.warrenstrange.googleauth.GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +30,11 @@ public class TotpServiceImpl implements TotpService {
     private static final int QR_WIDTH = 200;
     private static final int QR_HEIGHT = 200;
 
-    private final GoogleAuthenticator gAuth = new GoogleAuthenticator();
+    private final GoogleAuthenticator gAuth = new GoogleAuthenticator(
+            new GoogleAuthenticatorConfigBuilder()
+                    .setWindowSize(1)
+                    .build()
+    );
 
     @Override
     public String generateSecret() {

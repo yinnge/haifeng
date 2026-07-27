@@ -20,12 +20,15 @@ public class InviteCodeGenerator {
 
     /**
      * 根据雪花ID生成邀请码
+     * 雪花ID为64位，超出Hashids上限(2^53)，拆分为高11位+低53位分别编码
      *
      * @param snowflakeId 雪花ID
      * @return 8位邀请码
      */
     public static String generate(long snowflakeId) {
-        return HASHIDS.encode(snowflakeId);
+        long upper = snowflakeId >>> 53;
+        long lower = snowflakeId & 0x1FFFFFFFFFFFFFL;
+        return HASHIDS.encode(upper, lower);
     }
 
     /**
@@ -39,6 +42,9 @@ public class InviteCodeGenerator {
             return -1;
         }
         long[] ids = HASHIDS.decode(inviteCode);
-        return ids.length > 0 ? ids[0] : -1;
+        if (ids.length < 2) {
+            return -1;
+        }
+        return (ids[0] << 53) | ids[1];
     }
 }

@@ -50,7 +50,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
     List<AdmissionGroup> selectHistoryByKeys(@Param("keys") List<GroupKey> keys, @Param("province") String province, @Param("minYear") Short minYear);
 
     /**
-     * 分页查询专业组（带选科筛选）
+     * 分页查询专业组（带选科筛选 + 模糊查询）
      * 注意：此 SQL 依赖 PostgreSQL 特有的数组操作符（&& 和 @>）
      */
     @Select("<script>" +
@@ -59,6 +59,18 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "AND batch = #{batch} " +
             "AND year = #{year} " +
             "AND is_deleted = FALSE " +
+            "<if test='universityName != null and universityName != \"\"'>" +
+            "AND university_name LIKE '%' || #{universityName} || '%' " +
+            "</if>" +
+            "<if test='cityName != null and cityName != \"\"'>" +
+            "AND city_name LIKE '%' || #{cityName} || '%' " +
+            "</if>" +
+            "<if test='groupName != null and groupName != \"\"'>" +
+            "AND group_name LIKE '%' || #{groupName} || '%' " +
+            "</if>" +
+            "<if test='enrollmentCode != null and enrollmentCode != \"\"'>" +
+            "AND enrollment_code LIKE '%' || #{enrollmentCode} || '%' " +
+            "</if>" +
             "<if test='subjectFilter and userSubjects != null'>" +
             "AND (" +
             "  requirement_type = '不限' " +
@@ -77,11 +89,15 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("year") Short year,
             @Param("subjectFilter") boolean subjectFilter,
             @Param("userSubjects") String userSubjects,
+            @Param("universityName") String universityName,
+            @Param("cityName") String cityName,
+            @Param("groupName") String groupName,
+            @Param("enrollmentCode") String enrollmentCode,
             @Param("size") int size,
             @Param("offset") int offset);
 
     /**
-     * 统计总数（带选科筛选）
+     * 统计总数（带选科筛选 + 模糊查询）
      * 注意：此 SQL 依赖 PostgreSQL 特有的数组操作符（&& 和 @>）
      */
     @Select("<script>" +
@@ -90,6 +106,18 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "AND batch = #{batch} " +
             "AND year = #{year} " +
             "AND is_deleted = FALSE " +
+            "<if test='universityName != null and universityName != \"\"'>" +
+            "AND university_name LIKE '%' || #{universityName} || '%' " +
+            "</if>" +
+            "<if test='cityName != null and cityName != \"\"'>" +
+            "AND city_name LIKE '%' || #{cityName} || '%' " +
+            "</if>" +
+            "<if test='groupName != null and groupName != \"\"'>" +
+            "AND group_name LIKE '%' || #{groupName} || '%' " +
+            "</if>" +
+            "<if test='enrollmentCode != null and enrollmentCode != \"\"'>" +
+            "AND enrollment_code LIKE '%' || #{enrollmentCode} || '%' " +
+            "</if>" +
             "<if test='subjectFilter and userSubjects != null'>" +
             "AND (" +
             "  requirement_type = '不限' " +
@@ -105,5 +133,9 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("batch") String batch,
             @Param("year") Short year,
             @Param("subjectFilter") boolean subjectFilter,
-            @Param("userSubjects") String userSubjects);
+            @Param("userSubjects") String userSubjects,
+            @Param("universityName") String universityName,
+            @Param("cityName") String cityName,
+            @Param("groupName") String groupName,
+            @Param("enrollmentCode") String enrollmentCode);
 }
