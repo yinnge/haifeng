@@ -59,11 +59,10 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             throw new BusinessException(ResultCode.ACCOUNT_LOCKED);
         }
 
-        // 3. 查询管理员
+        // 3. 查询管理员（@TableLogic 自动过滤 is_deleted=false）
         SysAdmin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<SysAdmin>()
                         .eq(SysAdmin::getPhone, dto.getPhone())
-                        .eq(SysAdmin::getDeleted, false)
         );
 
         if (admin == null) {

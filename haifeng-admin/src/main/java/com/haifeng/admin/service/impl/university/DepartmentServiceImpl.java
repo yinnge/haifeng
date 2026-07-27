@@ -45,7 +45,6 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         Page<Department> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<Department> wrapper = new LambdaQueryWrapper<>();
-        wrapper.ne(Department::getStatus, (short) 0);
 
         if (StringUtils.hasText(dto.getUniversityName())) {
             wrapper.like(Department::getUniversityName, dto.getUniversityName());
@@ -56,6 +55,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         if (StringUtils.hasText(dto.getDepartmentType())) {
             wrapper.eq(Department::getDepartmentType, dto.getDepartmentType());
         }
+        // 状态筛选（管理员可查看所有状态）
         if (dto.getStatus() != null) {
             wrapper.eq(Department::getStatus, dto.getStatus());
         }

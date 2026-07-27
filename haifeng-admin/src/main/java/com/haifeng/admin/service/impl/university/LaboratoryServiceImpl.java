@@ -48,7 +48,6 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         Page<Laboratory> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<Laboratory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.ne(Laboratory::getStatus, (short) 0);
 
         if (StringUtils.hasText(dto.getUniversityName())) {
             wrapper.like(Laboratory::getUniversityName, dto.getUniversityName());
@@ -65,6 +64,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         if (StringUtils.hasText(dto.getDepartment())) {
             wrapper.eq(Laboratory::getDepartment, dto.getDepartment());
         }
+        // 状态筛选（管理员可查看所有状态）
         if (dto.getStatus() != null) {
             wrapper.eq(Laboratory::getStatus, dto.getStatus());
         }
