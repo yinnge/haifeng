@@ -84,10 +84,22 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         Page<UniversityGuide> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<UniversityGuide> wrapper = new LambdaQueryWrapper<>();
-        // 只查询未删除的（status != 0）
-        wrapper.ne(UniversityGuide::getStatus, (short) 0);
 
-        // 状态筛选
+        // 院校名称模糊搜索
+        if (StringUtils.hasText(dto.getUniversityName())) {
+            List<Long> matchedUnivIds = universityMapper.selectList(
+                new LambdaQueryWrapper<University>()
+                    .like(University::getName, dto.getUniversityName())
+                    .select(University::getId)
+            ).stream().map(University::getId).collect(Collectors.toList());
+            if (matchedUnivIds.isEmpty()) {
+                wrapper.in(UniversityGuide::getUniversityId, List.of(-1L));
+            } else {
+                wrapper.in(UniversityGuide::getUniversityId, matchedUnivIds);
+            }
+        }
+
+        // 状态筛选（管理员可查看所有状态）
         if (dto.getStatus() != null) {
             wrapper.eq(UniversityGuide::getStatus, dto.getStatus());
         }

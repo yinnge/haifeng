@@ -46,7 +46,6 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         Page<SubjectEvaluation> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<SubjectEvaluation> wrapper = new LambdaQueryWrapper<>();
-        wrapper.ne(SubjectEvaluation::getStatus, (short) 0);
 
         if (StringUtils.hasText(dto.getUniversityName())) {
             wrapper.like(SubjectEvaluation::getUniversityName, dto.getUniversityName());
@@ -184,7 +183,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         updateStatus(id, 0);
-        log.info("软删除学科评估，id={}", id);
+        log.info("禁用学科评估，id={}", id);
     }
 
     @Override
@@ -214,7 +213,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
                .set(SubjectEvaluation::getStatus, (short) 0)
                .set(SubjectEvaluation::getUpdatedAt, OffsetDateTime.now());
         subjectEvaluationMapper.update(null, wrapper);
-        log.info("批量软删除学科评估，ids={}", ids);
+        log.info("批量禁用学科评估，ids={}", ids);
     }
 
     @Override

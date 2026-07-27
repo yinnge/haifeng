@@ -50,35 +50,17 @@ public class IndustryServiceImpl implements IndustryService {
     public IPage<IndustryListVO> page(IndustryQueryDTO dto) {
         Page<Industry> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
-
-        // 行业名称模糊查询
-        if (StringUtils.hasText(dto.getIndustryName())) {
-            wrapper.like(Industry::getIndustryName, dto.getIndustryName());
-        }
-        // 行业分类模糊查询
-        if (StringUtils.hasText(dto.getCategory())) {
-            wrapper.like(Industry::getCategory, dto.getCategory());
-        }
-        // 人才趋势模糊查询
-        if (StringUtils.hasText(dto.getTalentTrend())) {
-            wrapper.like(Industry::getTalentTrend, dto.getTalentTrend());
-        }
-        // 删除状态筛选
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(Industry::getIsDeleted, dto.getIsDeleted());
-        }
-
-        // 按分类升序，行业名称升序
-        wrapper.orderByAsc(Industry::getCategory)
-               .orderByAsc(Industry::getIndustryName);
-
-        IPage<Industry> industryPage = industryMapper.selectPage(page, wrapper);
+        IPage<Industry> industryPage = industryMapper.selectPageIgnoreLogicDelete(
+                page,
+                dto.getIndustryName(),
+                dto.getCategory(),
+                dto.getTalentTrend(),
+                dto.getIsDeleted()
+        );
 
         return industryPage.convert(industry -> {
             IndustryListVO vo = new IndustryListVO();
             BeanUtils.copyProperties(industry, vo);
-            // 处理时间类型转换
             if (industry.getCreatedAt() != null) {
                 vo.setCreatedAt(industry.getCreatedAt().toLocalDateTime());
             }
@@ -259,23 +241,14 @@ public class IndustryServiceImpl implements IndustryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, IndustryStatusDTO dto) {
-        Industry industry = industryMapper.selectById(id);
+        Industry industry = industryMapper.findByIdIgnoreLogicDelete(id);
         if (industry == null) {
             throw new BusinessException(404, "行业不存在");
         }
 
-        industry.setIsDeleted(dto.getIsDeleted());
-        industry.setUpdatedAt(OffsetDateTime.now());
+        industryMapper.updateIsDeletedById(id, dto.getIsDeleted());
 
-        industryMapper.updateById(industry);
-
-        // 同步更新详情表状态
-        IndustryDetail detail = industryDetailMapper.findByIndustryId(id);
-        if (detail != null) {
-            detail.setIsDeleted(dto.getIsDeleted());
-            detail.setUpdatedAt(OffsetDateTime.now());
-            industryDetailMapper.updateById(detail);
-        }
+        industryDetailMapper.updateIsDeletedByIndustryId(id, dto.getIsDeleted());
 
         log.info("更新行业状态成功: id={}, isDeleted={}", id, dto.getIsDeleted());
     }

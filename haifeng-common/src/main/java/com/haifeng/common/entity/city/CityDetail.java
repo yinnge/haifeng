@@ -47,6 +47,7 @@ public class CityDetail {
 
     private BigDecimal gdpGrowthRate;
 
+    @TableField("fortune_500_count")
     private Integer fortune500Count;
 
     @TableField(typeHandler = JsonbTypeHandler.class)

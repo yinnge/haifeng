@@ -7,14 +7,18 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
 @Mapper
 public interface IndustryDetailMapper extends BaseMapper<IndustryDetail> {
 
-    @Select("SELECT * FROM t_industry_detail WHERE industry_id = #{industryId} AND is_deleted = false LIMIT 1")
+    @Select("SELECT * FROM t_industry_detail WHERE industry_id = #{industryId} LIMIT 1")
     IndustryDetail findByIndustryId(@Param("industryId") Long industryId);
+
+    @Update("UPDATE t_industry_detail SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE industry_id = #{industryId}")
+    int updateIsDeletedByIndustryId(@Param("industryId") Long industryId, @Param("isDeleted") Boolean isDeleted);
 
     @Delete("<script>DELETE FROM t_industry_detail WHERE industry_id IN <foreach collection='industryIds' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
     int deleteByIndustryIds(@Param("industryIds") List<Long> industryIds);
