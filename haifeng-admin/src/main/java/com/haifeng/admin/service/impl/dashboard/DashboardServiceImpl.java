@@ -1,9 +1,14 @@
 package com.haifeng.admin.service.impl.dashboard;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.common.mapper.dashboard.DashboardMapper;
 import com.haifeng.admin.service.dashboard.DashboardService;
+import com.haifeng.admin.vo.dashboard.DashboardOverviewVO;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;
+import com.haifeng.admin.vo.dashboard.SystemInfoVO;
+import com.haifeng.admin.vo.dashboard.TodoListVO;
 import com.haifeng.admin.vo.dashboard.TrendDataVO;
+import com.haifeng.common.entity.permission.SysAdmin;
 import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.entity.user.MemberOrder;
 import com.haifeng.common.entity.university.University;
@@ -14,6 +19,7 @@ import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.enums.OrderStatus;
+import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
@@ -25,8 +31,6 @@ import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -38,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -53,6 +58,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final AdmissionGroupMapper admissionGroupMapper;
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final SystemSettingsMapper systemSettingsMapper;
+    private final SysAdminMapper sysAdminMapper;
     private final DashboardMapper dashboardMapper;
 
     @Override
@@ -90,6 +96,63 @@ public class DashboardServiceImpl implements DashboardService {
         );
 
         return buildTrendData(startDate, days, rawList);
+    }
+
+    @Override
+    public DashboardOverviewVO getDashboardOverview() {
+        DashboardOverviewVO vo = new DashboardOverviewVO();
+        vo.setSystemInfo(getSystemInfo());
+        vo.setTodoList(getTodoList());
+        return vo;
+    }
+
+    private SystemInfoVO getSystemInfo() {
+        SystemInfoVO info = new SystemInfoVO();
+        info.setAppVersion("1.0.0");
+        info.setSpringVersion("3.3.5");
+        info.setJavaVersion("17");
+
+        SystemSettings settings = systemSettingsMapper.selectById(1L);
+        if (settings != null) {
+            info.setSiteName(settings.getSiteName());
+            info.setAiProvider(settings.getProviderName());
+            info.setAiModel(settings.getModelName());
+        }
+
+        info.setAdminCount(sysAdminMapper.selectCount(
+            new LambdaQueryWrapper<SysAdmin>().eq(SysAdmin::getStatus, 1)));
+
+        return info;
+    }
+
+    private TodoListVO getTodoList() {
+        TodoListVO todo = new TodoListVO();
+
+        // 待处理订单数
+        todo.setPendingOrderCount(memberOrderMapper.selectCount(
+            new LambdaQueryWrapper<MemberOrder>()
+                .eq(MemberOrder::getStatus, OrderStatus.PENDING)
+                .eq(MemberOrder::getDeleted, false)));
+
+        // 最新 3 条待处理订单
+        List<MemberOrder> recentOrders = memberOrderMapper.selectList(
+            new LambdaQueryWrapper<MemberOrder>()
+                .eq(MemberOrder::getStatus, OrderStatus.PENDING)
+                .eq(MemberOrder::getDeleted, false)
+                .orderByDesc(MemberOrder::getCreatedAt)
+                .last("LIMIT 3"));
+
+        todo.setPendingOrders(recentOrders.stream().map(order -> {
+            TodoListVO.PendingOrderItem item = new TodoListVO.PendingOrderItem();
+            item.setId(order.getId());
+            item.setOrderNo(order.getOrderNo());
+            item.setMemberName(order.getMemberName());
+            item.setAmount(order.getAmount());
+            item.setCreatedAt(order.getCreatedAt().toString());
+            return item;
+        }).collect(Collectors.toList()));
+
+        return todo;
     }
 
     private int clampDays(int days) {
@@ -173,28 +236,4 @@ public class DashboardServiceImpl implements DashboardService {
 
         return stats;
     }
-}
-
-/**
- * Dashboard 自定义 Mapper，用于执行聚合查询
- */
-interface DashboardMapper {
-
-    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
-            "FROM t_member " +
-            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
-            "GROUP BY DATE(created_at) " +
-            "ORDER BY DATE(created_at)")
-    List<Map<String, Object>> countMembersByDate(
-        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
-        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
-
-    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
-            "FROM t_member_order " +
-            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
-            "GROUP BY DATE(created_at) " +
-            "ORDER BY DATE(created_at)")
-    List<Map<String, Object>> countOrdersByDate(
-        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
-        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
 }

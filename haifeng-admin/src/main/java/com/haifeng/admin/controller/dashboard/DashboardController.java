@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.dashboard;
 
 import com.haifeng.admin.service.dashboard.DashboardService;
+import com.haifeng.admin.vo.dashboard.DashboardOverviewVO;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;
 import com.haifeng.admin.vo.dashboard.TrendDataVO;
 import com.haifeng.common.annotation.RequireAdminModule;
@@ -44,5 +45,14 @@ public class DashboardController {
     public R<TrendDataVO> getOrderTrend(
             @RequestParam(defaultValue = "7") int days) {
         return R.ok(dashboardService.getOrderTrend(days));
+    }
+
+    /**
+     * 获取仪表盘概览（系统信息 + 待办事项）
+     */
+    @GetMapping("/overview")
+    @RequireAdminModule("dashboard")
+    public R<DashboardOverviewVO> getOverview() {
+        return R.ok(dashboardService.getDashboardOverview());
     }
 }
