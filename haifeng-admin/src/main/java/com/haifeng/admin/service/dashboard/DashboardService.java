@@ -1,5 +1,6 @@
 package com.haifeng.admin.service.dashboard;
 
+import com.haifeng.admin.vo.dashboard.DashboardOverviewVO;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;
 import com.haifeng.admin.vo.dashboard.TrendDataVO;
 
@@ -17,4 +18,9 @@ public interface DashboardService {
      * @param days 天数，限制为 7/30/90
      */
     TrendDataVO getOrderTrend(int days);
+
+    /**
+     * 获取仪表盘概览（系统信息 + 待办事项）
+     */
+    DashboardOverviewVO getDashboardOverview();
 }

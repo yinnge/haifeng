@@ -24,7 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/employment/industry-position/healthcare")
 @RequiredArgsConstructor
-@RequireAdminModule("emp_industry_medical")
+@RequireAdminModule(",emp_industry_medical")
 @Validated
 public class HealthcarePositionController {
 
