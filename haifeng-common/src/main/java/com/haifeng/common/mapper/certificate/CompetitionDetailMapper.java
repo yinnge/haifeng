@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface CompetitionDetailMapper extends BaseMapper<CompetitionDetail> {
@@ -23,4 +24,7 @@ public interface CompetitionDetailMapper extends BaseMapper<CompetitionDetail> {
 
     @Delete("DELETE FROM t_competition_detail WHERE competition_id = #{competitionId}")
     int deleteByCompetitionId(@Param("competitionId") Long competitionId);
+
+    @Update("UPDATE t_competition_detail SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
+    int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 }

@@ -45,14 +45,21 @@ public class CompetitionMajorController {
     }
 
     @DeleteMapping("/{id}")
-    @OperationLog(module = "竞赛证书管理", action = "删除竞赛-专业关联")
+    @OperationLog(module = "竞赛证书管理", action = "禁用竞赛-专业关联")
     public R<Void> delete(@PathVariable Long id) {
         competitionMajorService.deleteCompetitionMajor(id);
         return R.ok();
     }
 
+    @PutMapping("/{id}/enable")
+    @OperationLog(module = "竞赛证书管理", action = "启用竞赛-专业关联")
+    public R<Void> enable(@PathVariable Long id) {
+        competitionMajorService.enableCompetitionMajor(id);
+        return R.ok();
+    }
+
     @PostMapping("/batch/delete")
-    @OperationLog(module = "竞赛证书管理", action = "批量删除竞赛-专业关联")
+    @OperationLog(module = "竞赛证书管理", action = "批量禁用竞赛-专业关联")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         competitionMajorService.batchDeleteCompetitionMajors(batchDTO.getIds());
         return R.ok();

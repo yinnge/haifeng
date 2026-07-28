@@ -14,6 +14,7 @@ public interface ScoreRankService {
     Long add(ScoreRankAddDTO dto);
     void update(Long id, ScoreRankAddDTO dto);
     void delete(Long id);
+    void updateStatus(Long id, Boolean isDeleted);
     void batchDelete(List<Long> ids);
     Integer importData(MultipartFile file);
 }

@@ -47,22 +47,29 @@ public class CompetitionController {
         return R.ok();
     }
 
+    @PutMapping("/{id}/enable")
+    @OperationLog(module = "竞赛证书管理", action = "启用竞赛")
+    public R<Void> enable(@PathVariable Long id) {
+        competitionService.enableCompetition(id);
+        return R.ok();
+    }
+
     @DeleteMapping("/soft/{id}")
-    @OperationLog(module = "竞赛证书管理", action = "软删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "禁用竞赛")
     public R<Void> softDelete(@PathVariable Long id) {
         competitionService.softDeleteCompetition(id);
         return R.ok();
     }
 
     @DeleteMapping("/hard/{id}")
-    @OperationLog(module = "竞赛证书管理", action = "硬删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "删除竞赛")
     public R<Void> hardDelete(@PathVariable Long id) {
         competitionService.hardDeleteCompetition(id);
         return R.ok();
     }
 
     @PostMapping("/batch/delete")
-    @OperationLog(module = "竞赛证书管理", action = "批量硬删除竞赛")
+    @OperationLog(module = "竞赛证书管理", action = "批量删除竞赛")
     public R<Void> batchDelete(@Valid @RequestBody BatchDeleteDTO batchDTO) {
         competitionService.batchHardDeleteCompetitions(batchDTO.getIds());
         return R.ok();

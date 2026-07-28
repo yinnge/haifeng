@@ -20,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -34,39 +36,26 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     public IPage<AdmissionMajorScoreListVO> page(AdmissionMajorScoreQueryDTO dto) {
         Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
-
-        if (dto.getGroupId() != null) {
-            wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId());
-        }
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
+        params.put("groupId", dto.getGroupId());
         if (StringUtils.hasText(dto.getMajorCode())) {
-            wrapper.like(AdmissionMajorScore::getMajorCode, dto.getMajorCode());
+            params.put("majorCode", dto.getMajorCode());
         }
         if (StringUtils.hasText(dto.getMajorName())) {
-            wrapper.like(AdmissionMajorScore::getMajorName, dto.getMajorName());
+            params.put("majorName", dto.getMajorName());
         }
         if (StringUtils.hasText(dto.getEducationLevel())) {
-            wrapper.eq(AdmissionMajorScore::getEducationLevel, dto.getEducationLevel());
+            params.put("educationLevel", dto.getEducationLevel());
         }
 
-        // 默认查询未删除的记录
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(AdmissionMajorScore::getIsDeleted, dto.getIsDeleted());
-        } else {
-            wrapper.eq(AdmissionMajorScore::getIsDeleted, false);
-        }
-
-        wrapper.orderByAsc(AdmissionMajorScore::getMajorCode)
-               .orderByAsc(AdmissionMajorScore::getId);
-
-        IPage<AdmissionMajorScore> result = admissionMajorScoreMapper.selectPage(page, wrapper);
-
+        IPage<AdmissionMajorScore> result = admissionMajorScoreMapper.selectPageCustom(page, params);
         return result.convert(this::convertToListVO);
     }
 
     @Override
     public AdmissionMajorScoreDetailVO detail(Integer id) {
-        AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
+        AdmissionMajorScore entity = admissionMajorScoreMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
@@ -112,7 +101,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionMajorScoreAddDTO dto) {
-        AdmissionMajorScore existing = admissionMajorScoreMapper.selectById(id);
+        AdmissionMajorScore existing = admissionMajorScoreMapper.selectByIdCustom(id);
         if (existing == null || existing.getIsDeleted()) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
@@ -148,7 +137,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Integer id, Boolean isDeleted) {
-        AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
+        AdmissionMajorScore entity = admissionMajorScoreMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
@@ -159,7 +148,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Integer id) {
-        AdmissionMajorScore entity = admissionMajorScoreMapper.selectById(id);
+        AdmissionMajorScore entity = admissionMajorScoreMapper.selectByIdCustom(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "专业录取明细不存在");
         }

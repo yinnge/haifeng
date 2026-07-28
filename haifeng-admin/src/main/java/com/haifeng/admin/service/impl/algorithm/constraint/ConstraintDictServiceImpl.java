@@ -187,6 +187,7 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
     private ConstraintDictListVO convertToListVO(ConstraintDict entity) {
         ConstraintDictListVO vo = new ConstraintDictListVO();
         vo.setCode(entity.getCode());
+        vo.setName(entity.getName());
         vo.setCategory(entity.getCategory());
         vo.setSeverity(entity.getSeverity());
         vo.setCheckField(entity.getCheckField());

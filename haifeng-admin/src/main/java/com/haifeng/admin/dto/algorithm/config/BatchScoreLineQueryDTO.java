@@ -21,4 +21,6 @@ public class BatchScoreLineQueryDTO extends BasePageQueryDTO {
     private String batch;
 
     private Integer scoreLine;
+
+    private Boolean isDeleted;
 }

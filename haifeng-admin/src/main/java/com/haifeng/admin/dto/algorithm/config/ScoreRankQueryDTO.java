@@ -18,4 +18,5 @@ public class ScoreRankQueryDTO extends BasePageQueryDTO {
 
     private Short score;
     private Integer rank;
+    private Boolean isDeleted;
 }

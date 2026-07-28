@@ -1,7 +1,6 @@
 package com.haifeng.admin.service.impl.algorithm.constraint;
 
 import com.alibaba.excel.EasyExcel;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.constraint.MajorConstraintAddDTO;
@@ -53,27 +52,27 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
     @Override
     public IPage<MajorConstraintListVO> page(MajorConstraintQueryDTO dto) {
         Page<MajorConstraint> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<MajorConstraint> wrapper = new LambdaQueryWrapper<>();
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
         if (StringUtils.hasText(dto.getMajorCode())) {
-            wrapper.eq(MajorConstraint::getMajorCode, dto.getMajorCode());
+            params.put("majorCode", dto.getMajorCode());
         }
         if (StringUtils.hasText(dto.getMajorName())) {
-            wrapper.eq(MajorConstraint::getMajorName, dto.getMajorName());
+            params.put("majorName", dto.getMajorName());
         }
         if (StringUtils.hasText(dto.getConstraintCode())) {
-            wrapper.eq(MajorConstraint::getConstraintCode, dto.getConstraintCode());
+            params.put("constraintCode", dto.getConstraintCode());
         }
         if (StringUtils.hasText(dto.getConstraintName())) {
-            wrapper.eq(MajorConstraint::getConstraintName, dto.getConstraintName());
+            params.put("constraintName", dto.getConstraintName());
         }
-        wrapper.orderByAsc(MajorConstraint::getMajorCode).orderByAsc(MajorConstraint::getConstraintCode);
-        IPage<MajorConstraint> resultPage = majorConstraintMapper.selectPage(page, wrapper);
+        IPage<MajorConstraint> resultPage = majorConstraintMapper.selectPageCustom(page, params);
         return resultPage.convert(this::convertToListVO);
     }
 
     @Override
     public MajorConstraintDetailVO detail(Long id) {
-        MajorConstraint entity = majorConstraintMapper.selectById(id);
+        MajorConstraint entity = majorConstraintMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "专业约束关联不存在");
         }
@@ -96,9 +95,8 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
             deleted.setMajorName(dto.getMajorName());
             deleted.setConstraintName(dto.getConstraintName());
             deleted.setRemark(dto.getRemark());
-            deleted.setIsDeleted(false);
-            majorConstraintMapper.updateById(deleted);
-            log.info("恢复已删除专业约束关联，majorCode={}, constraintCode={}", majorCode, constraintCode);
+            majorConstraintMapper.updateIsDeleted(deleted.getId(), false, deleted.getVersion());
+            log.info("恢复已禁用专业约束关联，majorCode={}, constraintCode={}", majorCode, constraintCode);
             return deleted.getId();
         }
         if (majorConstraintMapper.countByBusinessKey(majorCode, constraintCode) > 0) {
@@ -117,11 +115,11 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        MajorConstraint existing = majorConstraintMapper.selectById(id);
+        MajorConstraint existing = majorConstraintMapper.selectByIdCustom(id);
         if (existing == null) {
             throw new BusinessException(404, "专业约束关联不存在");
         }
-        majorConstraintMapper.deleteById(id);
+        majorConstraintMapper.deletePhysical(id);
         log.info("删除专业约束关联，id={}", id);
     }
 
@@ -129,10 +127,25 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
-            throw new BusinessException(400, "请选择要删除的记录");
+            throw new BusinessException(400, "请选择要禁用的记录");
         }
         int count = majorConstraintMapper.batchSoftDelete(ids);
-        log.info("批量删除专业约束关联，count={}", count);
+        log.info("批量禁用专业约束关联，count={}", count);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void toggleStatus(Long id) {
+        MajorConstraint entity = majorConstraintMapper.selectByIdCustom(id);
+        if (entity == null) {
+            throw new BusinessException(404, "专业约束关联不存在");
+        }
+        boolean newIsDeleted = !entity.getIsDeleted();
+        int rows = majorConstraintMapper.updateIsDeleted(id, newIsDeleted, entity.getVersion());
+        if (rows == 0) {
+            throw new BusinessException(409, "操作失败，数据已被其他操作修改");
+        }
+        log.info("切换专业约束关联状态，id={}, isDeleted={}", id, newIsDeleted);
     }
 
     @Override
@@ -308,7 +321,7 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
         // ==================== 插入阶段 ====================
         int restoreCount = 0;
         for (MajorConstraint row : restoreRows) {
-            majorConstraintMapper.updateById(row);
+            majorConstraintMapper.updateIsDeleted(row.getId(), false, row.getVersion());
             restoreCount++;
         }
         int insertCount = 0;
@@ -346,6 +359,7 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
         vo.setConstraintCode(entity.getConstraintCode());
         vo.setConstraintName(entity.getConstraintName());
         vo.setRemark(entity.getRemark());
+        vo.setIsDeleted(entity.getIsDeleted());
         vo.setVersion(entity.getVersion());
         vo.setCreatedAt(entity.getCreatedAt());
         vo.setUpdatedAt(entity.getUpdatedAt());

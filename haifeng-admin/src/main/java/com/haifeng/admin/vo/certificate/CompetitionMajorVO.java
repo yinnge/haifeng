@@ -27,5 +27,7 @@ public class CompetitionMajorVO {
 
     private String competitionName;
 
+    private Boolean isDeleted;
+
     private OffsetDateTime createdAt;
 }

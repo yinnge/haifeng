@@ -12,4 +12,5 @@ public class ProvinceReformListVO {
     private String province;
     private Short reformYear;
     private String reformModel;
+    private Boolean isDeleted;
 }

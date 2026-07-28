@@ -14,5 +14,6 @@ public interface MajorConstraintService {
     Long add(MajorConstraintAddDTO dto);
     void delete(Long id);
     void batchDelete(List<Long> ids);
+    void toggleStatus(Long id);
     Integer importData(MultipartFile file);
 }

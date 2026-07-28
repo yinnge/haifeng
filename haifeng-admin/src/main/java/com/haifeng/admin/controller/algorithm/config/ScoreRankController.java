@@ -51,6 +51,13 @@ public class ScoreRankController {
         return R.ok();
     }
 
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "一分一段管理", action = "修改一分一段状态")
+    public R<Void> updateStatus(@PathVariable Long id, @RequestParam Boolean isDeleted) {
+        scoreRankService.updateStatus(id, isDeleted);
+        return R.ok();
+    }
+
     @DeleteMapping("/{id}")
     @OperationLog(module = "一分一段管理", action = "删除一分一段记录")
     public R<Void> delete(@PathVariable Long id) {

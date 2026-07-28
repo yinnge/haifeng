@@ -1,6 +1,5 @@
 package com.haifeng.admin.service.impl.certificate;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.certificate.CompetitionAddDTO;
@@ -37,33 +36,15 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     public IPage<CompetitionListVO> listCompetitions(CompetitionQueryDTO queryDTO) {
         Page<Competition> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
-
-        LambdaQueryWrapper<Competition> wrapper = new LambdaQueryWrapper<>();
-
-        // 按软删除状态过滤（默认只查未删除的）
-        if (queryDTO.getIsDeleted() != null) {
-            wrapper.eq(Competition::getIsDeleted, queryDTO.getIsDeleted());
-        } else {
-            wrapper.eq(Competition::getIsDeleted, false);
-        }
-
-        if (StringUtils.hasText(queryDTO.getCompName())) {
-            wrapper.like(Competition::getCompName, queryDTO.getCompName());
-        }
-        if (StringUtils.hasText(queryDTO.getCompLevel())) {
-            wrapper.eq(Competition::getCompLevel, queryDTO.getCompLevel());
-        }
-        wrapper.orderByDesc(Competition::getCreatedAt);
-
-        IPage<Competition> result = competitionMapper.selectPage(page, wrapper);
-
+        IPage<Competition> result = competitionMapper.selectPageIgnoreLogicDelete(
+                page, queryDTO.getIsDeleted(), queryDTO.getCompName(), queryDTO.getCompLevel());
         return result.convert(this::convertToListVO);
     }
 
     @Override
     public CompetitionDetailVO getCompetitionDetail(Long id) {
-        Competition competition = competitionMapper.selectById(id);
-        if (competition == null || competition.getIsDeleted()) {
+        Competition competition = competitionMapper.findByIdIgnoreLogicDelete(id);
+        if (competition == null) {
             throw new BusinessException(404, "竞赛不存在");
         }
 
@@ -112,9 +93,30 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void enableCompetition(Long id) {
+        Competition competition = competitionMapper.findByIdIgnoreLogicDelete(id);
+        if (competition == null) {
+            throw new BusinessException(404, "竞赛不存在");
+        }
+        if (!competition.getIsDeleted()) {
+            throw new BusinessException(400, "竞赛已启用");
+        }
+
+        competitionMapper.updateIsDeletedById(id, false);
+
+        CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(id);
+        if (detail != null) {
+            competitionDetailMapper.updateIsDeletedById(detail.getId(), false);
+        }
+
+        log.info("启用竞赛成功，id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateCompetition(CompetitionUpdateDTO updateDTO) {
-        Competition existing = competitionMapper.selectById(updateDTO.getId());
-        if (existing == null || existing.getIsDeleted()) {
+        Competition existing = competitionMapper.findByIdIgnoreLogicDelete(updateDTO.getId());
+        if (existing == null) {
             throw new BusinessException(404, "竞赛不存在");
         }
 
@@ -127,8 +129,10 @@ public class CompetitionServiceImpl implements CompetitionService {
         }
 
         // 更新主表
-        BeanUtils.copyProperties(updateDTO, existing, "id");
-        competitionMapper.updateById(existing);
+        existing.setCompName(updateDTO.getCompName());
+        existing.setCompLevel(updateDTO.getCompLevel());
+        existing.setRegistrationTime(updateDTO.getRegistrationTime());
+        competitionMapper.updateIgnoreLogicDelete(existing);
 
         // 更新详情表
         if (updateDTO.getDetail() != null) {
@@ -154,32 +158,33 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void softDeleteCompetition(Long id) {
-        Competition competition = competitionMapper.selectById(id);
-        if (competition == null || competition.getIsDeleted()) {
+        Competition competition = competitionMapper.findByIdIgnoreLogicDelete(id);
+        if (competition == null) {
             throw new BusinessException(404, "竞赛不存在");
         }
-
-        // 软删除主表
-        competition.setIsDeleted(true);
-        competitionMapper.updateById(competition);
-
-        // 软删除详情表
-        CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(id);
-        if (detail != null) {
-            detail.setIsDeleted(true);
-            competitionDetailMapper.updateById(detail);
+        if (competition.getIsDeleted()) {
+            throw new BusinessException(400, "竞赛已禁用");
         }
 
-        // 软删除竞赛-专业关联
+        // 禁用主表
+        competitionMapper.updateIsDeletedById(id, true);
+
+        // 禁用详情表
+        CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(id);
+        if (detail != null) {
+            competitionDetailMapper.updateIsDeletedById(detail.getId(), true);
+        }
+
+        // 禁用竞赛-专业关联
         competitionMajorMapper.softDeleteByCompetitionId(id);
 
-        log.info("软删除竞赛成功，id={}", id);
+        log.info("禁用竞赛成功，id={}", id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void hardDeleteCompetition(Long id) {
-        Competition competition = competitionMapper.selectById(id);
+        Competition competition = competitionMapper.findByIdIgnoreLogicDelete(id);
         if (competition == null) {
             throw new BusinessException(404, "竞赛不存在");
         }
@@ -190,10 +195,10 @@ public class CompetitionServiceImpl implements CompetitionService {
         // 删除详情记录
         competitionDetailMapper.deleteByCompetitionId(id);
 
-        // 删除主表记录
-        competitionMapper.deleteById(id);
+        // 物理删除主表记录
+        competitionMapper.physicalDeleteById(id);
 
-        log.info("硬删除竞赛成功，id={}", id);
+        log.info("删除竞赛成功，id={}", id);
     }
 
     @Override
@@ -207,9 +212,9 @@ public class CompetitionServiceImpl implements CompetitionService {
             competitionMajorMapper.deleteByCompetitionId(id);
             competitionDetailMapper.deleteByCompetitionId(id);
         }
-        competitionMapper.deleteBatchIds(ids);
+        competitionMapper.physicalDeleteBatchByIds(ids);
 
-        log.info("批量硬删除竞赛成功，ids={}", ids);
+        log.info("批量删除竞赛成功，ids={}", ids);
     }
 
     private CompetitionListVO convertToListVO(Competition competition) {
@@ -218,6 +223,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .compName(competition.getCompName())
                 .compLevel(competition.getCompLevel())
                 .registrationTime(competition.getRegistrationTime())
+                .isDeleted(competition.getIsDeleted())
                 .createdAt(competition.getCreatedAt())
                 .updatedAt(competition.getUpdatedAt())
                 .build();

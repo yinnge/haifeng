@@ -51,6 +51,13 @@ public class BatchScoreLineController {
         return R.ok();
     }
 
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "批次分数线管理", action = "启用/禁用批次分数线记录")
+    public R<Void> updateStatus(@PathVariable Long id, @RequestParam Boolean isDeleted) {
+        batchScoreLineService.updateStatus(id, isDeleted);
+        return R.ok();
+    }
+
     @DeleteMapping("/{id}")
     @OperationLog(module = "批次分数线管理", action = "删除批次分数线记录")
     public R<Void> delete(@PathVariable Long id) {

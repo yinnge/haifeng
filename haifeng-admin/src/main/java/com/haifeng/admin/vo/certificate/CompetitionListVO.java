@@ -25,6 +25,8 @@ public class CompetitionListVO {
 
     private String registrationTime;
 
+    private Boolean isDeleted;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

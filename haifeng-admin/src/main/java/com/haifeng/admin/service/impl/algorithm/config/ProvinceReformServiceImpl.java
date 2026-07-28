@@ -1,6 +1,5 @@
 package com.haifeng.admin.service.impl.algorithm.config;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.config.ProvinceReformAddDTO;
@@ -17,7 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -29,16 +30,17 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     @Override
     public IPage<ProvinceReformListVO> page(ProvinceReformQueryDTO dto) {
         Page<ProvinceReform> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<ProvinceReform> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByAsc(ProvinceReform::getProvince);
 
-        IPage<ProvinceReform> resultPage = provinceReformMapper.selectPage(page, wrapper);
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
+
+        IPage<ProvinceReform> resultPage = provinceReformMapper.selectPageCustom(page, params);
         return resultPage.convert(this::convertToListVO);
     }
 
     @Override
     public ProvinceReformDetailVO detail(Long id) {
-        ProvinceReform entity = provinceReformMapper.selectById(id);
+        ProvinceReform entity = provinceReformMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "省份改革配置不存在");
         }
@@ -61,7 +63,7 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
 
         Long existingId = provinceReformMapper.selectIdByProvince(dto.getProvince());
         if (existingId != null) {
-            throw new BusinessException(400, "该省份配置已存在");
+            throw new BusinessException(400, "省份「" + dto.getProvince() + "」的配置已存在，请勿重复添加");
         }
 
         ProvinceReform entity = ProvinceReform.builder()
@@ -80,14 +82,14 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ProvinceReformAddDTO dto) {
-        ProvinceReform existing = provinceReformMapper.selectById(id);
+        ProvinceReform existing = provinceReformMapper.selectByIdCustom(id);
         if (existing == null) {
             throw new BusinessException(404, "省份改革配置不存在");
         }
 
         Long existingId = provinceReformMapper.selectIdByProvince(dto.getProvince());
         if (existingId != null && !existingId.equals(id)) {
-            throw new BusinessException(400, "该省份配置已存在");
+            throw new BusinessException(400, "省份「" + dto.getProvince() + "」的配置已存在，请勿重复添加");
         }
 
         existing.setProvince(dto.getProvince());
@@ -101,7 +103,7 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        ProvinceReform entity = provinceReformMapper.selectById(id);
+        ProvinceReform entity = provinceReformMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "省份改革配置不存在");
         }
@@ -119,12 +121,34 @@ public class ProvinceReformServiceImpl implements ProvinceReformService {
         log.info("批量删除省份改革配置，count={}", ids.size());
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(Long id, Boolean isDeleted) {
+        ProvinceReform entity = provinceReformMapper.selectByIdCustom(id);
+        if (entity == null) {
+            throw new BusinessException(404, "省份改革配置不存在");
+        }
+        provinceReformMapper.updateIsDeletedById(id, isDeleted);
+        log.info("更新省份改革配置状态，id={}, isDeleted={}", id, isDeleted);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchStatus(List<Long> ids, Boolean isDeleted) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException(400, "请选择要操作的记录");
+        }
+        provinceReformMapper.batchUpdateStatus(ids, isDeleted);
+        log.info("批量更新省份改革配置状态，count={}, isDeleted={}", ids.size(), isDeleted);
+    }
+
     private ProvinceReformListVO convertToListVO(ProvinceReform entity) {
         ProvinceReformListVO vo = new ProvinceReformListVO();
         vo.setId(entity.getId());
         vo.setProvince(entity.getProvince());
         vo.setReformYear(entity.getReformYear());
         vo.setReformModel(entity.getReformModel());
+        vo.setIsDeleted(entity.getIsDeleted());
         return vo;
     }
 

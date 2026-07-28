@@ -20,7 +20,6 @@ public class MajorConstraint {
     private String constraintCode;
     private String constraintName;
     private String remark;
-    @TableLogic
     private Boolean isDeleted;
     @Version
     private Integer version;
