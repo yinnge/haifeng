@@ -1,4 +1,4 @@
-package com.haifeng.admin.mapper.dashboard;
+package com.haifeng.common.mapper.dashboard;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

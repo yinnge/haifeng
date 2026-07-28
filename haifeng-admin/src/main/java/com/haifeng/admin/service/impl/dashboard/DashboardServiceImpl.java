@@ -1,7 +1,7 @@
 package com.haifeng.admin.service.impl.dashboard;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.haifeng.admin.mapper.dashboard.DashboardMapper;
+import com.haifeng.common.mapper.dashboard.DashboardMapper;
 import com.haifeng.admin.service.dashboard.DashboardService;
 import com.haifeng.admin.vo.dashboard.DashboardOverviewVO;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;

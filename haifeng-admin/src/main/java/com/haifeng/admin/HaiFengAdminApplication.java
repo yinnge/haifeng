@@ -12,7 +12,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.haifeng.common", "com.haifeng.admin"})
-@MapperScan({"com.haifeng.common.mapper", "com.haifeng.admin.mapper"})
+@MapperScan("com.haifeng.common.mapper")
 public class HaiFengAdminApplication {
 
     public static void main(String[] args) {
