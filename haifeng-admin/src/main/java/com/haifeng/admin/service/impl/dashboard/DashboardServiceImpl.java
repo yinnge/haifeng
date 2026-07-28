@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.impl.dashboard;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.haifeng.admin.mapper.dashboard.DashboardMapper;
 import com.haifeng.admin.service.dashboard.DashboardService;
 import com.haifeng.admin.vo.dashboard.DashboardOverviewVO;
 import com.haifeng.admin.vo.dashboard.DashboardStatsVO;
@@ -30,8 +31,6 @@ import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -237,28 +236,4 @@ public class DashboardServiceImpl implements DashboardService {
 
         return stats;
     }
-}
-
-/**
- * Dashboard 自定义 Mapper，用于执行聚合查询
- */
-interface DashboardMapper {
-
-    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
-            "FROM t_member " +
-            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
-            "GROUP BY DATE(created_at) " +
-            "ORDER BY DATE(created_at)")
-    List<Map<String, Object>> countMembersByDate(
-        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
-        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
-
-    @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
-            "FROM t_member_order " +
-            "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
-            "GROUP BY DATE(created_at) " +
-            "ORDER BY DATE(created_at)")
-    List<Map<String, Object>> countOrdersByDate(
-        @org.apache.ibatis.annotations.Param("start") OffsetDateTime start,
-        @org.apache.ibatis.annotations.Param("end") OffsetDateTime end);
 }
