@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.constraint.ConstraintDictAddDTO;
 import com.haifeng.admin.dto.algorithm.constraint.ConstraintDictQueryDTO;
+import org.springframework.util.StringUtils;
 import com.haifeng.admin.service.algorithm.constraint.ConstraintDictService;
 import com.haifeng.admin.vo.algorithm.constraint.ConstraintDictDetailVO;
 import com.haifeng.admin.vo.algorithm.constraint.ConstraintDictListVO;
@@ -42,6 +43,9 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
     public IPage<ConstraintDictListVO> page(ConstraintDictQueryDTO dto) {
         Page<ConstraintDict> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<ConstraintDict> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(dto.getName())) {
+            wrapper.like(ConstraintDict::getName, dto.getName());
+        }
         wrapper.orderByAsc(ConstraintDict::getSortOrder).orderByAsc(ConstraintDict::getCode);
         IPage<ConstraintDict> resultPage = constraintDictMapper.selectPage(page, wrapper);
         return resultPage.convert(this::convertToListVO);

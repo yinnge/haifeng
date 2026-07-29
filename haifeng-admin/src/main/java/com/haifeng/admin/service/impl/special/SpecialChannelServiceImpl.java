@@ -8,6 +8,7 @@ import com.haifeng.admin.dto.special.SpecialChannelQueryDTO;
 import com.haifeng.admin.service.special.SpecialChannelService;
 import com.haifeng.admin.vo.special.SpecialChannelDetailVO;
 import com.haifeng.admin.vo.special.SpecialChannelListVO;
+import com.haifeng.admin.vo.special.SpecialChannelOptionVO;
 import com.haifeng.common.entity.special.SpecialChannel;
 import com.haifeng.common.entity.special.SpecialChannelUniversity;
 import com.haifeng.common.exception.BusinessException;
@@ -50,6 +51,19 @@ public class SpecialChannelServiceImpl implements SpecialChannelService {
                 .displayType(entity.getDisplayType())
                 .isActive(entity.getIsActive())
                 .build());
+    }
+
+    @Override
+    public List<SpecialChannelOptionVO> listOptions() {
+        List<SpecialChannel> list = specialChannelMapper.selectList(
+                new LambdaQueryWrapper<SpecialChannel>()
+                        .eq(SpecialChannel::getIsActive, true)
+                        .orderByAsc(SpecialChannel::getSortOrder)
+        );
+        return list.stream().map(entity -> SpecialChannelOptionVO.builder()
+                .channelCode(entity.getChannelCode())
+                .channelName(entity.getChannelName())
+                .build()).toList();
     }
 
     @Override

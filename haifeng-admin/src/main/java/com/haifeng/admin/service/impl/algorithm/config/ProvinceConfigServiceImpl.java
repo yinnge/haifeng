@@ -1,5 +1,6 @@
 package com.haifeng.admin.service.impl.algorithm.config;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -27,7 +28,8 @@ public class ProvinceConfigServiceImpl implements ProvinceConfigService {
     public IPage<ProvinceConfigListVO> page(ProvinceConfigQueryDTO dto) {
         Page<ProvinceConfig> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<ProvinceConfig> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByAsc(ProvinceConfig::getProvince);
+        wrapper.like(StrUtil.isNotBlank(dto.getProvince()), ProvinceConfig::getProvince, dto.getProvince())
+               .orderByAsc(ProvinceConfig::getProvince);
 
         IPage<ProvinceConfig> resultPage = provinceConfigMapper.selectPage(page, wrapper);
         return resultPage.convert(this::convertToListVO);

@@ -1,6 +1,5 @@
 package com.haifeng.admin.service.impl.algorithm.constraint;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.constraint.SafetyLevelAddDTO;
@@ -16,7 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service("safetyLevelDictService")
@@ -28,15 +29,15 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     @Override
     public IPage<SafetyLevelListVO> page(SafetyLevelQueryDTO dto) {
         Page<SafetyLevelDict> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<SafetyLevelDict> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByAsc(SafetyLevelDict::getLevel);
-        IPage<SafetyLevelDict> resultPage = safetyLevelDictMapper.selectPage(page, wrapper);
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
+        IPage<SafetyLevelDict> resultPage = safetyLevelDictMapper.selectPageCustom(page, params);
         return resultPage.convert(this::convertToListVO);
     }
 
     @Override
     public SafetyLevelDetailVO detail(Short level) {
-        SafetyLevelDict entity = safetyLevelDictMapper.selectById(level);
+        SafetyLevelDict entity = safetyLevelDictMapper.selectByIdCustom(level);
         if (entity == null) {
             throw new BusinessException(404, "安全系数等级不存在");
         }
@@ -63,9 +64,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
             deleted.setConfidence(dto.getConfidence());
             deleted.setConfidenceReason(dto.getConfidenceReason());
             deleted.setDescription(dto.getDescription());
-            deleted.setIsDeleted(false);
-            deleted.setVersion(0);
-            safetyLevelDictMapper.updateById(deleted);
+            safetyLevelDictMapper.restoreDeleted(deleted);
             log.info("恢复已删除安全系数等级，level={}", dto.getLevel());
             return;
         }
@@ -88,7 +87,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Short level, SafetyLevelAddDTO dto) {
-        SafetyLevelDict existing = safetyLevelDictMapper.selectById(level);
+        SafetyLevelDict existing = safetyLevelDictMapper.selectByIdCustom(level);
         if (existing == null) {
             throw new BusinessException(404, "安全系数等级不存在");
         }
@@ -114,7 +113,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Short level) {
-        SafetyLevelDict existing = safetyLevelDictMapper.selectById(level);
+        SafetyLevelDict existing = safetyLevelDictMapper.selectByIdCustom(level);
         if (existing == null) {
             throw new BusinessException(404, "安全系数等级不存在");
         }
@@ -130,6 +129,18 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         }
         int count = safetyLevelDictMapper.batchSoftDelete(levels);
         log.info("批量删除安全系数等级，count={}", count);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void toggleStatus(Short level) {
+        SafetyLevelDict existing = safetyLevelDictMapper.selectByIdCustom(level);
+        if (existing == null) {
+            throw new BusinessException(404, "安全系数等级不存在");
+        }
+        boolean newDeleted = !existing.getIsDeleted();
+        safetyLevelDictMapper.updateStatus(level, newDeleted);
+        log.info("切换安全系数等级状态，level={}, isDeleted={}", level, newDeleted);
     }
 
     private SafetyLevelListVO convertToListVO(SafetyLevelDict entity) {

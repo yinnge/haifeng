@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 
 @Data
 public class StrongBaseScoreAddDTO {
-    @NotNull(message = "大学ID不能为空")
     private Long universityId;
 
     @NotBlank(message = "大学名称不能为空")

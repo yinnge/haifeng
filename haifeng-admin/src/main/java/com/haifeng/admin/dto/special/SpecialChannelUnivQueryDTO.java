@@ -7,4 +7,10 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class SpecialChannelUnivQueryDTO extends BasePageQueryDTO {
+
+    private String channelName;
+
+    private String universityName;
+
+    private Integer year;
 }
