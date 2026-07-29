@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.special.SpecialChannelQueryDTO;
 import com.haifeng.admin.service.special.SpecialChannelService;
 import com.haifeng.admin.vo.special.SpecialChannelDetailVO;
 import com.haifeng.admin.vo.special.SpecialChannelListVO;
+import com.haifeng.admin.vo.special.SpecialChannelOptionVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -14,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 /**
  * 特殊通道 - 招生通道管理（如强基计划、综合评价等）
@@ -30,6 +32,11 @@ public class SpecialChannelController {
     @GetMapping("/page")
     public R<IPage<SpecialChannelListVO>> page(@Valid SpecialChannelQueryDTO dto) {
         return R.ok(specialChannelService.page(dto));
+    }
+
+    @GetMapping("/options")
+    public R<List<SpecialChannelOptionVO>> options() {
+        return R.ok(specialChannelService.listOptions());
     }
 
     @GetMapping("/{id}")

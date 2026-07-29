@@ -15,4 +15,5 @@ public interface SafetyLevelService {
     void update(Short level, SafetyLevelAddDTO dto);
     void delete(Short level);
     void batchDelete(List<Short> levels);
+    void toggleStatus(Short level);
 }

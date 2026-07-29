@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import java.util.List;
 
 @Slf4j
@@ -30,6 +31,9 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
     public IPage<SpecialChannelUnivListVO> page(SpecialChannelUnivQueryDTO dto) {
         Page<SpecialChannelUniversity> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<SpecialChannelUniversity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.like(StringUtils.hasText(dto.getChannelName()), SpecialChannelUniversity::getChannelName, dto.getChannelName())
+                .like(StringUtils.hasText(dto.getUniversityName()), SpecialChannelUniversity::getUniversityName, dto.getUniversityName())
+                .eq(dto.getYear() != null, SpecialChannelUniversity::getYear, dto.getYear());
         wrapper.orderByAsc(SpecialChannelUniversity::getSortOrder).orderByDesc(SpecialChannelUniversity::getCreatedAt);
         IPage<SpecialChannelUniversity> result = specialChannelUniversityMapper.selectPage(page, wrapper);
         return result.convert(entity -> SpecialChannelUnivListVO.builder()

@@ -82,12 +82,15 @@ public class StrongBaseUnivServiceImpl implements StrongBaseUnivService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void add(StrongBaseUnivAddDTO dto) {
-        if (strongBaseUniversityMapper.countByUniversityId(dto.getUniversityId()) > 0) {
+        Long universityId = dto.getUniversityId();
+        if (universityId == null) {
+            universityId = SnowflakeIdGenerator.nextId();
+        } else if (strongBaseUniversityMapper.countByUniversityId(universityId) > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "该大学的强基配置已存在");
         }
         StrongBaseUniversity entity = StrongBaseUniversity.builder()
                 .id(SnowflakeIdGenerator.nextId())
-                .universityId(dto.getUniversityId())
+                .universityId(universityId)
                 .universityName(dto.getUniversityName())
                 .isPilot(dto.getIsPilot() != null ? dto.getIsPilot() : true)
                 .pilotYear(dto.getPilotYear())
@@ -110,10 +113,12 @@ public class StrongBaseUnivServiceImpl implements StrongBaseUnivService {
         if (entity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "强基院校配置不存在");
         }
-        if (!Objects.equals(entity.getUniversityId(), dto.getUniversityId()) && strongBaseUniversityMapper.countByUniversityIdExclude(dto.getUniversityId(), id) > 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "该大学的强基配置已存在");
+        if (dto.getUniversityId() != null) {
+            if (!Objects.equals(entity.getUniversityId(), dto.getUniversityId()) && strongBaseUniversityMapper.countByUniversityIdExclude(dto.getUniversityId(), id) > 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "该大学的强基配置已存在");
+            }
+            entity.setUniversityId(dto.getUniversityId());
         }
-        entity.setUniversityId(dto.getUniversityId());
         entity.setUniversityName(dto.getUniversityName());
         if (dto.getIsPilot() != null) entity.setIsPilot(dto.getIsPilot());
         if (dto.getPilotYear() != null) entity.setPilotYear(dto.getPilotYear());

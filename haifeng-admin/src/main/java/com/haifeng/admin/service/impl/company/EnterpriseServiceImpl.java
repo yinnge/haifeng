@@ -49,42 +49,31 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     public IPage<EnterpriseListVO> page(EnterpriseQueryDTO dto) {
         Page<Enterprise> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<Enterprise> wrapper = new LambdaQueryWrapper<>();
-
-        // 城市名称模糊查询
+        Map<String, Object> params = new HashMap<>();
         if (StringUtils.hasText(dto.getCityName())) {
-            wrapper.like(Enterprise::getCityName, dto.getCityName());
+            params.put("cityName", dto.getCityName());
         }
-        // 企业名称模糊查询
         if (StringUtils.hasText(dto.getEnterpriseName())) {
-            wrapper.like(Enterprise::getEnterpriseName, dto.getEnterpriseName());
+            params.put("enterpriseName", dto.getEnterpriseName());
         }
-        // 企业类型模糊查询
         if (StringUtils.hasText(dto.getEnterpriseType())) {
-            wrapper.like(Enterprise::getEnterpriseType, dto.getEnterpriseType());
+            params.put("enterpriseType", dto.getEnterpriseType());
         }
-        // 企业性质精准查询
         if (StringUtils.hasText(dto.getEnterpriseNature())) {
-            wrapper.eq(Enterprise::getEnterpriseNature, dto.getEnterpriseNature());
+            params.put("enterpriseNature", dto.getEnterpriseNature());
         }
-        // 招聘状态精准查询
         if (StringUtils.hasText(dto.getRecruitmentStatus())) {
-            wrapper.eq(Enterprise::getRecruitmentStatus, dto.getRecruitmentStatus());
+            params.put("recruitmentStatus", dto.getRecruitmentStatus());
         }
-        // 删除状态筛选
         if (dto.getIsDeleted() != null) {
-            wrapper.eq(Enterprise::getIsDeleted, dto.getIsDeleted());
+            params.put("isDeleted", dto.getIsDeleted());
         }
 
-        // 按创建时间降序
-        wrapper.orderByDesc(Enterprise::getCreatedAt);
-
-        IPage<Enterprise> enterprisePage = enterpriseMapper.selectPage(page, wrapper);
+        IPage<Enterprise> enterprisePage = enterpriseMapper.selectPageCustom(page, params);
 
         return enterprisePage.convert(enterprise -> {
             EnterpriseListVO vo = new EnterpriseListVO();
             BeanUtils.copyProperties(enterprise, vo);
-            // 处理时间类型转换
             if (enterprise.getCreatedAt() != null) {
                 vo.setCreatedAt(enterprise.getCreatedAt().toLocalDateTime());
             }
@@ -95,7 +84,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     @Override
     public EnterpriseDetailVO detail(Long id) {
         // 查询企业主表
-        Enterprise enterprise = enterpriseMapper.selectById(id);
+        Enterprise enterprise = enterpriseMapper.selectByIdCustom(id);
         if (enterprise == null) {
             throw new BusinessException(404, "企业不存在");
         }
@@ -177,7 +166,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, EnterpriseUpdateDTO dto) {
-        Enterprise enterprise = enterpriseMapper.selectById(id);
+        Enterprise enterprise = enterpriseMapper.selectByIdCustom(id);
         if (enterprise == null) {
             throw new BusinessException(404, "企业不存在");
         }
@@ -201,7 +190,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         enterprise.setRecruitmentStatus(dto.getRecruitmentStatus());
         enterprise.setUpdatedAt(OffsetDateTime.now());
 
-        enterpriseMapper.updateById(enterprise);
+        enterpriseMapper.updateEntityById(enterprise);
 
         log.info("更新企业成功: id={}, enterpriseName={}", id, dto.getEnterpriseName());
     }
@@ -209,15 +198,12 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, EnterpriseStatusDTO dto) {
-        Enterprise enterprise = enterpriseMapper.selectById(id);
+        Enterprise enterprise = enterpriseMapper.selectByIdCustom(id);
         if (enterprise == null) {
             throw new BusinessException(404, "企业不存在");
         }
 
-        enterprise.setIsDeleted(dto.getIsDeleted());
-        enterprise.setUpdatedAt(OffsetDateTime.now());
-
-        enterpriseMapper.updateById(enterprise);
+        enterpriseMapper.updateIsDeletedById(id, dto.getIsDeleted());
 
         log.info("更新企业状态成功: id={}, isDeleted={}", id, dto.getIsDeleted());
     }
@@ -225,7 +211,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        Enterprise enterprise = enterpriseMapper.selectById(id);
+        Enterprise enterprise = enterpriseMapper.selectByIdCustom(id);
         if (enterprise == null) {
             throw new BusinessException(404, "企业不存在");
         }
@@ -236,8 +222,8 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         // 删除企业行业关联
         enterpriseIndustryMapper.deleteByEnterpriseIds(List.of(id));
 
-        // 删除企业主表
-        enterpriseMapper.deleteById(id);
+        // 硬删除企业主表
+        enterpriseMapper.deletePhysicallyById(id);
 
         log.info("硬删除企业成功: id={}, enterpriseName={}", id, enterprise.getEnterpriseName());
     }
@@ -255,8 +241,9 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         // 批量删除企业行业关联
         enterpriseIndustryMapper.deleteByEnterpriseIds(ids);
 
-        // 批量删除企业主表
-        int deleted = enterpriseMapper.deleteBatchIds(ids);
+        // 批量硬删除企业主表
+        enterpriseMapper.deletePhysicallyBatch(ids);
+        int deleted = ids.size();
 
         log.info("批量硬删除企业成功: 删除数量={}, ids={}", deleted, ids);
     }
