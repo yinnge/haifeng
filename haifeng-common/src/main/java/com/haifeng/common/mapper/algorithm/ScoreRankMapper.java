@@ -1,6 +1,8 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.ScoreRank;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -69,6 +71,26 @@ public interface ScoreRankMapper extends BaseMapper<ScoreRank> {
 
     @Select("SELECT * FROM t_score_rank WHERE id = #{id} AND is_deleted = TRUE")
     ScoreRank selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Select("SELECT * FROM t_score_rank WHERE id = #{id}")
+    ScoreRank selectByIdCustom(@Param("id") Long id);
+
+    @Update("UPDATE t_score_rank SET is_deleted = #{isDeleted} WHERE id = #{id}")
+    int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
+
+    @Select("<script>" +
+            "SELECT * FROM t_score_rank " +
+            "<where>" +
+            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>" +
+            "<if test='params.province != null and params.province != \"\"'>AND province = #{params.province}</if>" +
+            "<if test='params.year != null'>AND year = #{params.year}</if>" +
+            "<if test='params.subjectType != null and params.subjectType != \"\"'>AND subject_type = #{params.subjectType}</if>" +
+            "<if test='params.score != null'>AND score = #{params.score}</if>" +
+            "<if test='params.rank != null'>AND rank = #{params.rank}</if>" +
+            "</where>" +
+            "ORDER BY province ASC, year DESC, score DESC" +
+            "</script>")
+    IPage<ScoreRank> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
 
     @Update("<script>" +
             "UPDATE t_score_rank SET is_deleted = TRUE " +

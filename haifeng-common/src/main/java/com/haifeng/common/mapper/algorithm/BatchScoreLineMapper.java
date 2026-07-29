@@ -1,6 +1,8 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.BatchScoreLine;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
@@ -41,8 +43,28 @@ public interface BatchScoreLineMapper extends BaseMapper<BatchScoreLine> {
             ")</script>"})
     List<BatchScoreLine> selectDeletedByKeys(@Param("keys") List<Map<String, Object>> keys);
 
+    @Select("SELECT * FROM t_batch_score_line WHERE id = #{id}")
+    BatchScoreLine selectByIdCustom(@Param("id") Long id);
+
     @Select("SELECT * FROM t_batch_score_line WHERE id = #{id} AND is_deleted = TRUE")
     BatchScoreLine selectByIdIgnoreDeleted(@Param("id") Long id);
+
+    @Select({"<script>",
+            "SELECT * FROM t_batch_score_line",
+            "<where>",
+            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>",
+            "<if test='params.province != null and params.province != \"\"'>AND province = #{params.province}</if>",
+            "<if test='params.year != null'>AND year = #{params.year}</if>",
+            "<if test='params.subjectType != null and params.subjectType != \"\"'>AND subject_type = #{params.subjectType}</if>",
+            "<if test='params.batch != null and params.batch != \"\"'>AND batch = #{params.batch}</if>",
+            "<if test='params.scoreLine != null'>AND score_line = #{params.scoreLine}</if>",
+            "</where>",
+            "ORDER BY province ASC, year DESC, batch ASC",
+            "</script>"})
+    IPage<BatchScoreLine> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
+
+    @Update("UPDATE t_batch_score_line SET is_deleted = #{isDeleted} WHERE id = #{id}")
+    int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 
     @Update("<script>" +
             "UPDATE t_batch_score_line SET is_deleted = TRUE " +

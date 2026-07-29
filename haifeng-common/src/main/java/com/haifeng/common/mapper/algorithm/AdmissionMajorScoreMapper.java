@@ -1,6 +1,8 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.algorithm.MajorHistoryItem;
 import org.apache.ibatis.annotations.Mapper;
@@ -17,14 +19,34 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
     @Update("UPDATE t_admission_major_score SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
 
-    @Select("SELECT COUNT(*) FROM t_admission_major_score " +
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM t_admission_major_score " +
             "WHERE group_id = #{groupId} AND major_code = #{majorCode} " +
             "AND is_deleted = FALSE " +
-            "AND (#{excludeId} IS NULL OR id != #{excludeId})")
+            "<if test='excludeId != null'>" +
+            "AND id != #{excludeId}" +
+            "</if>" +
+            "</script>")
     int countByGroupIdAndMajorCode(
             @Param("groupId") Integer groupId,
             @Param("majorCode") String majorCode,
             @Param("excludeId") Integer excludeId);
+
+    @Select("<script>" +
+            "SELECT * FROM t_admission_major_score " +
+            "<where>" +
+            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>" +
+            "<if test='params.groupId != null'>AND group_id = #{params.groupId}</if>" +
+            "<if test='params.majorCode != null and params.majorCode != \"\"'>AND major_code LIKE CONCAT('%', #{params.majorCode}, '%')</if>" +
+            "<if test='params.majorName != null and params.majorName != \"\"'>AND major_name LIKE CONCAT('%', #{params.majorName}, '%')</if>" +
+            "<if test='params.educationLevel != null and params.educationLevel != \"\"'>AND education_level = #{params.educationLevel}</if>" +
+            "</where>" +
+            "ORDER BY major_code ASC, id ASC" +
+            "</script>")
+    IPage<AdmissionMajorScore> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
+
+    @Select("SELECT * FROM t_admission_major_score WHERE id = #{id}")
+    AdmissionMajorScore selectByIdCustom(@Param("id") Integer id);
 
     /**
      * 批量查询专业历史数据（原始 Map 形式）

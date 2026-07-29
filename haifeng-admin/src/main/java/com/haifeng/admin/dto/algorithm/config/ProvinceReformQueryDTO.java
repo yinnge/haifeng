@@ -7,5 +7,5 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ProvinceReformQueryDTO extends BasePageQueryDTO {
-    // 无查询条件
+    private Boolean isDeleted;
 }

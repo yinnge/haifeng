@@ -17,6 +17,7 @@ public class BatchScoreLineDetailVO {
     private Integer scoreLine;
     private Integer rankLine;
     private String remark;
+    private Boolean isDeleted;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

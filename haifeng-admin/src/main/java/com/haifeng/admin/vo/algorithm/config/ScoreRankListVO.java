@@ -14,4 +14,5 @@ public class ScoreRankListVO {
     private String subjectType;
     private Short score;
     private Integer rank;
+    private Boolean isDeleted;
 }

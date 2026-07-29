@@ -20,4 +20,8 @@ public interface ProvinceReformService {
     void delete(Long id);
 
     void batchDelete(List<Long> ids);
+
+    void updateStatus(Long id, Boolean isDeleted);
+
+    void batchStatus(List<Long> ids, Boolean isDeleted);
 }

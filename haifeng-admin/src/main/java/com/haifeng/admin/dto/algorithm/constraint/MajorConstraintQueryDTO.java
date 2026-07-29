@@ -19,4 +19,6 @@ public class MajorConstraintQueryDTO extends BasePageQueryDTO {
 
     @Size(max = 100, message = "约束名称最长100字符")
     private String constraintName;
+
+    private Boolean isDeleted;
 }

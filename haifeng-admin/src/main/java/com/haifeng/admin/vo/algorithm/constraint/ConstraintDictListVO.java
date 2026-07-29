@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 @Data
 public class ConstraintDictListVO {
     private String code;
+    private String name;
     private String category;
     private String severity;
     private String checkField;

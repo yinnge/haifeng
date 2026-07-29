@@ -1,6 +1,8 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.ProvinceReform;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
@@ -9,6 +11,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface ProvinceReformMapper extends BaseMapper<ProvinceReform> {
@@ -38,6 +41,30 @@ public interface ProvinceReformMapper extends BaseMapper<ProvinceReform> {
             " AND is_deleted = FALSE" +
             "</script>")
     int batchSoftDelete(@Param("ids") List<Long> ids);
+
+    @Select("<script>" +
+            "SELECT * FROM t_province_reform " +
+            "<where>" +
+            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>" +
+            "</where>" +
+            "ORDER BY province ASC" +
+            "</script>")
+    IPage<ProvinceReform> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
+
+    @Select("SELECT * FROM t_province_reform WHERE id = #{id}")
+    ProvinceReform selectByIdCustom(@Param("id") Long id);
+
+    @Update("UPDATE t_province_reform SET is_deleted = #{isDeleted} WHERE id = #{id}")
+    int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
+
+    @Update("<script>" +
+            "UPDATE t_province_reform SET is_deleted = #{isDeleted} " +
+            "WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchUpdateStatus(@Param("ids") List<Long> ids, @Param("isDeleted") Boolean isDeleted);
 
     @Delete("DELETE FROM t_province_reform WHERE id = #{id}")
     int hardDeleteById(@Param("id") Long id);

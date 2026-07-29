@@ -1,15 +1,24 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
 @Mapper
 public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
+
+    @Select("SELECT * FROM t_admission_group WHERE id = #{id}")
+    AdmissionGroup findByIdIgnoreLogicDelete(@Param("id") Integer id);
+
+    @Update("UPDATE t_admission_group SET is_deleted = #{isDeleted} WHERE id = #{id}")
+    int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
 
     @Select("SELECT id FROM t_admission_group " +
             "WHERE university_id = #{universityId} " +
@@ -25,6 +34,34 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("province") String province,
             @Param("batch") String batch,
             @Param("groupCode") String groupCode);
+
+    @Select("<script>" +
+            "SELECT * FROM t_admission_group" +
+            "<where>" +
+            "<if test='isDeleted != null'>AND is_deleted = #{isDeleted}</if>" +
+            "<if test='universityName != null and universityName != \"\"'>" +
+            "AND (university_name LIKE '%' || #{universityName} || '%' OR EXISTS (" +
+            "  SELECT 1 FROM t_university WHERE id = t_admission_group.university_id AND name LIKE '%' || #{universityName} || '%'" +
+            "))" +
+            "</if>" +
+            "<if test='year != null'>AND year = #{year}</if>" +
+            "<if test='province != null and province != \"\"'>AND province = #{province}</if>" +
+            "<if test='requirementType != null and requirementType != \"\"'>AND requirement_type = #{requirementType}</if>" +
+            "<if test='enrollmentCode != null and enrollmentCode != \"\"'>AND enrollment_code LIKE '%' || #{enrollmentCode} || '%'</if>" +
+            "<if test='groupCode != null and groupCode != \"\"'>AND group_code LIKE '%' || #{groupCode} || '%'</if>" +
+            "<if test='groupName != null and groupName != \"\"'>AND group_name LIKE '%' || #{groupName} || '%'</if>" +
+            "</where>" +
+            "ORDER BY year DESC, university_id ASC, group_code ASC" +
+            "</script>")
+    IPage<AdmissionGroup> selectPageIgnoreLogicDelete(Page<AdmissionGroup> page,
+                                                       @Param("isDeleted") Boolean isDeleted,
+                                                       @Param("universityName") String universityName,
+                                                       @Param("year") Short year,
+                                                       @Param("province") String province,
+                                                       @Param("requirementType") String requirementType,
+                                                       @Param("enrollmentCode") String enrollmentCode,
+                                                       @Param("groupCode") String groupCode,
+                                                       @Param("groupName") String groupName);
 
     @Select("SELECT * FROM fn_recalc_all_groups()")
     Integer recalcAllGroups();

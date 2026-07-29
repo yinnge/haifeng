@@ -32,6 +32,11 @@ public interface CompetitionService {
     void updateCompetition(CompetitionUpdateDTO updateDTO);
 
     /**
+     * 启用竞赛（恢复已禁用的竞赛）
+     */
+    void enableCompetition(Long id);
+
+    /**
      * 软删除竞赛（同时软删除详情）
      */
     void softDeleteCompetition(Long id);

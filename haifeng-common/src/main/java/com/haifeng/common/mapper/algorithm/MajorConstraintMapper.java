@@ -1,7 +1,10 @@
 package com.haifeng.common.mapper.algorithm;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.algorithm.MajorConstraint;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -44,4 +47,29 @@ public interface MajorConstraintMapper extends BaseMapper<MajorConstraint> {
             "</foreach>" +
             "</script>")
     int batchSoftDelete(@Param("ids") List<Long> ids);
+
+    @Select("<script>" +
+            "SELECT * FROM t_major_constraint " +
+            "<where>" +
+            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>" +
+            "<if test='params.majorCode != null and params.majorCode != \"\"'>" +
+            "AND major_code = #{params.majorCode}</if>" +
+            "<if test='params.majorName != null and params.majorName != \"\"'>" +
+            "AND major_name = #{params.majorName}</if>" +
+            "<if test='params.constraintCode != null and params.constraintCode != \"\"'>" +
+            "AND constraint_code = #{params.constraintCode}</if>" +
+            "<if test='params.constraintName != null and params.constraintName != \"\"'>" +
+            "AND constraint_name = #{params.constraintName}</if>" +
+            "</where> ORDER BY major_code ASC, id ASC" +
+            "</script>")
+    IPage<MajorConstraint> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
+
+    @Select("SELECT * FROM t_major_constraint WHERE id = #{id}")
+    MajorConstraint selectByIdCustom(@Param("id") Long id);
+
+    @Update("UPDATE t_major_constraint SET is_deleted = #{isDeleted}, version = version + 1 WHERE id = #{id} AND version = #{version}")
+    int updateIsDeleted(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted, @Param("version") Integer version);
+
+    @Delete("DELETE FROM t_major_constraint WHERE id = #{id}")
+    int deletePhysical(@Param("id") Long id);
 }

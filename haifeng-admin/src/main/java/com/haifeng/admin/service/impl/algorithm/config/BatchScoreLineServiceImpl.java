@@ -1,7 +1,6 @@
 package com.haifeng.admin.service.impl.algorithm.config;
 
 import com.alibaba.excel.EasyExcel;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.algorithm.config.BatchScoreLineAddDTO;
@@ -35,35 +34,32 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
     @Override
     public IPage<BatchScoreLineListVO> page(BatchScoreLineQueryDTO dto) {
         Page<BatchScoreLine> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<BatchScoreLine> wrapper = new LambdaQueryWrapper<>();
 
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
         if (StringUtils.hasText(dto.getProvince())) {
-            wrapper.eq(BatchScoreLine::getProvince, dto.getProvince());
+            params.put("province", dto.getProvince());
         }
         if (dto.getYear() != null) {
-            wrapper.eq(BatchScoreLine::getYear, dto.getYear());
+            params.put("year", dto.getYear());
         }
         if (StringUtils.hasText(dto.getSubjectType())) {
-            wrapper.eq(BatchScoreLine::getSubjectType, dto.getSubjectType());
+            params.put("subjectType", dto.getSubjectType());
         }
         if (StringUtils.hasText(dto.getBatch())) {
-            wrapper.eq(BatchScoreLine::getBatch, dto.getBatch());
+            params.put("batch", dto.getBatch());
         }
         if (dto.getScoreLine() != null) {
-            wrapper.eq(BatchScoreLine::getScoreLine, dto.getScoreLine());
+            params.put("scoreLine", dto.getScoreLine());
         }
 
-        wrapper.orderByAsc(BatchScoreLine::getProvince)
-               .orderByDesc(BatchScoreLine::getYear)
-               .orderByAsc(BatchScoreLine::getBatch);
-
-        IPage<BatchScoreLine> resultPage = batchScoreLineMapper.selectPage(page, wrapper);
+        IPage<BatchScoreLine> resultPage = batchScoreLineMapper.selectPageCustom(page, params);
         return resultPage.convert(this::convertToListVO);
     }
 
     @Override
     public BatchScoreLineDetailVO detail(Long id) {
-        BatchScoreLine entity = batchScoreLineMapper.selectById(id);
+        BatchScoreLine entity = batchScoreLineMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "批次分数线记录不存在");
         }
@@ -115,8 +111,8 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, BatchScoreLineAddDTO dto) {
-        BatchScoreLine existing = batchScoreLineMapper.selectById(id);
-        if (existing == null) {
+        BatchScoreLine existing = batchScoreLineMapper.selectByIdCustom(id);
+        if (existing == null || existing.getIsDeleted()) {
             throw new BusinessException(404, "批次分数线记录不存在");
         }
 
@@ -143,9 +139,20 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
-        BatchScoreLine entity = batchScoreLineMapper.selectById(id);
+    public void updateStatus(Long id, Boolean isDeleted) {
+        BatchScoreLine entity = batchScoreLineMapper.selectByIdCustom(id);
         if (entity == null) {
+            throw new BusinessException(404, "批次分数线记录不存在");
+        }
+        batchScoreLineMapper.updateIsDeletedById(id, isDeleted);
+        log.info("更新批次分数线状态成功，id={}，isDeleted={}", id, isDeleted);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long id) {
+        BatchScoreLine entity = batchScoreLineMapper.selectByIdCustom(id);
+        if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "批次分数线记录不存在");
         }
         batchScoreLineMapper.deleteById(id);
@@ -155,7 +162,7 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void hardDelete(Long id) {
-        BatchScoreLine entity = batchScoreLineMapper.selectByIdIgnoreDeleted(id);
+        BatchScoreLine entity = batchScoreLineMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "批次分数线记录不存在");
         }
@@ -434,6 +441,7 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
         vo.setSubjectType(entity.getSubjectType());
         vo.setBatch(entity.getBatch());
         vo.setScoreLine(entity.getScoreLine());
+        vo.setIsDeleted(entity.getIsDeleted());
         return vo;
     }
 
@@ -447,6 +455,7 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
         vo.setScoreLine(entity.getScoreLine());
         vo.setRankLine(entity.getRankLine());
         vo.setRemark(entity.getRemark());
+        vo.setIsDeleted(entity.getIsDeleted());
         vo.setCreatedAt(entity.getCreatedAt());
         vo.setUpdatedAt(entity.getUpdatedAt());
         return vo;

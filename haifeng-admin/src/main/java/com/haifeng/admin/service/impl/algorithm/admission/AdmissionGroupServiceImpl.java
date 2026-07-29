@@ -46,56 +46,17 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     public IPage<AdmissionGroupListVO> page(AdmissionGroupQueryDTO dto) {
         Page<AdmissionGroup> page = new Page<>(dto.getPage(), dto.getSize());
 
-        LambdaQueryWrapper<AdmissionGroup> wrapper = new LambdaQueryWrapper<>();
-
-        // 按大学名称模糊查询：先查询符合条件的大学ID列表d
-        if (StringUtils.hasText(dto.getUniversityName())) {
-            LambdaQueryWrapper<University> uniWrapper = new LambdaQueryWrapper<>();
-            uniWrapper.like(University::getName, dto.getUniversityName())
-                      .eq(University::getStatus, 1)
-                      .select(University::getId);
-            List<University> universities = universityMapper.selectList(uniWrapper);
-            if (universities.isEmpty()) {
-                // 没有匹配的大学，直接返回空结果
-                return new Page<AdmissionGroupListVO>(dto.getPage(), dto.getSize());
-            }
-            List<Long> universityIds = universities.stream()
-                    .map(University::getId)
-                    .collect(Collectors.toList());
-            wrapper.in(AdmissionGroup::getUniversityId, universityIds);
-        }
-
-        if (dto.getYear() != null) {
-            wrapper.eq(AdmissionGroup::getYear, dto.getYear());
-        }
-        if (StringUtils.hasText(dto.getProvince())) {
-            wrapper.eq(AdmissionGroup::getProvince, dto.getProvince());
-        }
-        if (StringUtils.hasText(dto.getRequirementType())) {
-            wrapper.eq(AdmissionGroup::getRequirementType, dto.getRequirementType());
-        }
-        if (StringUtils.hasText(dto.getEnrollmentCode())) {
-            wrapper.like(AdmissionGroup::getEnrollmentCode, dto.getEnrollmentCode());
-        }
-        if (StringUtils.hasText(dto.getGroupCode())) {
-            wrapper.like(AdmissionGroup::getGroupCode, dto.getGroupCode());
-        }
-        if (StringUtils.hasText(dto.getGroupName())) {
-            wrapper.like(AdmissionGroup::getGroupName, dto.getGroupName());
-        }
-
-        // 默认查询未删除的记录
-        if (dto.getIsDeleted() != null) {
-            wrapper.eq(AdmissionGroup::getIsDeleted, dto.getIsDeleted());
-        } else {
-            wrapper.eq(AdmissionGroup::getIsDeleted, false);
-        }
-
-        wrapper.orderByDesc(AdmissionGroup::getYear)
-               .orderByAsc(AdmissionGroup::getUniversityId)
-               .orderByAsc(AdmissionGroup::getGroupCode);
-
-        IPage<AdmissionGroup> result = admissionGroupMapper.selectPage(page, wrapper);
+        IPage<AdmissionGroup> result = admissionGroupMapper.selectPageIgnoreLogicDelete(
+                page,
+                dto.getIsDeleted(),
+                dto.getUniversityName(),
+                dto.getYear(),
+                dto.getProvince(),
+                dto.getRequirementType(),
+                dto.getEnrollmentCode(),
+                dto.getGroupCode(),
+                dto.getGroupName()
+        );
 
         // 批量获取大学名称
         Map<Long, String> universityNameMap = getUniversityNameMap(result.getRecords());
@@ -105,7 +66,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
     @Override
     public AdmissionGroupDetailVO detail(Integer id) {
-        AdmissionGroup entity = admissionGroupMapper.selectById(id);
+        AdmissionGroup entity = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
         if (entity == null) {
             throw new BusinessException(404, "专业组不存在");
         }
@@ -154,7 +115,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionGroupAddDTO dto) {
-        AdmissionGroup existing = admissionGroupMapper.selectById(id);
+        AdmissionGroup existing = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
         if (existing == null || existing.getIsDeleted()) {
             throw new BusinessException(404, "专业组不存在");
         }
@@ -194,22 +155,19 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Integer id, Boolean isDeleted) {
-        AdmissionGroup entity = admissionGroupMapper.selectById(id);
+        AdmissionGroup entity = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
         if (entity == null) {
             throw new BusinessException(404, "专业组不存在");
         }
 
-        admissionGroupMapper.update(null,
-                Wrappers.lambdaUpdate(AdmissionGroup.class)
-                        .set(AdmissionGroup::getIsDeleted, isDeleted)
-                        .eq(AdmissionGroup::getId, id));
+        admissionGroupMapper.updateIsDeletedById(id, isDeleted);
         log.info("更新专业组状态成功，id={}，isDeleted={}", id, isDeleted);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Integer id) {
-        AdmissionGroup entity = admissionGroupMapper.selectById(id);
+        AdmissionGroup entity = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "专业组不存在");
         }

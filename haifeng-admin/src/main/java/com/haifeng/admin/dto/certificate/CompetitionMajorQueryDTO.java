@@ -11,4 +11,5 @@ public class CompetitionMajorQueryDTO extends BasePageQueryDTO {
     private Long majorId;
     private String competitionName;
     private String majorName;
+    private Boolean isDeleted;
 }

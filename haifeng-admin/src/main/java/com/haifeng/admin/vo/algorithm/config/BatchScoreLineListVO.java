@@ -14,4 +14,5 @@ public class BatchScoreLineListVO {
     private String subjectType;
     private String batch;
     private Integer scoreLine;
+    private Boolean isDeleted;
 }

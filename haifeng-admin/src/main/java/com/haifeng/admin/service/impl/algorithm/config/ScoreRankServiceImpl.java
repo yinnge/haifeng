@@ -35,35 +35,30 @@ public class ScoreRankServiceImpl implements ScoreRankService {
     @Override
     public IPage<ScoreRankListVO> page(ScoreRankQueryDTO dto) {
         Page<ScoreRank> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<ScoreRank> wrapper = new LambdaQueryWrapper<>();
-
+        Map<String, Object> params = new HashMap<>();
+        params.put("isDeleted", dto.getIsDeleted());
         if (StringUtils.hasText(dto.getProvince())) {
-            wrapper.eq(ScoreRank::getProvince, dto.getProvince());
+            params.put("province", dto.getProvince());
         }
         if (dto.getYear() != null) {
-            wrapper.eq(ScoreRank::getYear, dto.getYear());
+            params.put("year", dto.getYear());
         }
         if (StringUtils.hasText(dto.getSubjectType())) {
-            wrapper.eq(ScoreRank::getSubjectType, dto.getSubjectType());
+            params.put("subjectType", dto.getSubjectType());
         }
         if (dto.getScore() != null) {
-            wrapper.eq(ScoreRank::getScore, dto.getScore());
+            params.put("score", dto.getScore());
         }
         if (dto.getRank() != null) {
-            wrapper.eq(ScoreRank::getRank, dto.getRank());
+            params.put("rank", dto.getRank());
         }
-
-        wrapper.orderByAsc(ScoreRank::getProvince)
-               .orderByDesc(ScoreRank::getYear)
-               .orderByDesc(ScoreRank::getScore);
-
-        IPage<ScoreRank> resultPage = scoreRankMapper.selectPage(page, wrapper);
+        IPage<ScoreRank> resultPage = scoreRankMapper.selectPageCustom(page, params);
         return resultPage.convert(this::convertToListVO);
     }
 
     @Override
     public ScoreRankDetailVO detail(Long id) {
-        ScoreRank entity = scoreRankMapper.selectById(id);
+        ScoreRank entity = scoreRankMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "一分一段记录不存在");
         }
@@ -113,7 +108,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, ScoreRankAddDTO dto) {
-        ScoreRank existing = scoreRankMapper.selectById(id);
+        ScoreRank existing = scoreRankMapper.selectByIdCustom(id);
         if (existing == null) {
             throw new BusinessException(404, "一分一段记录不存在");
         }
@@ -139,12 +134,23 @@ public class ScoreRankServiceImpl implements ScoreRankService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        ScoreRank entity = scoreRankMapper.selectById(id);
+        ScoreRank entity = scoreRankMapper.selectByIdCustom(id);
         if (entity == null) {
             throw new BusinessException(404, "一分一段记录不存在");
         }
         scoreRankMapper.deleteById(id);
         log.info("删除一分一段记录，id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(Long id, Boolean isDeleted) {
+        ScoreRank entity = scoreRankMapper.selectByIdCustom(id);
+        if (entity == null) {
+            throw new BusinessException(404, "一分一段记录不存在");
+        }
+        scoreRankMapper.updateIsDeletedById(id, isDeleted);
+        log.info("更新一分一段状态成功，id={}，isDeleted={}", id, isDeleted);
     }
 
     @Override
@@ -380,6 +386,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         vo.setSubjectType(entity.getSubjectType());
         vo.setScore(entity.getScore());
         vo.setRank(entity.getRank());
+        vo.setIsDeleted(entity.getIsDeleted());
         return vo;
     }
 

@@ -56,11 +56,19 @@ public class MajorConstraintController {
         return R.ok();
     }
 
-    /** 批量删除关联 */
+    /** 批量禁用关联 */
     @PostMapping("/batch-delete")
-    @OperationLog(module = "专业约束管理", action = "批量删除专业约束关联")
+    @OperationLog(module = "专业约束管理", action = "批量禁用专业约束关联")
     public R<Void> batchDelete(@Valid @RequestBody MajorConstraintBatchDeleteDTO dto) {
         majorConstraintService.batchDelete(dto.getIds());
+        return R.ok();
+    }
+
+    /** 切换启用/禁用状态 */
+    @PutMapping("/{id}/toggle")
+    @OperationLog(module = "专业约束管理", action = "切换专业约束关联状态")
+    public R<Void> toggleStatus(@PathVariable Long id) {
+        majorConstraintService.toggleStatus(id);
         return R.ok();
     }
 

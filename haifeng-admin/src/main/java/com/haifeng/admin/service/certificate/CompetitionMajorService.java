@@ -30,9 +30,14 @@ public interface CompetitionMajorService {
     Long addCompetitionMajor(CompetitionMajorAddDTO addDTO);
 
     /**
-     * 软删除关联
+     * 软删除关联（禁用）
      */
     void deleteCompetitionMajor(Long id);
+
+    /**
+     * 启用关联
+     */
+    void enableCompetitionMajor(Long id);
 
     /**
      * 批量软删除关联

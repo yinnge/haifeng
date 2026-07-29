@@ -2,6 +2,7 @@ package com.haifeng.admin.controller.algorithm.config;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.algorithm.config.ProvinceReformAddDTO;
+import com.haifeng.admin.dto.algorithm.config.ProvinceReformBatchStatusDTO;
 import com.haifeng.admin.dto.algorithm.config.ProvinceReformQueryDTO;
 import com.haifeng.admin.service.algorithm.config.ProvinceReformService;
 import com.haifeng.admin.vo.algorithm.config.ProvinceReformDetailVO;
@@ -61,6 +62,20 @@ public class ProvinceReformController {
     @OperationLog(module = "省份改革配置", action = "批量删除省份配置")
     public R<Void> batchDelete(@Valid @RequestBody @NotEmpty @Size(max = 100) List<Long> ids) {
         provinceReformService.batchDelete(ids);
+        return R.ok();
+    }
+
+    @PutMapping("/{id}/status")
+    @OperationLog(module = "省份改革配置", action = "设置省份配置状态")
+    public R<Void> updateStatus(@PathVariable Long id, @RequestParam Boolean isDeleted) {
+        provinceReformService.updateStatus(id, isDeleted);
+        return R.ok();
+    }
+
+    @PostMapping("/batch-status")
+    @OperationLog(module = "省份改革配置", action = "批量设置省份配置状态")
+    public R<Void> batchStatus(@Valid @RequestBody ProvinceReformBatchStatusDTO dto) {
+        provinceReformService.batchStatus(dto.getIds(), dto.getIsDeleted());
         return R.ok();
     }
 }

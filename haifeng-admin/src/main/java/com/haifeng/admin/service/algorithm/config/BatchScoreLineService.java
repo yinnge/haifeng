@@ -15,6 +15,7 @@ public interface BatchScoreLineService {
     void update(Long id, BatchScoreLineAddDTO dto);
     void delete(Long id);
     void hardDelete(Long id);
+    void updateStatus(Long id, Boolean isDeleted);
     void batchDelete(List<Long> ids);
     void batchHardDelete(List<Long> ids);
     void importData(MultipartFile file);
