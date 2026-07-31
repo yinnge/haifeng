@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.contentManagement;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideAddDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideUpdateDTO;
 import com.haifeng.admin.vo.employment.contentManagement.guide.ExamGuideDetailVO;
@@ -11,6 +12,7 @@ import java.util.List;
 public interface ExamGuideService {
     IPage<ExamGuideListVO> page(ExamGuideQueryDTO dto);
     ExamGuideDetailVO detail(Long id);
+    Long add(ExamGuideAddDTO dto);
     void update(Long id, ExamGuideUpdateDTO dto);
     void delete(Long id);
     void updateStatus(Long id, Integer status);

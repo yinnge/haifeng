@@ -17,4 +17,7 @@ public class ExamGuideQueryDTO extends BasePageQueryDTO {
     private String guideCategory;
     private String guideType;
     private Boolean isTop;
+
+    /** 状态筛选：0=启用，1=禁用，null=全部（含禁用） */
+    private Integer status;
 }

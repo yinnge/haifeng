@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.contentManagement;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideAddDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideStatusDTO;
 import com.haifeng.admin.dto.employment.contentManagement.guide.ExamGuideUpdateDTO;
@@ -45,6 +46,12 @@ public class ExamGuideController {
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody ExamGuideUpdateDTO dto) {
         examGuideService.update(id, dto);
         return R.ok();
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "招聘内容管理", action = "新增备考指南")
+    public R<Long> create(@Valid @RequestBody ExamGuideAddDTO dto) {
+        return R.ok(examGuideService.add(dto));
     }
 
     @DeleteMapping("/{id}/delete")

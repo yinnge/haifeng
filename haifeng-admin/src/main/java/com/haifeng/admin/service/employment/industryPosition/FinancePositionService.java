@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.industryPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionUpdateDTO;
 import com.haifeng.admin.vo.employment.industryPosition.finance.FinancePositionDetailVO;
@@ -12,6 +13,7 @@ import java.util.List;
 public interface FinancePositionService {
     IPage<FinancePositionListVO> page(FinancePositionQueryDTO dto);
     FinancePositionDetailVO detail(Long id);
+    Long add(FinancePositionAddDTO dto);
     void update(Long id, FinancePositionUpdateDTO dto);
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);

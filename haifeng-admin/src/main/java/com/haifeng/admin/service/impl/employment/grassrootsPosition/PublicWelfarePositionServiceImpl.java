@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionUpdateDTO;
 import com.haifeng.admin.excel.employment.grassrootsPosition.PublicWelfarePositionExcelDTO;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -209,14 +211,75 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(PublicWelfarePositionAddDTO dto) {
+        boolean exists = publicWelfarePositionMapper.selectCount(
+                Wrappers.lambdaQuery(PublicWelfarePosition.class)
+                        .eq(PublicWelfarePosition::getPositionName, dto.getPositionName())
+                        .eq(PublicWelfarePosition::getProvince, dto.getProvince())
+                        .eq(PublicWelfarePosition::getCity, dto.getCity())
+                        .eq(PublicWelfarePosition::getIsDeleted, false)) > 0;
+        if (exists) {
+            throw new BusinessException(400, "岗位已存在");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        PublicWelfarePosition entity = PublicWelfarePosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .developingUnit(dto.getDevelopingUnit())
+                .employingUnit(dto.getEmployingUnit())
+                .positionName(dto.getPositionName())
+                .positionCategory(dto.getPositionCategory())
+                .workContent(dto.getWorkContent())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .district(dto.getDistrict())
+                .workLocation(dto.getWorkLocation())
+                .targetGroup(dto.getTargetGroup())
+                .educationRequirement(dto.getEducationRequirement())
+                .ageRange(dto.getAgeRange())
+                .healthRequirement(dto.getHealthRequirement())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .householdRequirement(dto.getHouseholdRequirement())
+                .employmentDifficultyCert(dto.getEmploymentDifficultyCert())
+                .otherRequirement(dto.getOtherRequirement())
+                .contractPeriod(dto.getContractPeriod())
+                .isRenewable(dto.getIsRenewable())
+                .maxServiceYears(dto.getMaxServiceYears())
+                .monthlySalary(dto.getMonthlySalary())
+                .salarySource(dto.getSalarySource())
+                .subsidyStandard(dto.getSubsidyStandard())
+                .socialInsuranceInfo(dto.getSocialInsuranceInfo())
+                .otherBenefits(dto.getOtherBenefits())
+                .workSchedule(dto.getWorkSchedule())
+                .isShiftWork(dto.getIsShiftWork())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .applyMethod(dto.getApplyMethod())
+                .applyAddress(dto.getApplyAddress())
+                .requiredDocuments(dto.getRequiredDocuments())
+                .positionStatus(dto.getPositionStatus())
+                .contactPhone(dto.getContactPhone())
+                .contactPerson(dto.getContactPerson())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        publicWelfarePositionMapper.insert(entity);
+        log.info("新增公益性岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         PublicWelfarePosition entity = publicWelfarePositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "公益性岗位不存在");
         }
-        entity.setIsDeleted(true);
-        publicWelfarePositionMapper.updateById(entity);
-        log.info("软删除公益性岗位成功: id={}", id);
+        publicWelfarePositionMapper.physicalDeleteById(id);
+        log.info("物理删除公益性岗位成功: id={}", id);
     }
 
     @Override
@@ -237,12 +300,8 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = publicWelfarePositionMapper.update(null,
-                Wrappers.lambdaUpdate(PublicWelfarePosition.class)
-                        .set(PublicWelfarePosition::getIsDeleted, true)
-                        .eq(PublicWelfarePosition::getIsDeleted, false)
-                        .in(PublicWelfarePosition::getId, ids));
-        log.info("批量删除公益性岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = publicWelfarePositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除公益性岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

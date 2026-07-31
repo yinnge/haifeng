@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeAddDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeUpdateDTO;
 import com.haifeng.admin.service.employment.contentManagement.NoticeService;
@@ -12,6 +13,7 @@ import com.haifeng.admin.vo.employment.contentManagement.notice.NoticeListVO;
 import com.haifeng.common.entity.employment.contentManagement.Notice;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.employment.contentManagement.NoticeMapper;
+import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Slf4j
@@ -31,37 +34,9 @@ public class NoticeServiceImpl implements NoticeService {
     @Override
     public IPage<NoticeListVO> page(NoticeQueryDTO dto) {
         Page<Notice> page = new Page<>(dto.getPage(), dto.getSize());
-        LambdaQueryWrapper<Notice> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Notice::getIsDeleted, false);
-
-        if (StringUtils.hasText(dto.getNoticeCategory())) {
-            wrapper.eq(Notice::getNoticeCategory, dto.getNoticeCategory());
-        }
-        if (StringUtils.hasText(dto.getNoticeType())) {
-            wrapper.eq(Notice::getNoticeType, dto.getNoticeType());
-        }
-        if (StringUtils.hasText(dto.getProvince())) {
-            wrapper.eq(Notice::getProvince, dto.getProvince());
-        }
-        if (StringUtils.hasText(dto.getCity())) {
-            wrapper.eq(Notice::getCity, dto.getCity());
-        }
-        if (StringUtils.hasText(dto.getYear())) {
-            wrapper.eq(Notice::getYear, dto.getYear());
-        }
-        if (dto.getIsTop() != null) {
-            wrapper.eq(Notice::getIsTop, dto.getIsTop());
-        }
-        if (dto.getIsImportant() != null) {
-            wrapper.eq(Notice::getIsImportant, dto.getIsImportant());
-        }
-        if (StringUtils.hasText(dto.getTitle())) {
-            wrapper.like(Notice::getTitle, dto.getTitle());
-        }
-
-        wrapper.orderByDesc(Notice::getSortOrder).orderByDesc(Notice::getCreatedAt);
-
-        IPage<Notice> noticePage = noticeMapper.selectPage(page, wrapper);
+        IPage<Notice> noticePage = noticeMapper.selectNoticePage(page,
+                dto.getTitle(), dto.getNoticeCategory(), dto.getNoticeType(), dto.getProvince(), dto.getCity(),
+                dto.getYear(), dto.getIsTop(), dto.getIsImportant(), dto.getStatus());
 
         return noticePage.convert(notice -> {
             NoticeListVO vo = new NoticeListVO();
@@ -72,8 +47,8 @@ public class NoticeServiceImpl implements NoticeService {
 
     @Override
     public NoticeDetailVO detail(Long id) {
-        Notice notice = noticeMapper.selectById(id);
-        if (notice == null || notice.getIsDeleted()) {
+        Notice notice = noticeMapper.selectNoticeById(id);
+        if (notice == null) {
             throw new BusinessException(404, "公告不存在");
         }
         NoticeDetailVO vo = new NoticeDetailVO();
@@ -83,9 +58,45 @@ public class NoticeServiceImpl implements NoticeService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(NoticeAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        Notice entity = Notice.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .noticeCategory(dto.getNoticeCategory())
+                .noticeType(dto.getNoticeType())
+                .title(dto.getTitle())
+                .summary(dto.getSummary())
+                .content(dto.getContent())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .tags(dto.getTags())
+                .year(dto.getYear())
+                .source(dto.getSource())
+                .sourceUrl(dto.getSourceUrl())
+                .publishDate(dto.getPublishDate() != null ? dto.getPublishDate() : now)
+                .publishUnit(dto.getPublishUnit())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .examTime(dto.getExamTime())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .isTop(dto.getIsTop())
+                .isImportant(dto.getIsImportant())
+                .sortOrder(dto.getSortOrder())
+                .viewCount(0)
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        noticeMapper.insert(entity);
+        log.info("新增公告成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, NoticeUpdateDTO dto) {
-        Notice notice = noticeMapper.selectById(id);
-        if (notice == null || notice.getIsDeleted()) {
+        Notice notice = noticeMapper.selectNoticeById(id);
+        if (notice == null) {
             throw new BusinessException(404, "公告不存在");
         }
         if (dto.getNoticeCategory() != null) notice.setNoticeCategory(dto.getNoticeCategory());
@@ -108,42 +119,38 @@ public class NoticeServiceImpl implements NoticeService {
         if (dto.getIsTop() != null) notice.setIsTop(dto.getIsTop());
         if (dto.getIsImportant() != null) notice.setIsImportant(dto.getIsImportant());
         if (dto.getSortOrder() != null) notice.setSortOrder(dto.getSortOrder());
-        noticeMapper.updateById(notice);
+        noticeMapper.updateNotice(notice);
         log.info("更新公告成功: id={}", id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        Notice notice = noticeMapper.selectById(id);
-        if (notice == null || notice.getIsDeleted()) {
+        // 物理删除不受逻辑删除过滤，直接删除并检查影响行数（禁用记录也应可删除）
+        int deleted = noticeMapper.physicalDeleteById(id);
+        if (deleted == 0) {
             throw new BusinessException(404, "公告不存在");
         }
-        notice.setIsDeleted(true);
-        noticeMapper.updateById(notice);
-        log.info("软删除公告成功: id={}", id);
+        log.info("物理删除公告成功: id={}", id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Integer status) {
-        Notice notice = noticeMapper.selectById(id);
-        if (notice == null) {
+        // 用自定义 @Update 直写 is_deleted：MP 的 update(wrapper)/updateById 都会自动注入
+        // WHERE is_deleted=false，导致已禁用记录（is_deleted=true）无法更新（0 行）误报 404
+        int updated = noticeMapper.updateIsDeleted(id, status == 0);
+        if (updated == 0) {
             throw new BusinessException(404, "公告不存在");
         }
-        notice.setIsDeleted(status == 0);
-        noticeMapper.updateById(notice);
         log.info("更新公告状态成功: id={}, status={}", id, status);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        noticeMapper.update(null,
-                Wrappers.lambdaUpdate(Notice.class)
-                        .set(Notice::getIsDeleted, true)
-                        .in(Notice::getId, ids));
-        log.info("批量删除公告成功: count={}", ids.size());
+        int deleted = noticeMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除公告成功: requested={}, actual={}", ids.size(), deleted);
     }
 
 }

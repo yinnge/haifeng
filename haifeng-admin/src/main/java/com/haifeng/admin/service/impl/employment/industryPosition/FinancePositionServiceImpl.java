@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionUpdateDTO;
 import com.haifeng.admin.excel.employment.industryPosition.FinancePositionExcelDTO;
@@ -197,14 +198,66 @@ public class FinancePositionServiceImpl implements FinancePositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(FinancePositionAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        FinancePosition entity = FinancePosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .institutionName(dto.getInstitutionName())
+                .institutionCategory(dto.getInstitutionCategory())
+                .institutionType(dto.getInstitutionType())
+                .institutionLogo(dto.getInstitutionLogo())
+                .branchName(dto.getBranchName())
+                .positionName(dto.getPositionName())
+                .positionCategory(dto.getPositionCategory())
+                .recruitmentType(dto.getRecruitmentType())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .workLocation(dto.getWorkLocation())
+                .isRemote(dto.getIsRemote())
+                .educationRequirement(dto.getEducationRequirement())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .majorRequirement(dto.getMajorRequirement())
+                .majorPreference(dto.getMajorPreference())
+                .ageLimit(dto.getAgeLimit())
+                .workExperience(dto.getWorkExperience())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .certRequirements(dto.getCertRequirements())
+                .languageRequirement(dto.getLanguageRequirement())
+                .computerRequirement(dto.getComputerRequirement())
+                .otherRequirement(dto.getOtherRequirement())
+                .salaryMin(dto.getSalaryMin())
+                .salaryMax(dto.getSalaryMax())
+                .salaryText(dto.getSalaryText())
+                .benefits(dto.getBenefits())
+                .examContent(dto.getExamContent())
+                .examTime(dto.getExamTime())
+                .interviewRounds(dto.getInterviewRounds())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .applyLink(dto.getApplyLink())
+                .positionStatus(dto.getPositionStatus())
+                .contactInfo(dto.getContactInfo())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        financePositionMapper.insert(entity);
+        log.info("新增银行/金融岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         FinancePosition financePosition = financePositionMapper.selectById(id);
         if (financePosition == null || Boolean.TRUE.equals(financePosition.getIsDeleted())) {
             throw new BusinessException(404, "银行/金融招聘岗位不存在");
         }
-        financePosition.setIsDeleted(true);
-        financePositionMapper.updateById(financePosition);
-        log.info("软删除银行/金融招聘岗位成功: id={}", id);
+        financePositionMapper.physicalDeleteById(id);
+        log.info("物理删除银行/金融招聘岗位成功: id={}", id);
     }
 
     @Override
@@ -225,12 +278,8 @@ public class FinancePositionServiceImpl implements FinancePositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = financePositionMapper.update(null,
-                Wrappers.lambdaUpdate(FinancePosition.class)
-                        .set(FinancePosition::getIsDeleted, true)
-                        .eq(FinancePosition::getIsDeleted, false)
-                        .in(FinancePosition::getId, ids));
-        log.info("批量删除银行/金融招聘岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = financePositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除银行/金融招聘岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

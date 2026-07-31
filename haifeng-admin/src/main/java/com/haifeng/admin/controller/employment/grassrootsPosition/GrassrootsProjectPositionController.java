@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.grassrootsPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionUpdateDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PositionStatusUpdateDTO;
@@ -47,6 +48,12 @@ public class GrassrootsProjectPositionController {
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody GrassrootsProjectPositionUpdateDTO dto) {
         grassrootsProjectPositionService.update(id, dto);
         return R.ok();
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "基层服务管理", action = "新增基层服务项目岗位")
+    public R<Long> create(@Valid @RequestBody GrassrootsProjectPositionAddDTO dto) {
+        return R.ok(grassrootsProjectPositionService.add(dto));
     }
 
     @DeleteMapping("/{id}/delete")

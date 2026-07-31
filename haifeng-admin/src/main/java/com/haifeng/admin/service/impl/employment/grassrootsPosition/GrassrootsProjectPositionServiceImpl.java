@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.GrassrootsProjectPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.grassrootsPosition.GrassrootsProjectPositionExcelDTO;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -223,14 +225,79 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(GrassrootsProjectPositionAddDTO dto) {
+        boolean exists = grassrootsProjectPositionMapper.selectCount(
+                Wrappers.lambdaQuery(GrassrootsProjectPosition.class)
+                        .eq(GrassrootsProjectPosition::getPositionName, dto.getPositionName())
+                        .eq(GrassrootsProjectPosition::getYear, dto.getYear())
+                        .eq(GrassrootsProjectPosition::getProjectType, dto.getProjectType())
+                        .eq(GrassrootsProjectPosition::getIsDeleted, false)) > 0;
+        if (exists) {
+            throw new BusinessException(400, "岗位已存在");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        GrassrootsProjectPosition entity = GrassrootsProjectPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .projectType(dto.getProjectType())
+                .year(dto.getYear())
+                .positionName(dto.getPositionName())
+                .serviceType(dto.getServiceType())
+                .organizingDept(dto.getOrganizingDept())
+                .serviceUnit(dto.getServiceUnit())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .county(dto.getCounty())
+                .township(dto.getTownship())
+                .servicePeriod(dto.getServicePeriod())
+                .serviceStartDate(dto.getServiceStartDate())
+                .serviceEndDate(dto.getServiceEndDate())
+                .educationRequirement(dto.getEducationRequirement())
+                .majorRequirement(dto.getMajorRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .gradYearRequirement(dto.getGradYearRequirement())
+                .householdRequirement(dto.getHouseholdRequirement())
+                .politicalStatus(dto.getPoliticalStatus())
+                .otherRequirement(dto.getOtherRequirement())
+                .examContent(dto.getExamContent())
+                .examTime(dto.getExamTime())
+                .interviewForm(dto.getInterviewForm())
+                .monthlySubsidy(dto.getMonthlySubsidy())
+                .socialInsurance(dto.getSocialInsurance())
+                .housingInfo(dto.getHousingInfo())
+                .otherBenefits(dto.getOtherBenefits())
+                .afterServicePolicy(dto.getAfterServicePolicy())
+                .canTransferToCivil(dto.getCanTransferToCivil())
+                .canTransferToInstitution(dto.getCanTransferToInstitution())
+                .examBonusPoints(dto.getExamBonusPoints())
+                .tuitionCompensation(dto.getTuitionCompensation())
+                .postgradBonus(dto.getPostgradBonus())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .applyLink(dto.getApplyLink())
+                .positionStatus(dto.getPositionStatus())
+                .contactPhone(dto.getContactPhone())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        grassrootsProjectPositionMapper.insert(entity);
+        log.info("新增基层服务项目岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         GrassrootsProjectPosition entity = grassrootsProjectPositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "基层服务项目岗位不存在");
         }
-        entity.setIsDeleted(true);
-        grassrootsProjectPositionMapper.updateById(entity);
-        log.info("软删除基层服务项目岗位成功: id={}", id);
+        grassrootsProjectPositionMapper.physicalDeleteById(id);
+        log.info("物理删除基层服务项目岗位成功: id={}", id);
     }
 
     @Override
@@ -251,12 +318,8 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = grassrootsProjectPositionMapper.update(null,
-                Wrappers.lambdaUpdate(GrassrootsProjectPosition.class)
-                        .set(GrassrootsProjectPosition::getIsDeleted, true)
-                        .eq(GrassrootsProjectPosition::getIsDeleted, false)
-                        .in(GrassrootsProjectPosition::getId, ids));
-        log.info("批量删除基层服务项目岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = grassrootsProjectPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除基层服务项目岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

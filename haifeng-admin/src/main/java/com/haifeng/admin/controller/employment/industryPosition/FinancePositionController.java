@@ -47,6 +47,12 @@ public class FinancePositionController {
         return R.ok();
     }
 
+    @PostMapping("/create")
+    @OperationLog(module = "行业专项招聘", action = "新增银行/金融招聘岗位")
+    public R<Long> create(@Valid @RequestBody FinancePositionAddDTO dto) {
+        return R.ok(financePositionService.add(dto));
+    }
+
     @DeleteMapping("/{id}/delete")
     @OperationLog(module = "行业专项招聘", action = "删除银行/金融招聘岗位")
     public R<Void> delete(@PathVariable Long id) {

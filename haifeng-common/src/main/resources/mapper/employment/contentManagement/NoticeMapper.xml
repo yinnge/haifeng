@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haifeng.common.mapper.employment.contentManagement.NoticeMapper">
+
+    <resultMap id="noticeMap" type="com.haifeng.common.entity.employment.contentManagement.Notice" autoMapping="true">
+        <result column="tags" property="tags" typeHandler="com.haifeng.common.config.StringArrayTypeHandler"/>
+    </resultMap>
+
+    <select id="selectNoticePage" resultMap="noticeMap">
+        SELECT id, notice_category, notice_type, title, summary, content, province, city, tags, year, source,
+               source_url, publish_date, publish_unit, reg_start_date, reg_end_date, exam_time, recruitment_count,
+               is_top, is_important, view_count, sort_order, is_deleted, created_at, updated_at
+        FROM t_notice
+        WHERE 1 = 1
+        <if test="title != null and title != ''">AND title LIKE CONCAT('%', #{title}, '%')</if>
+        <if test="noticeCategory != null and noticeCategory != ''">AND notice_category = #{noticeCategory}</if>
+        <if test="noticeType != null and noticeType != ''">AND notice_type = #{noticeType}</if>
+        <if test="province != null and province != ''">AND province = #{province}</if>
+        <if test="city != null and city != ''">AND city = #{city}</if>
+        <if test="year != null and year != ''">AND year = #{year}</if>
+        <if test="isTop != null">AND is_top = #{isTop}</if>
+        <if test="isImportant != null">AND is_important = #{isImportant}</if>
+        <if test="status != null and status == 0">AND is_deleted = false</if>
+        <if test="status != null and status == 1">AND is_deleted = true</if>
+        ORDER BY sort_order DESC, created_at DESC
+    </select>
+
+    <select id="selectNoticeById" resultMap="noticeMap">
+        SELECT id, notice_category, notice_type, title, summary, content, province, city, tags, year, source,
+               source_url, publish_date, publish_unit, reg_start_date, reg_end_date, exam_time, recruitment_count,
+               is_top, is_important, view_count, sort_order, is_deleted, created_at, updated_at
+        FROM t_notice
+        WHERE id = #{id}
+    </select>
+
+    <update id="updateNotice">
+        UPDATE t_notice
+        <set>
+            <if test="noticeCategory != null">notice_category = #{noticeCategory},</if>
+            <if test="noticeType != null">notice_type = #{noticeType},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="summary != null">summary = #{summary},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="tags != null">tags = #{tags, typeHandler=com.haifeng.common.config.StringArrayTypeHandler},</if>
+            <if test="province != null">province = #{province},</if>
+            <if test="city != null">city = #{city},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="source != null">source = #{source},</if>
+            <if test="sourceUrl != null">source_url = #{sourceUrl},</if>
+            <if test="publishDate != null">publish_date = #{publishDate},</if>
+            <if test="publishUnit != null">publish_unit = #{publishUnit},</if>
+            <if test="regStartDate != null">reg_start_date = #{regStartDate},</if>
+            <if test="regEndDate != null">reg_end_date = #{regEndDate},</if>
+            <if test="examTime != null">exam_time = #{examTime},</if>
+            <if test="recruitmentCount != null">recruitment_count = #{recruitmentCount},</if>
+            <if test="isTop != null">is_top = #{isTop},</if>
+            <if test="isImportant != null">is_important = #{isImportant},</if>
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
+            updated_at = now()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+</mapper>

@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.civilService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.civilService.CivilPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionUpdateDTO;
 import com.haifeng.admin.vo.employment.civilService.CivilPositionDetailVO;
@@ -12,6 +13,7 @@ import java.util.List;
 public interface CivilPositionService {
     IPage<CivilPositionListVO> page(CivilPositionQueryDTO dto);
     CivilPositionDetailVO detail(Long id);
+    Long add(CivilPositionAddDTO dto);
     void update(Long id, CivilPositionUpdateDTO dto);
     void delete(Long id);
     void updateStatus(Long id, Integer status);

@@ -18,4 +18,7 @@ public class NoticeQueryDTO extends BasePageQueryDTO {
     private String year;
     private Boolean isTop;
     private Boolean isImportant;
+
+    /** 状态筛选：0=启用，1=禁用，null=全部（含禁用） */
+    private Integer status;
 }

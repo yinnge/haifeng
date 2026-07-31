@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.civilService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.civilService.SelectionPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionUpdateDTO;
 import com.haifeng.admin.dto.employment.civilService.PositionStatusUpdateDTO;
@@ -40,6 +41,12 @@ public class SelectionPositionController {
     @GetMapping("/{id}/detail")
     public R<SelectionPositionDetailVO> detail(@PathVariable Long id) {
         return R.ok(selectionPositionService.detail(id));
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "体制内招录", action = "新增选调生岗位")
+    public R<Long> create(@Valid @RequestBody SelectionPositionAddDTO dto) {
+        return R.ok(selectionPositionService.add(dto));
     }
 
     @PutMapping("/{id}/update")

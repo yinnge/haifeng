@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.grassrootsPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionUpdateDTO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.CommunityPositionDetailVO;
@@ -13,6 +14,7 @@ public interface CommunityPositionService {
     IPage<CommunityPositionListVO> page(CommunityPositionQueryDTO dto);
     CommunityPositionDetailVO detail(Long id);
     void update(Long id, CommunityPositionUpdateDTO dto);
+    Long add(CommunityPositionAddDTO dto);
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
