@@ -3,6 +3,7 @@ package com.haifeng.common.handler;
 import com.haifeng.common.config.SecurityProperties;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.SpringContextHolder;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedTypes;
@@ -12,6 +13,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+@Slf4j
 @MappedTypes(String.class)
 public class AESEncryptTypeHandler extends BaseTypeHandler<String> {
 
@@ -28,18 +30,42 @@ public class AESEncryptTypeHandler extends BaseTypeHandler<String> {
     @Override
     public String getNullableResult(ResultSet rs, String columnName) throws SQLException {
         String value = rs.getString(columnName);
-        return CryptoUtil.decrypt(value, getKey());
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return CryptoUtil.decrypt(value, getKey());
+        } catch (Exception e) {
+            log.warn("AES解密失败(字段={}): 密钥不匹配或数据损坏，返回原文", columnName);
+            return value;
+        }
     }
 
     @Override
     public String getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
         String value = rs.getString(columnIndex);
-        return CryptoUtil.decrypt(value, getKey());
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return CryptoUtil.decrypt(value, getKey());
+        } catch (Exception e) {
+            log.warn("AES解密失败(列index={}): 密钥不匹配或数据损坏，返回原文", columnIndex);
+            return value;
+        }
     }
 
     @Override
     public String getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
         String value = cs.getString(columnIndex);
-        return CryptoUtil.decrypt(value, getKey());
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return CryptoUtil.decrypt(value, getKey());
+        } catch (Exception e) {
+            log.warn("AES解密失败(列index={}): 密钥不匹配或数据损坏，返回原文", columnIndex);
+            return value;
+        }
     }
 }

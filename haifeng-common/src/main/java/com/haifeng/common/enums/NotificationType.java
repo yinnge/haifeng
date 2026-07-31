@@ -3,6 +3,8 @@ package com.haifeng.common.enums;
 import com.baomidou.mybatisplus.annotation.EnumValue;
 import lombok.Getter;
 
+import java.util.Arrays;
+
 @Getter
 public enum NotificationType {
 
@@ -13,7 +15,9 @@ public enum NotificationType {
     COMMISSION_REJECTED("commission_rejected", "提现被拒绝"),
     SYSTEM_NOTICE("system_notice", "系统公告"),
     MEMBER_RENEWED("member_renewed", "会员续费成功"),
-    MEMBER_ACTIVATION_SUCCESS("member_activation_success", "会员开通成功");
+    MEMBER_ACTIVATION_SUCCESS("member_activation_success", "会员开通成功"),
+    MEMBER_REVOKED("member_revoked", "会员已撤销"),
+    COMMISSION_REVERSED("commission_reversed", "佣金已撤回");
 
     @EnumValue
     private final String value;
@@ -22,5 +26,12 @@ public enum NotificationType {
     NotificationType(String value, String desc) {
         this.value = value;
         this.desc = desc;
+    }
+
+    public static NotificationType fromValue(String value) {
+        return Arrays.stream(values())
+                .filter(e -> e.value.equals(value))
+                .findFirst()
+                .orElse(null);
     }
 }

@@ -7,6 +7,7 @@ public enum IdentityEnum {
     HIGH_SCHOOL("高中生"),
     COLLEGE("大学生"),
     GRADUATE("研究生"),
+    DOCTOR("博士"),
     OTHER("其他");
 
     private final String desc;
@@ -26,6 +27,6 @@ public enum IdentityEnum {
     }
 
     public static boolean canHaveSchool(String identity) {
-        return COLLEGE.desc.equals(identity) || GRADUATE.desc.equals(identity);
+        return COLLEGE.desc.equals(identity) || GRADUATE.desc.equals(identity) || DOCTOR.desc.equals(identity) || OTHER.desc.equals(identity);
     }
 }

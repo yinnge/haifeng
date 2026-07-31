@@ -12,6 +12,7 @@ import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,11 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
 
     private static final Long SINGLETON_ID = 1L;
 
+    private static final String SITE_INFO_CACHE_KEY = "haifeng:app:site-info";
+
     private final SystemSettingsMapper settingsMapper;
     private final ModelProviderMapper modelProviderMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public SystemSettingsVO get() {
@@ -110,6 +114,13 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         }
 
         settingsMapper.updateById(settings);
+
+        // 清除用户端站点信息缓存
+        Boolean deleted = redisTemplate.delete(SITE_INFO_CACHE_KEY);
+        if (Boolean.TRUE.equals(deleted)) {
+            log.info("已清除用户端站点信息缓存");
+        }
+
         log.info("系统设置更新成功");
     }
 
@@ -148,6 +159,9 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         settings.setProviderName(dto.getProviderName());
         settings.setModelName(dto.getModelName());
         settingsMapper.updateById(settings);
+
+        // 清除用户端站点信息缓存
+        redisTemplate.delete(SITE_INFO_CACHE_KEY);
 
         log.info("系统设置服务商和模型更新成功: provider={}, model={}", dto.getProviderName(), dto.getModelName());
     }

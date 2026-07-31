@@ -52,7 +52,6 @@ public class ProfileServiceImpl implements ProfileService {
         boolean canEditSchool = IdentityEnum.canHaveSchool(profile.getIdentity());
 
         return ProfileVO.builder()
-                .realName(profile.getRealName())
                 .email(profile.getEmail())
                 .gender(profile.getGender())
                 .schoolName(canEditSchool ? profile.getSchoolName() : null)
@@ -94,8 +93,14 @@ public class ProfileServiceImpl implements ProfileService {
 
         // 校验关联数据存在性
         if (StringUtils.hasText(dto.getCity())) {
+            String cityName = dto.getCity();
             Long count = cityMapper.selectCount(
-                    new LambdaQueryWrapper<City>().eq(City::getCityName, dto.getCity()));
+                    new LambdaQueryWrapper<City>()
+                            .like(City::getCityName, cityName)
+                            .or()
+                            .like(City::getCityName, cityName + "市")
+                            .or()
+                            .like(City::getCityName, cityName.replace("市", "")));
             if (count == 0) {
                 throw new BusinessException(400, "城市不存在");
             }
@@ -124,8 +129,7 @@ public class ProfileServiceImpl implements ProfileService {
             }
         }
 
-        // 更新字段（非null才更新）
-        if (dto.getRealName() != null) profile.setRealName(dto.getRealName());
+        // 更新 profile 字段（非null才更新）
         if (dto.getEmail() != null) profile.setEmail(dto.getEmail());
         if (dto.getGender() != null) profile.setGender(dto.getGender());
         if (dto.getProvince() != null) profile.setProvince(dto.getProvince());

@@ -78,5 +78,5 @@ logging:
 # 安全配置
 haifeng:
   security:
-    aes-key: ${AES_SECRET_KEY:haifeng_default_aes_key_16}
-    hash-salt: ${HASH_SALT:haifeng_blind_index_salt_2024}
+    aes-key: ${AES_SECRET_KEY}
+    hash-salt: ${HASH_SALT}

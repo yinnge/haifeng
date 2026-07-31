@@ -17,6 +17,7 @@ import com.haifeng.common.entity.user.MemberOrder;
 import com.haifeng.common.entity.user.ReferralCommission;
 import com.haifeng.common.enums.MemberType;
 import com.haifeng.common.enums.NotificationType;
+import com.haifeng.common.enums.OrderStatus;
 import com.haifeng.common.enums.OrderType;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
@@ -97,6 +98,11 @@ public class MemberServiceImpl implements MemberService {
             throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
+        // VIP过期后自动恢复挂起的Pro
+        if (member.needsSuspendedRestore()) {
+            restoreSuspendedPro(member);
+        }
+
         MemberDetailVO vo = new MemberDetailVO();
         BeanUtils.copyProperties(member, vo);
         // 微信号脱敏
@@ -159,11 +165,40 @@ public class MemberServiceImpl implements MemberService {
 
         boolean isExpired = beforeExpireAt == null || beforeExpireAt.isBefore(now);
 
-        if (isExpired) {
+        // Pro → VIP 升级：暂存Pro剩余时间，VIP从现在开始
+        // Pro 是永久会员（expireAt=null 算活跃），需要挂起
+        boolean isProActive = currentType == MemberType.PRO
+                && (beforeExpireAt == null || beforeExpireAt.isAfter(now));
+        boolean isProToVipUpgrade = (currentType == MemberType.PRO && targetType == MemberType.VIP);
+
+        if (isProToVipUpgrade && isProActive) {
+            // Pro活跃（含永久Pro），升级VIP：VIP从现在开始
+            newExpireAt = now.plusMonths(dto.getDurationMonths());
+            // 计算Pro剩余月数
+            int remainingMonths;
+            if (beforeExpireAt == null) {
+                // 永久Pro：默认挂起12个月
+                remainingMonths = 12;
+            } else {
+                long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(now, beforeExpireAt);
+                remainingMonths = (int) Math.max(1, Math.round(daysBetween / 30.0));
+            }
+            member.setSuspendedMemberType(MemberType.PRO.getValue());
+            member.setSuspendedExpireAt(beforeExpireAt);
+            member.setSuspendedRemainingMonths(remainingMonths);
+            log.info("Pro→VIP升级，暂存Pro: userId={}, proExpireAt={}, remainingMonths={}",
+                    member.getId(), beforeExpireAt, remainingMonths);
+        } else if (isExpired) {
             // 已过期或新开通：从当前时间开始计算
             newExpireAt = now.plusMonths(dto.getDurationMonths());
+            // 如果有挂起的Pro且VIP已过期，升级时清除挂起状态
+            if (member.getSuspendedMemberType() != null) {
+                member.setSuspendedMemberType(null);
+                member.setSuspendedExpireAt(null);
+                member.setSuspendedRemainingMonths(null);
+            }
         } else {
-            // 未过期：从原到期时间叠加（无论类型是否变更）
+            // 未过期：从原到期时间叠加（同类型续费或VIP→Pro等）
             newExpireAt = beforeExpireAt.plusMonths(dto.getDurationMonths());
         }
 
@@ -176,14 +211,16 @@ public class MemberServiceImpl implements MemberService {
             orderType = OrderType.RENEWAL;
         }
 
-        // 5. 幂等检查：同一用户不可重复创建同类型未删除订单
+        // 5. 幂等检查：同一用户5分钟内不可重复创建同类型+同目标的订单（防手抖连点）
         Long duplicateCount = orderMapper.selectCount(
                 new LambdaQueryWrapper<MemberOrder>()
                         .eq(MemberOrder::getMemberId, id)
                         .eq(MemberOrder::getOrderType, orderType)
-                        .eq(MemberOrder::getDeleted, false));
+                        .eq(MemberOrder::getAfterType, targetType)
+                        .eq(MemberOrder::getDeleted, false)
+                        .ge(MemberOrder::getCreatedAt, now.minusMinutes(5)));
         if (duplicateCount > 0) {
-            throw new BusinessException(400, "该用户已有同类未完成订单，请勿重复操作");
+            throw new BusinessException(400, "操作过于频繁，请5分钟后再试");
         }
 
         // 6. 查询系统设置（一次查询，复用于金额计算和佣金处理）
@@ -232,6 +269,8 @@ public class MemberServiceImpl implements MemberService {
                 .operatorId(operatorId)
                 .operatorName(operatorName)
                 .remark(dto.getRemark())
+                .status(OrderStatus.COMPLETED)
+                .paymentMethod("offline")
                 .deleted(false)
                 .createdAt(now)
                 .updatedAt(now)
@@ -378,5 +417,29 @@ public class MemberServiceImpl implements MemberService {
 
         log.info("佣金处理成功: referrerId={}, refereeId={}, commissionAmount={}",
                 referrer.getId(), referee.getId(), commissionAmount);
+    }
+
+    /**
+     * 恢复挂起的Pro会员（VIP过期后）
+     */
+    private void restoreSuspendedPro(Member member) {
+        String suspendedType = member.getSuspendedMemberType();
+        Integer remainingMonths = member.getSuspendedRemainingMonths();
+
+        // 计算新的Pro到期时间 = VIP到期日 + 挂起剩余月数
+        OffsetDateTime newProExpireAt = member.getExpireAt() != null
+                ? member.getExpireAt().plusMonths(remainingMonths)
+                : OffsetDateTime.now().plusMonths(remainingMonths);
+
+        member.setMemberType(suspendedType);
+        member.setExpireAt(newProExpireAt);
+        member.setSuspendedMemberType(null);
+        member.setSuspendedExpireAt(null);
+        member.setSuspendedRemainingMonths(null);
+        member.setUpdatedAt(OffsetDateTime.now());
+        memberMapper.updateById(member);
+
+        log.info("VIP过期，恢复挂起会员: memberId={}, restoredType={}, newExpireAt={}",
+                member.getId(), suspendedType, newProExpireAt);
     }
 }

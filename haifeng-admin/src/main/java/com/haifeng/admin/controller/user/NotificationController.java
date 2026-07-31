@@ -8,11 +8,14 @@ import com.haifeng.admin.vo.user.NotificationListVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
+import com.haifeng.common.vo.user.NotificationTypeVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 用户管理 - 通知消息查询与系统公告群发
@@ -32,6 +35,14 @@ public class NotificationController {
     @GetMapping("/list")
     public R<IPage<NotificationListVO>> list(@Valid NotificationQueryDTO dto) {
         return R.ok(notificationService.page(dto));
+    }
+
+    /**
+     * 获取所有通知类型（含中文描述）
+     */
+    @GetMapping("/types")
+    public R<List<NotificationTypeVO>> types() {
+        return R.ok(NotificationTypeVO.all());
     }
 
     /**
@@ -71,6 +82,26 @@ public class NotificationController {
     @OperationLog(module = "用户管理", action = "恢复通知")
     public R<Void> restore(@PathVariable @Min(1) Long id) {
         notificationService.restore(id);
+        return R.ok();
+    }
+
+    /**
+     * 整批撤回群发公告（禁用整批）
+     */
+    @PostMapping("/broadcast/{broadcastId}/revoke")
+    @OperationLog(module = "用户管理", action = "撤回群发公告")
+    public R<Void> revokeBroadcast(@PathVariable @Min(1) Long broadcastId) {
+        notificationService.revokeBroadcast(broadcastId);
+        return R.ok();
+    }
+
+    /**
+     * 整批恢复群发公告
+     */
+    @PostMapping("/broadcast/{broadcastId}/restore")
+    @OperationLog(module = "用户管理", action = "恢复群发公告")
+    public R<Void> restoreBroadcast(@PathVariable @Min(1) Long broadcastId) {
+        notificationService.restoreBroadcast(broadcastId);
         return R.ok();
     }
 }

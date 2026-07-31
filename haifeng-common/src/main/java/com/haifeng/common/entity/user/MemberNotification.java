@@ -29,6 +29,8 @@ public class MemberNotification {
 
     private Long relatedId;
 
+    private Long broadcastId;
+
     private Boolean isRead;
 
     private OffsetDateTime readAt;

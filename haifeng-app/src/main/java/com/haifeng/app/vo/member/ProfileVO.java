@@ -11,8 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProfileVO {
 
-    private String realName;
-
     private String email;
 
     private String gender;

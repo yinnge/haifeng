@@ -8,7 +8,8 @@ public enum OrderStatus {
 
     PENDING("pending", "待处理"),
     COMPLETED("completed", "已完成"),
-    CANCELLED("cancelled", "已取消");
+    CANCELLED("cancelled", "已取消"),
+    REVOKED("revoked", "已撤销");
 
     @EnumValue
     private final String value;

@@ -82,7 +82,9 @@ public class CommissionServiceImpl implements CommissionService {
         }
 
         BigDecimal amount = dto.getAmount();
-        if (!ALLOWED_AMOUNTS.contains(amount)) {
+        boolean isAllowed = ALLOWED_AMOUNTS.stream()
+                .anyMatch(allowed -> allowed.compareTo(amount) == 0);
+        if (!isAllowed) {
             throw new BusinessException(400, "提现金额只能是50或100");
         }
 

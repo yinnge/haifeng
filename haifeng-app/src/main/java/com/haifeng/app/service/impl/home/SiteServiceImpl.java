@@ -43,6 +43,8 @@ public class SiteServiceImpl implements SiteService {
                 .siteIcp(settings.getSiteIcp())
                 .contactUrl(settings.getContactUrl())
                 .basicMessage(settings.getBasicMessage())
+                .proPrice(settings.getProPrice())
+                .vipPrice(settings.getVipPrice())
                 .build();
 
         // 写入缓存
