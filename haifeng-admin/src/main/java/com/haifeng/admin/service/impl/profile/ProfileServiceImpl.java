@@ -10,9 +10,13 @@ import com.haifeng.admin.vo.profile.TotpEnableVO;
 import com.haifeng.common.entity.permission.SysAdmin;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.permission.SysAdminMapper;
+import com.haifeng.common.mapper.system.AdminLogMapper;
+import com.haifeng.common.mapper.user.MemberOrderMapper;
+import com.haifeng.common.mapper.user.WithdrawRecordMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.TotpService;
 import com.haifeng.common.util.SecurityUtil;
+import com.haifeng.common.util.UsernameSyncHolder;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +37,9 @@ public class ProfileServiceImpl implements ProfileService {
     private final SysAdminMapper adminMapper;
     private final PasswordEncoder passwordEncoder;
     private final TotpService totpService;
+    private final MemberOrderMapper memberOrderMapper;
+    private final WithdrawRecordMapper withdrawRecordMapper;
+    private final AdminLogMapper adminLogMapper;
 
     @Override
     public ProfileVO getProfile() {
@@ -58,9 +65,12 @@ public class ProfileServiceImpl implements ProfileService {
     public void updateProfile(ProfileUpdateDTO dto) {
         SysAdmin admin = getCurrentAdmin();
 
+        boolean usernameChanged = false;
+
         if (StringUtils.hasText(dto.getUsername())) {
             checkFieldUnique("username", dto.getUsername(), admin.getId());
             admin.setUsername(dto.getUsername());
+            usernameChanged = true;
         }
         if (StringUtils.hasText(dto.getPhone())) {
             checkFieldUnique("phone", dto.getPhone(), admin.getId());
@@ -77,7 +87,21 @@ public class ProfileServiceImpl implements ProfileService {
         admin.setUpdatedAt(OffsetDateTime.now());
         adminMapper.updateById(admin);
 
+        if (usernameChanged) {
+            Long syncAdminId = admin.getId();
+            String syncUsername = admin.getUsername();
+            UsernameSyncHolder.set(() -> syncAdminInfo(syncAdminId, syncUsername));
+        }
+
         log.info("管理员更新个人信息: {}", admin.getUsername());
+    }
+
+    private void syncAdminInfo(Long adminId, String username) {
+        OffsetDateTime now = OffsetDateTime.now();
+        adminLogMapper.updateAdminName(adminId, username);
+        memberOrderMapper.updateOperatorName(adminId, username, now);
+        withdrawRecordMapper.updateOperatorName(adminId, username, now);
+        log.info("同步管理员用户名到关联表成功: adminId={}", adminId);
     }
 
     private void checkFieldUnique(String field, String value, Long excludeId) {

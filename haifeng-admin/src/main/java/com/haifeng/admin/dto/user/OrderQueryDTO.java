@@ -18,4 +18,6 @@ public class OrderQueryDTO extends BasePageQueryDTO {
     private String operatorName;
 
     private String orderType;
+
+    private String orderStatus;
 }

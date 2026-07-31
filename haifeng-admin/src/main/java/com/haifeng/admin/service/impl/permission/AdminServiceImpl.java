@@ -26,6 +26,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -61,9 +66,22 @@ public class AdminServiceImpl implements AdminService {
 
         IPage<SysAdmin> adminPage = adminMapper.selectPage(page, wrapper);
 
+        // 批量查询角色，填充 roleCode
+        Set<Long> roleIds = adminPage.getRecords().stream()
+                .map(SysAdmin::getRoleId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, SysRole> roleMap = roleIds.isEmpty() ? Collections.emptyMap() :
+                roleMapper.selectBatchIds(roleIds).stream()
+                .collect(Collectors.toMap(SysRole::getId, r -> r));
+
         return adminPage.convert(admin -> {
             AdminListVO vo = new AdminListVO();
             BeanUtils.copyProperties(admin, vo);
+            SysRole role = roleMap.get(admin.getRoleId());
+            if (role != null) {
+                vo.setRoleCode(role.getRoleCode());
+            }
             return vo;
         });
     }

@@ -65,3 +65,9 @@ logging:
   level:
     com.haifeng: debug
     org.springframework.security: debug
+
+# 安全配置（与 admin 保持一致）
+haifeng:
+  security:
+    aes-key: ${AES_SECRET_KEY}
+    hash-salt: ${HASH_SALT}

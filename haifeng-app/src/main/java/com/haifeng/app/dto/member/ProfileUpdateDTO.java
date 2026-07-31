@@ -7,9 +7,6 @@ import lombok.Data;
 @Data
 public class ProfileUpdateDTO {
 
-    @Size(max = 50, message = "真实姓名最多50个字符")
-    private String realName;
-
     @Email(message = "邮箱格式不正确")
     @Size(max = 100, message = "邮箱最多100个字符")
     private String email;

@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 public class SecurityProperties {
 
     /**
-     * AES 加密密钥（必须是 16/24/32 位）
+     * AES 加密密钥（必须是 16/24/32 位），从 .env 中的 AES_SECRET_KEY 读取
      */
-    private String aesKey = "haifeng_aes_key_16";
+    private String aesKey;
 
     /**
-     * 盲索引哈希盐值
+     * 盲索引哈希盐值，从 .env 中的 HASH_SALT 读取
      */
-    private String hashSalt = "haifeng_blind_index_salt_2024";
+    private String hashSalt;
 }

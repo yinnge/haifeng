@@ -32,5 +32,9 @@ public class OrderListVO {
 
     private BigDecimal amount;
 
+    private String status;
+
+    private String paymentMethod;
+
     private OffsetDateTime createdAt;
 }

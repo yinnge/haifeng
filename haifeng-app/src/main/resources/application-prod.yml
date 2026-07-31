@@ -69,3 +69,9 @@ logging:
   level:
     com.haifeng: info
     org.springframework.security: warn
+
+# 安全配置（统一从 .env 读取）
+haifeng:
+  security:
+    aes-key: ${AES_SECRET_KEY}
+    hash-salt: ${HASH_SALT}

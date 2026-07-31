@@ -31,4 +31,6 @@ public class CommissionListVO {
     private BigDecimal commissionAmount;
 
     private OffsetDateTime createdAt;
+
+    private Boolean deleted;
 }

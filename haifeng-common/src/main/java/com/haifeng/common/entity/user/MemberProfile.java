@@ -22,8 +22,6 @@ public class MemberProfile {
 
     private Long memberId;
 
-    private String realName;
-
     private String email;
 
     private String gender;

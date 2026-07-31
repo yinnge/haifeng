@@ -66,6 +66,21 @@ public class Member {
 
     private OffsetDateTime updatedAt;
 
+    /**
+     * 被挂起的会员类型（如Pro升级VIP时暂存pro）
+     */
+    private String suspendedMemberType;
+
+    /**
+     * 被挂起会员的到期时间
+     */
+    private OffsetDateTime suspendedExpireAt;
+
+    /**
+     * 被挂起会员的剩余月数
+     */
+    private Integer suspendedRemainingMonths;
+
     public boolean isVipActive() {
         if (!"vip".equals(memberType)) {
             return false;
@@ -76,14 +91,32 @@ public class Member {
         return expireAt.isAfter(OffsetDateTime.now());
     }
 
+    /**
+     * 获取有效的会员类型。
+     * VIP过期后，如果存在挂起的Pro，自动恢复Pro。
+     */
     public String getEffectiveMemberType() {
         if (isVipActive()) {
             return "vip";
+        }
+        // VIP已过期，检查是否有挂起的Pro需要恢复
+        if ("vip".equals(memberType) && suspendedMemberType != null && suspendedRemainingMonths != null) {
+            return suspendedMemberType;
         }
         if ("pro".equals(memberType)) {
             return "pro";
         }
         return "normal";
+    }
+
+    /**
+     * VIP过期后是否需要恢复挂起的Pro
+     */
+    public boolean needsSuspendedRestore() {
+        return "vip".equals(memberType)
+                && suspendedMemberType != null
+                && suspendedRemainingMonths != null
+                && (expireAt == null || expireAt.isBefore(OffsetDateTime.now()));
     }
 
     public boolean isActive() {

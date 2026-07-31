@@ -21,7 +21,7 @@ public interface DashboardMapper {
         @Param("end") OffsetDateTime end);
 
     @Select("SELECT DATE(created_at) AS date, COUNT(*) AS count " +
-            "FROM t_member_order " +
+            "FROM member_orders " +
             "WHERE created_at >= #{start} AND created_at < #{end} AND is_deleted = false " +
             "GROUP BY DATE(created_at) " +
             "ORDER BY DATE(created_at)")

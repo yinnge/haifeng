@@ -58,6 +58,8 @@ public class MemberOrder {
 
     private OrderStatus status;
 
+    private String paymentMethod;
+
     @TableLogic
     @TableField("is_deleted")
     private Boolean deleted;

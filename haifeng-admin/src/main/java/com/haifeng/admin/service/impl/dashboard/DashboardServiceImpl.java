@@ -31,6 +31,8 @@ import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -60,6 +62,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final SystemSettingsMapper systemSettingsMapper;
     private final SysAdminMapper sysAdminMapper;
     private final DashboardMapper dashboardMapper;
+    private final ObjectProvider<BuildProperties> buildPropertiesProvider;
 
     @Override
     public DashboardStatsVO getDashboardStats() {
@@ -108,7 +111,8 @@ public class DashboardServiceImpl implements DashboardService {
 
     private SystemInfoVO getSystemInfo() {
         SystemInfoVO info = new SystemInfoVO();
-        info.setAppVersion("1.0.0");
+        BuildProperties bp = buildPropertiesProvider.getIfAvailable();
+        info.setAppVersion(bp != null ? bp.getVersion() : "1.0.0");
         info.setSpringVersion("3.3.5");
         info.setJavaVersion("17");
 

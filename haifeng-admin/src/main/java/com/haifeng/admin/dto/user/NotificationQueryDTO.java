@@ -15,4 +15,7 @@ public class NotificationQueryDTO extends BasePageQueryDTO {
     private Long memberId;
 
     private Boolean isRead;
+
+    /** 是否显示已禁用的通知 */
+    private Boolean showDisabled;
 }

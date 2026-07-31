@@ -7,6 +7,7 @@ import com.haifeng.common.mapper.system.AdminLogMapper;
 import com.haifeng.common.util.IpUtil;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
+import com.haifeng.common.util.UsernameSyncHolder;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,6 +99,16 @@ public class OperationLogAspect {
                 adminLogMapper.insert(adminLogEntity);
             } catch (Exception e) {
                 log.error("保存操作日志到数据库失败", e);
+            }
+
+            // 执行延迟的用户名同步（确保在日志插入之后）
+            try {
+                Runnable pendingSync = UsernameSyncHolder.getAndClear();
+                if (pendingSync != null) {
+                    pendingSync.run();
+                }
+            } catch (Exception e) {
+                log.error("执行用户名同步失败", e);
             }
 
             log.info("[操作日志] 操作={}, 管理员={}, IP={}, 路径={}, 方法={}, 状态={}, 耗时={}ms",

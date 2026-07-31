@@ -7,10 +7,4 @@ import com.haifeng.admin.vo.user.CommissionListVO;
 public interface CommissionService {
 
     IPage<CommissionListVO> page(CommissionQueryDTO dto);
-
-    void delete(Long id);
-
-    void hardDelete(Long id);
-
-    void restore(Long id);
 }

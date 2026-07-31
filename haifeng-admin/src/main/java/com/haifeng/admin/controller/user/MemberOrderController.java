@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.user;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.user.OrderCreateDTO;
 import com.haifeng.admin.dto.user.OrderQueryDTO;
 import com.haifeng.admin.service.user.MemberOrderService;
 import com.haifeng.admin.vo.user.OrderDetailVO;
@@ -16,7 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 用户管理 - 会员订单查询（含查看微信明文、软/硬删除、恢复）
+ * 用户管理 - 会员订单管理（创建/确认/取消/撤销/查询/删除）
  */
 @RestController
 @RequestMapping("/api/v1/admin/user/order")
@@ -54,12 +55,42 @@ public class MemberOrderController {
     }
 
     /**
-     * 删除订单（软删除/禁用）
+     * 创建待支付订单
      */
-    @DeleteMapping("/{id}")
-    @OperationLog(module = "用户管理", action = "禁用订单")
-    public R<Void> delete(@PathVariable @Min(1) Long id) {
-        orderService.delete(id);
+    @PostMapping("/create")
+    @OperationLog(module = "用户管理", action = "创建升级订单")
+    public R<Long> createOrder(@Valid @RequestBody OrderCreateDTO dto) {
+        return R.ok(orderService.createOrder(dto));
+    }
+
+    /**
+     * 确认支付（触发升级）
+     */
+    @PutMapping("/{id}/confirm")
+    @OperationLog(module = "用户管理", action = "确认订单支付")
+    public R<Void> confirmOrder(@PathVariable @Min(1) Long id) {
+        orderService.confirmOrder(id);
+        return R.ok();
+    }
+
+    /**
+     * 取消待支付订单
+     */
+    @PutMapping("/{id}/cancel")
+    @OperationLog(module = "用户管理", action = "取消订单")
+    public R<Void> cancelOrder(@PathVariable @Min(1) Long id) {
+        orderService.cancelOrder(id);
+        return R.ok();
+    }
+
+    /**
+     * 撤销已确认订单（触发降级回退）
+     */
+    @PutMapping("/{id}/revoke")
+    @OperationLog(module = "用户管理", action = "撤销订单")
+    public R<Void> revokeOrder(@PathVariable @Min(1) Long id,
+                               @RequestParam(required = false) String remark) {
+        orderService.revokeOrder(id, remark);
         return R.ok();
     }
 
@@ -73,13 +104,4 @@ public class MemberOrderController {
         return R.ok();
     }
 
-    /**
-     * 恢复订单
-     */
-    @PutMapping("/{id}/restore")
-    @OperationLog(module = "用户管理", action = "恢复订单")
-    public R<Void> restore(@PathVariable @Min(1) Long id) {
-        orderService.restore(id);
-        return R.ok();
-    }
 }

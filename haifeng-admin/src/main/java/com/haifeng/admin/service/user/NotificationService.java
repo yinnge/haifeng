@@ -19,4 +19,10 @@ public interface NotificationService {
     void hardDelete(Long id);
 
     void restore(Long id);
+
+    /** 整批撤回群发公告（按 broadcast_id 禁用整批） */
+    void revokeBroadcast(Long broadcastId);
+
+    /** 整批恢复群发公告（按 broadcast_id 恢复整批） */
+    void restoreBroadcast(Long broadcastId);
 }

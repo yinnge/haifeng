@@ -33,4 +33,14 @@ public class MemberInfoVO {
     private String memberType;
 
     private OffsetDateTime expireAt;
+
+    /**
+     * 挂起的会员类型（如Pro升级VIP时暂存pro，VIP到期后恢复）
+     */
+    private String suspendedMemberType;
+
+    /**
+     * 挂起会员的恢复日期（VIP到期日，恢复后Pro有效期从该日期顺延）
+     */
+    private OffsetDateTime suspendedExpireAt;
 }

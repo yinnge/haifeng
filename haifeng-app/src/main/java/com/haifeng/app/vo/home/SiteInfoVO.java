@@ -18,4 +18,10 @@ public class SiteInfoVO {
     private ContactUrl contactUrl;
 
     private BasicMessage basicMessage;
+
+    /** Pro 会员年价格（分/元） */
+    private Integer proPrice;
+
+    /** VIP 会员年价格（分/元） */
+    private Integer vipPrice;
 }

@@ -28,6 +28,8 @@ public class AdminListVO {
 
     private String roleName;
 
+    private String roleCode;
+
     private Integer status;
 
     private OffsetDateTime lastLoginAt;

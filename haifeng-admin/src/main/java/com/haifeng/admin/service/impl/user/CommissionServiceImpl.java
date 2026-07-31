@@ -8,17 +8,13 @@ import com.haifeng.admin.service.user.CommissionService;
 import com.haifeng.admin.vo.user.CommissionListVO;
 import com.haifeng.common.entity.user.MemberOrder;
 import com.haifeng.common.entity.user.ReferralCommission;
-import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
 import com.haifeng.common.mapper.user.ReferralCommissionMapper;
-import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,7 +31,6 @@ public class CommissionServiceImpl implements CommissionService {
         Page<ReferralCommission> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<ReferralCommission> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ReferralCommission::getDeleted, false);
 
         if (StringUtils.hasText(dto.getReferrerPhone())) {
             wrapper.likeLeft(ReferralCommission::getReferrerPhone, dto.getReferrerPhone());
@@ -56,10 +51,13 @@ public class CommissionServiceImpl implements CommissionService {
             }
             wrapper.in(ReferralCommission::getOrderId, orderIds);
         }
+        if (dto.getDeleted() != null) {
+            wrapper.eq(ReferralCommission::getDeleted, dto.getDeleted());
+        }
 
         wrapper.orderByDesc(ReferralCommission::getCreatedAt);
 
-        IPage<ReferralCommission> commissionPage = referralCommissionMapper.selectPage(page, wrapper);
+        IPage<ReferralCommission> commissionPage = referralCommissionMapper.selectPageIgnoreDeleted(page, wrapper);
 
         return commissionPage.convert(commission -> {
             CommissionListVO vo = new CommissionListVO();
@@ -73,55 +71,9 @@ public class CommissionServiceImpl implements CommissionService {
             vo.setCommissionRate(commission.getCommissionRate());
             vo.setCommissionAmount(commission.getCommissionAmount());
             vo.setCreatedAt(commission.getCreatedAt());
+            vo.setDeleted(commission.getDeleted());
             return vo;
         });
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
-        ReferralCommission commission = referralCommissionMapper.selectById(id);
-        if (commission == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
-        }
-
-        commission.setDeleted(true);
-        commission.setUpdatedAt(OffsetDateTime.now());
-        referralCommissionMapper.updateById(commission);
-
-        log.info("删除佣金记录成功: commissionId={}", id);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void hardDelete(Long id) {
-        ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
-        if (commission == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
-        }
-
-        if (!commission.getDeleted()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "请先禁用该佣金记录，再执行硬删除");
-        }
-
-        referralCommissionMapper.hardDeleteById(id);
-        log.info("硬删除佣金记录成功: commissionId={}", id);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void restore(Long id) {
-        ReferralCommission commission = referralCommissionMapper.selectByIdIgnoreDeleted(id);
-        if (commission == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "佣金记录不存在");
-        }
-
-        if (!commission.getDeleted()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "该佣金记录未被禁用，无需恢复");
-        }
-
-        referralCommissionMapper.restoreById(id, OffsetDateTime.now());
-        log.info("恢复佣金记录成功: commissionId={}", id);
     }
 
     private List<Long> findOrderIdsByOrderNo(String orderNo) {

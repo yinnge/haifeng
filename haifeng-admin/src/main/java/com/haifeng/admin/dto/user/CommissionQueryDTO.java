@@ -23,4 +23,6 @@ public class CommissionQueryDTO extends BasePageQueryDTO {
 
     @Size(max = 50, message = "订单号长度不能超过50")
     private String orderNo;
+
+    private Boolean deleted;
 }
