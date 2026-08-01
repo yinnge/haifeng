@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.admin.dto.employment.civilService.CivilPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.civilService.CivilPositionExcelDTO;
@@ -124,15 +125,66 @@ public class CivilPositionServiceImpl implements CivilPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(CivilPositionAddDTO dto) {
+        long count = civilPositionMapper.selectCount(
+                Wrappers.lambdaQuery(CivilPosition.class)
+                        .eq(CivilPosition::getExamType, dto.getExamType())
+                        .eq(CivilPosition::getDeptCode, dto.getDeptCode())
+                        .eq(CivilPosition::getPositionCode, dto.getPositionCode())
+                        .eq(CivilPosition::getIsDeleted, false));
+        if (count > 0) {
+            throw new BusinessException(400, "职位已存在");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        CivilPosition entity = CivilPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .positionName(dto.getPositionName())
+                .examType(dto.getExamType())
+                .recruitingDept(dto.getRecruitingDept())
+                .deptCode(dto.getDeptCode())
+                .positionCode(dto.getPositionCode())
+                .affiliatedBureau(dto.getAffiliatedBureau())
+                .majorRequirement(dto.getMajorRequirement())
+                .minEducation(dto.getMinEducation())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .politicalStatus(dto.getPoliticalStatus())
+                .workExperience(dto.getWorkExperience())
+                .grassrootsExperience(dto.getGrassrootsExperience())
+                .examCategory(dto.getExamCategory())
+                .interviewRatio(dto.getInterviewRatio())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .hasProfessionalTest(dto.getHasProfessionalTest())
+                .workLocation(dto.getWorkLocation())
+                .workLocationDetail(dto.getWorkLocationDetail())
+                .householdRequirement(dto.getHouseholdRequirement())
+                .householdLocation(dto.getHouseholdLocation())
+                .positionIntro(dto.getPositionIntro())
+                .remark(dto.getRemark())
+                .officialWebsite(dto.getOfficialWebsite())
+                .contactPhone(dto.getContactPhone())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .regStatus(dto.getRegStatus())
+                .applicantCount(dto.getApplicantCount())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        civilPositionMapper.insert(entity);
+        log.info("新增公务员职位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         CivilPosition entity = civilPositionMapper.selectById(id);
         if (entity == null) {
             throw new BusinessException(404, "公务员职位不存在");
         }
-        entity.setIsDeleted(true);
-        entity.setUpdatedAt(OffsetDateTime.now());
-        civilPositionMapper.updateById(entity);
-        log.info("软删除公务员职位成功: id={}", id);
+        civilPositionMapper.physicalDeleteById(id);
+        log.info("物理删除公务员职位成功: id={}", id);
     }
 
     @Override
@@ -157,12 +209,8 @@ public class CivilPositionServiceImpl implements CivilPositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = civilPositionMapper.update(null,
-                Wrappers.lambdaUpdate(CivilPosition.class)
-                        .set(CivilPosition::getIsDeleted, true)
-                        .set(CivilPosition::getUpdatedAt, OffsetDateTime.now())
-                        .in(CivilPosition::getId, ids));
-        log.info("批量删除公务员职位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = civilPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除公务员职位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override
@@ -246,6 +294,8 @@ public class CivilPositionServiceImpl implements CivilPositionService {
             }
             if (!StringUtils.hasText(dto.getExamType())) {
                 errors.add("考试类型不能为空");
+            } else if (!"国考".equals(dto.getExamType()) && !"省考".equals(dto.getExamType())) {
+                errors.add("考试类型只能是 国考 或 省考");
             }
             if (!errors.isEmpty()) {
                 errorMsg.append("第").append(row).append("行: ").append(String.join("; ", errors)).append("\n");

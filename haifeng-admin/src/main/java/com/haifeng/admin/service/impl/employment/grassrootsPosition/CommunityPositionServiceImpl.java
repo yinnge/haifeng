@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.CommunityPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.grassrootsPosition.CommunityPositionExcelDTO;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -203,14 +205,73 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(CommunityPositionAddDTO dto) {
+        boolean exists = communityPositionMapper.selectCount(
+                Wrappers.lambdaQuery(CommunityPosition.class)
+                        .eq(CommunityPosition::getPositionName, dto.getPositionName())
+                        .eq(CommunityPosition::getProvince, dto.getProvince())
+                        .eq(CommunityPosition::getCity, dto.getCity())
+                        .eq(CommunityPosition::getIsDeleted, false)) > 0;
+        if (exists) {
+            throw new BusinessException(400, "岗位已存在");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        CommunityPosition entity = CommunityPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .streetOffice(dto.getStreetOffice())
+                .communityName(dto.getCommunityName())
+                .supervisingDept(dto.getSupervisingDept())
+                .district(dto.getDistrict())
+                .positionName(dto.getPositionName())
+                .positionType(dto.getPositionType())
+                .employmentType(dto.getEmploymentType())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .workLocation(dto.getWorkLocation())
+                .educationRequirement(dto.getEducationRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .majorRequirement(dto.getMajorRequirement())
+                .householdRequirement(dto.getHouseholdRequirement())
+                .politicalStatus(dto.getPoliticalStatus())
+                .workExperience(dto.getWorkExperience())
+                .socialWorkCert(dto.getSocialWorkCert())
+                .communityExperience(dto.getCommunityExperience())
+                .residenceRequirement(dto.getResidenceRequirement())
+                .salaryRange(dto.getSalaryRange())
+                .salaryComposition(dto.getSalaryComposition())
+                .benefits(dto.getBenefits())
+                .examContent(dto.getExamContent())
+                .interviewForm(dto.getInterviewForm())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .examTime(dto.getExamTime())
+                .positionStatus(dto.getPositionStatus())
+                .applyLink(dto.getApplyLink())
+                .applyMethod(dto.getApplyMethod())
+                .contactPhone(dto.getContactPhone())
+                .contactAddress(dto.getContactAddress())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        communityPositionMapper.insert(entity);
+        log.info("新增社区工作者岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         CommunityPosition entity = communityPositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "社区工作者岗位不存在");
         }
-        entity.setIsDeleted(true);
-        communityPositionMapper.updateById(entity);
-        log.info("软删除社区工作者岗位成功: id={}", id);
+        communityPositionMapper.physicalDeleteById(id);
+        log.info("物理删除社区工作者岗位成功: id={}", id);
     }
 
     @Override
@@ -231,12 +292,8 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = communityPositionMapper.update(null,
-                Wrappers.lambdaUpdate(CommunityPosition.class)
-                        .set(CommunityPosition::getIsDeleted, true)
-                        .eq(CommunityPosition::getIsDeleted, false)
-                        .in(CommunityPosition::getId, ids));
-        log.info("批量删除社区工作者岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = communityPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除社区工作者岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionUpdateDTO;
 import com.haifeng.admin.excel.employment.industryPosition.HealthcarePositionExcelDTO;
@@ -203,14 +204,63 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(HealthcarePositionAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        HealthcarePosition entity = HealthcarePosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .institutionName(dto.getInstitutionName())
+                .institutionType(dto.getInstitutionType())
+                .institutionLevel(dto.getInstitutionLevel())
+                .institutionNature(dto.getInstitutionNature())
+                .positionName(dto.getPositionName())
+                .department(dto.getDepartment())
+                .positionCategory(dto.getPositionCategory())
+                .recruitmentType(dto.getRecruitmentType())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .district(dto.getDistrict())
+                .educationRequirement(dto.getEducationRequirement())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .majorRequirement(dto.getMajorRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .workExperience(dto.getWorkExperience())
+                .licenseRequirement(dto.getLicenseRequirement())
+                .titleRequirement(dto.getTitleRequirement())
+                .internshipRequirement(dto.getInternshipRequirement())
+                .researchRequirement(dto.getResearchRequirement())
+                .salaryRange(dto.getSalaryRange())
+                .benefits(dto.getBenefits())
+                .housingSubsidy(dto.getHousingSubsidy())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .examTime(dto.getExamTime())
+                .examContent(dto.getExamContent())
+                .applyLink(dto.getApplyLink())
+                .positionStatus(dto.getPositionStatus())
+                .contactPhone(dto.getContactPhone())
+                .contactPerson(dto.getContactPerson())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        healthcarePositionMapper.insert(entity);
+        log.info("新增医疗卫生岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         HealthcarePosition healthcarePosition = healthcarePositionMapper.selectById(id);
         if (healthcarePosition == null || Boolean.TRUE.equals(healthcarePosition.getIsDeleted())) {
             throw new BusinessException(404, "医疗卫生岗位不存在");
         }
-        healthcarePosition.setIsDeleted(true);
-        healthcarePositionMapper.updateById(healthcarePosition);
-        log.info("软删除医疗卫生岗位成功: id={}", id);
+        healthcarePositionMapper.physicalDeleteById(id);
+        log.info("物理删除医疗卫生岗位成功: id={}", id);
     }
 
     @Override
@@ -231,12 +281,8 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = healthcarePositionMapper.update(null,
-                Wrappers.lambdaUpdate(HealthcarePosition.class)
-                        .set(HealthcarePosition::getIsDeleted, true)
-                        .eq(HealthcarePosition::getIsDeleted, false)
-                        .in(HealthcarePosition::getId, ids));
-        log.info("批量删除医疗卫生岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = healthcarePositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除医疗卫生岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.contentManagement;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeAddDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeQueryDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeStatusDTO;
 import com.haifeng.admin.dto.employment.contentManagement.notice.NoticeUpdateDTO;
@@ -46,6 +47,12 @@ public class NoticeController {
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody NoticeUpdateDTO dto) {
         noticeService.update(id, dto);
         return R.ok();
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "招聘内容管理", action = "新增公告")
+    public R<Long> create(@Valid @RequestBody NoticeAddDTO dto) {
+        return R.ok(noticeService.add(dto));
     }
 
     @DeleteMapping("/{id}/delete")

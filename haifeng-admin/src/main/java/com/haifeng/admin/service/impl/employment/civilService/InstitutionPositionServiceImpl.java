@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.admin.dto.employment.civilService.InstitutionPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.InstitutionPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.InstitutionPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.civilService.InstitutionPositionExcelDTO;
@@ -124,15 +125,62 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(InstitutionPositionAddDTO dto) {
+        long count = institutionPositionMapper.selectCount(
+                Wrappers.lambdaQuery(InstitutionPosition.class)
+                        .eq(InstitutionPosition::getPositionName, dto.getPositionName())
+                        .eq(InstitutionPosition::getProvince, dto.getProvince())
+                        .eq(InstitutionPosition::getIsDeleted, false));
+        if (count > 0) {
+            throw new BusinessException(400, "职位已存在");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        InstitutionPosition entity = InstitutionPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .positionName(dto.getPositionName())
+                .supervisingDept(dto.getSupervisingDept())
+                .institution(dto.getInstitution())
+                .workLocation(dto.getWorkLocation())
+                .province(dto.getProvince())
+                .examCategory(dto.getExamCategory())
+                .positionType(dto.getPositionType())
+                .subCategory(dto.getSubCategory())
+                .educationRequirement(dto.getEducationRequirement())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .salaryRange(dto.getSalaryRange())
+                .regDeadline(dto.getRegDeadline())
+                .majorRequirements(dto.getMajorRequirements())
+                .specialPosition(dto.getSpecialPosition())
+                .otherRequirement(dto.getOtherRequirement())
+                .otherRequirementDesc(dto.getOtherRequirementDesc())
+                .remarkType(dto.getRemarkType())
+                .remarkDesc(dto.getRemarkDesc())
+                .consultationPhone(dto.getConsultationPhone())
+                .supervisionPhone(dto.getSupervisionPhone())
+                .positionStatus(dto.getPositionStatus())
+                .positionTag(dto.getPositionTag())
+                .tagText(dto.getTagText())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        institutionPositionMapper.insert(entity);
+        log.info("新增事业编职位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         InstitutionPosition entity = institutionPositionMapper.selectById(id);
         if (entity == null) {
             throw new BusinessException(404, "事业编职位不存在");
         }
-        entity.setIsDeleted(true);
-        entity.setUpdatedAt(OffsetDateTime.now());
-        institutionPositionMapper.updateById(entity);
-        log.info("软删除事业编职位成功: id={}", id);
+        institutionPositionMapper.physicalDeleteById(id);
+        log.info("物理删除事业编职位成功: id={}", id);
     }
 
     @Override
@@ -157,12 +205,8 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = institutionPositionMapper.update(null,
-                Wrappers.lambdaUpdate(InstitutionPosition.class)
-                        .set(InstitutionPosition::getIsDeleted, true)
-                        .set(InstitutionPosition::getUpdatedAt, OffsetDateTime.now())
-                        .in(InstitutionPosition::getId, ids));
-        log.info("批量删除事业编职位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = institutionPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除事业编职位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

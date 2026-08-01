@@ -19,4 +19,6 @@ public class NoticeListVO {
     private Boolean isImportant;
     private Integer viewCount;
     private Integer sortOrder;
+    /** 是否禁用（true=已禁用，列表可见；user 端不可见） */
+    private Boolean isDeleted;
 }

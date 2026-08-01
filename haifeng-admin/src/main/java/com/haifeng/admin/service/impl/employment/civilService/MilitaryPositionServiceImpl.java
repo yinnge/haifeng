@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.civilService.MilitaryPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.civilService.MilitaryPositionExcelDTO;
@@ -134,14 +135,42 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(MilitaryPositionAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        MilitaryPosition entity = MilitaryPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .positionName(dto.getPositionName())
+                .employerUnit(dto.getEmployerUnit())
+                .department(dto.getDepartment())
+                .positionType(dto.getPositionType())
+                .workLocation(dto.getWorkLocation())
+                .salaryRange(dto.getSalaryRange())
+                .majorRequirement(dto.getMajorRequirement())
+                .educationRequirement(dto.getEducationRequirement())
+                .regDeadline(dto.getRegDeadline())
+                .positionStatus(dto.getPositionStatus())
+                .positionDescription(dto.getPositionDescription())
+                .responsibilities(dto.getResponsibilities())
+                .qualifications(dto.getQualifications())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        militaryPositionMapper.insert(entity);
+        log.info("新增部队文职岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         MilitaryPosition entity = militaryPositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "部队文职岗位不存在");
         }
-        entity.setIsDeleted(true);
-        militaryPositionMapper.updateById(entity);
-        log.info("软删除部队文职岗位成功: id={}", id);
+        militaryPositionMapper.physicalDeleteById(id);
+        log.info("物理删除部队文职岗位成功: id={}", id);
     }
 
     @Override
@@ -162,12 +191,8 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = militaryPositionMapper.update(null,
-                Wrappers.lambdaUpdate(MilitaryPosition.class)
-                        .set(MilitaryPosition::getIsDeleted, true)
-                        .eq(MilitaryPosition::getIsDeleted, false)
-                        .in(MilitaryPosition::getId, ids));
-        log.info("批量删除部队文职岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = militaryPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除部队文职岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

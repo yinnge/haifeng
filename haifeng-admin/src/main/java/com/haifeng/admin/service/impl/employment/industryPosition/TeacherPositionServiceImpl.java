@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.industryPosition.TeacherPositionExcelDTO;
@@ -205,14 +206,62 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(TeacherPositionAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        TeacherPosition entity = TeacherPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .schoolName(dto.getSchoolName())
+                .schoolType(dto.getSchoolType())
+                .schoolNature(dto.getSchoolNature())
+                .supervisingDept(dto.getSupervisingDept())
+                .positionName(dto.getPositionName())
+                .subject(dto.getSubject())
+                .recruitmentType(dto.getRecruitmentType())
+                .province(dto.getProvince())
+                .city(dto.getCity())
+                .district(dto.getDistrict())
+                .educationRequirement(dto.getEducationRequirement())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .majorRequirement(dto.getMajorRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .teacherCertRequirement(dto.getTeacherCertRequirement())
+                .teacherCertSubject(dto.getTeacherCertSubject())
+                .putonghuaLevel(dto.getPutonghuaLevel())
+                .otherCertRequirement(dto.getOtherCertRequirement())
+                .workExperience(dto.getWorkExperience())
+                .isNormalMajor(dto.getIsNormalMajor())
+                .salaryRange(dto.getSalaryRange())
+                .benefits(dto.getBenefits())
+                .examContent(dto.getExamContent())
+                .interviewForm(dto.getInterviewForm())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .examTime(dto.getExamTime())
+                .positionStatus(dto.getPositionStatus())
+                .applyLink(dto.getApplyLink())
+                .contactPhone(dto.getContactPhone())
+                .remark(dto.getRemark())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        teacherPositionMapper.insert(entity);
+        log.info("新增教师招聘岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         TeacherPosition teacherPosition = teacherPositionMapper.selectById(id);
         if (teacherPosition == null || Boolean.TRUE.equals(teacherPosition.getIsDeleted())) {
             throw new BusinessException(404, "教师招聘岗位不存在");
         }
-        teacherPosition.setIsDeleted(true);
-        teacherPositionMapper.updateById(teacherPosition);
-        log.info("软删除教师招聘岗位成功: id={}", id);
+        teacherPositionMapper.physicalDeleteById(id);
+        log.info("物理删除教师招聘岗位成功: id={}", id);
     }
 
     @Override
@@ -233,12 +282,8 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = teacherPositionMapper.update(null,
-                Wrappers.lambdaUpdate(TeacherPosition.class)
-                        .set(TeacherPosition::getIsDeleted, true)
-                        .eq(TeacherPosition::getIsDeleted, false)
-                        .in(TeacherPosition::getId, ids));
-        log.info("批量删除教师招聘岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = teacherPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除教师招聘岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

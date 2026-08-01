@@ -24,7 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/employment/industry-position/healthcare")
 @RequiredArgsConstructor
-@RequireAdminModule(",emp_industry_medical")
+@RequireAdminModule("emp_industry_medical")
 @Validated
 public class HealthcarePositionController {
 
@@ -45,6 +45,12 @@ public class HealthcarePositionController {
     public R<Void> update(@PathVariable Long id, @Valid @RequestBody HealthcarePositionUpdateDTO dto) {
         healthcarePositionService.update(id, dto);
         return R.ok();
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "行业专项招聘", action = "新增医疗卫生岗位")
+    public R<Long> create(@Valid @RequestBody HealthcarePositionAddDTO dto) {
+        return R.ok(healthcarePositionService.add(dto));
     }
 
     @DeleteMapping("/{id}/delete")

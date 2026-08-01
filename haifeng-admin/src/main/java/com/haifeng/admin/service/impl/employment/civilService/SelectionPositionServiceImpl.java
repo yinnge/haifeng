@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.dto.employment.civilService.SelectionPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionUpdateDTO;
 import com.haifeng.admin.excel.employment.civilService.SelectionPositionExcelDTO;
@@ -187,14 +188,61 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long add(SelectionPositionAddDTO dto) {
+        OffsetDateTime now = OffsetDateTime.now();
+        SelectionPosition entity = SelectionPosition.builder()
+                .id(SnowflakeIdGenerator.nextId())
+                .positionName(dto.getPositionName())
+                .selectionType(dto.getSelectionType())
+                .year(dto.getYear())
+                .province(dto.getProvince())
+                .organizingDept(dto.getOrganizingDept())
+                .targetUnit(dto.getTargetUnit())
+                .workLocation(dto.getWorkLocation())
+                .trainingDirection(dto.getTrainingDirection())
+                .grassrootsServiceYears(dto.getGrassrootsServiceYears())
+                .trainingPlan(dto.getTrainingPlan())
+                .educationRequirement(dto.getEducationRequirement())
+                .degreeRequirement(dto.getDegreeRequirement())
+                .majorRequirement(dto.getMajorRequirement())
+                .majorCategories(dto.getMajorCategories())
+                .universityRequirement(dto.getUniversityRequirement())
+                .targetUniversities(dto.getTargetUniversities())
+                .politicalStatus(dto.getPoliticalStatus())
+                .studentCadreRequirement(dto.getStudentCadreRequirement())
+                .awardsRequirement(dto.getAwardsRequirement())
+                .ageLimit(dto.getAgeLimit())
+                .recruitmentCount(dto.getRecruitmentCount())
+                .examSubjects(dto.getExamSubjects())
+                .interviewForm(dto.getInterviewForm())
+                .regStartDate(dto.getRegStartDate())
+                .regEndDate(dto.getRegEndDate())
+                .examTime(dto.getExamTime())
+                .applyLink(dto.getApplyLink())
+                .positionStatus(dto.getPositionStatus())
+                .remark(dto.getRemark())
+                .contactPhone(dto.getContactPhone())
+                .officialLink(dto.getOfficialLink())
+                .content(dto.getContent())
+                .sortOrder(dto.getSortOrder())
+                .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        selectionPositionMapper.insert(entity);
+        log.info("新增选调生岗位成功: id={}", entity.getId());
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         SelectionPosition entity = selectionPositionMapper.selectById(id);
         if (entity == null || entity.getIsDeleted()) {
             throw new BusinessException(404, "选调生岗位不存在");
         }
-        entity.setIsDeleted(true);
-        selectionPositionMapper.updateById(entity);
-        log.info("软删除选调生岗位成功: id={}", id);
+        selectionPositionMapper.physicalDeleteById(id);
+        log.info("物理删除选调生岗位成功: id={}", id);
     }
 
     @Override
@@ -215,12 +263,8 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        int updated = selectionPositionMapper.update(null,
-                Wrappers.lambdaUpdate(SelectionPosition.class)
-                        .set(SelectionPosition::getIsDeleted, true)
-                        .eq(SelectionPosition::getIsDeleted, false)
-                        .in(SelectionPosition::getId, ids));
-        log.info("批量删除选调生岗位成功: requested={}, actual={}", ids.size(), updated);
+        int deleted = selectionPositionMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除选调生岗位成功: requested={}, actual={}", ids.size(), deleted);
     }
 
     @Override

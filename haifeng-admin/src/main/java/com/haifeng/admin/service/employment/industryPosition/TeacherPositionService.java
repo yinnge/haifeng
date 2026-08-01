@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.industryPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.teacher.TeacherPositionUpdateDTO;
 import com.haifeng.admin.vo.employment.industryPosition.teacher.TeacherPositionDetailVO;
@@ -12,6 +13,7 @@ import java.util.List;
 public interface TeacherPositionService {
     IPage<TeacherPositionListVO> page(TeacherPositionQueryDTO dto);
     TeacherPositionDetailVO detail(Long id);
+    Long add(TeacherPositionAddDTO dto);
     void update(Long id, TeacherPositionUpdateDTO dto);
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);

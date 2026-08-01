@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.employment.civilService;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.civilService.CivilPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.CivilPositionUpdateDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.StatusDTO;
@@ -40,6 +41,12 @@ public class CivilPositionController {
     @GetMapping("/{id}/detail")
     public R<CivilPositionDetailVO> detail(@PathVariable Long id) {
         return R.ok(civilPositionService.detail(id));
+    }
+
+    @PostMapping("/create")
+    @OperationLog(module = "体制内招录", action = "新增公务员职位")
+    public R<Long> create(@Valid @RequestBody CivilPositionAddDTO dto) {
+        return R.ok(civilPositionService.add(dto));
     }
 
     @PutMapping("/{id}/update")

@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.employment.industryPosition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionAddDTO;
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionQueryDTO;
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionUpdateDTO;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.HealthcarePositionDetailVO;
@@ -12,6 +13,7 @@ import java.util.List;
 public interface HealthcarePositionService {
     IPage<HealthcarePositionListVO> page(HealthcarePositionQueryDTO dto);
     HealthcarePositionDetailVO detail(Long id);
+    Long add(HealthcarePositionAddDTO dto);
     void update(Long id, HealthcarePositionUpdateDTO dto);
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);

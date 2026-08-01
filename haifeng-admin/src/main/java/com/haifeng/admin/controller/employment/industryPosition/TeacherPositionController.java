@@ -47,6 +47,12 @@ public class TeacherPositionController {
         return R.ok();
     }
 
+    @PostMapping("/create")
+    @OperationLog(module = "行业专项招聘", action = "新增教师招聘岗位")
+    public R<Long> create(@Valid @RequestBody TeacherPositionAddDTO dto) {
+        return R.ok(teacherPositionService.add(dto));
+    }
+
     @DeleteMapping("/{id}/delete")
     @OperationLog(module = "行业专项招聘", action = "删除教师招聘岗位")
     public R<Void> delete(@PathVariable Long id) {
