@@ -41,6 +41,11 @@ public class SiteServiceImpl implements SiteService {
 
         SiteInfoVO vo = SiteInfoVO.builder()
                 .siteIcp(settings.getSiteIcp())
+                .siteDescription(
+                    settings.getSiteDescription() != null && !settings.getSiteDescription().isEmpty()
+                        ? settings.getSiteDescription()
+                        : "© 2026 海枫未来规划院 版权所有"
+                )
                 .contactUrl(settings.getContactUrl())
                 .basicMessage(settings.getBasicMessage())
                 .proPrice(settings.getProPrice())

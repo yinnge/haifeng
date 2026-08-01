@@ -10,6 +10,7 @@ import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.PlannerService;
 import com.haifeng.admin.vo.home.PlannerDetailVO;
 import com.haifeng.admin.vo.home.PlannerListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.home.Planner;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.PlannerMapper;
@@ -17,11 +18,13 @@ import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,6 +32,7 @@ import java.time.OffsetDateTime;
 public class PlannerServiceImpl implements PlannerService {
 
     private final PlannerMapper plannerMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public IPage<PlannerListVO> page(PlannerQueryDTO dto) {
@@ -99,6 +103,7 @@ public class PlannerServiceImpl implements PlannerService {
 
         plannerMapper.insert(planner);
 
+        evictCache();
         log.info("新增规划师成功: id={}, name={}", id, dto.getName());
         return id;
     }
@@ -127,6 +132,7 @@ public class PlannerServiceImpl implements PlannerService {
 
         plannerMapper.updateById(planner);
 
+        evictCache();
         log.info("更新规划师成功: id={}, name={}", id, dto.getName());
     }
 
@@ -143,6 +149,7 @@ public class PlannerServiceImpl implements PlannerService {
 
         plannerMapper.updateById(planner);
 
+        evictCache();
         log.info("更新规划师状态成功: id={}, status={}", id, dto.getStatus());
     }
 
@@ -155,6 +162,18 @@ public class PlannerServiceImpl implements PlannerService {
 
         plannerMapper.hardDeleteById(id);
 
+        evictCache();
         log.info("硬删除规划师成功: id={}", id);
+    }
+
+    private void evictCache() {
+        Set<String> listKeys = redisTemplate.keys(RedisKeyConstant.HOME_PLANNER_LIST_PREFIX + "*");
+        if (listKeys != null && !listKeys.isEmpty()) {
+            redisTemplate.delete(listKeys);
+        }
+        Set<String> detailKeys = redisTemplate.keys(RedisKeyConstant.HOME_PLANNER_DETAIL_PREFIX + "*");
+        if (detailKeys != null && !detailKeys.isEmpty()) {
+            redisTemplate.delete(detailKeys);
+        }
     }
 }

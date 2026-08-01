@@ -10,6 +10,7 @@ import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.AnnouncementService;
 import com.haifeng.admin.vo.home.AnnouncementDetailVO;
 import com.haifeng.admin.vo.home.AnnouncementListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.home.Announcement;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.AnnouncementMapper;
@@ -17,11 +18,13 @@ import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,6 +32,7 @@ import java.time.OffsetDateTime;
 public class AnnouncementServiceImpl implements AnnouncementService {
 
     private final AnnouncementMapper announcementMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public IPage<AnnouncementListVO> page(AnnouncementQueryDTO dto) {
@@ -89,6 +93,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
         announcementMapper.insert(announcement);
 
+        evictCache();
         log.info("新增公告成功: id={}, title={}", id, dto.getTitle());
         return id;
     }
@@ -108,6 +113,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
         announcementMapper.updateById(announcement);
 
+        evictCache();
         log.info("更新公告成功: id={}, title={}", id, dto.getTitle());
     }
 
@@ -124,6 +130,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
         announcementMapper.updateById(announcement);
 
+        evictCache();
         log.info("更新公告状态成功: id={}, status={}", id, dto.getStatus());
     }
 
@@ -136,6 +143,18 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
         announcementMapper.hardDeleteById(id);
 
+        evictCache();
         log.info("硬删除公告成功: id={}", id);
+    }
+
+    private void evictCache() {
+        Set<String> listKeys = redisTemplate.keys(RedisKeyConstant.HOME_ANNOUNCEMENT_LIST_PREFIX + "*");
+        if (listKeys != null && !listKeys.isEmpty()) {
+            redisTemplate.delete(listKeys);
+        }
+        Set<String> detailKeys = redisTemplate.keys(RedisKeyConstant.HOME_ANNOUNCEMENT_DETAIL_PREFIX + "*");
+        if (detailKeys != null && !detailKeys.isEmpty()) {
+            redisTemplate.delete(detailKeys);
+        }
     }
 }

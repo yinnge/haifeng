@@ -30,6 +30,7 @@ public class SystemSettings {
 
     private String siteIcp;
 
+    @TableField("site_description")
     private String siteDescription;
 
     /**

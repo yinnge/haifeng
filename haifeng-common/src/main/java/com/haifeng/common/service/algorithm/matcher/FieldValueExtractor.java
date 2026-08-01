@@ -57,9 +57,9 @@ public class FieldValueExtractor {
         FIELD_GETTERS.put("score_chinese", MemberGaokao::getScoreChinese);
         FIELD_GETTERS.put("score_math", MemberGaokao::getScoreMath);
         FIELD_GETTERS.put("score_english", MemberGaokao::getScoreEnglish);
-        FIELD_GETTERS.put("score_subject1", MemberGaokao::getScoreSubject1);
-        FIELD_GETTERS.put("score_subject2", MemberGaokao::getScoreSubject2);
-        FIELD_GETTERS.put("score_subject3", MemberGaokao::getScoreSubject3);
+        FIELD_GETTERS.put("score_subject_1", MemberGaokao::getScoreSubject1);
+        FIELD_GETTERS.put("score_subject_2", MemberGaokao::getScoreSubject2);
+        FIELD_GETTERS.put("score_subject_3", MemberGaokao::getScoreSubject3);
 
         // 批次信息
         FIELD_GETTERS.put("batch", MemberGaokao::getBatch);
