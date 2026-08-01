@@ -1,6 +1,7 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -93,16 +94,19 @@ public class MemberGaokao {
     /**
      * 第一科目分数
      */
+    @TableField("score_subject_1")
     private Integer scoreSubject1;
 
     /**
      * 第二科目分数
      */
+    @TableField("score_subject_2")
     private Integer scoreSubject2;
 
     /**
      * 第三科目分数
      */
+    @TableField("score_subject_3")
     private Integer scoreSubject3;
 
     // ========== 五、外语语种 ==========

@@ -3,6 +3,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   application:
     name: haifeng-app
+  jackson:
+    default-property-inclusion: non_null
 
 server:
   port: ${APP_PORT:8080}

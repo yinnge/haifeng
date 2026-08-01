@@ -10,6 +10,7 @@ import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.InstitutionService;
 import com.haifeng.admin.vo.home.InstitutionDetailVO;
 import com.haifeng.admin.vo.home.InstitutionListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.home.Institution;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.InstitutionMapper;
@@ -17,11 +18,13 @@ import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,6 +32,7 @@ import java.time.OffsetDateTime;
 public class InstitutionServiceImpl implements InstitutionService {
 
     private final InstitutionMapper institutionMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public IPage<InstitutionListVO> page(InstitutionQueryDTO dto) {
@@ -100,6 +104,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.insert(institution);
 
+        evictCache();
         log.info("新增培训机构成功: id={}, name={}", id, dto.getName());
         return id;
     }
@@ -125,6 +130,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.updateById(institution);
 
+        evictCache();
         log.info("更新培训机构成功: id={}, name={}", id, dto.getName());
     }
 
@@ -141,6 +147,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.updateById(institution);
 
+        evictCache();
         log.info("更新培训机构状态成功: id={}, status={}", id, dto.getStatus());
     }
 
@@ -153,6 +160,18 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.hardDeleteById(id);
 
+        evictCache();
         log.info("硬删除培训机构成功: id={}", id);
+    }
+
+    private void evictCache() {
+        Set<String> listKeys = redisTemplate.keys(RedisKeyConstant.HOME_INSTITUTION_LIST_PREFIX + "*");
+        if (listKeys != null && !listKeys.isEmpty()) {
+            redisTemplate.delete(listKeys);
+        }
+        Set<String> detailKeys = redisTemplate.keys(RedisKeyConstant.HOME_INSTITUTION_DETAIL_PREFIX + "*");
+        if (detailKeys != null && !detailKeys.isEmpty()) {
+            redisTemplate.delete(detailKeys);
+        }
     }
 }

@@ -13,7 +13,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SiteInfoVO {
 
+    private static final long serialVersionUID = 1L;
+
     private String siteIcp;
+
+    private String siteDescription;
 
     private ContactUrl contactUrl;
 
