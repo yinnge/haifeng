@@ -28,7 +28,7 @@ public interface MajorMapper extends BaseMapper<Major> {
      * 按 major_category 分组统计专业数量（仅 status=1）
      * Service 层负责转换为 List<MajorCategoryStatVO>
      */
-    @Select("SELECT major_category AS majorCategory, COUNT(*) AS count " +
+    @Select("SELECT major_category AS \"majorCategory\", COUNT(*) AS \"count\" " +
             "FROM t_major " +
             "WHERE status = 1 AND major_category IS NOT NULL " +
             "GROUP BY major_category " +

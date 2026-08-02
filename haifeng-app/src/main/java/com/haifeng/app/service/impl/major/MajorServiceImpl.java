@@ -167,6 +167,8 @@ public class MajorServiceImpl implements MajorService {
                 .id(row.get("id") != null ? ((Number) row.get("id")).longValue() : null)
                 .postgradMajorName(row.get("postgradMajorName") != null
                         ? String.valueOf(row.get("postgradMajorName")) : null)
+                .category(row.get("category") != null
+                        ? String.valueOf(row.get("category")) : null)
                 .build());
     }
 

@@ -51,7 +51,7 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
      * 任务2接口3：分页查询某竞赛关联的专业（id + name）
      * 走 idx_cm_competition 索引
      */
-    @Select("SELECT cm.major_id AS majorId, cm.major_name AS majorName " +
+    @Select("SELECT cm.major_id AS \"majorId\", cm.major_name AS \"majorName\" " +
             "FROM t_competition_major cm " +
             "WHERE cm.competition_id = #{competitionId} " +
             "ORDER BY cm.id ASC NULLS LAST")
@@ -63,7 +63,7 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
      * 任务3：分页查询某专业关联的竞赛（id + name）
      * 走 idx_cm_major 索引
      */
-    @Select("SELECT cm.competition_id AS competitionId, cm.competition_name AS competitionName " +
+    @Select("SELECT cm.competition_id AS \"competitionId\", cm.competition_name AS \"competitionName\" " +
             "FROM t_competition_major cm " +
             "WHERE cm.major_id = #{majorId} " +
             "ORDER BY cm.id ASC NULLS LAST")

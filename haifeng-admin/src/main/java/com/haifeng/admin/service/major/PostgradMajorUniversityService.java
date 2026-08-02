@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.major;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.major.PostgradMajorUniversityAddDTO;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityQueryDTO;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.PostgradMajorUniversityListVO;
@@ -9,6 +10,7 @@ import java.util.List;
 
 public interface PostgradMajorUniversityService {
     IPage<PostgradMajorUniversityListVO> list(PostgradMajorUniversityQueryDTO queryDTO);
+    Long add(PostgradMajorUniversityAddDTO dto);
     void softDelete(Long id);
     void hardDelete(Long id);
     void batchSoftDelete(List<Long> ids);

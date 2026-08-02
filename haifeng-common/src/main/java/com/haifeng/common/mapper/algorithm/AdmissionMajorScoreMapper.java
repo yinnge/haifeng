@@ -1,12 +1,16 @@
 package com.haifeng.common.mapper.algorithm;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.algorithm.MajorHistoryItem;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -32,6 +36,10 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
             @Param("majorCode") String majorCode,
             @Param("excludeId") Integer excludeId);
 
+    /**
+     * 分页查询（含已禁用）。constraints 是数组列，
+     * 自定义 @Select 不套 typeHandler，必须用 @Results 显式声明 StringListTypeHandler。
+     */
     @Select("<script>" +
             "SELECT * FROM t_admission_major_score " +
             "<where>" +
@@ -43,10 +51,19 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
             "</where>" +
             "ORDER BY major_code ASC, id ASC" +
             "</script>")
+    @Results({
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
     IPage<AdmissionMajorScore> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
 
-    @Select("SELECT * FROM t_admission_major_score WHERE id = #{id}")
-    AdmissionMajorScore selectByIdCustom(@Param("id") Integer id);
+    /**
+     * 按ID查询。走 MP 内置 selectOne，autoResultMap 才会给 constraints 套 StringListTypeHandler。
+     */
+    default AdmissionMajorScore selectByIdCustom(Integer id) {
+        return selectOne(new LambdaQueryWrapper<AdmissionMajorScore>()
+                .eq(AdmissionMajorScore::getId, id)
+                .last("LIMIT 1"));
+    }
 
     /**
      * 批量查询专业历史数据（原始 Map 形式）

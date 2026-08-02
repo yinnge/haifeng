@@ -5,12 +5,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.admin.dto.major.PostgradMajorUniversityAddDTO;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityImportDTO;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityQueryDTO;
 import com.haifeng.admin.service.major.PostgradMajorUniversityService;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.major.PostgradMajorUniversityListVO;
+import com.haifeng.common.entity.major.PostgradMajor;
 import com.haifeng.common.entity.major.PostgradMajorUniversity;
+import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.major.PostgradMajorMapper;
 import com.haifeng.common.mapper.major.PostgradMajorUniversityMapper;
@@ -74,6 +77,48 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
             vo.setStatus(entity.getStatus() != null ? entity.getStatus().intValue() : null);
             return vo;
         });
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long add(PostgradMajorUniversityAddDTO dto) {
+        // 1. 外键校验：考研专业必须存在且启用
+        PostgradMajor postgradMajor = postgradMajorMapper.selectById(dto.getPostgradMajorId());
+        if (postgradMajor == null || postgradMajor.getStatus() == null || postgradMajor.getStatus() != 1) {
+            throw new BusinessException(400, "考研专业不存在或已禁用");
+        }
+
+        // 2. 外键校验：大学必须存在且启用
+        University university = universityMapper.selectById(dto.getUniversityId());
+        if (university == null || university.getStatus() == null || university.getStatus() != 1) {
+            throw new BusinessException(400, "大学不存在或已禁用");
+        }
+
+        // 3. 唯一性校验：同一(考研专业, 大学)组合不能重复
+        if (postgradMajorUniversityMapper.existsByRelation(dto.getPostgradMajorId(), dto.getUniversityId())) {
+            throw new BusinessException(400, "该考研专业与大学的关联已存在");
+        }
+
+        // 4. 组装实体并插入（冗余写入名称，与列表/导入保持一致）
+        OffsetDateTime now = OffsetDateTime.now();
+        Long id = SnowflakeIdGenerator.nextId();
+        PostgradMajorUniversity entity = PostgradMajorUniversity.builder()
+                .id(id)
+                .postgradMajorId(dto.getPostgradMajorId())
+                .universityId(dto.getUniversityId())
+                .universityName(university.getName())
+                .postgradMajorName(postgradMajor.getMajorName())
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                .status((short) 1)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        postgradMajorUniversityMapper.insert(entity);
+
+        log.info("新增考研专业-大学关联成功: id={}, postgradMajorId={}, universityId={}",
+                id, dto.getPostgradMajorId(), dto.getUniversityId());
+        return id;
     }
 
     @Override

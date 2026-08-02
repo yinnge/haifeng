@@ -1,26 +1,36 @@
 package com.haifeng.common.mapper.certificate;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.certificate.CompetitionDetail;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface CompetitionDetailMapper extends BaseMapper<CompetitionDetail> {
 
-    @Select("SELECT * FROM t_competition_detail WHERE competition_id = #{competitionId}")
-    CompetitionDetail findByCompetitionId(@Param("competitionId") Long competitionId);
+    /**
+     * 根据 competitionId 查询竞赛详情（含已删除）。
+     * 走 MP 内置 selectOne，autoResultMap 才会给 8 个 JSONB/数组字段套 typeHandler。
+     */
+    default CompetitionDetail findByCompetitionId(Long competitionId) {
+        return selectOne(new LambdaQueryWrapper<CompetitionDetail>()
+                .eq(CompetitionDetail::getCompetitionId, competitionId)
+                .last("LIMIT 1"));
+    }
 
     /**
      * 根据 competitionId 查询未软删除的竞赛详情
      * Service 层任务2接口2 专用
      */
-    @Select("SELECT * FROM t_competition_detail " +
-            "WHERE competition_id = #{competitionId} AND is_deleted = FALSE")
-    CompetitionDetail findActiveByCompetitionId(@Param("competitionId") Long competitionId);
+    default CompetitionDetail findActiveByCompetitionId(Long competitionId) {
+        return selectOne(new LambdaQueryWrapper<CompetitionDetail>()
+                .eq(CompetitionDetail::getCompetitionId, competitionId)
+                .eq(CompetitionDetail::getIsDeleted, false)
+                .last("LIMIT 1"));
+    }
 
     @Delete("DELETE FROM t_competition_detail WHERE competition_id = #{competitionId}")
     int deleteByCompetitionId(@Param("competitionId") Long competitionId);

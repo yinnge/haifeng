@@ -2,9 +2,12 @@ package com.haifeng.common.mapper.user;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.user.MemberOrder;
+import com.haifeng.common.handler.AESEncryptTypeHandler;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import org.apache.ibatis.session.RowBounds;
@@ -18,7 +21,15 @@ public interface MemberOrderMapper extends BaseMapper<MemberOrder> {
     @Delete("DELETE FROM member_orders WHERE id = #{id}")
     int hardDeleteById(@Param("id") Long id);
 
+    /**
+     * 查询订单（含已禁用/已删除）。wechat_id 是 AES 加密列，
+     * 自定义 @Select 不会自动套用实体上的 AESEncryptTypeHandler，
+     * 必须通过 @Results 显式声明该列的 typeHandler，否则返回密文。
+     */
     @Select("SELECT *, is_deleted AS deleted FROM member_orders WHERE id = #{id}")
+    @Results({
+            @Result(column = "wechat_id", property = "wechatId", typeHandler = AESEncryptTypeHandler.class)
+    })
     MemberOrder selectByIdIgnoreDeleted(@Param("id") Long id);
 
     @Update("UPDATE member_orders SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
@@ -49,6 +60,9 @@ public interface MemberOrderMapper extends BaseMapper<MemberOrder> {
             "<if test='orderStatus != null and orderStatus != \"\"'> AND status = #{orderStatus} </if>" +
             "ORDER BY created_at DESC" +
             "</script>")
+    @Results({
+            @Result(column = "wechat_id", property = "wechatId", typeHandler = AESEncryptTypeHandler.class)
+    })
     List<MemberOrder> selectAllWithDisabled(
             @Param("phone") String phone,
             @Param("wechatIdIndex") String wechatIdIndex,

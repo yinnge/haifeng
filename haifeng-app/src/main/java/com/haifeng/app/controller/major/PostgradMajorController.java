@@ -13,6 +13,7 @@ import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
+import java.util.List;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
@@ -64,5 +65,12 @@ public class PostgradMajorController {
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long postgradMajorId,
             @Valid BasePageQueryDTO dto) {
         return R.ok(postgradMajorService.undergraduateMajors(postgradMajorId, dto));
+    }
+
+    /** 学科门类枚举（已发布专业去重，登录） */
+    @RequireLogin
+    @GetMapping("/discipline-categories")
+    public R<List<String>> disciplineCategories() {
+        return R.ok(postgradMajorService.disciplineCategories());
     }
 }

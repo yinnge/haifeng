@@ -1,11 +1,15 @@
 package com.haifeng.common.mapper.certificate;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.certificate.Certificate;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 import java.util.List;
@@ -21,6 +25,8 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
 
     /**
      * 忽略逻辑删除，查询所有数据（启用+禁用）
+     * exam_requirements 是数组列，自定义 @Select 不套 typeHandler，
+     * 必须用 @Results 显式声明 StringListTypeHandler。
      */
     @Select("<script>" +
             "SELECT * FROM t_certificate" +
@@ -33,6 +39,9 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
             "</where>" +
             "ORDER BY created_at DESC" +
             "</script>")
+    @Results({
+            @Result(column = "exam_requirements", property = "examRequirements", typeHandler = StringListTypeHandler.class)
+    })
     IPage<Certificate> selectPageIgnoreLogicDelete(Page<Certificate> page,
                                                    @Param("isDeleted") Boolean isDeleted,
                                                    @Param("certName") String certName,
@@ -41,10 +50,14 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
                                                    @Param("applicableMajor") String applicableMajor);
 
     /**
-     * 忽略逻辑删除，根据ID查询（可用于查询已禁用的数据）
+     * 忽略逻辑删除，根据ID查询（可用于查询已禁用的数据）。
+     * 走 MP 内置 selectOne，autoResultMap 才会给 exam_requirements 套 StringListTypeHandler。
      */
-    @Select("SELECT * FROM t_certificate WHERE id = #{id}")
-    Certificate findByIdIgnoreLogicDelete(@Param("id") Long id);
+    default Certificate findByIdIgnoreLogicDelete(Long id) {
+        return selectOne(new LambdaQueryWrapper<Certificate>()
+                .eq(Certificate::getId, id)
+                .last("LIMIT 1"));
+    }
 
     /**
      * 忽略逻辑删除，直接更新is_deleted字段
