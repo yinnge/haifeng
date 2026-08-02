@@ -198,8 +198,10 @@ public class CivilPositionServiceImpl implements CivilPositionService {
             entity.setRegStatus("报名中");
         } else if (status == 1) {
             entity.setRegStatus("已结束");
+        } else if (status == 2) {
+            entity.setRegStatus("即将开始");
         } else {
-            throw new BusinessException(400, "状态值不合法，0=报名中，1=已结束");
+            throw new BusinessException(400, "状态值不合法，0=报名中，1=已结束，2=即将开始");
         }
         entity.setUpdatedAt(OffsetDateTime.now());
         civilPositionMapper.updateById(entity);
