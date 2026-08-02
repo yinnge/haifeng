@@ -1,5 +1,6 @@
 package com.haifeng.common.mapper.industry;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.haifeng.common.entity.industry.IndustryDetail;
 import org.apache.ibatis.annotations.Delete;
@@ -14,8 +15,16 @@ import java.util.List;
 @Mapper
 public interface IndustryDetailMapper extends BaseMapper<IndustryDetail> {
 
-    @Select("SELECT * FROM t_industry_detail WHERE industry_id = #{industryId} LIMIT 1")
-    IndustryDetail findByIndustryId(@Param("industryId") Long industryId);
+    /**
+     * 按产业ID查询详情。
+     * 必须走 MP 内置 selectOne（autoResultMap 才能套上 JsonbTypeHandler），
+     * 自定义 @Select 不套 typeHandler，JSONB(Map) 字段会反序列化为 null。
+     */
+    default IndustryDetail findByIndustryId(Long industryId) {
+        return selectOne(new LambdaQueryWrapper<IndustryDetail>()
+                .eq(IndustryDetail::getIndustryId, industryId)
+                .last("LIMIT 1"));
+    }
 
     @Update("UPDATE t_industry_detail SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE industry_id = #{industryId}")
     int updateIsDeletedByIndustryId(@Param("industryId") Long industryId, @Param("isDeleted") Boolean isDeleted);

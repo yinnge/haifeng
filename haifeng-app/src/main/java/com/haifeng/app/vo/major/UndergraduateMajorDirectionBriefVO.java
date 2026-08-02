@@ -18,4 +18,5 @@ public class UndergraduateMajorDirectionBriefVO implements Serializable {
 
     private Long id;
     private String majorName;
+    private String category;
 }

@@ -9,6 +9,8 @@ import com.haifeng.app.vo.major.UniversityBriefForPostgradVO;
 import com.haifeng.app.vo.major.UndergraduateMajorDirectionBriefVO;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 
+import java.util.List;
+
 public interface PostgradMajorService {
 
     /** 任务2接口1：考研专业列表（登录） */
@@ -22,4 +24,7 @@ public interface PostgradMajorService {
 
     /** 任务1接口2（关联查询）：考研方向 → 本科专业列表（Pro） */
     IPage<UndergraduateMajorDirectionBriefVO> undergraduateMajors(Long postgradMajorId, BasePageQueryDTO dto);
+
+    /** 学科门类枚举（已发布专业去重，登录） */
+    List<String> disciplineCategories();
 }

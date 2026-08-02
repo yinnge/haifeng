@@ -9,6 +9,7 @@ import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,5 +33,12 @@ public class CampusGalleryController {
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid CampusGalleryQueryDTO dto) {
         return R.ok(galleryService.page(universityId, dto));
+    }
+
+    @RequireLogin
+    @GetMapping("/{universityId}/gallery/types")
+    public R<List<String>> galleryTypes(
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
+        return R.ok(galleryService.listImageTypes(universityId));
     }
 }

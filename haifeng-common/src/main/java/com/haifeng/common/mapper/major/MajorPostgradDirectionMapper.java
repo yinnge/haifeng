@@ -20,7 +20,7 @@ public interface MajorPostgradDirectionMapper extends BaseMapper<MajorPostgradDi
      * 接口1：给定本科专业 id，分页返回关联的考研专业（id + 名称）
      * 走 idx_mpd_major 索引 → 主键回表 t_postgrad_major → status 过滤
      */
-    @Select("SELECT pm.id AS id, pm.major_name AS postgradMajorName " +
+    @Select("SELECT pm.id AS \"id\", pm.major_name AS \"postgradMajorName\", pm.discipline_category AS \"category\" " +
             "FROM t_major_postgrad_direction mpd " +
             "JOIN t_postgrad_major pm ON pm.id = mpd.postgrad_major_id " +
             "WHERE mpd.major_id = #{majorId} AND pm.status = 1 " +
@@ -33,7 +33,7 @@ public interface MajorPostgradDirectionMapper extends BaseMapper<MajorPostgradDi
      * 接口2：给定考研专业 id，分页返回关联的本科专业（id + 名称）
      * 走 idx_mpd_postgrad 索引 → 主键回表 t_major → status 过滤
      */
-    @Select("SELECT m.id AS id, m.major_name AS majorName " +
+    @Select("SELECT m.id AS \"id\", m.major_name AS \"majorName\", m.major_category AS \"category\" " +
             "FROM t_major_postgrad_direction mpd " +
             "JOIN t_major m ON m.id = mpd.major_id " +
             "WHERE mpd.postgrad_major_id = #{postgradMajorId} AND m.status = 1 " +

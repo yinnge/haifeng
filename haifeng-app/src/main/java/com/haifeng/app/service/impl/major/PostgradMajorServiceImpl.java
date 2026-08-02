@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -111,7 +112,14 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                 .id(row.get("id") != null ? ((Number) row.get("id")).longValue() : null)
                 .majorName(row.get("majorName") != null
                         ? String.valueOf(row.get("majorName")) : null)
+                .category(row.get("category") != null
+                        ? String.valueOf(row.get("category")) : null)
                 .build());
+    }
+
+    @Override
+    public List<String> disciplineCategories() {
+        return postgradMajorMapper.selectDistinctDisciplineCategories();
     }
 
     private UniversityBriefForPostgradVO toUniversityBriefVO(Map<String, Object> row) {
@@ -122,8 +130,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                 .build();
     }
 
-    private PostgradMajorListVO toListVO(PostgradMajor e) {
-        return PostgradMajorListVO.builder()
+    private PostgradMajorListVO toListVO(PostgradMajor e) {        return PostgradMajorListVO.builder()
                 .id(e.getId())
                 .majorName(e.getMajorName())
                 .majorCode(e.getMajorCode())

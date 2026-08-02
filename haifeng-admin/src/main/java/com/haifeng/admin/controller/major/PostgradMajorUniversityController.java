@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.major;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.major.PostgradMajorUniversityAddDTO;
 import com.haifeng.admin.dto.major.PostgradMajorUniversityQueryDTO;
 import com.haifeng.admin.dto.university.BatchDeleteDTO;
 import com.haifeng.admin.service.major.PostgradMajorUniversityService;
@@ -33,6 +34,15 @@ public class PostgradMajorUniversityController {
     @GetMapping("/list")
     public R<IPage<PostgradMajorUniversityListVO>> list(@Valid PostgradMajorUniversityQueryDTO dto) {
         return R.ok(postgradMajorUniversityService.list(dto));
+    }
+
+    /**
+     * 新增考研专业-大学关联（校验考研专业/大学存在且启用，同一组合不可重复）
+     */
+    @PostMapping
+    @OperationLog(module = "考研专业-大学关联管理", action = "新增考研专业-大学关联")
+    public R<Long> add(@Valid @RequestBody PostgradMajorUniversityAddDTO dto) {
+        return R.ok(postgradMajorUniversityService.add(dto));
     }
 
     /**

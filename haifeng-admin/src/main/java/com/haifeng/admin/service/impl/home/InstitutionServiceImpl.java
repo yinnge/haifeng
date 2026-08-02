@@ -23,7 +23,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.OffsetDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
 @Slf4j
@@ -104,7 +110,12 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.insert(institution);
 
-        evictCache();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                evictCache();
+            }
+        });
         log.info("新增培训机构成功: id={}, name={}", id, dto.getName());
         return id;
     }
@@ -130,7 +141,12 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.updateById(institution);
 
-        evictCache();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                evictCache();
+            }
+        });
         log.info("更新培训机构成功: id={}, name={}", id, dto.getName());
     }
 
@@ -147,7 +163,12 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         institutionMapper.updateById(institution);
 
-        evictCache();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                evictCache();
+            }
+        });
         log.info("更新培训机构状态成功: id={}, status={}", id, dto.getStatus());
     }
 
@@ -165,13 +186,30 @@ public class InstitutionServiceImpl implements InstitutionService {
     }
 
     private void evictCache() {
-        Set<String> listKeys = redisTemplate.keys(RedisKeyConstant.HOME_INSTITUTION_LIST_PREFIX + "*");
-        if (listKeys != null && !listKeys.isEmpty()) {
-            redisTemplate.delete(listKeys);
+        try {
+            Set<String> listKeys = scanKeys(RedisKeyConstant.HOME_INSTITUTION_LIST_PREFIX + "*");
+            if (!listKeys.isEmpty()) {
+                redisTemplate.delete(listKeys);
+            }
+            Set<String> detailKeys = scanKeys(RedisKeyConstant.HOME_INSTITUTION_DETAIL_PREFIX + "*");
+            if (!detailKeys.isEmpty()) {
+                redisTemplate.delete(detailKeys);
+            }
+        } catch (Exception e) {
+            log.error("清除培训机构缓存失败", e);
         }
-        Set<String> detailKeys = redisTemplate.keys(RedisKeyConstant.HOME_INSTITUTION_DETAIL_PREFIX + "*");
-        if (detailKeys != null && !detailKeys.isEmpty()) {
-            redisTemplate.delete(detailKeys);
+    }
+
+    private Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        try (Cursor<String> cursor = redisTemplate.scan(
+                ScanOptions.scanOptions().match(pattern).count(100).build())) {
+            while (cursor.hasNext()) {
+                keys.add(cursor.next());
+            }
+        } catch (Exception e) {
+            log.warn("SCAN 缓存 key 失败, pattern={}", pattern, e);
         }
+        return keys;
     }
 }

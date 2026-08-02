@@ -17,6 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -53,5 +56,19 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
                 .imageType(e.getImageType())
                 .imageUrl(e.getImageUrl())
                 .build();
+    }
+
+    @Override
+    public List<String> listImageTypes(Long universityId) {
+        LambdaQueryWrapper<CampusGallery> wrapper = new LambdaQueryWrapper<CampusGallery>()
+                .select(CampusGallery::getImageType)
+                .eq(CampusGallery::getUniversityId, universityId)
+                .eq(CampusGallery::getStatus, STATUS_PUBLISHED)
+                .isNotNull(CampusGallery::getImageType)
+                .orderByAsc(CampusGallery::getImageType);
+        return galleryMapper.selectObjs(wrapper).stream()
+                .map(Object::toString)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

@@ -1,11 +1,15 @@
 package com.haifeng.common.mapper.algorithm;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -14,8 +18,15 @@ import java.util.List;
 @Mapper
 public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
-    @Select("SELECT * FROM t_admission_group WHERE id = #{id}")
-    AdmissionGroup findByIdIgnoreLogicDelete(@Param("id") Integer id);
+    /**
+     * 按ID查询（忽略逻辑删除语义，实体无 @TableLogic）。
+     * 走 MP 内置 selectOne，autoResultMap 才会给 subjects/constraints 套 StringListTypeHandler。
+     */
+    default AdmissionGroup findByIdIgnoreLogicDelete(Integer id) {
+        return selectOne(new LambdaQueryWrapper<AdmissionGroup>()
+                .eq(AdmissionGroup::getId, id)
+                .last("LIMIT 1"));
+    }
 
     @Update("UPDATE t_admission_group SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
@@ -35,6 +46,10 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("batch") String batch,
             @Param("groupCode") String groupCode);
 
+    /**
+     * 分页查询（含已禁用）。subjects/constraints 是数组列，
+     * 自定义 @Select 不套 typeHandler，必须用 @Results 显式声明 StringListTypeHandler。
+     */
     @Select("<script>" +
             "SELECT * FROM t_admission_group" +
             "<where>" +
@@ -53,6 +68,10 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</where>" +
             "ORDER BY year DESC, university_id ASC, group_code ASC" +
             "</script>")
+    @Results({
+            @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
     IPage<AdmissionGroup> selectPageIgnoreLogicDelete(Page<AdmissionGroup> page,
                                                        @Param("isDeleted") Boolean isDeleted,
                                                        @Param("universityName") String universityName,
@@ -84,6 +103,10 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</foreach> " +
             "ORDER BY university_id, group_code, year DESC" +
             "</script>")
+    @Results({
+            @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
     List<AdmissionGroup> selectHistoryByKeys(@Param("keys") List<GroupKey> keys, @Param("province") String province, @Param("minYear") Short minYear);
 
     /**
@@ -120,6 +143,10 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "ORDER BY min_rank ASC NULLS LAST " +
             "LIMIT #{size} OFFSET #{offset}" +
             "</script>")
+    @Results({
+            @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
     List<AdmissionGroup> selectPageByCondition(
             @Param("province") String province,
             @Param("batch") String batch,

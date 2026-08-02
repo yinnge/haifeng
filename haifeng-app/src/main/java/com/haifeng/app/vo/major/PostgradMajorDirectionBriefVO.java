@@ -18,4 +18,5 @@ public class PostgradMajorDirectionBriefVO implements Serializable {
 
     private Long id;
     private String postgradMajorName;
+    private String category;
 }
