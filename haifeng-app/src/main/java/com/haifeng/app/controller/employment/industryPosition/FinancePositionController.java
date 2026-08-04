@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/app/employment/finance")
@@ -33,5 +35,13 @@ public class FinancePositionController {
     @GetMapping("/{id}/detail")
     public R<FinancePositionDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
         return R.ok(financePositionService.detail(id));
+    }
+
+    /**
+     * 获取动态筛选选项（岗位类别去重值列表）
+     */
+    @GetMapping("/filters")
+    public R<Map<String, Object>> getFilters() {
+        return R.ok(financePositionService.getFilters());
     }
 }

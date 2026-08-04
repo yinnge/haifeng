@@ -139,7 +139,8 @@ public class NoticeServiceImpl implements NoticeService {
     public void updateStatus(Long id, Integer status) {
         // 用自定义 @Update 直写 is_deleted：MP 的 update(wrapper)/updateById 都会自动注入
         // WHERE is_deleted=false，导致已禁用记录（is_deleted=true）无法更新（0 行）误报 404
-        int updated = noticeMapper.updateIsDeleted(id, status == 0);
+        // status 语义与查询一致：0=启用（is_deleted=false），1=禁用（is_deleted=true）
+        int updated = noticeMapper.updateIsDeleted(id, status != 0);
         if (updated == 0) {
             throw new BusinessException(404, "公告不存在");
         }

@@ -16,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -156,5 +159,12 @@ public class FinancePositionServiceImpl implements FinancePositionService {
             return info.substring(0, 3) + "****" + info.substring(info.length() - 4);
         }
         return info.substring(0, 1) + "****" + info.substring(info.length() - 1);
+    }
+
+    @Override
+    public Map<String, Object> getFilters() {
+        Map<String, Object> filters = new HashMap<>();
+        filters.put("positionCategory", financePositionMapper.selectDistinctPositionCategories());
+        return filters;
     }
 }

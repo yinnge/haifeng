@@ -30,4 +30,5 @@ public class PublicWelfarePositionListVO implements Serializable {
     private Integer maxServiceYears;
     private OffsetDateTime regStartDate;
     private OffsetDateTime regEndDate;
+    private String positionStatus;
 }

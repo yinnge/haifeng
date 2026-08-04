@@ -16,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -137,5 +140,14 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
             return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
         }
         return phone.charAt(0) + "****" + phone.charAt(phone.length() - 1);
+    }
+
+    @Override
+    public Map<String, Object> getFilters() {
+        Map<String, Object> filters = new HashMap<>();
+        filters.put("examCategory", institutionPositionMapper.selectDistinctExamCategories());
+        filters.put("positionType", institutionPositionMapper.selectDistinctPositionTypes());
+        filters.put("specialPosition", institutionPositionMapper.selectDistinctSpecialPositions());
+        return filters;
     }
 }

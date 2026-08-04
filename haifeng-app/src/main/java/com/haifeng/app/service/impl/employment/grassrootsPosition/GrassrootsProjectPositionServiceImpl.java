@@ -80,6 +80,9 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
                 .ageLimit(p.getAgeLimit())
                 .recruitmentCount(p.getRecruitmentCount())
                 .politicalStatus(p.getPoliticalStatus())
+                .positionStatus(p.getPositionStatus())
+                .regStartDate(p.getRegStartDate())
+                .regEndDate(p.getRegEndDate())
                 .build());
     }
 

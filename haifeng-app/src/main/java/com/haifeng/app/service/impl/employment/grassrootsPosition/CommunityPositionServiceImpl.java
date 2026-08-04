@@ -76,6 +76,7 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
                 .recruitmentCount(p.getRecruitmentCount())
                 .majorRequirement(p.getMajorRequirement())
                 .workExperience(p.getWorkExperience())
+                .positionStatus(p.getPositionStatus())
                 .build());
     }
 
