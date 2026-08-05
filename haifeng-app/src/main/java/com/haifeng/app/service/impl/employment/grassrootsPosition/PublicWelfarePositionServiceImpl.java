@@ -81,6 +81,7 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
                 .maxServiceYears(p.getMaxServiceYears())
                 .regStartDate(p.getRegStartDate())
                 .regEndDate(p.getRegEndDate())
+                .positionStatus(p.getPositionStatus())
                 .build());
     }
 

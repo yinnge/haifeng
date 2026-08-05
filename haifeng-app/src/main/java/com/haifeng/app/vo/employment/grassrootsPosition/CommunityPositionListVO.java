@@ -26,4 +26,5 @@ public class CommunityPositionListVO implements Serializable {
     private Integer recruitmentCount;
     private String majorRequirement;
     private String workExperience;
+    private String positionStatus;
 }

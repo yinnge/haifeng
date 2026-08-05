@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -31,4 +32,7 @@ public class GrassrootsProjectPositionListVO implements Serializable {
     private Integer ageLimit;
     private Integer recruitmentCount;
     private String politicalStatus;
+    private String positionStatus;
+    private OffsetDateTime regStartDate;
+    private OffsetDateTime regEndDate;
 }
