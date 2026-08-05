@@ -26,6 +26,17 @@ public interface IndustryDetailMapper extends BaseMapper<IndustryDetail> {
                 .last("LIMIT 1"));
     }
 
+    /**
+     * 按产业ID查询详情（忽略逻辑删除），实现见 IndustryDetailMapper.xml，JSONB 列走 JsonbTypeHandler。
+     */
+    IndustryDetail findByIndustryIdIgnoreLogicDelete(@Param("industryId") Long industryId);
+
+    /**
+     * 更新行业详情（忽略逻辑删除，仅按 id），实现见 IndustryDetailMapper.xml，
+     * 只更新非空字段，镜像 MP updateById 的 NOT_NULL 策略。
+     */
+    int updateByIdIgnoreLogicDelete(IndustryDetail detail);
+
     @Update("UPDATE t_industry_detail SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE industry_id = #{industryId}")
     int updateIsDeletedByIndustryId(@Param("industryId") Long industryId, @Param("isDeleted") Boolean isDeleted);
 

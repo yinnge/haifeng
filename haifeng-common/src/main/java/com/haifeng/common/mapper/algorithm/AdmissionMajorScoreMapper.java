@@ -23,6 +23,24 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
     @Update("UPDATE t_admission_major_score SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
 
+    /**
+     * 自定义全量更新（绕过 MP 全局逻辑删除过滤器，可更新已禁用记录）。
+     * constraints 是 PostgreSQL text[] 数组列，通过 typeHandler 显式指定。
+     */
+    @Update("UPDATE t_admission_major_score SET " +
+            "group_id = #{groupId}, major_id = #{majorId}, " +
+            "major_code = #{majorCode}, major_name = #{majorName}, " +
+            "education_level = #{educationLevel}, duration = #{duration}, " +
+            "tuition = #{tuition}, description = #{description}, " +
+            "admission_count = #{admissionCount}, " +
+            "min_score = #{minScore}, min_rank = #{minRank}, " +
+            "avg_score = #{avgScore}, avg_rank = #{avgRank}, " +
+            "max_score = #{maxScore}, max_rank = #{maxRank}, " +
+            "constraints = #{constraints,typeHandler=com.haifeng.common.config.StringListTypeHandler}, " +
+            "updated_at = NOW() " +
+            "WHERE id = #{id}")
+    int updateByIdCustom(AdmissionMajorScore entity);
+
     @Select("<script>" +
             "SELECT COUNT(*) FROM t_admission_major_score " +
             "WHERE group_id = #{groupId} AND major_code = #{majorCode} " +
@@ -57,13 +75,14 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
     IPage<AdmissionMajorScore> selectPageCustom(Page<?> page, @Param("params") Map<String, Object> params);
 
     /**
-     * 按ID查询。走 MP 内置 selectOne，autoResultMap 才会给 constraints 套 StringListTypeHandler。
+     * 按ID查询（自定义SQL绕过全局逻辑删除，可查到已禁用记录）。
+     * constraints 是数组列，必须用 @Results 显式声明 StringListTypeHandler。
      */
-    default AdmissionMajorScore selectByIdCustom(Integer id) {
-        return selectOne(new LambdaQueryWrapper<AdmissionMajorScore>()
-                .eq(AdmissionMajorScore::getId, id)
-                .last("LIMIT 1"));
-    }
+    @Select("SELECT * FROM t_admission_major_score WHERE id = #{id}")
+    @Results({
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
+    AdmissionMajorScore selectByIdCustom(@Param("id") Integer id);
 
     /**
      * 批量查询专业历史数据（原始 Map 形式）

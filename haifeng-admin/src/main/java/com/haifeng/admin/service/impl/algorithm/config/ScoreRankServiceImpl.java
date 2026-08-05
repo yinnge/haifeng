@@ -127,7 +127,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         existing.setSameScoreCount(dto.getSameScoreCount());
         existing.setCumulativeCount(dto.getCumulativeCount());
 
-        scoreRankMapper.updateById(existing);
+        scoreRankMapper.updateByIdCustom(existing);
         log.info("修改一分一段记录，id={}", id);
     }
 

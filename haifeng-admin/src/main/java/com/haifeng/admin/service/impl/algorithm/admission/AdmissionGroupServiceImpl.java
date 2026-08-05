@@ -116,7 +116,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionGroupAddDTO dto) {
         AdmissionGroup existing = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
-        if (existing == null || existing.getIsDeleted()) {
+        if (existing == null) {
             throw new BusinessException(404, "专业组不存在");
         }
 
@@ -148,7 +148,10 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         existing.setUniversityId(university.getId());
         existing.setUniversityName(university.getName());
         existing.setCityName(university.getCityName());
-        admissionGroupMapper.updateById(existing);
+        int rows = admissionGroupMapper.updateByIdCustom(existing);
+        if (rows == 0) {
+            throw new BusinessException(500, "更新专业组失败，记录可能已被修改或不存在，请刷新后重试");
+        }
         log.info("更新专业组成功，id={}", id);
     }
 
@@ -179,9 +182,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                         .eq(AdmissionMajorScore::getGroupId, id)
                         .eq(AdmissionMajorScore::getIsDeleted, false));
 
-        // 再软删除专业组
-        entity.setIsDeleted(true);
-        admissionGroupMapper.updateById(entity);
+        // 再软删除专业组（用自定义SQL绕过全局逻辑删除的 SET 排除）
+        admissionGroupMapper.updateIsDeletedById(id, true);
         log.info("软删除专业组成功，id={}", id);
     }
 

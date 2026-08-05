@@ -92,7 +92,7 @@ public class UniversityServiceImpl implements UniversityService {
     @Override
     public UniversityDetailVO detail(Long id) {
         University university = universityMapper.selectById(id);
-        if (university == null || university.getStatus() == 0) {
+        if (university == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
@@ -206,7 +206,7 @@ public class UniversityServiceImpl implements UniversityService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, UniversityUpdateDTO dto) {
         University university = universityMapper.selectById(id);
-        if (university == null || university.getStatus() == 0) {
+        if (university == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
@@ -254,7 +254,7 @@ public class UniversityServiceImpl implements UniversityService {
     @Transactional(rollbackFor = Exception.class)
     public void updateDetail(Long id, UniversityDetailUpdateDTO dto) {
         University university = universityMapper.selectById(id);
-        if (university == null || university.getStatus() == 0) {
+        if (university == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 

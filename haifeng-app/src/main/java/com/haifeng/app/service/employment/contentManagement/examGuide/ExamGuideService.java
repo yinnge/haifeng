@@ -11,4 +11,6 @@ public interface ExamGuideService {
     IPage<ExamGuideDetailVO> page(ExamGuideQueryDTO dto);
 
     ExamGuideDetailVO detail(Long id);
+
+    void incrementViewCount(Long id);
 }

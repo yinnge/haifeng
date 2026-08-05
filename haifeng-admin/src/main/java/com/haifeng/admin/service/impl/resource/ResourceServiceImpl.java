@@ -159,9 +159,7 @@ public class ResourceServiceImpl implements ResourceService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "资源已删除");
         }
 
-        resource.setIsDeleted(true);
-        resource.setUpdatedAt(OffsetDateTime.now());
-        resourceMapper.updateById(resource);
+        resourceMapper.updateIsDeletedById(id, true, OffsetDateTime.now());
 
         log.info("软删除资源成功: id={}", id);
     }

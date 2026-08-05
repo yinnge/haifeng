@@ -51,6 +51,13 @@ public class CompetitionMajorController {
         return R.ok();
     }
 
+    @DeleteMapping("/hard/{id}")
+    @OperationLog(module = "竞赛证书管理", action = "删除竞赛-专业关联")
+    public R<Void> hardDelete(@PathVariable Long id) {
+        competitionMajorService.hardDeleteCompetitionMajor(id);
+        return R.ok();
+    }
+
     @PutMapping("/{id}/enable")
     @OperationLog(module = "竞赛证书管理", action = "启用竞赛-专业关联")
     public R<Void> enable(@PathVariable Long id) {

@@ -102,7 +102,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionMajorScoreAddDTO dto) {
         AdmissionMajorScore existing = admissionMajorScoreMapper.selectByIdCustom(id);
-        if (existing == null || existing.getIsDeleted()) {
+        if (existing == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
@@ -130,7 +130,10 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         if (dto.getMaxScore() != null) existing.setMaxScore(dto.getMaxScore());
         if (dto.getMaxRank() != null) existing.setMaxRank(dto.getMaxRank());
         if (dto.getConstraints() != null) existing.setConstraints(dto.getConstraints());
-        admissionMajorScoreMapper.updateById(existing);
+        int rows = admissionMajorScoreMapper.updateByIdCustom(existing);
+        if (rows == 0) {
+            throw new BusinessException(500, "更新专业录取明细失败，记录可能已被禁用或不存在，请刷新后重试");
+        }
         log.info("更新专业录取明细成功，id={}", id);
     }
 
@@ -153,8 +156,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
-        entity.setIsDeleted(true);
-        admissionMajorScoreMapper.updateById(entity);
+        admissionMajorScoreMapper.updateIsDeletedById(id, true);
         log.info("软删除专业录取明细成功，id={}", id);
     }
 

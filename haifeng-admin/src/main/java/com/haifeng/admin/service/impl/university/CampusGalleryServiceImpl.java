@@ -86,7 +86,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     @Override
     public CampusGalleryDetailVO detail(Long id) {
         CampusGallery gallery = campusGalleryMapper.selectById(id);
-        if (gallery == null || gallery.getStatus() == 0) {
+        if (gallery == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "校园图册不存在");
         }
 
@@ -137,7 +137,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, CampusGalleryUpdateDTO dto) {
         CampusGallery gallery = campusGalleryMapper.selectById(id);
-        if (gallery == null || gallery.getStatus() == 0) {
+        if (gallery == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "校园图册不存在");
         }
 

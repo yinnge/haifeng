@@ -88,7 +88,7 @@ public class IndustryServiceImpl implements IndustryService {
         }
 
         // 查询详情表
-        IndustryDetail detail = industryDetailMapper.findByIndustryId(id);
+        IndustryDetail detail = industryDetailMapper.findByIndustryIdIgnoreLogicDelete(id);
         if (detail != null) {
             vo.setDetailId(detail.getId());
             vo.setShortDescription(detail.getShortDescription());
@@ -193,14 +193,14 @@ public class IndustryServiceImpl implements IndustryService {
         industry.setInvestmentTrend(dto.getInvestmentTrend());
         industry.setUpdatedAt(OffsetDateTime.now());
 
-        industryMapper.updateById(industry);
+        industryMapper.updateByIdIgnoreLogicDelete(industry);
 
         // 同步更新详情表中的行业名称
-        IndustryDetail detail = industryDetailMapper.findByIndustryId(id);
+        IndustryDetail detail = industryDetailMapper.findByIndustryIdIgnoreLogicDelete(id);
         if (detail != null) {
             detail.setIndustryName(dto.getIndustryName());
             detail.setUpdatedAt(OffsetDateTime.now());
-            industryDetailMapper.updateById(detail);
+            industryDetailMapper.updateByIdIgnoreLogicDelete(detail);
         }
 
         log.info("更新行业成功: id={}, industryName={}", id, dto.getIndustryName());
@@ -216,7 +216,7 @@ public class IndustryServiceImpl implements IndustryService {
         }
 
         // 查找对应的详情记录
-        IndustryDetail detail = industryDetailMapper.findByIndustryId(id);
+        IndustryDetail detail = industryDetailMapper.findByIndustryIdIgnoreLogicDelete(id);
         if (detail == null) {
             throw new BusinessException(404, "行业详情不存在");
         }
@@ -233,7 +233,7 @@ public class IndustryServiceImpl implements IndustryService {
         detail.setSalaryData(dto.getSalaryData());
         detail.setUpdatedAt(OffsetDateTime.now());
 
-        industryDetailMapper.updateById(detail);
+        industryDetailMapper.updateByIdIgnoreLogicDelete(detail);
 
         log.info("更新行业详情成功: industryId={}, detailId={}", id, detail.getId());
     }

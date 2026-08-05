@@ -90,7 +90,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Override
     public LaboratoryDetailVO detail(Long id) {
         Laboratory lab = laboratoryMapper.selectById(id);
-        if (lab == null || (lab.getStatus() != null && lab.getStatus() == 0)) {
+        if (lab == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 
@@ -179,7 +179,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, LaboratoryUpdateDTO dto) {
         Laboratory lab = laboratoryMapper.selectById(id);
-        if (lab == null || lab.getStatus() == 0) {
+        if (lab == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 

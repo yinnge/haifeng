@@ -86,7 +86,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Override
     public SubjectEvaluationDetailVO detail(Long id) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
-        if (eval == null || (eval.getStatus() != null && eval.getStatus() == 0)) {
+        if (eval == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 
@@ -144,7 +144,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, SubjectEvaluationUpdateDTO dto) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
-        if (eval == null || eval.getStatus() == 0) {
+        if (eval == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 

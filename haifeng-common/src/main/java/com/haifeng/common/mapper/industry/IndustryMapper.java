@@ -28,6 +28,29 @@ public interface IndustryMapper extends BaseMapper<Industry> {
     @Update("UPDATE t_industry SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 
+    /**
+     * 更新行业主表（忽略逻辑删除，仅按 id），只更新非空字段，镜像 MP updateById 的 NOT_NULL 策略。
+     */
+    @Update("<script>UPDATE t_industry " +
+            "<set>" +
+            "<if test='industryName != null'>industry_name = #{industryName},</if>" +
+            "<if test='category != null'>category = #{category},</if>" +
+            "<if test='iconClass != null'>icon_class = #{iconClass},</if>" +
+            "<if test='description != null'>description = #{description},</if>" +
+            "<if test='annualGrowthRate != null'>annual_growth_rate = #{annualGrowthRate},</if>" +
+            "<if test='marketScale != null'>market_scale = #{marketScale},</if>" +
+            "<if test='talentGap != null'>talent_gap = #{talentGap},</if>" +
+            "<if test='investmentHeat != null'>investment_heat = #{investmentHeat},</if>" +
+            "<if test='growthTrend != null'>growth_trend = #{growthTrend},</if>" +
+            "<if test='marketTrend != null'>market_trend = #{marketTrend},</if>" +
+            "<if test='talentTrend != null'>talent_trend = #{talentTrend},</if>" +
+            "<if test='investmentTrend != null'>investment_trend = #{investmentTrend},</if>" +
+            "updated_at = #{updatedAt}" +
+            "</set>" +
+            "WHERE id = #{id}" +
+            "</script>")
+    int updateByIdIgnoreLogicDelete(Industry industry);
+
     @Delete("DELETE FROM t_industry WHERE id = #{id}")
     int hardDeleteById(@Param("id") Long id);
 

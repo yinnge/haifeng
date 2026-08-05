@@ -45,4 +45,10 @@ public class NoticeController {
             @RequestParam(defaultValue = "招聘公告") @Size(max = 20) String noticeType) {
             return R.ok(noticeService.listByCategoryAndType(noticeCategory, noticeType));
     }
+
+    @GetMapping("/{id}/view")
+    public R<Void> view(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
+        noticeService.incrementViewCount(id);
+        return R.ok();
+    }
 }

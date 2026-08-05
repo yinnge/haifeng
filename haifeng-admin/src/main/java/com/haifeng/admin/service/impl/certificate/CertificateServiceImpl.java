@@ -145,7 +145,8 @@ public class CertificateServiceImpl implements CertificateService {
             throw new BusinessException(404, "证书不存在");
         }
 
-        certificateMapper.deleteById(id);
+        // 自定义SQL物理删除（MP 内置 deleteById 会被逻辑删除拦截器转成 UPDATE is_deleted=true）
+        certificateMapper.physicalDeleteById(id);
         log.info("硬删除证书成功，id={}", id);
     }
 

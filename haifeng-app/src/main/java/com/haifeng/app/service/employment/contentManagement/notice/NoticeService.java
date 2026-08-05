@@ -12,4 +12,6 @@ public interface NoticeService {
     IPage<NoticeDetailVO> page(NoticeQueryDTO dto);
 
     NoticeDetailVO detail(Long id);
+
+    void incrementViewCount(Long id);
 }

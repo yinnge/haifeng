@@ -48,7 +48,7 @@ public class CompetitionServiceImpl implements CompetitionService {
             throw new BusinessException(404, "竞赛不存在");
         }
 
-        CompetitionDetail detail = competitionDetailMapper.findActiveByCompetitionId(id);
+        CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(id);
 
         return convertToDetailVO(competition, detail);
     }
@@ -109,6 +109,9 @@ public class CompetitionServiceImpl implements CompetitionService {
             competitionDetailMapper.updateIsDeletedById(detail.getId(), false);
         }
 
+        // 同步恢复该竞赛的关联专业（启用后用户端可再次看到）
+        competitionMajorMapper.enableByCompetitionId(id);
+
         log.info("启用竞赛成功，id={}", id);
     }
 
@@ -148,7 +151,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 detail.setNotices(detailDTO.getNotices());
                 detail.setProcessGuide(detailDTO.getProcessGuide());
                 detail.setAwardsDisplay(detailDTO.getAwardsDisplay());
-                competitionDetailMapper.updateById(detail);
+                competitionDetailMapper.updateIgnoreLogicDelete(detail);
             }
         }
 

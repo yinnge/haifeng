@@ -82,6 +82,11 @@ public class NoticeServiceImpl implements NoticeService {
         return convertToDetailVO(notice);
     }
 
+    @Override
+    public void incrementViewCount(Long id) {
+        noticeMapper.incrementViewCount(id);
+    }
+
     private NoticeDetailVO convertToDetailVO(Notice notice) {
         return NoticeDetailVO.builder()
                 .id(notice.getId())

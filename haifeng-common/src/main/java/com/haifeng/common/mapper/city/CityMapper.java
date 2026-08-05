@@ -32,6 +32,17 @@ public interface CityMapper extends BaseMapper<City> {
     @Update("UPDATE t_city SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 
+    /**
+     * 自定义全量更新（绕过 MP 全局逻辑删除过滤器，可更新已禁用记录）。
+     */
+    @Update("UPDATE t_city SET " +
+            "city_name = #{cityName}, province = #{province}, region = #{region}, " +
+            "city_intro = #{cityIntro}, college_count = #{collegeCount}, " +
+            "key_college_count = #{keyCollegeCount}, resident_population = #{residentPopulation}, " +
+            "gdp = #{gdp}, updated_at = NOW() " +
+            "WHERE id = #{id}")
+    int updateByIdCustom(City city);
+
     @Select("SELECT * FROM t_city WHERE id = #{id}")
     City findByIdIgnoreLogicDelete(@Param("id") Long id);
 

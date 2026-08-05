@@ -19,17 +19,33 @@ import java.util.List;
 public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
     /**
-     * 按ID查询（忽略逻辑删除语义，实体无 @TableLogic）。
-     * 走 MP 内置 selectOne，autoResultMap 才会给 subjects/constraints 套 StringListTypeHandler。
+     * 按ID查询（自定义SQL绕过全局逻辑删除，可查到已禁用记录）。
+     * subjects/constraints 是数组列，必须用 @Results 显式声明 StringListTypeHandler。
      */
-    default AdmissionGroup findByIdIgnoreLogicDelete(Integer id) {
-        return selectOne(new LambdaQueryWrapper<AdmissionGroup>()
-                .eq(AdmissionGroup::getId, id)
-                .last("LIMIT 1"));
-    }
+    @Select("SELECT * FROM t_admission_group WHERE id = #{id} LIMIT 1")
+    @Results({
+            @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
+            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class)
+    })
+    AdmissionGroup findByIdIgnoreLogicDelete(@Param("id") Integer id);
 
     @Update("UPDATE t_admission_group SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
+
+    /**
+     * 自定义全量更新（绕过 MP 的 @Version 拦截器和逻辑删除过滤器）。
+     * subjects/constraints 是 PostgreSQL text[] 数组列，通过 typeHandler 显式指定。
+     */
+    @Update("UPDATE t_admission_group SET " +
+            "university_id = #{universityId}, university_name = #{universityName}, city_name = #{cityName}, " +
+            "year = #{year}, province = #{province}, batch = #{batch}, " +
+            "enrollment_code = #{enrollmentCode}, group_code = #{groupCode}, group_name = #{groupName}, " +
+            "subjects = #{subjects,typeHandler=com.haifeng.common.config.StringListTypeHandler}, " +
+            "requirement_type = #{requirementType}, description = #{description}, " +
+            "constraints = #{constraints,typeHandler=com.haifeng.common.config.StringListTypeHandler}, " +
+            "updated_at = NOW() " +
+            "WHERE id = #{id}")
+    int updateByIdCustom(AdmissionGroup entity);
 
     @Select("SELECT id FROM t_admission_group " +
             "WHERE university_id = #{universityId} " +
