@@ -39,6 +39,8 @@ public class ReferralCommission {
 
     private BigDecimal commissionAmount;
 
+    private String status;
+
     @TableLogic
     @TableField("is_deleted")
     private Boolean deleted;

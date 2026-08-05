@@ -43,6 +43,20 @@ public class CityServiceImpl implements CityService {
     }
 
     @Override
+    public Long findIdByName(String name) {
+        City city = cityMapper.selectOne(new LambdaQueryWrapper<City>()
+                .select(City::getId)
+                .eq(City::getCityName, name)
+                .eq(City::getIsDeleted, false)
+                .last("LIMIT 1"));
+        if (city == null) {
+            log.debug("城市不存在, name={}", name);
+            throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
+        }
+        return city.getId();
+    }
+
+    @Override
     public CityDetailVO detail(Long cityId) {
         City city = cityMapper.selectById(cityId);
         if (city == null || Boolean.TRUE.equals(city.getIsDeleted())) {

@@ -79,7 +79,7 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
             "<if test='examTime != null'>exam_time = #{examTime},</if>" +
             "<if test='examFee != null'>exam_fee = #{examFee},</if>" +
             "<if test='certIntro != null'>cert_intro = #{certIntro},</if>" +
-            "<if test='examRequirements != null'>exam_requirements = #{examRequirements},</if>" +
+            "<if test='examRequirements != null'>exam_requirements = #{examRequirements, typeHandler=com.haifeng.common.config.StringListTypeHandler},</if>" +
             "<if test='examArrangement != null'>exam_arrangement = #{examArrangement},</if>" +
             "<if test='officialWebsite != null'>official_website = #{officialWebsite},</if>" +
             "updated_at = NOW()" +
@@ -95,7 +95,7 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
                                     @Param("examTime") String examTime,
                                     @Param("examFee") Integer examFee,
                                     @Param("certIntro") String certIntro,
-                                    @Param("examRequirements") String examRequirements,
+                                    @Param("examRequirements") List<String> examRequirements,
                                     @Param("examArrangement") String examArrangement,
                                     @Param("officialWebsite") String officialWebsite);
 

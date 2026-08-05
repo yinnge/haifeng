@@ -106,7 +106,13 @@ docker-compose.override.yml
 CLAUDE.md
 CLAUDE-admin.md
 CLAUDE-C.md
+<<<<<<< Updated upstream
 .claude/
 
 # Git worktrees
+.worktrees/
+=======
+>>>>>>> Stashed changes
+
+# Local git worktrees
 .worktrees/

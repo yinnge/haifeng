@@ -298,22 +298,22 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         try {
             byte[] fileBytes = file.getBytes();
 
-            // Sheet0: 主表数据
+            // Sheet: 实验室主表
             List<LaboratoryExcelDTO> mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(LaboratoryExcelDTO.class)
-                    .sheet(0)
+                    .sheet("实验室主表")
                     .doReadSync();
 
-            // Sheet1: core_team数据
+            // Sheet: 核心团队
             List<CoreTeamExcelDTO> coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(CoreTeamExcelDTO.class)
-                    .sheet(1)
+                    .sheet("核心团队")
                     .doReadSync();
 
-            // Sheet2: statistics数据
+            // Sheet: 统计数据
             List<StatisticsExcelDTO> statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(StatisticsExcelDTO.class)
-                    .sheet(2)
+                    .sheet("统计数据")
                     .doReadSync();
 
             // 按实验室名称分组JSONB数据

@@ -32,5 +32,5 @@ public class CommissionListVO {
 
     private OffsetDateTime createdAt;
 
-    private Boolean deleted;
+    private String status;
 }

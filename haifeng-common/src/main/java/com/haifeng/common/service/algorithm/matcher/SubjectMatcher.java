@@ -14,9 +14,7 @@ public class SubjectMatcher {
 
     public SubjectMatchResult match(MemberGaokao gaokao, AdmissionGroup group) {
         List<String> userSubjects = Arrays.asList(
-                gaokao.getSubjectType(),
-                gaokao.getSecondSubjectType(),
-                gaokao.getThirdSubjectType()
+                gaokao.getSubjectType()
         ).stream().filter(Objects::nonNull).collect(Collectors.toList());
 
         List<String> groupSubjects = group.getSubjects();

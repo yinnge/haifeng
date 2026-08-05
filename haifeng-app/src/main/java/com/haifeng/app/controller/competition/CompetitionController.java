@@ -1,6 +1,7 @@
 package com.haifeng.app.controller.competition;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.competition.CompetitionListQueryDTO;
 import com.haifeng.app.service.competition.CompetitionService;
 import com.haifeng.app.vo.competition.CompetitionDetailVO;
 import com.haifeng.app.vo.competition.CompetitionListVO;
@@ -30,9 +31,9 @@ public class CompetitionController {
 
     private final CompetitionService competitionService;
 
-    /** 任务2接口1：竞赛列表（公开） */
+    /** 任务2接口1：竞赛列表（公开，支持 compName 模糊 + compLevel 精准筛选） */
     @GetMapping("/list")
-    public R<IPage<CompetitionListVO>> list(@Valid BasePageQueryDTO dto) {
+    public R<IPage<CompetitionListVO>> list(@Valid CompetitionListQueryDTO dto) {
         return R.ok(competitionService.page(dto));
     }
 

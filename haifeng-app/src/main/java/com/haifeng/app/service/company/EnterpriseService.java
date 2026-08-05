@@ -13,6 +13,9 @@ public interface EnterpriseService {
     /** 企业分页列表（公开） */
     IPage<EnterpriseListVO> page(EnterpriseQueryDTO dto);
 
+    /** 企业详情（公开，按 id 查询） */
+    EnterpriseListVO detail(Long enterpriseId);
+
     /** 企业岗位列表（登录） */
     List<EnterprisePositionVO> positions(Long enterpriseId);
 

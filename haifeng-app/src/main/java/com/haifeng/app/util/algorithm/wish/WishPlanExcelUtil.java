@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Component;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.springframework.stereotype.Component;
 
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -28,8 +29,8 @@ import java.util.stream.Collectors;
 /**
  * 志愿方案Excel导出工具类
  */
-@Slf4j
 @Component
+@Slf4j
 public class WishPlanExcelUtil {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

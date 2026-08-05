@@ -19,9 +19,12 @@ import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.enums.OrderStatus;
+import com.haifeng.common.enums.WithdrawStatus;
+import com.haifeng.common.entity.user.WithdrawRecord;
 import com.haifeng.common.mapper.permission.SysAdminMapper;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
+import com.haifeng.common.mapper.user.WithdrawRecordMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.mapper.major.MajorMapper;
 import com.haifeng.common.mapper.industry.IndustryMapper;
@@ -53,6 +56,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final MemberMapper memberMapper;
     private final MemberOrderMapper memberOrderMapper;
+    private final WithdrawRecordMapper withdrawRecordMapper;
     private final UniversityMapper universityMapper;
     private final MajorMapper majorMapper;
     private final IndustryMapper industryMapper;
@@ -153,6 +157,29 @@ public class DashboardServiceImpl implements DashboardService {
             item.setMemberName(order.getMemberName());
             item.setAmount(order.getAmount());
             item.setCreatedAt(order.getCreatedAt().toString());
+            return item;
+        }).collect(Collectors.toList()));
+
+        // 待处理提现数
+        todo.setPendingWithdrawCount(withdrawRecordMapper.selectCount(
+            new LambdaQueryWrapper<WithdrawRecord>()
+                .eq(WithdrawRecord::getStatus, WithdrawStatus.PENDING)
+                .eq(WithdrawRecord::getDeleted, false)));
+
+        // 最新 3 条待处理提现
+        List<WithdrawRecord> recentWithdraws = withdrawRecordMapper.selectList(
+            new LambdaQueryWrapper<WithdrawRecord>()
+                .eq(WithdrawRecord::getStatus, WithdrawStatus.PENDING)
+                .eq(WithdrawRecord::getDeleted, false)
+                .orderByDesc(WithdrawRecord::getCreatedAt)
+                .last("LIMIT 3"));
+
+        todo.setPendingWithdraws(recentWithdraws.stream().map(withdraw -> {
+            TodoListVO.PendingWithdrawItem item = new TodoListVO.PendingWithdrawItem();
+            item.setId(withdraw.getId());
+            item.setMemberName(withdraw.getMemberName());
+            item.setAmount(withdraw.getAmount());
+            item.setCreatedAt(withdraw.getCreatedAt().toString());
             return item;
         }).collect(Collectors.toList()));
 

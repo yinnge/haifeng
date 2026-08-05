@@ -60,19 +60,9 @@ public class MemberGaokao {
     // ========== 三、选科信息 ==========
 
     /**
-     * 第一科目
+     * 首选科目/文理类别
      */
     private String subjectType;
-
-    /**
-     * 第二科目
-     */
-    private String secondSubjectType;
-
-    /**
-     * 第三科目
-     */
-    private String thirdSubjectType;
 
     // ========== 四、各科成绩 ==========
 
@@ -92,22 +82,40 @@ public class MemberGaokao {
     private Integer scoreEnglish;
 
     /**
-     * 第一科目分数
+     * 物理分数
      */
-    @TableField("score_subject_1")
-    private Integer scoreSubject1;
+    @TableField("score_physics")
+    private Integer scorePhysics;
 
     /**
-     * 第二科目分数
+     * 化学分数
      */
-    @TableField("score_subject_2")
-    private Integer scoreSubject2;
+    @TableField("score_chemistry")
+    private Integer scoreChemistry;
 
     /**
-     * 第三科目分数
+     * 生物分数
      */
-    @TableField("score_subject_3")
-    private Integer scoreSubject3;
+    @TableField("score_biology")
+    private Integer scoreBiology;
+
+    /**
+     * 政治分数
+     */
+    @TableField("score_politics")
+    private Integer scorePolitics;
+
+    /**
+     * 历史分数
+     */
+    @TableField("score_history")
+    private Integer scoreHistory;
+
+    /**
+     * 地理分数
+     */
+    @TableField("score_geography")
+    private Integer scoreGeography;
 
     // ========== 五、外语语种 ==========
 

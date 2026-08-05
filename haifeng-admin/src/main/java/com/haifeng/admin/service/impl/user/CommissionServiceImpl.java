@@ -51,8 +51,8 @@ public class CommissionServiceImpl implements CommissionService {
             }
             wrapper.in(ReferralCommission::getOrderId, orderIds);
         }
-        if (dto.getDeleted() != null) {
-            wrapper.eq(ReferralCommission::getDeleted, dto.getDeleted());
+        if (StringUtils.hasText(dto.getStatus())) {
+            wrapper.eq(ReferralCommission::getStatus, dto.getStatus());
         }
 
         wrapper.orderByDesc(ReferralCommission::getCreatedAt);
@@ -71,7 +71,7 @@ public class CommissionServiceImpl implements CommissionService {
             vo.setCommissionRate(commission.getCommissionRate());
             vo.setCommissionAmount(commission.getCommissionAmount());
             vo.setCreatedAt(commission.getCreatedAt());
-            vo.setDeleted(commission.getDeleted());
+            vo.setStatus(commission.getStatus());
             return vo;
         });
     }

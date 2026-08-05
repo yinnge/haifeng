@@ -18,7 +18,6 @@ public interface CityService {
      * 不存在 → BusinessException(NOT_FOUND)
      */
     CityDetailVO detail(Long cityId);
-
     /**
      * 城市详情：通过 cityName（唯一）查出 id，再调用 detail(cityId)
      * 不存在 → BusinessException(NOT_FOUND)
@@ -30,4 +29,9 @@ public interface CityService {
      * 不存在 → BusinessException(NOT_FOUND)
      */
     CityBriefVO getBriefByName(String cityName);
+    /**
+     * 根据城市名称精确查询城市ID（isDeleted=false）
+     * 不存在 → BusinessException(NOT_FOUND)
+     */
+    Long findIdByName(String name);
 }

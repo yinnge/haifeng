@@ -44,24 +44,24 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     private final UniversityGuideMapper universityGuideMapper;
     private final UniversityMapper universityMapper;
 
-    private static final Map<Integer, String> SHEET_TO_FIELD = new LinkedHashMap<>();
+    private static final Map<String, String> SHEET_TO_FIELD = new LinkedHashMap<>();
     private static final Map<String, BiConsumer<UniversityGuide, Map<String, Object>>> JSONB_SETTERERS = new HashMap<>();
 
     static {
-        SHEET_TO_FIELD.put(1, "classDormSocial");
-        SHEET_TO_FIELD.put(2, "financialAid");
-        SHEET_TO_FIELD.put(3, "lifeServices");
-        SHEET_TO_FIELD.put(4, "dormitoryServices");
-        SHEET_TO_FIELD.put(5, "campusSecurity");
-        SHEET_TO_FIELD.put(6, "campusEvents");
-        SHEET_TO_FIELD.put(7, "campusFacilities");
-        SHEET_TO_FIELD.put(8, "campusTransportation");
-        SHEET_TO_FIELD.put(9, "studentOrganizations");
-        SHEET_TO_FIELD.put(10, "academicSupportResources");
-        SHEET_TO_FIELD.put(11, "healthServices");
-        SHEET_TO_FIELD.put(12, "academicGuidance");
-        SHEET_TO_FIELD.put(13, "majorTransferConstriction");
-        SHEET_TO_FIELD.put(14, "majorTransferGuidelines");
+        SHEET_TO_FIELD.put("班级与宿舍社交", "classDormSocial");
+        SHEET_TO_FIELD.put("奖助勤贷与权益保障", "financialAid");
+        SHEET_TO_FIELD.put("生活服务", "lifeServices");
+        SHEET_TO_FIELD.put("水电网与宿舍管理", "dormitoryServices");
+        SHEET_TO_FIELD.put("校园安全与应急处理", "campusSecurity");
+        SHEET_TO_FIELD.put("校园活动与竞赛", "campusEvents");
+        SHEET_TO_FIELD.put("校园设施", "campusFacilities");
+        SHEET_TO_FIELD.put("校园通勤与校外交通", "campusTransportation");
+        SHEET_TO_FIELD.put("学生组织与社团", "studentOrganizations");
+        SHEET_TO_FIELD.put("学习支持资源", "academicSupportResources");
+        SHEET_TO_FIELD.put("医保与心理健康", "healthServices");
+        SHEET_TO_FIELD.put("专业与课程核心信息", "academicGuidance");
+        SHEET_TO_FIELD.put("转专业限制", "majorTransferConstriction");
+        SHEET_TO_FIELD.put("转专业原则", "majorTransferGuidelines");
 
         JSONB_SETTERERS.put("classDormSocial", UniversityGuide::setClassDormSocial);
         JSONB_SETTERERS.put("financialAid", UniversityGuide::setFinancialAid);
@@ -365,17 +365,17 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         try {
             byte[] fileBytes = file.getBytes();
 
-            // Step 1: Read Sheet0 - main data
+            // Step 1: Read "院校主表" sheet - main data
             List<UniversityGuideExcelDTO> mainDataList;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 mainDataList = EasyExcel.read(is)
                         .head(UniversityGuideExcelDTO.class)
-                        .sheet(0)
+                        .sheet("院校主表")
                         .doReadSync();
             }
 
             if (mainDataList == null || mainDataList.isEmpty()) {
-                throw new BusinessException(400, "Sheet0中没有任何数据");
+                throw new BusinessException(400, "「院校主表」Sheet中没有任何数据");
             }
 
             // Step 2: Read Sheet1-14 - JSONB data
@@ -455,15 +455,15 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     private Map<String, Map<String, Map<String, List<String>>>> buildJsonbDataMap(byte[] fileBytes) {
         Map<String, Map<String, Map<String, List<String>>>> result = new HashMap<>();
 
-        for (Map.Entry<Integer, String> entry : SHEET_TO_FIELD.entrySet()) {
-            int sheetNo = entry.getKey();
+        for (Map.Entry<String, String> entry : SHEET_TO_FIELD.entrySet()) {
+            String sheetName = entry.getKey();
             String fieldName = entry.getValue();
 
             List<List<String>> rows;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
-                rows = readSheetRows(is, sheetNo);
+                rows = readSheetRows(is, sheetName);
             } catch (Exception e) {
-                log.warn("Sheet{}（{}）读取失败，已跳过: {}", sheetNo, fieldName, e.getMessage());
+                log.warn("Sheet「{}」（{}）读取失败，已跳过: {}", sheetName, fieldName, e.getMessage());
                 continue;
             }
 
@@ -496,9 +496,9 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         return result;
     }
 
-    private List<List<String>> readSheetRows(InputStream is, int sheetNo) {
+    private List<List<String>> readSheetRows(InputStream is, String sheetName) {
         try {
-            List<Object> rawRows = EasyExcel.read(is).sheet(sheetNo).doReadSync();
+            List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
             List<List<String>> result = new ArrayList<>();
             for (Object rawRow : rawRows) {
                 if (rawRow instanceof List) {
@@ -511,7 +511,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             }
             return result;
         } catch (Exception e) {
-            log.warn("读取Sheet{}失败: {}", sheetNo, e.getMessage());
+            log.warn("读取Sheet「{}」失败: {}", sheetName, e.getMessage());
             return Collections.emptyList();
         }
     }

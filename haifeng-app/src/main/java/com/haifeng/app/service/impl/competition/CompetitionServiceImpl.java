@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.service.competition.CompetitionService;
+import com.haifeng.app.dto.competition.CompetitionListQueryDTO;
 import com.haifeng.app.vo.competition.CompetitionDetailVO;
 import com.haifeng.app.vo.competition.CompetitionListVO;
 import com.haifeng.app.vo.competition.CompetitionMajorBriefVO;
@@ -18,6 +19,7 @@ import com.haifeng.common.response.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Map;
 
@@ -31,11 +33,15 @@ public class CompetitionServiceImpl implements CompetitionService {
     private final CompetitionMajorMapper competitionMajorMapper;
 
     @Override
-    public IPage<CompetitionListVO> page(BasePageQueryDTO dto) {
+    public IPage<CompetitionListVO> page(CompetitionListQueryDTO dto) {
         Page<Competition> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<Competition> wrapper = new LambdaQueryWrapper<Competition>()
                 .eq(Competition::getIsDeleted, false)
+                .like(StringUtils.hasText(dto.getCompName()),
+                        Competition::getCompName, dto.getCompName())
+                .eq(StringUtils.hasText(dto.getCompLevel()),
+                        Competition::getCompLevel, dto.getCompLevel())
                 .orderByAsc(Competition::getId);
 
         IPage<Competition> entityPage = competitionMapper.selectPage(page, wrapper);

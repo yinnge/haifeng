@@ -133,7 +133,6 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 dto.getGaokaoProvince(), dto.getGaokaoYear());
 
         validateSubjects(dto, reformModel);
-        processTraditionalSubjects(dto, reformModel);
 
         MemberGaokao existing = memberGaokaoMapper.selectOne(
                 new LambdaQueryWrapper<MemberGaokao>()
@@ -203,29 +202,6 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     /**
-     * 处理传统文理模式的科目映射
-     * 文科 → 政治、历史、地理
-     * 理科 → 物理、化学、生物
-     * 注意：此方法会直接修改入参 DTO 的科目字段（副作用）
-     */
-    private void processTraditionalSubjects(GaokaoArchiveSaveDTO dto, String reformModel) {
-        if (!ReformModelEnum.TRADITIONAL.getValue().equals(reformModel)) {
-            return;
-        }
-
-        String subjectType = dto.getSubjectType();
-        if ("文科".equals(subjectType)) {
-            dto.setSubjectType("政治");
-            dto.setSecondSubjectType("历史");
-            dto.setThirdSubjectType("地理");
-        } else if ("理科".equals(subjectType)) {
-            dto.setSubjectType("物理");
-            dto.setSecondSubjectType("化学");
-            dto.setThirdSubjectType("生物");
-        }
-    }
-
-    /**
      * 校验科目是否符合改革模式的合法选项
      */
     private void validateSubjects(GaokaoArchiveSaveDTO dto, String reformModel) {
@@ -240,33 +216,12 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
             if (!SUBJECTS_FIRST_312.contains(dto.getSubjectType())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式首选科目只能是物理或历史");
             }
-            if (dto.getSecondSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getSecondSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
-            }
-            if (dto.getThirdSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getThirdSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
-            }
             return;
         }
 
         if (ReformModelEnum.THREE_PLUS_THREE.getValue().equals(reformModel)) {
             if (!SUBJECTS_6.contains(dto.getSubjectType())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
-            }
-            if (dto.getSecondSubjectType() != null && !SUBJECTS_6.contains(dto.getSecondSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
-            }
-            if (dto.getThirdSubjectType() != null && !SUBJECTS_6.contains(dto.getThirdSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
-            }
-
-            Set<String> selected = new HashSet<>();
-            selected.add(dto.getSubjectType());
-            if (dto.getSecondSubjectType() != null && !selected.add(dto.getSecondSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "科目不能重复");
-            }
-            if (dto.getThirdSubjectType() != null && !selected.add(dto.getThirdSubjectType())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "科目不能重复");
             }
         }
     }
@@ -294,14 +249,15 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .score(dto.getScore())
                 .rank(dto.getRank())
                 .subjectType(dto.getSubjectType())
-                .secondSubjectType(dto.getSecondSubjectType())
-                .thirdSubjectType(dto.getThirdSubjectType())
                 .scoreChinese(dto.getScoreChinese())
                 .scoreMath(dto.getScoreMath())
                 .scoreEnglish(dto.getScoreEnglish())
-                .scoreSubject1(dto.getScoreSubject1())
-                .scoreSubject2(dto.getScoreSubject2())
-                .scoreSubject3(dto.getScoreSubject3())
+                .scorePhysics(dto.getScorePhysics())
+                .scoreChemistry(dto.getScoreChemistry())
+                .scoreBiology(dto.getScoreBiology())
+                .scorePolitics(dto.getScorePolitics())
+                .scoreHistory(dto.getScoreHistory())
+                .scoreGeography(dto.getScoreGeography())
                 .foreignLanguage(dto.getForeignLanguage())
                 .isColorBlind(dto.getIsColorBlind())
                 .isColorWeak(dto.getIsColorWeak())
@@ -334,14 +290,15 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
         existing.setRank(dto.getRank());
         existing.setReformModel(reformModel);
         existing.setSubjectType(dto.getSubjectType());
-        existing.setSecondSubjectType(dto.getSecondSubjectType());
-        existing.setThirdSubjectType(dto.getThirdSubjectType());
         existing.setScoreChinese(dto.getScoreChinese());
         existing.setScoreMath(dto.getScoreMath());
         existing.setScoreEnglish(dto.getScoreEnglish());
-        existing.setScoreSubject1(dto.getScoreSubject1());
-        existing.setScoreSubject2(dto.getScoreSubject2());
-        existing.setScoreSubject3(dto.getScoreSubject3());
+        existing.setScorePhysics(dto.getScorePhysics());
+        existing.setScoreChemistry(dto.getScoreChemistry());
+        existing.setScoreBiology(dto.getScoreBiology());
+        existing.setScorePolitics(dto.getScorePolitics());
+        existing.setScoreHistory(dto.getScoreHistory());
+        existing.setScoreGeography(dto.getScoreGeography());
         existing.setForeignLanguage(dto.getForeignLanguage());
         existing.setIsColorBlind(dto.getIsColorBlind());
         existing.setIsColorWeak(dto.getIsColorWeak());
@@ -378,14 +335,15 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .rank(entity.getRank())
                 .reformModel(entity.getReformModel())
                 .subjectType(entity.getSubjectType())
-                .secondSubjectType(entity.getSecondSubjectType())
-                .thirdSubjectType(entity.getThirdSubjectType())
                 .scoreChinese(entity.getScoreChinese())
                 .scoreMath(entity.getScoreMath())
                 .scoreEnglish(entity.getScoreEnglish())
-                .scoreSubject1(entity.getScoreSubject1())
-                .scoreSubject2(entity.getScoreSubject2())
-                .scoreSubject3(entity.getScoreSubject3())
+                .scorePhysics(entity.getScorePhysics())
+                .scoreChemistry(entity.getScoreChemistry())
+                .scoreBiology(entity.getScoreBiology())
+                .scorePolitics(entity.getScorePolitics())
+                .scoreHistory(entity.getScoreHistory())
+                .scoreGeography(entity.getScoreGeography())
                 .foreignLanguage(entity.getForeignLanguage())
                 .isColorBlind(entity.getIsColorBlind())
                 .isColorWeak(entity.getIsColorWeak())
