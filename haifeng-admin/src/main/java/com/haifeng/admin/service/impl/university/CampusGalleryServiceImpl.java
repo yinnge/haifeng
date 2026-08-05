@@ -249,10 +249,10 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
         List<CampusGalleryExcelDTO> dataList;
         try {
-            dataList = EasyExcel.read(file.getInputStream())
-                    .head(CampusGalleryExcelDTO.class)
-                    .sheet()
-                    .doReadSync();
+        dataList = EasyExcel.read(file.getInputStream())
+                .head(CampusGalleryExcelDTO.class)
+                .sheet("校园图册")
+                .doReadSync();
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());

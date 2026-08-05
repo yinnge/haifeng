@@ -2,7 +2,6 @@ package com.haifeng.admin.service.impl.certificate;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.admin.dto.certificate.CertificateAddDTO;
 import com.haifeng.admin.dto.certificate.CertificateBatchStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateQueryDTO;
@@ -29,7 +28,6 @@ import java.util.List;
 public class CertificateServiceImpl implements CertificateService {
 
     private final CertificateMapper certificateMapper;
-    private final ObjectMapper objectMapper;
 
     @Override
     public IPage<CertificateListVO> listCertificates(CertificateQueryDTO queryDTO) {
@@ -92,16 +90,6 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
 
-        // 将examRequirements列表转换为JSON字符串
-        String examRequirementsJson = null;
-        if (updateDTO.getExamRequirements() != null && !updateDTO.getExamRequirements().isEmpty()) {
-            try {
-                examRequirementsJson = objectMapper.writeValueAsString(updateDTO.getExamRequirements());
-            } catch (Exception e) {
-                log.warn("转换examRequirements为JSON失败", e);
-            }
-        }
-
         // 使用自定义SQL更新，绕过MyBatis-Plus全局逻辑删除配置
         certificateMapper.updateByIdIgnoreLogicDelete(
                 updateDTO.getId(),
@@ -113,7 +101,7 @@ public class CertificateServiceImpl implements CertificateService {
                 updateDTO.getExamTime(),
                 updateDTO.getExamFee(),
                 updateDTO.getCertIntro(),
-                examRequirementsJson,
+                updateDTO.getExamRequirements(),
                 updateDTO.getExamArrangement(),
                 updateDTO.getOfficialWebsite()
         );

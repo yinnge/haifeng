@@ -56,6 +56,16 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     }
 
     @Override
+    public EnterpriseListVO detail(Long enterpriseId) {
+        Enterprise enterprise = enterpriseMapper.selectById(enterpriseId);
+        if (enterprise == null || Boolean.TRUE.equals(enterprise.getIsDeleted())) {
+            log.debug("企业不存在或已删除, enterpriseId={}", enterpriseId);
+            throw new BusinessException(ResultCode.NOT_FOUND, "企业不存在");
+        }
+        return toListVO(enterprise);
+    }
+
+    @Override
     public List<EnterprisePositionVO> positions(Long enterpriseId) {
         Enterprise enterprise = enterpriseMapper.selectById(enterpriseId);
         if (enterprise == null || Boolean.TRUE.equals(enterprise.getIsDeleted())) {

@@ -555,7 +555,8 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         ReferralCommission commission = commissionMapper.selectOne(
                 new LambdaQueryWrapper<ReferralCommission>()
                         .eq(ReferralCommission::getOrderId, order.getId())
-                        .eq(ReferralCommission::getDeleted, false));
+                        .eq(ReferralCommission::getDeleted, false)
+                        .eq(ReferralCommission::getStatus, "active"));
         if (commission == null) {
             return;
         }
@@ -568,9 +569,13 @@ public class MemberOrderServiceImpl implements MemberOrderService {
             BigDecimal newTotalEarned = referrer.getCommissionTotalEarned() != null
                     ? referrer.getCommissionTotalEarned().subtract(commission.getCommissionAmount())
                     : BigDecimal.ZERO.subtract(commission.getCommissionAmount());
+            BigDecimal currentPaid = referrer.getCommissionTotalPaid() != null
+                    ? referrer.getCommissionTotalPaid() : BigDecimal.ZERO;
+            BigDecimal paidReduction = commission.getCommissionAmount().min(currentPaid);
 
             referrer.setCommissionBalance(newBalance);
             referrer.setCommissionTotalEarned(newTotalEarned);
+            referrer.setCommissionTotalPaid(currentPaid.subtract(paidReduction));
             referrer.setUpdatedAt(OffsetDateTime.now());
             memberMapper.updateById(referrer);
 
@@ -585,8 +590,10 @@ public class MemberOrderServiceImpl implements MemberOrderService {
                     NotificationType.COMMISSION_REVERSED, title, content, order.getId());
         }
 
-        // 软删除佣金记录（@TableLogic 下 deleteById 执行逻辑删除）
-        commissionMapper.deleteById(commission.getId());
+        // 标记佣金为已撤回（保留记录，不软删除）
+        commission.setStatus("revoked");
+        commission.setUpdatedAt(OffsetDateTime.now());
+        commissionMapper.updateById(commission);
 
         log.info("回退佣金成功: orderId={}, commissionId={}, amount={}",
                 order.getId(), commission.getId(), commission.getCommissionAmount());

@@ -31,15 +31,9 @@ public class GaokaoArchiveSaveDTO {
     @Min(value = 1, message = "位次必须大于0")
     private Integer rank;
 
-    @NotBlank(message = "第一科目不能为空")
-    @Size(max = 20, message = "第一科目最多20个字符")
+    @NotBlank(message = "首选科目不能为空")
+    @Size(max = 20, message = "首选科目最多20个字符")
     private String subjectType;
-
-    @Size(max = 20, message = "第二科目最多20个字符")
-    private String secondSubjectType;
-
-    @Size(max = 20, message = "第三科目最多20个字符")
-    private String thirdSubjectType;
 
     @NotBlank(message = "批次不能为空")
     @Size(max = 50, message = "批次最多50个字符")
@@ -69,17 +63,29 @@ public class GaokaoArchiveSaveDTO {
     @Max(value = 150, message = "外语成绩不能大于150")
     private Integer scoreEnglish;
 
-    @Min(value = 0, message = "第一科目分数不能小于0")
-    @Max(value = 100, message = "第一科目分数不能大于100")
-    private Integer scoreSubject1;
+    @Min(value = 0, message = "物理分数不能小于0")
+    @Max(value = 100, message = "物理分数不能大于100")
+    private Integer scorePhysics;
 
-    @Min(value = 0, message = "第二科目分数不能小于0")
-    @Max(value = 100, message = "第二科目分数不能大于100")
-    private Integer scoreSubject2;
+    @Min(value = 0, message = "化学分数不能小于0")
+    @Max(value = 100, message = "化学分数不能大于100")
+    private Integer scoreChemistry;
 
-    @Min(value = 0, message = "第三科目分数不能小于0")
-    @Max(value = 100, message = "第三科目分数不能大于100")
-    private Integer scoreSubject3;
+    @Min(value = 0, message = "生物分数不能小于0")
+    @Max(value = 100, message = "生物分数不能大于100")
+    private Integer scoreBiology;
+
+    @Min(value = 0, message = "政治分数不能小于0")
+    @Max(value = 100, message = "政治分数不能大于100")
+    private Integer scorePolitics;
+
+    @Min(value = 0, message = "历史分数不能小于0")
+    @Max(value = 100, message = "历史分数不能大于100")
+    private Integer scoreHistory;
+
+    @Min(value = 0, message = "地理分数不能小于0")
+    @Max(value = 100, message = "地理分数不能大于100")
+    private Integer scoreGeography;
 
     // ========== 可选字段：外语语种 ==========
 

@@ -38,7 +38,7 @@ public class GaokaoArchiveController {
             @RequestParam @NotBlank(message = "省份不能为空") @Size(max = 30, message = "省份最多30个字符") String province,
             @RequestParam @NotNull(message = "年份不能为空")
             @Min(value = 2020, message = "年份不能早于2020")
-            @Max(value = 2030, message = "年份不能晚于2030") Integer year) {
+            @Max(value = 2040, message = "年份不能晚于2040") Integer year) {
         return R.ok(gaokaoArchiveService.getReformModel(province, year));
     }
 
@@ -55,7 +55,7 @@ public class GaokaoArchiveController {
             @RequestParam @NotBlank(message = "省份不能为空") @Size(max = 30, message = "省份最多30个字符") String province,
             @RequestParam @NotNull(message = "年份不能为空")
             @Min(value = 2020, message = "年份不能早于2020")
-            @Max(value = 2030, message = "年份不能晚于2030") Integer year,
+            @Max(value = 2040, message = "年份不能晚于2040") Integer year,
             @RequestParam @NotBlank(message = "科类不能为空") String subjectType,
             @RequestParam @NotNull(message = "分数不能为空")
             @Min(value = 0, message = "分数不能小于0")
@@ -75,7 +75,7 @@ public class GaokaoArchiveController {
             @RequestParam @NotBlank(message = "省份不能为空") @Size(max = 30, message = "省份最多30个字符") String province,
             @RequestParam @NotNull(message = "年份不能为空")
             @Min(value = 2020, message = "年份不能早于2020")
-            @Max(value = 2030, message = "年份不能晚于2030") Integer year,
+            @Max(value = 2040, message = "年份不能晚于2040") Integer year,
             @RequestParam @NotBlank(message = "科类不能为空") String subjectType) {
         return R.ok(gaokaoArchiveService.getBatchLines(province, year, subjectType));
     }

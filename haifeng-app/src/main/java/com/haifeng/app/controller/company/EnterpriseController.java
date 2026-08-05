@@ -39,6 +39,12 @@ public class EnterpriseController {
         return R.ok(enterpriseService.page(dto));
     }
 
+    /** 企业详情（公开，按 id 查询） */
+    @GetMapping("/{enterpriseId}")
+    public R<EnterpriseListVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long enterpriseId) {
+        return R.ok(enterpriseService.detail(enterpriseId));
+    }
+
     /** 企业岗位列表（登录） */
     @RequireLogin
     @GetMapping("/{enterpriseId}/positions")

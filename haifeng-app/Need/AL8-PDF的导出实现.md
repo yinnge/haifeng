@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS t_wish_major_snapshot (
 3. 已经实现了志愿表查询的两个分页接口：D:\exeProject\ideaProjects\Project-HaiFeng\haifeng-app\src\main\java\com\haifeng\app\controller\algorithm\WishPlanController.java
 
 ###### 已经实现
-1. 配置deepseek的ai的基础和配置类（openai协议）
+1. 配置deepseek的ai的基础和配置类（openai协议）【D:\exeProject\ideaProjects\Project-HaiFeng\haifeng-common\src\main\java\com\haifeng\common\service\ai\ApiKeyPool.java】
 2. 每个用户登录每天调用api的次数要根据system_settings表的api_number字段绑定，每天每个用户的最多调用次数【可以将字段存入redis】
 3. 需要设置ai的算法，我们这里需要配置多个api-key，需要如果一个挂了换另一个
 4. 写一个算法，根据用户名绑定api-key【为了命中缓存，你比如说根据用户id绑定【自己在看还收什么绑定同一个api的算法，比如哈希算法等】，如果失败就绑定别的】

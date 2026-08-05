@@ -43,8 +43,6 @@ public class FieldValueExtractor {
 
         // 选科
         FIELD_GETTERS.put("subject_type", MemberGaokao::getSubjectType);
-        FIELD_GETTERS.put("second_subject_type", MemberGaokao::getSecondSubjectType);
-        FIELD_GETTERS.put("third_subject_type", MemberGaokao::getThirdSubjectType);
 
         // 高考基本信息
         FIELD_GETTERS.put("gaokao_year", MemberGaokao::getGaokaoYear);
@@ -57,9 +55,12 @@ public class FieldValueExtractor {
         FIELD_GETTERS.put("score_chinese", MemberGaokao::getScoreChinese);
         FIELD_GETTERS.put("score_math", MemberGaokao::getScoreMath);
         FIELD_GETTERS.put("score_english", MemberGaokao::getScoreEnglish);
-        FIELD_GETTERS.put("score_subject_1", MemberGaokao::getScoreSubject1);
-        FIELD_GETTERS.put("score_subject_2", MemberGaokao::getScoreSubject2);
-        FIELD_GETTERS.put("score_subject_3", MemberGaokao::getScoreSubject3);
+        FIELD_GETTERS.put("score_physics", MemberGaokao::getScorePhysics);
+        FIELD_GETTERS.put("score_chemistry", MemberGaokao::getScoreChemistry);
+        FIELD_GETTERS.put("score_biology", MemberGaokao::getScoreBiology);
+        FIELD_GETTERS.put("score_politics", MemberGaokao::getScorePolitics);
+        FIELD_GETTERS.put("score_history", MemberGaokao::getScoreHistory);
+        FIELD_GETTERS.put("score_geography", MemberGaokao::getScoreGeography);
 
         // 批次信息
         FIELD_GETTERS.put("batch", MemberGaokao::getBatch);

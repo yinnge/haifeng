@@ -21,7 +21,7 @@ public interface ReferralCommissionMapper extends BaseMapper<ReferralCommission>
     @Select("SELECT *, is_deleted AS deleted FROM t_referral_commission WHERE id = #{id}")
     ReferralCommission selectByIdIgnoreDeleted(@Param("id") Long id);
 
-    @Update("UPDATE t_referral_commission SET is_deleted = false, updated_at = #{updatedAt} WHERE id = #{id}")
+    @Update("UPDATE t_referral_commission SET is_deleted = false, status = 'active', updated_at = #{updatedAt} WHERE id = #{id}")
     int restoreById(@Param("id") Long id, @Param("updatedAt") OffsetDateTime updatedAt);
 
     @Update("UPDATE t_referral_commission SET referrer_name = #{referrerName}, referrer_phone = #{referrerPhone}, " +

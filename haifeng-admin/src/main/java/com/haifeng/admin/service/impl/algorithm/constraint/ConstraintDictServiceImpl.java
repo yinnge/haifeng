@@ -30,9 +30,9 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final Set<String> VALID_CHECK_FIELDS = Set.of(
-            "subject_type", "second_subject_type", "third_subject_type",
+            "subject_type",
             "score_chinese", "score_math", "score_english",
-            "score_subject_1", "score_subject_2", "score_subject_3",
+            "score_physics", "score_chemistry", "score_biology", "score_politics", "score_history", "score_geography",
             "is_color_blind", "is_color_weak", "vision_left", "vision_right", "has_smell_disorder",
             "height_cm", "weight_kg", "is_left_handed", "has_tattoo", "has_scar", "has_stutter",
             "is_fresh_graduate", "political_status", "household_type", "is_poverty_county",

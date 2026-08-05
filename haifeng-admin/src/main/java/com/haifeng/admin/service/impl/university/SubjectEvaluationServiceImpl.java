@@ -241,7 +241,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         try {
             List<SubjectEvaluationExcelDTO> dataList = EasyExcel.read(file.getInputStream())
                     .head(SubjectEvaluationExcelDTO.class)
-                    .sheet(0)
+                    .sheet("学科评估")
                     .doReadSync();
 
             Map<String, Long> universityIdCache = new HashMap<>();

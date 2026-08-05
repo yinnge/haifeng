@@ -300,8 +300,6 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
     private String buildUserSubjectsArray(MemberGaokao gaokao) {
         List<String> subjects = new ArrayList<>();
         if (gaokao.getSubjectType() != null) subjects.add(gaokao.getSubjectType());
-        if (gaokao.getSecondSubjectType() != null) subjects.add(gaokao.getSecondSubjectType());
-        if (gaokao.getThirdSubjectType() != null) subjects.add(gaokao.getThirdSubjectType());
 
         return SubjectsArrayConverter.toPgArrayLiteral(subjects);
     }

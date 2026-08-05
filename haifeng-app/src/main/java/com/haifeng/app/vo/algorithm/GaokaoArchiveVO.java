@@ -29,16 +29,17 @@ public class GaokaoArchiveVO {
 
     // ========== 选科信息 ==========
     private String subjectType;
-    private String secondSubjectType;
-    private String thirdSubjectType;
 
     // ========== 各科成绩 ==========
     private Integer scoreChinese;
     private Integer scoreMath;
     private Integer scoreEnglish;
-    private Integer scoreSubject1;
-    private Integer scoreSubject2;
-    private Integer scoreSubject3;
+    private Integer scorePhysics;
+    private Integer scoreChemistry;
+    private Integer scoreBiology;
+    private Integer scorePolitics;
+    private Integer scoreHistory;
+    private Integer scoreGeography;
 
     // ========== 外语语种 ==========
     private String foreignLanguage;
