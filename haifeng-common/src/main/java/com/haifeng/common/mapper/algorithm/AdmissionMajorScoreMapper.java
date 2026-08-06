@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.entity.algorithm.MajorHistoryItem;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
@@ -22,6 +23,18 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
 
     @Update("UPDATE t_admission_major_score SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
+
+    /**
+     * 物理删除（自定义SQL不被全局逻辑删除拦截器转换，可删除已禁用记录）。
+     * 删除后由触发器 trg_ams_recalc_group 自动重算所属专业组的聚合数据。
+     */
+    @Delete("DELETE FROM t_admission_major_score WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Integer id);
+
+    @Delete("<script>DELETE FROM t_admission_major_score WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    int physicalDeleteBatchIds(@Param("ids") List<Integer> ids);
 
     /**
      * 自定义全量更新（绕过 MP 全局逻辑删除过滤器，可更新已禁用记录）。

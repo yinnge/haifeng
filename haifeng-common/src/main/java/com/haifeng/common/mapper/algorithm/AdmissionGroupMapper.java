@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
@@ -31,6 +32,18 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
     @Update("UPDATE t_admission_group SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Integer id, @Param("isDeleted") Boolean isDeleted);
+
+    /**
+     * 物理删除（自定义SQL不被全局逻辑删除拦截器转换，可删除已禁用记录）。
+     * 明细表 t_admission_major_score.group_id 外键 ON DELETE CASCADE 会级联物理删除。
+     */
+    @Delete("DELETE FROM t_admission_group WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Integer id);
+
+    @Delete("<script>DELETE FROM t_admission_group WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    int physicalDeleteBatchIds(@Param("ids") List<Integer> ids);
 
     /**
      * 自定义全量更新（绕过 MP 的 @Version 拦截器和逻辑删除过滤器）。

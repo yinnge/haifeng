@@ -40,18 +40,21 @@ public interface MajorConstraintMapper extends BaseMapper<MajorConstraint> {
             ")</script>"})
     List<MajorConstraint> selectDeletedByKeys(@Param("keys") List<Map<String, Object>> keys);
 
-    @Update("<script>" +
-            "UPDATE t_major_constraint SET is_deleted = TRUE WHERE id IN " +
+    @Delete("<script>" +
+            "DELETE FROM t_major_constraint WHERE id IN " +
             "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
             "#{id}" +
             "</foreach>" +
             "</script>")
-    int batchSoftDelete(@Param("ids") List<Long> ids);
+    int batchPhysicalDelete(@Param("ids") List<Long> ids);
 
     @Select("<script>" +
             "SELECT * FROM t_major_constraint " +
             "<where>" +
-            "<if test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</if>" +
+            "<choose>" +
+            "<when test='params.isDeleted != null'>AND is_deleted = #{params.isDeleted}</when>" +
+            "<otherwise>AND is_deleted = FALSE</otherwise>" +
+            "</choose>" +
             "<if test='params.majorCode != null and params.majorCode != \"\"'>" +
             "AND major_code = #{params.majorCode}</if>" +
             "<if test='params.majorName != null and params.majorName != \"\"'>" +
@@ -72,4 +75,12 @@ public interface MajorConstraintMapper extends BaseMapper<MajorConstraint> {
 
     @Delete("DELETE FROM t_major_constraint WHERE id = #{id}")
     int deletePhysical(@Param("id") Long id);
+
+    @Delete("DELETE FROM t_major_constraint WHERE constraint_code = #{code}")
+    int physicalDeleteByConstraintCode(@Param("code") String code);
+
+    @Delete("<script>DELETE FROM t_major_constraint WHERE constraint_code IN " +
+            "<foreach collection='codes' item='code' open='(' separator=',' close=')'>#{code}</foreach>" +
+            "</script>")
+    int physicalDeleteBatchByConstraintCodes(@Param("codes") List<String> codes);
 }

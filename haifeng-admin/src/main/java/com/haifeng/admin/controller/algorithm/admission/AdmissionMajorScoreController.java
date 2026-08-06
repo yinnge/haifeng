@@ -70,4 +70,11 @@ public class AdmissionMajorScoreController {
         admissionMajorScoreService.batchDelete(ids);
         return R.ok();
     }
+
+    @PostMapping("/batch/hard-delete")
+    @OperationLog(module = "专业录取明细管理", action = "批量物理删除专业明细")
+    public R<Void> batchHardDelete(@Valid @RequestBody @NotEmpty(message = "ids不能为空") @Size(max = 100) List<Integer> ids) {
+        admissionMajorScoreService.batchHardDelete(ids);
+        return R.ok();
+    }
 }

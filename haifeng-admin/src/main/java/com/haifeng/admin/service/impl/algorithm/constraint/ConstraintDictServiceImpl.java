@@ -12,6 +12,7 @@ import com.haifeng.admin.vo.algorithm.constraint.ConstraintDictListVO;
 import com.haifeng.common.entity.algorithm.ConstraintDict;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
+import com.haifeng.common.mapper.algorithm.MajorConstraintMapper;
 import com.haifeng.common.constant.RedisKeyConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.Set;
 public class ConstraintDictServiceImpl implements ConstraintDictService {
 
     private final ConstraintDictMapper constraintDictMapper;
+    private final MajorConstraintMapper majorConstraintMapper;
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final Set<String> VALID_CHECK_FIELDS = Set.of(
@@ -158,8 +160,13 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         if (existing == null) {
             throw new BusinessException(404, "约束字典不存在");
         }
-        constraintDictMapper.deleteById(code);
-        log.info("删除约束字典，code={}", code);
+        // 级联物理删除引用该约束代码的专业约束关联，避免孤儿数据
+        majorConstraintMapper.physicalDeleteByConstraintCode(code);
+        int affected = constraintDictMapper.physicalDeleteById(code);
+        if (affected == 0) {
+            throw new BusinessException(404, "约束字典不存在");
+        }
+        log.info("物理删除约束字典，code={}", code);
         evictCache();
     }
 
@@ -169,8 +176,10 @@ public class ConstraintDictServiceImpl implements ConstraintDictService {
         if (codes == null || codes.isEmpty()) {
             throw new BusinessException(400, "请选择要删除的记录");
         }
-        int count = constraintDictMapper.batchSoftDelete(codes);
-        log.info("批量删除约束字典，count={}", count);
+        // 级联物理删除引用这些约束代码的专业约束关联，避免孤儿数据
+        majorConstraintMapper.physicalDeleteBatchByConstraintCodes(codes);
+        int count = constraintDictMapper.physicalDeleteBatchIds(codes);
+        log.info("批量物理删除约束字典，请求{}条，实际删除{}条", codes.size(), count);
         evictCache();
     }
 

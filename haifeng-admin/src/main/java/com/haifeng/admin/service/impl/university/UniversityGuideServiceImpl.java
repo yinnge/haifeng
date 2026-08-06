@@ -302,10 +302,6 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
-        if (guide.getStatus() == 0) {
-            throw new BusinessException(400, "该院校适应指南已软删除，无法硬删除");
-        }
-
         // 硬删除：物理删除
         universityGuideMapper.deleteById(id);
 

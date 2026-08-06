@@ -357,10 +357,6 @@ public class UniversityServiceImpl implements UniversityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校不存在");
         }
 
-        if (university.getStatus() == 0) {
-            throw new BusinessException(400, "该院校已软删除，无法硬删除");
-        }
-
         // 先删除关联的详情记录
         LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
         detailWrapper.eq(UniversityDetail::getUniversityId, id);

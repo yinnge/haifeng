@@ -82,6 +82,14 @@ public class IndustryServiceImpl implements IndustryService {
                 .talentAnalysis(detail.getTalentAnalysis())
                 .talentPolicy(detail.getTalentPolicy())
                 .salaryData(detail.getSalaryData())
+                .annualGrowthRate(industry.getAnnualGrowthRate())
+                .marketScale(industry.getMarketScale())
+                .talentGap(industry.getTalentGap())
+                .investmentHeat(industry.getInvestmentHeat())
+                .growthTrend(industry.getGrowthTrend())
+                .marketTrend(industry.getMarketTrend())
+                .talentTrend(industry.getTalentTrend())
+                .investmentTrend(industry.getInvestmentTrend())
                 .build();
     }
 

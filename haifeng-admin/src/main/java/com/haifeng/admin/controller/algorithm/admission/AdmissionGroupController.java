@@ -72,6 +72,13 @@ public class AdmissionGroupController {
         return R.ok();
     }
 
+    @PostMapping("/batch/hard-delete")
+    @OperationLog(module = "专业组管理", action = "批量物理删除专业组")
+    public R<Void> batchHardDelete(@Valid @RequestBody @NotEmpty(message = "ids不能为空") @Size(max = 100) List<Integer> ids) {
+        admissionGroupService.batchHardDelete(ids);
+        return R.ok();
+    }
+
     @PostMapping("/import")
     @OperationLog(module = "专业组管理", action = "导入专业组数据")
     public R<Void> importData(@RequestParam("file") MultipartFile file) {

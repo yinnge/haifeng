@@ -140,18 +140,26 @@ public class CompetitionServiceImpl implements CompetitionService {
         // 更新详情表
         if (updateDTO.getDetail() != null) {
             CompetitionDetail detail = competitionDetailMapper.findByCompetitionId(updateDTO.getId());
-            if (detail != null) {
-                CompetitionDetailDTO detailDTO = updateDTO.getDetail();
-                detail.setBasicInfo(detailDTO.getBasicInfo());
-                detail.setAwards(detailDTO.getAwards());
-                detail.setBackground(detailDTO.getBackground());
-                detail.setPurposes(detailDTO.getPurposes());
-                detail.setCompetitionRules(detailDTO.getCompetitionRules());
-                detail.setScoringCriteria(detailDTO.getScoringCriteria());
-                detail.setNotices(detailDTO.getNotices());
-                detail.setProcessGuide(detailDTO.getProcessGuide());
-                detail.setAwardsDisplay(detailDTO.getAwardsDisplay());
+            if (detail == null) {
+                // 历史数据可能没有详情记录（详情表晚于主表上线），此时创建而非静默丢弃
+                detail = new CompetitionDetail();
+                detail.setCompetitionId(updateDTO.getId());
+                detail.setIsDeleted(false);
+            }
+            CompetitionDetailDTO detailDTO = updateDTO.getDetail();
+            detail.setBasicInfo(detailDTO.getBasicInfo());
+            detail.setAwards(detailDTO.getAwards());
+            detail.setBackground(detailDTO.getBackground());
+            detail.setPurposes(detailDTO.getPurposes());
+            detail.setCompetitionRules(detailDTO.getCompetitionRules());
+            detail.setScoringCriteria(detailDTO.getScoringCriteria());
+            detail.setNotices(detailDTO.getNotices());
+            detail.setProcessGuide(detailDTO.getProcessGuide());
+            detail.setAwardsDisplay(detailDTO.getAwardsDisplay());
+            if (detail.getId() != null) {
                 competitionDetailMapper.updateIgnoreLogicDelete(detail);
+            } else {
+                competitionDetailMapper.insert(detail);
             }
         }
 

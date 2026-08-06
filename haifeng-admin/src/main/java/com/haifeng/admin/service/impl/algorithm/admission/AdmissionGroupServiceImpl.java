@@ -171,20 +171,16 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Integer id) {
         AdmissionGroup entity = admissionGroupMapper.findByIdIgnoreLogicDelete(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null) {
             throw new BusinessException(404, "专业组不存在");
         }
 
-        // 先软删除关联的明细记录
-        admissionMajorScoreMapper.update(null,
-                Wrappers.lambdaUpdate(AdmissionMajorScore.class)
-                        .set(AdmissionMajorScore::getIsDeleted, true)
-                        .eq(AdmissionMajorScore::getGroupId, id)
-                        .eq(AdmissionMajorScore::getIsDeleted, false));
-
-        // 再软删除专业组（用自定义SQL绕过全局逻辑删除的 SET 排除）
-        admissionGroupMapper.updateIsDeletedById(id, true);
-        log.info("软删除专业组成功，id={}", id);
+        // 物理删除专业组，明细记录由外键 ON DELETE CASCADE 级联物理删除
+        int affected = admissionGroupMapper.physicalDeleteById(id);
+        if (affected == 0) {
+            throw new BusinessException(404, "专业组不存在");
+        }
+        log.info("物理删除专业组成功，id={}", id);
     }
 
     @Override
@@ -208,6 +204,18 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                         .in(AdmissionGroup::getId, ids)
                         .eq(AdmissionGroup::getIsDeleted, false));
         log.info("批量软删除专业组成功，请求{}条，实际删除{}条", ids.size(), affected);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchHardDelete(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        // 物理批量删除，明细记录由外键 ON DELETE CASCADE 级联物理删除
+        int affected = admissionGroupMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除专业组成功，请求{}条，实际删除{}条", ids.size(), affected);
     }
 
     @Override

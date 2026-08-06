@@ -63,7 +63,9 @@ public class CompetitionServiceImpl implements CompetitionService {
 
         CompetitionDetailVO.CompetitionDetailVOBuilder builder = CompetitionDetailVO.builder()
                 .id(competition.getId())
-                .competitionId(competition.getId());
+                .competitionId(competition.getId())
+                .compName(competition.getCompName())
+                .compLevel(competition.getCompLevel());
 
         if (detail != null) {
             builder.basicInfo(detail.getBasicInfo())
