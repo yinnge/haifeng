@@ -12,7 +12,7 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ExamGuideDetailVO implements Serializable {
+public class  ExamGuideDetailVO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

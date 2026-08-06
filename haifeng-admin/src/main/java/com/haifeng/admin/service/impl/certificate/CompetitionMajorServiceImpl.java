@@ -73,14 +73,20 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addCompetitionMajor(CompetitionMajorAddDTO addDTO) {
-        Competition competition = competitionMapper.findByCompName(addDTO.getCompetitionName());
+        Competition competition = competitionMapper.findByIdIgnoreLogicDelete(addDTO.getCompetitionId());
         if (competition == null) {
-            throw new BusinessException(404, "竞赛不存在：" + addDTO.getCompetitionName());
+            throw new BusinessException(404, "竞赛不存在");
+        }
+        if (Boolean.TRUE.equals(competition.getIsDeleted())) {
+            throw new BusinessException(400, "竞赛已禁用");
         }
 
-        Major major = majorMapper.findByMajorName(addDTO.getMajorName());
+        Major major = majorMapper.selectById(addDTO.getMajorId());
         if (major == null) {
-            throw new BusinessException(404, "专业不存在：" + addDTO.getMajorName());
+            throw new BusinessException(404, "专业不存在");
+        }
+        if (major.getStatus() == null || major.getStatus() != 1) {
+            throw new BusinessException(400, "专业已停用");
         }
 
         if (competitionMajorMapper.existsByCompetitionIdAndMajorId(competition.getId(), major.getId())) {
@@ -133,14 +139,24 @@ public class CompetitionMajorServiceImpl implements CompetitionMajorService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void hardDeleteCompetitionMajor(Long id) {
+        CompetitionMajor existing = competitionMajorMapper.findByIdIgnoreLogicDelete(id);
+        if (existing == null) {
+            throw new BusinessException(404, "关联记录不存在");
+        }
+
+        competitionMajorMapper.physicalDeleteById(id);
+        log.info("删除竞赛-专业关联成功，id={}", id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void batchDeleteCompetitionMajors(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        for (Long id : ids) {
-            competitionMajorMapper.updateIsDeletedById(id, true);
-        }
-        log.info("批量禁用竞赛-专业关联成功，ids={}", ids);
+        competitionMajorMapper.physicalDeleteBatchByIds(ids);
+        log.info("批量删除竞赛-专业关联成功，ids={}", ids);
     }
 
     private CompetitionMajorVO convertToVO(CompetitionMajor entity) {

@@ -104,7 +104,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Override
     public DepartmentDetailVO detail(Long id) {
         Department dept = departmentMapper.selectById(id);
-        if (dept == null || dept.getStatus() == 0) {
+        if (dept == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 
@@ -210,7 +210,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, DepartmentUpdateDTO dto) {
         Department dept = departmentMapper.selectById(id);
-        if (dept == null || dept.getStatus() == 0) {
+        if (dept == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院系不存在");
         }
 

@@ -45,4 +45,10 @@ public class ExamGuideController {
         return R.ok(examGuideService.listByCategoryAndType(guideCategory, guideType));
     }
 
+    @GetMapping("/{id}/view")
+    public R<Void> view(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
+        examGuideService.incrementViewCount(id);
+        return R.ok();
+    }
+
 }

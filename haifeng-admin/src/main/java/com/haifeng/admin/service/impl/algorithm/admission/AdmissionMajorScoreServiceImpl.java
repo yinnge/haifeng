@@ -102,7 +102,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Transactional(rollbackFor = Exception.class)
     public void update(Integer id, AdmissionMajorScoreAddDTO dto) {
         AdmissionMajorScore existing = admissionMajorScoreMapper.selectByIdCustom(id);
-        if (existing == null || existing.getIsDeleted()) {
+        if (existing == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
@@ -130,7 +130,10 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         if (dto.getMaxScore() != null) existing.setMaxScore(dto.getMaxScore());
         if (dto.getMaxRank() != null) existing.setMaxRank(dto.getMaxRank());
         if (dto.getConstraints() != null) existing.setConstraints(dto.getConstraints());
-        admissionMajorScoreMapper.updateById(existing);
+        int rows = admissionMajorScoreMapper.updateByIdCustom(existing);
+        if (rows == 0) {
+            throw new BusinessException(500, "更新专业录取明细失败，记录可能已被禁用或不存在，请刷新后重试");
+        }
         log.info("更新专业录取明细成功，id={}", id);
     }
 
@@ -149,13 +152,16 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Transactional(rollbackFor = Exception.class)
     public void delete(Integer id) {
         AdmissionMajorScore entity = admissionMajorScoreMapper.selectByIdCustom(id);
-        if (entity == null || entity.getIsDeleted()) {
+        if (entity == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
-        entity.setIsDeleted(true);
-        admissionMajorScoreMapper.updateById(entity);
-        log.info("软删除专业录取明细成功，id={}", id);
+        // 物理删除，触发器 trg_ams_recalc_group 自动重算所属专业组聚合数据
+        int affected = admissionMajorScoreMapper.physicalDeleteById(id);
+        if (affected == 0) {
+            throw new BusinessException(404, "专业录取明细不存在");
+        }
+        log.info("物理删除专业录取明细成功，id={}", id);
     }
 
     @Override
@@ -170,6 +176,16 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
                         .in(AdmissionMajorScore::getId, ids)
                         .eq(AdmissionMajorScore::getIsDeleted, false));
         log.info("批量软删除专业录取明细成功，请求{}条，实际删除{}条", ids.size(), affected);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchHardDelete(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        int affected = admissionMajorScoreMapper.physicalDeleteBatchIds(ids);
+        log.info("批量物理删除专业录取明细成功，请求{}条，实际删除{}条", ids.size(), affected);
     }
 
     private void validateGroupExists(Integer groupId) {

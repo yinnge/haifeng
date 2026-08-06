@@ -4,11 +4,13 @@ import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.admin.dto.company.EnterpriseIndustryAddDTO;
 import com.haifeng.admin.dto.company.EnterpriseIndustryQueryDTO;
 import com.haifeng.admin.excel.company.EnterpriseIndustryExcelDTO;
 import com.haifeng.admin.service.company.EnterpriseIndustryService;
 import com.haifeng.admin.vo.company.EnterpriseIndustryDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseIndustryListVO;
+import com.haifeng.common.entity.company.Enterprise;
 import com.haifeng.common.entity.company.EnterpriseIndustry;
 import com.haifeng.common.entity.industry.Industry;
 import com.haifeng.common.exception.BusinessException;
@@ -86,6 +88,47 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
         }
 
         return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long add(EnterpriseIndustryAddDTO dto) {
+        // 校验企业存在且未删除
+        Enterprise enterprise = enterpriseMapper.selectById(dto.getEnterpriseId());
+        if (enterprise == null) {
+            throw new BusinessException(400, "企业不存在或已禁用");
+        }
+
+        // 校验行业存在且未删除
+        Industry industry = industryMapper.selectById(dto.getIndustryId());
+        if (industry == null) {
+            throw new BusinessException(400, "行业不存在或已禁用");
+        }
+
+        // 查重：同一企业不能重复关联同一行业
+        if (enterpriseIndustryMapper.existsByEnterpriseIdAndIndustryId(dto.getEnterpriseId(), dto.getIndustryId())) {
+            throw new BusinessException(400, "企业'" + enterprise.getEnterpriseName()
+                    + "'已关联行业'" + industry.getIndustryName() + "'");
+        }
+
+        Long id = SnowflakeIdGenerator.nextId();
+
+        EnterpriseIndustry entity = EnterpriseIndustry.builder()
+                .id(id)
+                .enterpriseId(dto.getEnterpriseId())
+                .enterpriseName(enterprise.getEnterpriseName())
+                .industryId(dto.getIndustryId())
+                .industryName(industry.getIndustryName())
+                .isPrimary(Boolean.TRUE.equals(dto.getIsPrimary()))
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : (short) 0)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        enterpriseIndustryMapper.insert(entity);
+
+        log.info("新增企业行业关联成功: id={}, enterpriseName={}, industryName={}",
+                id, entity.getEnterpriseName(), entity.getIndustryName());
+        return id;
     }
 
     @Override

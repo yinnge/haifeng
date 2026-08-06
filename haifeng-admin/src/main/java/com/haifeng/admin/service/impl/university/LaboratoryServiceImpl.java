@@ -90,7 +90,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Override
     public LaboratoryDetailVO detail(Long id) {
         Laboratory lab = laboratoryMapper.selectById(id);
-        if (lab == null || (lab.getStatus() != null && lab.getStatus() == 0)) {
+        if (lab == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 
@@ -179,7 +179,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, LaboratoryUpdateDTO dto) {
         Laboratory lab = laboratoryMapper.selectById(id);
-        if (lab == null || lab.getStatus() == 0) {
+        if (lab == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
 
@@ -250,9 +250,6 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         if (lab == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "实验室不存在");
         }
-        if (lab.getStatus() != null && lab.getStatus() == 0) {
-            throw new BusinessException(400, "该记录已软删除，不可硬删除");
-        }
         laboratoryMapper.deleteById(id);
         log.info("硬删除实验室，id={}", id);
     }
@@ -280,11 +277,6 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         List<Laboratory> records = laboratoryMapper.selectBatchIds(ids);
         if (records.size() != ids.size()) {
             throw new BusinessException(400, "部分记录不存在");
-        }
-        boolean hasSoftDeleted = records.stream()
-                .anyMatch(r -> r.getStatus() != null && r.getStatus() == 0);
-        if (hasSoftDeleted) {
-            throw new BusinessException(400, "包含已软删除的记录，不可硬删除");
         }
         laboratoryMapper.deleteBatchIds(ids);
         log.info("批量硬删除实验室，ids={}", ids);

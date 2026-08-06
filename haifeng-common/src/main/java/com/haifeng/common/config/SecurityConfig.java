@@ -81,6 +81,7 @@ public class SecurityConfig {
             "/api/v1/app/employment/*/list",
             "/api/v1/app/employment/*/*/list",
             "/api/v1/app/employment/content/*/list-by-type",
+            "/api/v1/app/employment/content/*/*/view",
             // Actuator
             "/actuator/**",
             // Swagger

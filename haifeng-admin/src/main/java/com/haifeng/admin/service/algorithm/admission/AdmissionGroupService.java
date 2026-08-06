@@ -17,6 +17,7 @@ public interface AdmissionGroupService {
     void updateStatus(Integer id, Boolean isDeleted);
     void delete(Integer id);
     void batchDelete(List<Integer> ids);
+    void batchHardDelete(List<Integer> ids);
     void importData(MultipartFile file);
     Integer recalcAll();
 }

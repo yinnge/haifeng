@@ -86,7 +86,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Override
     public SubjectEvaluationDetailVO detail(Long id) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
-        if (eval == null || (eval.getStatus() != null && eval.getStatus() == 0)) {
+        if (eval == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 
@@ -144,7 +144,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, SubjectEvaluationUpdateDTO dto) {
         SubjectEvaluation eval = subjectEvaluationMapper.selectById(id);
-        if (eval == null || eval.getStatus() == 0) {
+        if (eval == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
 
@@ -193,9 +193,6 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         if (eval == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "学科评估记录不存在");
         }
-        if (eval.getStatus() != null && eval.getStatus() == 0) {
-            throw new BusinessException(400, "该记录已软删除，不可硬删除");
-        }
         subjectEvaluationMapper.deleteById(id);
         log.info("硬删除学科评估，id={}", id);
     }
@@ -223,11 +220,6 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         List<SubjectEvaluation> records = subjectEvaluationMapper.selectBatchIds(ids);
         if (records.size() != ids.size()) {
             throw new BusinessException(400, "部分记录不存在");
-        }
-        boolean hasSoftDeleted = records.stream()
-                .anyMatch(r -> r.getStatus() != null && r.getStatus() == 0);
-        if (hasSoftDeleted) {
-            throw new BusinessException(400, "包含已软删除的记录，不可硬删除");
         }
         subjectEvaluationMapper.deleteBatchIds(ids);
         log.info("批量硬删除学科评估，ids={}", ids);

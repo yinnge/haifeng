@@ -1,14 +1,14 @@
 package com.haifeng.admin.dto.certificate;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 public class CompetitionMajorAddDTO {
 
-    @NotBlank(message = "竞赛名称不能为空")
-    private String competitionName;
+    @NotNull(message = "竞赛不能为空")
+    private Long competitionId;
 
-    @NotBlank(message = "专业名称不能为空")
-    private String majorName;
+    @NotNull(message = "专业不能为空")
+    private Long majorId;
 }

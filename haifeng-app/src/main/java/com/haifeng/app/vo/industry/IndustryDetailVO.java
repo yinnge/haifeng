@@ -6,10 +6,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * C 端行业详情 VO（任务 2 接口 2，来自 t_industry_detail）
+ * C 端行业详情 VO（任务 2 接口 2，来自 t_industry_detail + t_industry）
  */
 @Data
 @Builder
@@ -31,4 +32,14 @@ public class IndustryDetailVO implements Serializable {
     private Map<String, Object> talentAnalysis;
     private Map<String, Object> talentPolicy;
     private Map<String, Object> salaryData;
+
+    // ===== 来自 t_industry =====
+    private BigDecimal annualGrowthRate;
+    private String marketScale;
+    private String talentGap;
+    private BigDecimal investmentHeat;
+    private String growthTrend;
+    private String marketTrend;
+    private String talentTrend;
+    private String investmentTrend;
 }

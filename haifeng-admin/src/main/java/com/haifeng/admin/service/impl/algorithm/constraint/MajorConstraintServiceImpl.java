@@ -127,10 +127,10 @@ public class MajorConstraintServiceImpl implements MajorConstraintService {
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
-            throw new BusinessException(400, "请选择要禁用的记录");
+            throw new BusinessException(400, "请选择要删除的记录");
         }
-        int count = majorConstraintMapper.batchSoftDelete(ids);
-        log.info("批量禁用专业约束关联，count={}", count);
+        int count = majorConstraintMapper.batchPhysicalDelete(ids);
+        log.info("批量删除专业约束关联，count={}", count);
     }
 
     @Override

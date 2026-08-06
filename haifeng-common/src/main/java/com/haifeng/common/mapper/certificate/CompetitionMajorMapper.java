@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.entity.certificate.CompetitionMajor;
 import org.apache.ibatis.annotations.*;
 
+import java.util.List;
 import java.util.Map;
 
 @Mapper
@@ -16,6 +17,9 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
 
     @Update("UPDATE t_competition_major SET is_deleted = TRUE WHERE competition_id = #{competitionId} AND is_deleted = FALSE")
     int softDeleteByCompetitionId(@Param("competitionId") Long competitionId);
+
+    @Update("UPDATE t_competition_major SET is_deleted = FALSE WHERE competition_id = #{competitionId} AND is_deleted = TRUE")
+    int enableByCompetitionId(@Param("competitionId") Long competitionId);
 
     @Delete("DELETE FROM t_competition_major WHERE competition_id = #{competitionId}")
     int deleteByCompetitionId(@Param("competitionId") Long competitionId);
@@ -46,6 +50,15 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
 
     @Update("UPDATE t_competition_major SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
+
+    @Delete("DELETE FROM t_competition_major WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Long id);
+
+    @Delete("<script>" +
+            "DELETE FROM t_competition_major WHERE id IN" +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "</script>")
+    int physicalDeleteBatchByIds(@Param("ids") List<Long> ids);
 
     /**
      * 任务2接口3：分页查询某竞赛关联的专业（id + name）

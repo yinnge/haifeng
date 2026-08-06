@@ -35,6 +35,11 @@ public interface CompetitionMajorService {
     void deleteCompetitionMajor(Long id);
 
     /**
+     * 物理删除关联
+     */
+    void hardDeleteCompetitionMajor(Long id);
+
+    /**
      * 启用关联
      */
     void enableCompetitionMajor(Long id);

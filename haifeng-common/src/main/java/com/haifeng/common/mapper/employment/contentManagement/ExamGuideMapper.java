@@ -50,4 +50,10 @@ public interface ExamGuideMapper extends BaseMapper<ExamGuide> {
      * 动态更新（自定义 SQL，绕开逻辑删除过滤，禁用记录也可修改）
      */
     int updateGuide(ExamGuide entity);
+
+    /**
+     * 阅读量 +1（原子更新，并发安全）
+     */
+    @Update("UPDATE t_exam_guide SET view_count = view_count + 1 WHERE id = #{id} AND is_deleted = false")
+    int incrementViewCount(@Param("id") Long id);
 }

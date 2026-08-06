@@ -1,6 +1,7 @@
 package com.haifeng.admin.controller.company;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.admin.dto.company.EnterpriseIndustryAddDTO;
 import com.haifeng.admin.dto.company.EnterpriseIndustryBatchDeleteDTO;
 import com.haifeng.admin.dto.company.EnterpriseIndustryQueryDTO;
 import com.haifeng.admin.service.company.EnterpriseIndustryService;
@@ -42,6 +43,15 @@ public class EnterpriseIndustryController {
     @OperationLog(module = "企业-行业关联", action = "查询关联详情")
     public R<EnterpriseIndustryDetailVO> detail(@PathVariable Long id) {
         return R.ok(enterpriseIndustryService.detail(id));
+    }
+
+    /**
+     * 新增企业-行业关联
+     */
+    @PostMapping
+    @OperationLog(module = "企业-行业关联", action = "新增关联")
+    public R<Long> add(@Valid @RequestBody EnterpriseIndustryAddDTO dto) {
+        return R.ok(enterpriseIndustryService.add(dto));
     }
 
     /**

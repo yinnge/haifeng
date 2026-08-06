@@ -139,7 +139,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     @Override
     public UniversityGuideDetailVO detail(Long id) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
-        if (guide == null || guide.getStatus() == 0) {
+        if (guide == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
@@ -229,7 +229,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, UniversityGuideUpdateDTO dto) {
         UniversityGuide guide = universityGuideMapper.selectById(id);
-        if (guide == null || guide.getStatus() == 0) {
+        if (guide == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
         }
 
@@ -300,10 +300,6 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         UniversityGuide guide = universityGuideMapper.selectById(id);
         if (guide == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "院校适应指南不存在");
-        }
-
-        if (guide.getStatus() == 0) {
-            throw new BusinessException(400, "该院校适应指南已软删除，无法硬删除");
         }
 
         // 硬删除：物理删除

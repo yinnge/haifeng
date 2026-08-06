@@ -212,7 +212,10 @@ public class CityServiceImpl implements CityService {
         city.setGdp(dto.getGdp());
         city.setUpdatedAt(OffsetDateTime.now());
 
-        cityMapper.updateById(city);
+        int rows = cityMapper.updateByIdCustom(city);
+        if (rows == 0) {
+            throw new BusinessException(500, "更新城市失败，记录可能已被修改或不存在，请刷新后重试");
+        }
 
         // 同步更新详情表中的城市名称
         CityDetail detail = cityDetailMapper.findByCityId(id);
@@ -237,7 +240,8 @@ public class CityServiceImpl implements CityService {
         // 查找对应的详情记录
         CityDetail detail = cityDetailMapper.findByCityId(id);
         if (detail == null) {
-            throw new BusinessException(404, "城市详情不存在");
+            log.warn("城市详情不存在或已禁用，跳过详情更新: cityId={}", id);
+            return;
         }
 
         detail.setArea(dto.getArea());

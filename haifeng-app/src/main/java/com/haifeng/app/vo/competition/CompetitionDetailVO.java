@@ -21,6 +21,9 @@ public class CompetitionDetailVO implements Serializable {
     private Long id;
     private Long competitionId;
 
+    private String compName;
+    private String compLevel;
+
     private Map<String, Object> basicInfo;
     private List<String> awards;
     private String background;

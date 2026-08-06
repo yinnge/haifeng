@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.haifeng.common.mapper.industry.IndustryDetailMapper">
+
+    <resultMap id="industryDetailMap" type="com.haifeng.common.entity.industry.IndustryDetail" autoMapping="true">
+        <result column="industry_scale" property="industryScale" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="industry_talent_demand" property="industryTalentDemand" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="industry_salary" property="industrySalary" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="policy_info" property="policyInfo" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="development_support_info" property="developmentSupportInfo" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="talent_analysis" property="talentAnalysis" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="talent_policy" property="talentPolicy" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+        <result column="salary_data" property="salaryData" typeHandler="com.haifeng.common.config.JsonbTypeHandler"/>
+    </resultMap>
+
+    <select id="findByIndustryIdIgnoreLogicDelete" resultMap="industryDetailMap">
+        SELECT id, industry_id, industry_name, short_description, detailed_description,
+               industry_scale, industry_talent_demand, industry_salary, policy_info,
+               development_support_info, talent_analysis, talent_policy, salary_data,
+               is_deleted, created_at, updated_at
+        FROM t_industry_detail
+        WHERE industry_id = #{industryId}
+        LIMIT 1
+    </select>
+
+    <update id="updateByIdIgnoreLogicDelete">
+        UPDATE t_industry_detail
+        <set>
+            <if test="industryName != null">industry_name = #{industryName},</if>
+            <if test="shortDescription != null">short_description = #{shortDescription},</if>
+            <if test="detailedDescription != null">detailed_description = #{detailedDescription},</if>
+            <if test="industryScale != null">industry_scale = #{industryScale, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="industryTalentDemand != null">industry_talent_demand = #{industryTalentDemand, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="industrySalary != null">industry_salary = #{industrySalary, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="policyInfo != null">policy_info = #{policyInfo, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="developmentSupportInfo != null">development_support_info = #{developmentSupportInfo, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="talentAnalysis != null">talent_analysis = #{talentAnalysis, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="talentPolicy != null">talent_policy = #{talentPolicy, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            <if test="salaryData != null">salary_data = #{salaryData, typeHandler=com.haifeng.common.config.JsonbTypeHandler},</if>
+            updated_at = #{updatedAt}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+</mapper>

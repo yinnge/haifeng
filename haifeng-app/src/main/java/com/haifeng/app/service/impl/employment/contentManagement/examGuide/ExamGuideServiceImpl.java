@@ -83,6 +83,11 @@ public class ExamGuideServiceImpl implements ExamGuideService {
         return convertToDetailVO(guide);
     }
 
+    @Override
+    public void incrementViewCount(Long id) {
+        examGuideMapper.incrementViewCount(id);
+    }
+
     private ExamGuideDetailVO convertToDetailVO(ExamGuide guide) {
         return ExamGuideDetailVO.builder()
                 .id(guide.getId())

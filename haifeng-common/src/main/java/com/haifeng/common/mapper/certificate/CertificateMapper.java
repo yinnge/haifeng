@@ -1,11 +1,11 @@
 package com.haifeng.common.mapper.certificate;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.entity.certificate.Certificate;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
@@ -51,13 +51,14 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
 
     /**
      * 忽略逻辑删除，根据ID查询（可用于查询已禁用的数据）。
-     * 走 MP 内置 selectOne，autoResultMap 才会给 exam_requirements 套 StringListTypeHandler。
+     * 自定义 @Select 绕过 MyBatis-Plus 全局逻辑删除（MP 内置 selectOne 会自动追加 is_deleted=false），
+     * @Results 给 exam_requirements 套 StringListTypeHandler。
      */
-    default Certificate findByIdIgnoreLogicDelete(Long id) {
-        return selectOne(new LambdaQueryWrapper<Certificate>()
-                .eq(Certificate::getId, id)
-                .last("LIMIT 1"));
-    }
+    @Select("SELECT * FROM t_certificate WHERE id = #{id}")
+    @Results({
+            @Result(column = "exam_requirements", property = "examRequirements", typeHandler = StringListTypeHandler.class)
+    })
+    Certificate findByIdIgnoreLogicDelete(@Param("id") Long id);
 
     /**
      * 忽略逻辑删除，直接更新is_deleted字段
@@ -110,6 +111,12 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
             "</foreach>" +
             "</script>")
     int batchUpdateIsDeletedByIds(@Param("ids") List<Long> ids, @Param("isDeleted") Boolean isDeleted);
+
+    /**
+     * 忽略逻辑删除，物理删除单条证书（硬删除）
+     */
+    @Delete("DELETE FROM t_certificate WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Long id);
 
     /**
      * 忽略逻辑删除，物理删除证书（硬删除）

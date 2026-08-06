@@ -78,6 +78,14 @@ public interface ScoreRankMapper extends BaseMapper<ScoreRank> {
     @Update("UPDATE t_score_rank SET is_deleted = #{isDeleted} WHERE id = #{id}")
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 
+    /**
+     * 自定义更新（绕过全局逻辑删除的 is_deleted=false 条件），可更新已禁用记录。
+     */
+    @Update("UPDATE t_score_rank SET province=#{province}, year=#{year}, subject_type=#{subjectType}, " +
+            "score=#{score}, rank=#{rank}, same_score_count=#{sameScoreCount}, cumulative_count=#{cumulativeCount}, " +
+            "updated_at=NOW() WHERE id=#{id}")
+    int updateByIdCustom(ScoreRank entity);
+
     @Select("<script>" +
             "SELECT * FROM t_score_rank " +
             "<where>" +
