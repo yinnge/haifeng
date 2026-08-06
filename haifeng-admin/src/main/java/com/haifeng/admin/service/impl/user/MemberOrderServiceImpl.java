@@ -9,6 +9,7 @@ import com.haifeng.admin.service.user.MemberOrderService;
 import com.haifeng.admin.service.user.NotificationService;
 import com.haifeng.admin.vo.user.OrderDetailVO;
 import com.haifeng.admin.vo.user.OrderListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.config.SecurityProperties;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.entity.user.Member;
@@ -27,11 +28,13 @@ import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.security.AuthUser;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.DesensitizeUtil;
+import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -40,6 +43,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -52,6 +56,8 @@ public class MemberOrderServiceImpl implements MemberOrderService {
     private final SystemSettingsMapper settingsMapper;
     private final NotificationService notificationService;
     private final SecurityProperties securityProperties;
+    private final StringRedisTemplate redisTemplate;
+    private final JwtUtil jwtUtil;
 
     // ==================== 查询方法 ====================
 
@@ -293,10 +299,16 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         member.setMemberType(order.getAfterType().getValue());
         member.setExpireAt(order.getAfterExpireAt());
         member.setUpdatedAt(now);
+        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
+
+        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
         // 4. 更新订单 status = COMPLETED
         order.setStatus(OrderStatus.COMPLETED);
@@ -381,10 +393,16 @@ public class MemberOrderServiceImpl implements MemberOrderService {
             member.setSuspendedRemainingMonths(null);
         }
         member.setUpdatedAt(now);
+        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
+
+        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
         // 4. 更新订单 status = REVOKED，追加 remark
         String finalRemark = order.getRemark();

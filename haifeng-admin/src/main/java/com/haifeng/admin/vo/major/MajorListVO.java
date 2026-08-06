@@ -23,6 +23,8 @@ public class MajorListVO {
 
     private String majorCategory;
 
+    private String studyDuration;
+
     private Integer status;
 
     private OffsetDateTime createdAt;

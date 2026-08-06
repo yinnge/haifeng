@@ -124,8 +124,8 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
             @Param("minYear") Short minYear);
 
     /**
-     * 查询某大学下指定专业组的某些专业的近 N 年历史录取项
-     * 排除自身（excludeGroupId），仅返回 minYear 之后的记录
+     * 查询某大学下指定专业的近 N 年历史录取项
+     * 仅返回 minYear 之后的记录
      */
     @Select("<script>" +
             "SELECT ams.major_code AS majorCode, " +
@@ -142,7 +142,6 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
             "WHERE ag.university_id = #{universityId} " +
             "AND ag.is_deleted = FALSE " +
             "AND ams.is_deleted = FALSE " +
-            "AND ag.id != #{excludeGroupId} " +
             "AND ag.year >= #{minYear} " +
             "AND ams.major_code IN " +
             "<foreach collection='majorCodes' item='code' open='(' separator=',' close=')'>" +
@@ -152,7 +151,6 @@ public interface AdmissionMajorScoreMapper extends BaseMapper<AdmissionMajorScor
             "</script>")
     List<MajorHistoryItem> selectMajorHistoryItems(
             @Param("universityId") Long universityId,
-            @Param("excludeGroupId") Integer excludeGroupId,
             @Param("majorCodes") List<String> majorCodes,
             @Param("minYear") Short minYear);
 }

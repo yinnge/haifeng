@@ -1,4 +1,4 @@
-package com.haifeng.admin.dto.major;
+package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.StringToArrayConverter;
@@ -42,7 +42,7 @@ public class MajorDetailImportDTO {
     @ExcelProperty("学科要求")
     private String subjectRequirement;
 
-    @ExcelProperty("职业前景")
+    @ExcelProperty("就业前景")
     private String careerProspect;
 
     @ExcelProperty(value = "主要课程", converter = StringToArrayConverter.class)

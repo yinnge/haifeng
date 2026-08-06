@@ -81,6 +81,11 @@ public class Member {
      */
     private Integer suspendedRemainingMonths;
 
+    /**
+     * Token 版本号（升级/撤销时递增，使旧 Token 失效）
+     */
+    private Integer tokenVersion;
+
     public boolean isVipActive() {
         if (!"vip".equals(memberType)) {
             return false;

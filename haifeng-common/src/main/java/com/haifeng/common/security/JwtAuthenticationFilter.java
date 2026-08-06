@@ -84,7 +84,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 校验 Token 版本号（仅 admin 用户）
+     * 校验 Token 版本号（admin 和 member 均校验）
      */
     private boolean isTokenVersionValid(Claims claims) {
         Integer tokenVersion = jwtUtil.getTokenVersionFromClaims(claims);
@@ -94,11 +94,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         Long userId = claims.get("userId", Long.class);
         String userType = claims.get("userType", String.class);
-        if (userId == null || !"admin".equals(userType)) {
+        if (userId == null) {
             return true;
         }
 
-        String versionKey = RedisKeyConstant.getTokenVersionKey(userId, JwtUtil.USER_TYPE_ADMIN);
+        String versionKey = RedisKeyConstant.getTokenVersionKey(userId, userType);
         String currentVersion = redisTemplate.opsForValue().get(versionKey);
         if (currentVersion == null) {
             return true;
@@ -106,7 +106,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         boolean valid = Integer.valueOf(currentVersion).equals(tokenVersion);
         if (!valid) {
-            log.warn("Token版本号不匹配，userId={}，tokenVersion={}，currentVersion={}", userId, tokenVersion, currentVersion);
+            log.warn("Token版本号不匹配，userId={}, userType={}, tokenVersion={}, currentVersion={}",
+                    userId, userType, tokenVersion, currentVersion);
         }
         return valid;
     }

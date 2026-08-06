@@ -168,6 +168,20 @@ public final class RedisKeyConstant {
     public static final String WISH_EXPORT_PREFIX = "haifeng:wish:export:";
 
     /**
+     * 获取志愿导出状态的 Redis Key
+     */
+    public static String getWishExportKey(Long memberId, Integer planId) {
+        return WISH_EXPORT_PREFIX + memberId + ":" + planId;
+    }
+
+    /**
+     * 获取志愿导出状态的 Redis Hash field
+     */
+    public static String getWishExportField(Integer majorSnapshotId) {
+        return "major:" + majorSnapshotId + ":isExported";
+    }
+
+    /**
      * 短信验证码
      */
     public static final String SMS_CODE = "haifeng:sms:code:";

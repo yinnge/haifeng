@@ -1,8 +1,11 @@
-package com.haifeng.admin.dto.major;
+package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Data;
 
+/**
+ * 本科专业-考研方向关联导入DTO (EasyExcel)
+ */
 @Data
 public class MajorPostgradDirectionImportDTO {
 

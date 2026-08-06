@@ -1,4 +1,4 @@
-package com.haifeng.admin.dto.major;
+package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Data;
@@ -34,6 +34,9 @@ public class MajorImportDTO {
 
     @ExcelProperty("授予学位")
     private String degreeAwarded;
+
+    @ExcelProperty("学制")
+    private String studyDuration;
 
     @ExcelProperty("就业率")
     private BigDecimal employmentRate;

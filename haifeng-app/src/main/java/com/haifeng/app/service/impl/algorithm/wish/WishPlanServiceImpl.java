@@ -41,7 +41,6 @@ import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.service.algorithm.ProvinceReformService;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
 import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
-import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -146,49 +145,36 @@ public class WishPlanServiceImpl implements WishPlanService {
             }
         }
 
+        // 3.5 查询组级别历史数据（与列表页 pageMajors 保持一致）
+        List<GroupKey> groupKeys = Collections.singletonList(
+                new GroupKey(group.getUniversityId(), group.getGroupCode()));
+        Short groupMinYear = (short) (group.getYear() - 4);
+        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(
+                groupKeys, gaokao.getGaokaoProvince(), groupMinYear);
+
         // 4. 预查询安全系数计算所需上下文
         List<String> constraintCodes = constraintMatcherService.matchConstraints(gaokao);
         if (constraintCodes == null) constraintCodes = Collections.emptyList();
 
-        Set<String> allConstraintCodes = new HashSet<>(constraintCodes);
-        if (group.getConstraints() != null) allConstraintCodes.addAll(group.getConstraints());
-        for (AdmissionMajorScore m : majorScores) {
-            if (m.getConstraints() != null) allConstraintCodes.addAll(m.getConstraints());
-        }
-        Map<String, String> severityMap = allConstraintCodes.isEmpty()
-                ? Collections.emptyMap()
-                : constraintDictMapper.selectSeverityByCodes(new ArrayList<>(allConstraintCodes)).stream()
-                        .collect(Collectors.toMap(ConstraintDict::getCode, ConstraintDict::getSeverity, (a, b) -> a));
-
+        // 专业级别历史（仅用于 snapshot HistoryScore）
         Short majorMinYear = (short) (gaokao.getGaokaoYear() - 5);
         List<String> majorCodes = majorScores.stream().map(AdmissionMajorScore::getMajorCode).collect(Collectors.toList());
         List<MajorHistoryItem> majorHistoryList = admissionMajorScoreMapper.selectMajorHistoryItems(
-                group.getUniversityId(), group.getId(), majorCodes, majorMinYear);
+                group.getUniversityId(), majorCodes, majorMinYear);
         Map<String, List<MajorHistoryItem>> majorHistoryMap = majorHistoryList.stream()
                 .filter(m -> m.getMajorCode() != null)
                 .collect(Collectors.groupingBy(MajorHistoryItem::getMajorCode));
-
-        BigDecimal density = queryDensity(gaokao);
-        ProvinceConfig provinceConfig = queryProvinceConfig(gaokao);
-        Short reformYear = queryReformYear(gaokao);
 
         // 5. 计算每个专业的安全系数，检查"禁"级别，收集数据
         List<MajorSafetyInfo> majorInfos = new ArrayList<>();
         for (AdmissionMajorScore major : majorScores) {
             List<MajorHistoryItem> history = majorHistoryMap.getOrDefault(major.getMajorCode(), Collections.emptyList());
-            SafetyCalcContext ctx = SafetyCalcContext.builder()
-                    .density(density)
-                    .provinceConfig(provinceConfig)
-                    .reformYear(reformYear)
-                    .severityMap(severityMap)
-                    .majorHistory(history)
-                    .build();
             SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
-                    gaokao, major, group, constraintCodes, ctx);
+                    gaokao, major, group, historyGroups, constraintCodes);
 
             if ("禁".equals(result.getLevelShort())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST,
-                        "专业「" + major.getMajorName() + "」为'禁'级别，不允许添加到志愿表");
+                        "专业「" + major.getMajorName() + "」为'禁'级别（" + result.getSafetyDescription() + "），不允许添加到志愿表");
             }
 
             // 构建 HistoryScore 用于存储到 snapshot
@@ -396,9 +382,52 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .eq(WishGroupSnapshot::getPlanId, planId)
                         .orderByAsc(WishGroupSnapshot::getGroupSortOrder));
 
+        // 读取 Redis 导出状态
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        String exportKey = RedisKeyConstant.getWishExportKey(currentMemberId, planId);
+        Map<Object, Object> exportEntries;
+        try {
+            exportEntries = redisTemplate.opsForHash().entries(exportKey);
+        } catch (Exception e) {
+            log.warn("Redis 读取导出状态失败: key={}", exportKey, e);
+            exportEntries = Collections.emptyMap();
+        }
+
+        // 批量查询所有专业（避免 N+1）
+        List<Integer> groupSnapIds = snapPage.getRecords().stream()
+                .map(WishGroupSnapshot::getId)
+                .collect(Collectors.toList());
+        Map<Integer, List<WishMajorSnapshot>> majorsByGroup = Collections.emptyMap();
+        if (!groupSnapIds.isEmpty()) {
+            List<WishMajorSnapshot> allMajors = wishMajorSnapshotMapper.selectList(
+                    new LambdaQueryWrapper<WishMajorSnapshot>()
+                            .eq(WishMajorSnapshot::getPlanId, planId)
+                            .in(WishMajorSnapshot::getGroupSnapshotId, groupSnapIds));
+            majorsByGroup = allMajors.stream()
+                    .collect(Collectors.groupingBy(WishMajorSnapshot::getGroupSnapshotId));
+        }
+
         Page<WishPlanGroupVO> result = new Page<>(snapPage.getCurrent(), snapPage.getSize(), snapPage.getTotal());
+        Map<Integer, List<WishMajorSnapshot>> finalMajorsByGroup = majorsByGroup;
         result.setRecords(snapPage.getRecords().stream()
-                .map(this::toGroupVO)
+                .map(snap -> {
+                    WishPlanGroupVO vo = toGroupVO(snap);
+                    List<WishMajorSnapshot> groupMajors = finalMajorsByGroup.getOrDefault(snap.getId(), Collections.emptyList());
+                    boolean allExported = true;
+                    for (WishMajorSnapshot major : groupMajors) {
+                        String field = RedisKeyConstant.getWishExportField(major.getId());
+                        Object redisVal = exportEntries.get(field);
+                        boolean exported = redisVal != null
+                                ? Boolean.parseBoolean(redisVal.toString())
+                                : (major.getIsExported() != null ? major.getIsExported() : true);
+                        if (!exported) {
+                            allExported = false;
+                            break;
+                        }
+                    }
+                    vo.setAllExported(allExported);
+                    return vo;
+                })
                 .collect(Collectors.toList()));
         return result;
     }
@@ -415,9 +444,29 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .eq(WishMajorSnapshot::getGroupSnapshotId, groupSnapshotId)
                         .orderByAsc(WishMajorSnapshot::getMajorSortOrder));
 
+        // 读取 Redis 导出状态
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        String exportKey = RedisKeyConstant.getWishExportKey(currentMemberId, planId);
+        Map<Object, Object> exportEntries;
+        try {
+            exportEntries = redisTemplate.opsForHash().entries(exportKey);
+        } catch (Exception e) {
+            log.warn("Redis 读取导出状态失败: key={}", exportKey, e);
+            exportEntries = Collections.emptyMap();
+        }
+
         Page<WishPlanMajorVO> result = new Page<>(snapPage.getCurrent(), snapPage.getSize(), snapPage.getTotal());
         result.setRecords(snapPage.getRecords().stream()
-                .map(this::toMajorVO)
+                .map(snap -> {
+                    WishPlanMajorVO vo = toMajorVO(snap);
+                    // Redis 有值则覆盖
+                    String field = RedisKeyConstant.getWishExportField(snap.getId());
+                    Object redisVal = exportEntries.get(field);
+                    if (redisVal != null) {
+                        vo.setIsExported(Boolean.parseBoolean(redisVal.toString()));
+                    }
+                    return vo;
+                })
                 .collect(Collectors.toList()));
         return result;
     }
@@ -540,8 +589,8 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
 
         // 4. 存入Redis（key 含 memberId 做用户隔离）
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
-        String field = "major:" + majorId + ":isExported";
+        String key = RedisKeyConstant.getWishExportKey(currentMemberId, planId);
+        String field = RedisKeyConstant.getWishExportField(majorId);
         try {
             redisTemplate.opsForHash().put(key, field, dto.getIsExported().toString());
             redisTemplate.expire(key, EXPORT_KEY_EXPIRE_DAYS, TimeUnit.DAYS);
@@ -577,10 +626,10 @@ public class WishPlanServiceImpl implements WishPlanService {
         List<WishMajorSnapshot> majors = wishMajorSnapshotMapper.selectList(queryWrapper);
 
         // 5. 批量存入Redis（key 含 memberId 做用户隔离）
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
+        String key = RedisKeyConstant.getWishExportKey(currentMemberId, planId);
         Map<String, String> fieldMap = new HashMap<>();
         for (WishMajorSnapshot major : majors) {
-            String field = "major:" + major.getId() + ":isExported";
+            String field = RedisKeyConstant.getWishExportField(major.getId());
             fieldMap.put(field, dto.getIsExported().toString());
         }
         try {
@@ -749,7 +798,7 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
 
         // M11. Redis 异常降级处理（key 含 memberId 做用户隔离）
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + currentMemberId + ":" + planId;
+        String key = RedisKeyConstant.getWishExportKey(currentMemberId, planId);
         Map<Object, Object> entries;
         try {
             entries = redisTemplate.opsForHash().entries(key);
@@ -899,7 +948,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     }
 
     private Set<Integer> getExportMajors(Integer planId, Long memberId) {
-        String key = RedisKeyConstant.WISH_EXPORT_PREFIX + memberId + ":" + planId;
+        String key = RedisKeyConstant.getWishExportKey(memberId, planId);
         Map<Object, Object> entries;
         try {
             entries = redisTemplate.opsForHash().entries(key);
@@ -1051,6 +1100,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .safetyLevel(snap.getSafetyLevel())
                 .levelShort(snap.getLevelShort())
                 .historyScores(historyScores)
+                .isExported(snap.getIsExported() != null ? snap.getIsExported() : true)
                 .build();
     }
 

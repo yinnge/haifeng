@@ -10,6 +10,7 @@ import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.service.user.NotificationService;
 import com.haifeng.admin.vo.user.MemberDetailVO;
 import com.haifeng.admin.vo.user.MemberListVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.config.SecurityProperties;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.entity.user.Member;
@@ -27,11 +28,13 @@ import com.haifeng.common.mapper.user.ReferralCommissionMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.DesensitizeUtil;
+import com.haifeng.common.util.JwtUtil;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -40,6 +43,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -52,6 +56,8 @@ public class MemberServiceImpl implements MemberService {
     private final SystemSettingsMapper settingsMapper;
     private final NotificationService notificationService;
     private final SecurityProperties securityProperties;
+    private final StringRedisTemplate redisTemplate;
+    private final JwtUtil jwtUtil;
 
     @Override
     public IPage<MemberListVO> page(MemberQueryDTO dto) {
@@ -240,10 +246,16 @@ public class MemberServiceImpl implements MemberService {
         member.setMemberType(dto.getTargetType());
         member.setExpireAt(newExpireAt);
         member.setUpdatedAt(now);
+        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
+
+        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
         // 9. 创建订单记录
         Long orderId = SnowflakeIdGenerator.nextId();
