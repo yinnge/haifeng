@@ -62,6 +62,7 @@ public class SecurityConfig {
             "/api/v1/app/city/list",
             // 企业
             "/api/v1/app/enterprise/list",
+            "/api/v1/app/enterprise/types",
             // 行业
             "/api/v1/app/industry/categories",
             "/api/v1/app/industry/list",

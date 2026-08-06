@@ -21,4 +21,7 @@ public interface EnterpriseService {
 
     /** 企业 → 行业跳转信息（Pro） */
     List<EnterpriseIndustryGroupVO> industriesByEnterpriseIds(List<Long> enterpriseIds);
+
+    /** 企业类型列表（公开，去重，前端用作下拉筛选） */
+    List<String> listTypes();
 }

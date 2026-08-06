@@ -20,6 +20,9 @@ public interface EnterpriseMapper extends BaseMapper<Enterprise> {
     @Select("SELECT EXISTS(SELECT 1 FROM t_enterprise WHERE enterprise_name = #{enterpriseName} AND is_deleted = FALSE)")
     boolean existsByEnterpriseName(@Param("enterpriseName") String enterpriseName);
 
+    @Select("SELECT DISTINCT enterprise_type FROM t_enterprise WHERE is_deleted = FALSE AND enterprise_type IS NOT NULL AND enterprise_type != '' ORDER BY enterprise_type")
+    List<String> listTypes();
+
     @Select("SELECT id FROM t_enterprise WHERE enterprise_name = #{enterpriseName} AND is_deleted = FALSE")
     Long findIdByEnterpriseName(@Param("enterpriseName") String enterpriseName);
 
