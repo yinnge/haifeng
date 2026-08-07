@@ -58,4 +58,10 @@ public class EnterpriseController {
     public R<List<EnterpriseIndustryGroupVO>> industries(@RequestParam @NotEmpty(message = "企业ID列表不能为空") List<@Min(value = 1, message = "ID必须大于0") Long> enterpriseIds) {
         return R.ok(enterpriseService.industriesByEnterpriseIds(enterpriseIds));
     }
+
+    /** 企业类型列表（公开，去重，前端下拉筛选用） */
+    @GetMapping("/types")
+    public R<List<String>> types() {
+        return R.ok(enterpriseService.listTypes());
+    }
 }

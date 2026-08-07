@@ -116,6 +116,11 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<String> listTypes() {
+        return enterpriseMapper.listTypes();
+    }
+
     private EnterpriseListVO toListVO(Enterprise e) {
         return EnterpriseListVO.builder()
                 .id(e.getId())
