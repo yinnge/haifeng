@@ -1,4 +1,4 @@
-package com.haifeng.admin.dto.major;
+package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Data;

@@ -31,4 +31,5 @@ public class WishPlanGroupVO {
     private List<String> tags;
     private Integer recommendationYear;
     private BigDecimal recommendationRate;
+    private Boolean allExported;
 }

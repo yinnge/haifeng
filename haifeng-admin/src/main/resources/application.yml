@@ -7,4 +7,4 @@ spring:
     default-property-inclusion: non_null
 
 server:
-  port: ${ADMIN_PORT:8081}
+  port: ${ADMIN_PORT:18081}

@@ -111,7 +111,12 @@ public class AppAuthServiceImpl implements AppAuthService {
 
         memberMapper.insert(member);
 
-        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, member.getMemberType(), member.getUsername());
+        Integer tokenVersion = member.getTokenVersion() != null ? member.getTokenVersion() : 0;
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+
+        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, member.getMemberType(), tokenVersion, member.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
@@ -158,7 +163,12 @@ public class AppAuthServiceImpl implements AppAuthService {
 
         String effectiveMemberType = member.getEffectiveMemberType();
 
-        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, member.getUsername());
+        Integer tokenVersion = member.getTokenVersion() != null ? member.getTokenVersion() : 0;
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+
+        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
@@ -211,7 +221,12 @@ public class AppAuthServiceImpl implements AppAuthService {
 
         String effectiveMemberType = member.getEffectiveMemberType();
 
-        String newAccessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, member.getUsername());
+        Integer tokenVersion = member.getTokenVersion() != null ? member.getTokenVersion() : 0;
+        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
+        redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
+                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+
+        String newAccessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername());
         String newRefreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         redisTemplate.opsForValue().set(redisKey, newRefreshToken,

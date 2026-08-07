@@ -32,7 +32,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 
 import java.math.BigDecimal;
-import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -60,15 +59,17 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
         String province = gaokao.getGaokaoProvince();
         String batch = dto.getBatch();
+        // 构建 batch 模糊匹配模式，兼容 "本科批" vs "本科" 等命名差异
+        String batchPattern = "%" + batch.replace("%", "\\%").replace("_", "\\_") + "%";
         boolean subjectFilter = Boolean.TRUE.equals(dto.getSubjectFilter());
 
         // 构建用户选科数组字符串（PostgreSQL格式）
         String userSubjects = buildUserSubjectsArray(gaokao);
 
-        // 2. 分页查询专业组（year 减一 + 单级 fallback）
+        // 2. 分页查询专业组（优先当年 + 单级 fallback）
         int size = dto.getSize();
         int offset = (dto.getPage() - 1) * size;
-        Short targetYear = (short) (gaokao.getGaokaoYear() - 1);
+        Short targetYear = gaokao.getGaokaoYear();
 
         String universityName = dto.getUniversityName();
         String cityName = dto.getCityName();
@@ -77,21 +78,21 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
         List<AdmissionGroup> groups = admissionGroupMapper.selectPageByCondition(
                 province, batch, targetYear, subjectFilter, userSubjects,
-                universityName, cityName, groupName, enrollmentCode, size, offset);
+                universityName, cityName, groupName, enrollmentCode, batchPattern, size, offset);
         long total = admissionGroupMapper.countByCondition(
                 province, batch, targetYear, subjectFilter, userSubjects,
-                universityName, cityName, groupName, enrollmentCode);
+                universityName, cityName, groupName, enrollmentCode, batchPattern);
 
-        // fallback: targetYear 无数据则尝试 targetYear - 1
+        // fallback: 当年无数据则查上一年
         Short fallbackYear = null;
         if (groups.isEmpty() && total == 0) {
             fallbackYear = (short) (targetYear - 1);
             groups = admissionGroupMapper.selectPageByCondition(
                     province, batch, fallbackYear, subjectFilter, userSubjects,
-                    universityName, cityName, groupName, enrollmentCode, size, offset);
+                    universityName, cityName, groupName, enrollmentCode, batchPattern, size, offset);
             total = admissionGroupMapper.countByCondition(
                     province, batch, fallbackYear, subjectFilter, userSubjects,
-                    universityName, cityName, groupName, enrollmentCode);
+                    universityName, cityName, groupName, enrollmentCode, batchPattern);
         }
 
         if (groups.isEmpty()) {
@@ -103,7 +104,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .map(g -> new GroupKey(g.getUniversityId(), g.getGroupCode()))
                 .collect(Collectors.toList());
 
-        Short minYear = (short) (Year.now().getValue() - 4);
+        Short actualYear = fallbackYear != null ? fallbackYear : targetYear;
+        Short minYear = (short) (actualYear - 4);
         List<AdmissionGroup> historyList = admissionGroupMapper.selectHistoryByKeys(keys, province, minYear);
 
         // 按 university_id + group_code 分组
@@ -206,7 +208,7 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .map(AdmissionMajorScore::getMajorCode)
                 .collect(Collectors.toList());
 
-        Short minYear = (short) (Year.now().getValue() - 4);
+        Short minYear = (short) (group.getYear() - 4);
         String province = gaokao.getGaokaoProvince();
         List<Map<String, Object>> historyList = admissionMajorScoreMapper.selectHistoryByMajorCodes(
                 group.getUniversityId(), majorCodes, minYear);

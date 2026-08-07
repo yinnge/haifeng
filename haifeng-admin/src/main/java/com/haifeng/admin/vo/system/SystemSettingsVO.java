@@ -27,6 +27,32 @@ public class SystemSettingsVO implements Serializable {
     private String siteIcp;
     private String siteDescription;
     private Integer apiNumber;
+
+    /**
+     * 默认志愿表「搏」档（reach high）数量
+     */
+    private Integer reachHighCount;
+
+    /**
+     * 默认志愿表「冲」档（reach）数量
+     */
+    private Integer reachCount;
+
+    /**
+     * 默认志愿表「稳」档（match）数量
+     */
+    private Integer matchCount;
+
+    /**
+     * 默认志愿表「保」档（safe）数量
+     */
+    private Integer safeCount;
+
+    /**
+     * 默认志愿表「垫」档（floor）数量
+     */
+    private Integer floorCount;
+
     private String providerName;
     private String modelName;
     private Integer proPrice;

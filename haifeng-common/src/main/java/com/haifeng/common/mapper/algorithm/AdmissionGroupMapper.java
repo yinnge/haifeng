@@ -145,7 +145,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
     @Select("<script>" +
             "SELECT * FROM t_admission_group " +
             "WHERE province = #{province} " +
-            "AND batch = #{batch} " +
+            "AND (batch = #{batch} OR batch LIKE #{batchPattern} OR #{batch} LIKE '%' || batch || '%') " +
             "AND year = #{year} " +
             "AND is_deleted = FALSE " +
             "<if test='universityName != null and universityName != \"\"'>" +
@@ -186,6 +186,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("cityName") String cityName,
             @Param("groupName") String groupName,
             @Param("enrollmentCode") String enrollmentCode,
+            @Param("batchPattern") String batchPattern,
             @Param("size") int size,
             @Param("offset") int offset);
 
@@ -196,7 +197,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
     @Select("<script>" +
             "SELECT COUNT(*) FROM t_admission_group " +
             "WHERE province = #{province} " +
-            "AND batch = #{batch} " +
+            "AND (batch = #{batch} OR batch LIKE #{batchPattern} OR #{batch} LIKE '%' || batch || '%') " +
             "AND year = #{year} " +
             "AND is_deleted = FALSE " +
             "<if test='universityName != null and universityName != \"\"'>" +
@@ -230,5 +231,6 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("universityName") String universityName,
             @Param("cityName") String cityName,
             @Param("groupName") String groupName,
-            @Param("enrollmentCode") String enrollmentCode);
+            @Param("enrollmentCode") String enrollmentCode,
+            @Param("batchPattern") String batchPattern);
 }

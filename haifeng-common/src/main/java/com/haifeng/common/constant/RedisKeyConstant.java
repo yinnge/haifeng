@@ -56,6 +56,12 @@ public final class RedisKeyConstant {
     public static final String WISH_PLAN_DEFAULT_LIMITS_KEY = "haifeng:wish-plan:default-limits";
 
     /**
+     * AI/PDF 每日配额上限（api_number）缓存
+     * value: Integer（每日可生成 PDF 报告的次数）
+     */
+    public static final String API_NUMBER_CACHE_KEY = "sys:api_number";
+
+    /**
      * 获取 RefreshToken 的 Redis Key
      *
      * @param userId   用户ID
@@ -166,6 +172,20 @@ public final class RedisKeyConstant {
      * hash key: planId, field: major:{majorId}:isExported
      */
     public static final String WISH_EXPORT_PREFIX = "haifeng:wish:export:";
+
+    /**
+     * 获取志愿导出状态的 Redis Key
+     */
+    public static String getWishExportKey(Long memberId, Integer planId) {
+        return WISH_EXPORT_PREFIX + memberId + ":" + planId;
+    }
+
+    /**
+     * 获取志愿导出状态的 Redis Hash field
+     */
+    public static String getWishExportField(Integer majorSnapshotId) {
+        return "major:" + majorSnapshotId + ":isExported";
+    }
 
     /**
      * 短信验证码

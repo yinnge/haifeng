@@ -23,4 +23,5 @@ public class WishPlanMajorVO {
     private BigDecimal safetyLevel;
     private String levelShort;
     private List<YearScoreVO> historyScores;
+    private Boolean isExported;
 }

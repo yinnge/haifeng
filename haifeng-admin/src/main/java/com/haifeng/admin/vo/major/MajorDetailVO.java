@@ -31,6 +31,8 @@ public class MajorDetailVO {
 
     private String degreeAwarded;
 
+    private String studyDuration;
+
     private BigDecimal employmentRate;
 
     private Integer salaryMin;

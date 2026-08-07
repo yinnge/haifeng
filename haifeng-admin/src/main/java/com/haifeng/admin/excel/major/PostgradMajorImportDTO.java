@@ -1,11 +1,10 @@
-package com.haifeng.admin.dto.major;
+package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import lombok.Data;
 
 /**
  * 考研专业导入DTO (EasyExcel)
- * 注意：数组字段暂用String类型，后续使用converter处理
  */
 @Data
 public class PostgradMajorImportDTO {
@@ -22,22 +21,22 @@ public class PostgradMajorImportDTO {
     @ExcelProperty("学科门类")
     private String disciplineCategory;
 
-    @ExcelProperty("热门程度")
+    @ExcelProperty("热度")
     private String popularity;
 
-    @ExcelProperty("难度等级")
+    @ExcelProperty("难度")
     private String difficulty;
 
     @ExcelProperty("专业简介")
     private String brief;
 
-    @ExcelProperty("详细介绍")
+    @ExcelProperty("专业介绍")
     private String introduction;
 
     @ExcelProperty("考试科目")
     private String examSubjects;
 
-    @ExcelProperty("录取条件")
+    @ExcelProperty("报考要求")
     private String admissionRequirements;
 
     @ExcelProperty("跨考因素")
