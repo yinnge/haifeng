@@ -56,6 +56,12 @@ public final class RedisKeyConstant {
     public static final String WISH_PLAN_DEFAULT_LIMITS_KEY = "haifeng:wish-plan:default-limits";
 
     /**
+     * AI/PDF 每日配额上限（api_number）缓存
+     * value: Integer（每日可生成 PDF 报告的次数）
+     */
+    public static final String API_NUMBER_CACHE_KEY = "sys:api_number";
+
+    /**
      * 获取 RefreshToken 的 Redis Key
      *
      * @param userId   用户ID

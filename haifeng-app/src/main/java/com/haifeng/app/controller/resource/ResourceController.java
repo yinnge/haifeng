@@ -7,7 +7,7 @@ import com.haifeng.app.vo.resource.ResourceListVO;
 import com.haifeng.app.vo.resource.ResourceUrlVO;
 
 import java.util.List;
-import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * C 端资源管理 - 列表（公开）+ URL（登录）
+ * C 端资源管理 - 列表（公开）+ URL（VIP会员）
  */
 @Validated
 @RestController
@@ -35,8 +35,8 @@ public class ResourceController {
         return R.ok(resourceService.page(dto));
     }
 
-    /** 任务 3 接口 2 & 3：查看资源 URL 并同步 +1 浏览计数，需登录 */
-    @RequireLogin
+    /** 任务 3 接口 2 & 3：查看资源 URL 并同步 +1 浏览计数，需VIP会员 */
+    @RequireVip
     @GetMapping("/{id}/url")
     public R<ResourceUrlVO> getUrl(@PathVariable @Min(value = 1, message = "ID必须大于0") Long id) {
         return R.ok(resourceService.getUrl(id));

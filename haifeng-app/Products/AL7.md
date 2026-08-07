@@ -960,7 +960,7 @@ Authorization: Bearer {accessToken}
   "code": 200,
   "msg": "success",
   "data": {
-    "downloadUrl": "/api/v1/app/algorithm/wish-plan/1001/export/download?file=我的志愿方案1_1001.xlsx",
+    "downloadUrl": "/api/v1/app/algorithm/wish-plan/1001/export/download?file=%E6%88%91%E7%9A%84%E5%BF%97%E6%84%BF%E6%96%B9%E6%A1%881_1001.xlsx",
     "fileName": "我的志愿方案1_1001.xlsx"
   },
   "timestamp": 1714300000000
@@ -1323,7 +1323,26 @@ Authorization: Bearer {accessToken}
 ### 21.4 文件下载
 
 - `generate` 返回的 `downloadUrl` 是相对路径，前端需拼接 base URL
-- 下载接口返回二进制流，前端用 `<a>` 标签 + `download` 属性或 `blob` 下载
+- `downloadUrl` 中的 `file` 参数已 URL-encode，`fileName` 字段保持原始中文（用于前端显示文件名）
+- 下载接口返回二进制流，前端**必须**用 `responseType: 'blob'`（axios）或 `response.blob()`（fetch）处理响应
+- **禁止**用 `window.open(downloadUrl)` 或 `<a href="downloadUrl">` 直接访问，因为下载接口有 `@RequirePro` 注解，JWT 只从 `Authorization` header 读取，浏览器直接打开 URL 不会带 token
+- 前端下载示例代码：
+
+```javascript
+// axios 方式
+const response = await axios.get(downloadUrl, {
+  headers: { Authorization: `Bearer ${token}` },
+  responseType: 'blob'  // 关键！告诉 axios 这是二进制
+});
+const blob = new Blob([response.data]);
+const url = window.URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = fileName;  // 用 generate 返回的 fileName（原始中文）
+a.click();
+window.URL.revokeObjectURL(url);
+```
+
 - 文件为一次性下载，下载后服务器自动删除，刷新页面需重新 generate
 
 ### 21.5 专业添加的 planId 策略

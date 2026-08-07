@@ -55,6 +55,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -392,6 +394,7 @@ public class WishPlanServiceImpl implements WishPlanService {
             log.warn("Redis 读取导出状态失败: key={}", exportKey, e);
             exportEntries = Collections.emptyMap();
         }
+        final Map<Object, Object> finalExportEntries = exportEntries;
 
         // 批量查询所有专业（避免 N+1）
         List<Integer> groupSnapIds = snapPage.getRecords().stream()
@@ -416,7 +419,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                     boolean allExported = true;
                     for (WishMajorSnapshot major : groupMajors) {
                         String field = RedisKeyConstant.getWishExportField(major.getId());
-                        Object redisVal = exportEntries.get(field);
+                        Object redisVal = finalExportEntries.get(field);
                         boolean exported = redisVal != null
                                 ? Boolean.parseBoolean(redisVal.toString())
                                 : (major.getIsExported() != null ? major.getIsExported() : true);
@@ -454,6 +457,7 @@ public class WishPlanServiceImpl implements WishPlanService {
             log.warn("Redis 读取导出状态失败: key={}", exportKey, e);
             exportEntries = Collections.emptyMap();
         }
+        final Map<Object, Object> finalExportEntries = exportEntries;
 
         Page<WishPlanMajorVO> result = new Page<>(snapPage.getCurrent(), snapPage.getSize(), snapPage.getTotal());
         result.setRecords(snapPage.getRecords().stream()
@@ -461,7 +465,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                     WishPlanMajorVO vo = toMajorVO(snap);
                     // Redis 有值则覆盖
                     String field = RedisKeyConstant.getWishExportField(snap.getId());
-                    Object redisVal = exportEntries.get(field);
+                    Object redisVal = finalExportEntries.get(field);
                     if (redisVal != null) {
                         vo.setIsExported(Boolean.parseBoolean(redisVal.toString()));
                     }
@@ -721,7 +725,8 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
 
         // M1. downloadUrl 指向 GET /download 端点（非自身 POST /generate）
-        String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download?file=" + fileName;
+        String encodedFile = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+        String downloadUrl = "/api/v1/app/algorithm/wish-plan/" + planId + "/export/download?file=" + encodedFile;
 
         log.info("会员 {} 生成导出文件 planId={}, fileName={}", currentMemberId, planId, fileName);
 
@@ -746,7 +751,7 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
 
         // C2. 净化文件名，防止路径穿越
-        String sanitized = fileName == null ? "" : fileName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\-_]", "_");
+        String sanitized = fileName == null ? "" : fileName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\-_.]", "_");
         if (sanitized.isBlank() || !sanitized.endsWith(".xlsx")) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "非法文件名");
         }

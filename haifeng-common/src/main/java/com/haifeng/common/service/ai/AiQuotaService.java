@@ -1,6 +1,7 @@
 package com.haifeng.common.service.ai;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.exception.QuotaExceededException;
 import com.haifeng.common.mapper.system.SystemSettingsMapper;
@@ -33,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 public class AiQuotaService {
 
     private static final String QUOTA_KEY_PREFIX = "pdf:report:quota:";
-    private static final String API_NUMBER_CACHE_KEY = "sys:api_number";
     private static final long API_NUMBER_CACHE_TTL_MIN = 5L;
     private static final int DEFAULT_API_NUMBER = 3;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -97,7 +97,7 @@ public class AiQuotaService {
     }
 
     public int getApiNumberLimit() {
-        Object cached = redisTemplate.opsForValue().get(API_NUMBER_CACHE_KEY);
+        Object cached = redisTemplate.opsForValue().get(RedisKeyConstant.API_NUMBER_CACHE_KEY);
         if (cached instanceof Number) {
             return ((Number) cached).intValue();
         }
@@ -106,7 +106,7 @@ public class AiQuotaService {
         if (rows != null && !rows.isEmpty() && rows.get(0).getApiNumber() != null) {
             limit = rows.get(0).getApiNumber();
         }
-        redisTemplate.opsForValue().set(API_NUMBER_CACHE_KEY, limit,
+        redisTemplate.opsForValue().set(RedisKeyConstant.API_NUMBER_CACHE_KEY, limit,
                 API_NUMBER_CACHE_TTL_MIN, TimeUnit.MINUTES);
         return limit;
     }

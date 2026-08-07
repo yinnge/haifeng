@@ -4,6 +4,7 @@ import com.haifeng.admin.dto.system.ProviderModelUpdateDTO;
 import com.haifeng.admin.dto.system.SystemSettingsUpdateDTO;
 import com.haifeng.admin.service.system.SystemSettingsService;
 import com.haifeng.admin.vo.system.SystemSettingsVO;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.system.ModelProvider;
 import com.haifeng.common.entity.system.SystemSettings;
 import com.haifeng.common.exception.BusinessException;
@@ -46,6 +47,11 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
                 .siteIcp(settings.getSiteIcp())
                 .siteDescription(settings.getSiteDescription())
                 .apiNumber(settings.getApiNumber())
+                .reachHighCount(settings.getReachHighCount())
+                .reachCount(settings.getReachCount())
+                .matchCount(settings.getMatchCount())
+                .safeCount(settings.getSafeCount())
+                .floorCount(settings.getFloorCount())
                 .providerName(settings.getProviderName())
                 .modelName(settings.getModelName())
                 .proPrice(settings.getProPrice())
@@ -85,6 +91,21 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         if (dto.getApiNumber() != null) {
             settings.setApiNumber(dto.getApiNumber());
         }
+        if (dto.getReachHighCount() != null) {
+            settings.setReachHighCount(dto.getReachHighCount());
+        }
+        if (dto.getReachCount() != null) {
+            settings.setReachCount(dto.getReachCount());
+        }
+        if (dto.getMatchCount() != null) {
+            settings.setMatchCount(dto.getMatchCount());
+        }
+        if (dto.getSafeCount() != null) {
+            settings.setSafeCount(dto.getSafeCount());
+        }
+        if (dto.getFloorCount() != null) {
+            settings.setFloorCount(dto.getFloorCount());
+        }
         if (dto.getProPrice() != null) {
             settings.setProPrice(dto.getProPrice());
         }
@@ -119,6 +140,18 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         Boolean deleted = redisTemplate.delete(SITE_INFO_CACHE_KEY);
         if (Boolean.TRUE.equals(deleted)) {
             log.info("已清除用户端站点信息缓存");
+        }
+
+        // 清除志愿方案默认数量限制缓存（搏/冲/稳/保/垫），避免创建志愿表仍按旧限制校验
+        Boolean limitsDeleted = redisTemplate.delete(RedisKeyConstant.WISH_PLAN_DEFAULT_LIMITS_KEY);
+        if (Boolean.TRUE.equals(limitsDeleted)) {
+            log.info("已清除志愿方案默认数量限制缓存: {}", RedisKeyConstant.WISH_PLAN_DEFAULT_LIMITS_KEY);
+        }
+
+        // 清除 AI/PDF 每日配额上限缓存（api_number）
+        Boolean apiDeleted = redisTemplate.delete(RedisKeyConstant.API_NUMBER_CACHE_KEY);
+        if (Boolean.TRUE.equals(apiDeleted)) {
+            log.info("已清除 AI 配额上限缓存: {}", RedisKeyConstant.API_NUMBER_CACHE_KEY);
         }
 
         log.info("系统设置更新成功");

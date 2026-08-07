@@ -6,6 +6,7 @@ import com.haifeng.app.service.algorithm.pdf.PdfReportService;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordDetailVO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordListVO;
 import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import com.haifeng.common.util.SecurityUtil;
@@ -25,7 +26,7 @@ import reactor.core.publisher.Flux;
 @RequestMapping("/api/v1/app/algorithm/pdf")
 @RequiredArgsConstructor
 @RequireLogin
-@RequireVip
+@RequirePro
 public class PdfPlanController {
 
     private final PdfReportService pdfReportService;
@@ -34,6 +35,7 @@ public class PdfPlanController {
      * 生成 PDF 报告（SSE 流式返回进度）
      */
     @PostMapping(value = "/generate/{planId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RequireVip
     public Flux<ServerSentEvent<String>> generateReport(@PathVariable Integer planId) {
         Long userId = SecurityUtil.getCurrentMemberId();
         return pdfReportService.generateReport(userId, planId);
@@ -76,6 +78,7 @@ public class PdfPlanController {
      * 重新生成 PDF 报告（SSE 流式返回进度）
      */
     @PostMapping(value = "/records/{recordId}/regenerate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RequireVip
     public Flux<ServerSentEvent<String>> regenerateReport(@PathVariable Integer recordId) {
         Long userId = SecurityUtil.getCurrentMemberId();
         return pdfReportService.regenerateReport(userId, recordId);
