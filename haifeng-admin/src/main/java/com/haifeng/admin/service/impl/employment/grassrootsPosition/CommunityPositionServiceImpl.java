@@ -38,6 +38,8 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
 
     private final CommunityPositionMapper communityPositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("招聘中", "已结束", "即将开始");
     private static final Set<String> VALID_POSITION_TYPES = Set.of("社区党务工作者", "社区服务工作者", "社区网格员", "社区调解员", "社区安全员", "社区文化专干", "社会工作师", "综合岗", "其他");
     private static final Set<String> VALID_EMPLOYMENT_TYPES = Set.of("事业编制", "合同制", "政府购买服务", "公益性岗位");
@@ -457,10 +459,14 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
             throw new BusinessException(400, "文件类型只能是xlsx或xls");
         }
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<CommunityPositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(CommunityPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

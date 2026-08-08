@@ -43,6 +43,8 @@ import java.util.Set;
 public class MajorServiceImpl implements MajorService {
 
     private final MajorMapper majorMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final MajorDetailMapper majorDetailMapper;
 
     @Override
@@ -399,6 +401,10 @@ public class MajorServiceImpl implements MajorService {
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
         }
 
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
+
         if (dataList == null || dataList.isEmpty()) {
             throw new BusinessException(400, "Excel文件中没有数据");
         }
@@ -511,6 +517,10 @@ public class MajorServiceImpl implements MajorService {
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
         }
 
         if (dataList == null || dataList.isEmpty()) {

@@ -1,0 +1,42 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 本地开发数据/文档
+Need/
+Excel/
+Products/
+docs/
+.workbuddy/
+*.md
+!README.md
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+
+# 构建产物（本地已构建的 target 不进镜像上下文）
+**/target/
+**/dist/
+
+# 环境变量（绝不允许进镜像）
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 临时
+tmp/
+temp/
+*.tmp
+*.bak

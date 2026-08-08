@@ -38,6 +38,8 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
 
     private final GrassrootsProjectPositionMapper grassrootsProjectPositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("招募中", "已结束", "即将开始");
     private static final Set<String> VALID_PROJECT_TYPES = Set.of("三支一扶", "西部计划");
     private static final Set<String> VALID_SERVICE_TYPES = Set.of("支教", "支农", "支医", "帮扶乡村振兴", "基础教育", "服务三农", "医疗卫生", "基层青年工作", "基层社会管理", "服务新疆", "服务西藏");
@@ -490,10 +492,14 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
             throw new BusinessException(400, "文件类型只能是xlsx或xls");
         }
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<GrassrootsProjectPositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(GrassrootsProjectPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

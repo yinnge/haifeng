@@ -43,6 +43,8 @@ import java.util.Set;
 public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversityService {
 
     private final PostgradMajorUniversityMapper postgradMajorUniversityMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final PostgradMajorMapper postgradMajorMapper;
     private final UniversityMapper universityMapper;
 
@@ -196,6 +198,10 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
         }
 
         if (dataList == null || dataList.isEmpty()) {

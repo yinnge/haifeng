@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laboratory> implements LaboratoryService {
 
     private final LaboratoryMapper laboratoryMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final UniversityMapper universityMapper;
 
     @Override
@@ -295,18 +297,27 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                     .head(LaboratoryExcelDTO.class)
                     .sheet("实验室主表")
                     .doReadSync();
+            if (mainData != null && mainData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
 
             // Sheet: 核心团队
             List<CoreTeamExcelDTO> coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(CoreTeamExcelDTO.class)
                     .sheet("核心团队")
                     .doReadSync();
+            if (coreTeamData != null && coreTeamData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
 
             // Sheet: 统计数据
             List<StatisticsExcelDTO> statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
                     .head(StatisticsExcelDTO.class)
                     .sheet("统计数据")
                     .doReadSync();
+            if (statisticsData != null && statisticsData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
 
             // 按实验室名称分组JSONB数据
             Map<String, List<Map<String, Object>>> coreTeamMap = coreTeamData.stream()

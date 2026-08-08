@@ -38,6 +38,8 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
 
     private final SelectionPositionMapper selectionPositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     private static final Set<String> VALID_SELECTION_TYPES = Set.of("定向选调", "非定向选调", "急需紧缺专业选调");
     private static final Set<String> VALID_EDUCATION_REQUIREMENTS = Set.of("本科", "硕士", "博士", "本科及以上", "硕士及以上");
     private static final Set<String> VALID_POLITICAL_STATUSES = Set.of("中共党员", "中共预备党员", "共青团员", "不限");
@@ -391,10 +393,14 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
             throw new BusinessException(400, "文件类型只能是xlsx或xls");
         }
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<SelectionPositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(SelectionPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

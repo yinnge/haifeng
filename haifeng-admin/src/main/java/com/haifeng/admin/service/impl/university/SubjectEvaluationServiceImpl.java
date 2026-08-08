@@ -37,6 +37,8 @@ import java.util.*;
 public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationMapper, SubjectEvaluation> implements SubjectEvaluationService {
 
     private final SubjectEvaluationMapper subjectEvaluationMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final UniversityMapper universityMapper;
 
     private static final Set<String> VALID_GRADES = Set.of("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-");
@@ -235,6 +237,9 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
                     .head(SubjectEvaluationExcelDTO.class)
                     .sheet("学科评估")
                     .doReadSync();
+            if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
 
             Map<String, Long> universityIdCache = new HashMap<>();
             Map<String, String> universityNameCache = new HashMap<>();

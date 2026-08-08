@@ -38,6 +38,8 @@ public class FinancePositionServiceImpl implements FinancePositionService {
 
     private final FinancePositionMapper financePositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("招聘中", "已结束", "即将开始");
     private static final Set<String> VALID_INSTITUTION_CATEGORIES = Set.of(
             "银行", "证券", "保险", "基金", "信托", "期货", "监管机构", "金融科技");
@@ -420,10 +422,14 @@ public class FinancePositionServiceImpl implements FinancePositionService {
             throw new BusinessException(400, "文件类型只能是xlsx或xls");
         }
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<FinancePositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(FinancePositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

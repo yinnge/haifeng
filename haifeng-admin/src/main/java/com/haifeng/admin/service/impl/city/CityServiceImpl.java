@@ -472,78 +472,117 @@ public class CityServiceImpl implements CityService {
                     .head(IndustryStructureExcelDTO.class)
                     .sheet("产业结构")
                     .doReadSync();
+            if (industryStructureData != null && industryStructureData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：产业结构Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 房价水平
             List<HousingPriceLevelExcelDTO> housingPriceData = EasyExcel.read(file.getInputStream())
                     .head(HousingPriceLevelExcelDTO.class)
                     .sheet("房价水平")
                     .doReadSync();
+            if (housingPriceData != null && housingPriceData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：房价水平Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 高等教育
             List<HighEducationExcelDTO> highEducationData = EasyExcel.read(file.getInputStream())
                     .head(HighEducationExcelDTO.class)
                     .sheet("高等教育")
                     .doReadSync();
+            if (highEducationData != null && highEducationData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：高等教育Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 基础教育
             List<BasicEducationExcelDTO> basicEducationData = EasyExcel.read(file.getInputStream())
                     .head(BasicEducationExcelDTO.class)
                     .sheet("基础教育")
                     .doReadSync();
+            if (basicEducationData != null && basicEducationData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：基础教育Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 交通
             List<TransportationExcelDTO> transportationData = EasyExcel.read(file.getInputStream())
                     .head(TransportationExcelDTO.class)
                     .sheet("交通")
                     .doReadSync();
+            if (transportationData != null && transportationData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：交通Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 就业
             List<EmploymentExcelDTO> employmentData = EasyExcel.read(file.getInputStream())
                     .head(EmploymentExcelDTO.class)
                     .sheet("就业")
                     .doReadSync();
+            if (employmentData != null && employmentData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：就业Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 企业统计
             List<EnterpriseStatsExcelDTO> enterpriseStatsData = EasyExcel.read(file.getInputStream())
                     .head(EnterpriseStatsExcelDTO.class)
                     .sheet("企业统计")
                     .doReadSync();
+            if (enterpriseStatsData != null && enterpriseStatsData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：企业统计Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 未来规划
             List<FuturePlanExcelDTO> futurePlanData = EasyExcel.read(file.getInputStream())
                     .head(FuturePlanExcelDTO.class)
                     .sheet("未来规划")
                     .doReadSync();
+            if (futurePlanData != null && futurePlanData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：未来规划Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 文化旅游
             List<CultureExcelDTO> cultureData = EasyExcel.read(file.getInputStream())
                     .head(CultureExcelDTO.class)
                     .sheet("文化旅游")
                     .doReadSync();
+            if (cultureData != null && cultureData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：文化旅游Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 消费
             List<ConsumptionExcelDTO> consumptionData = EasyExcel.read(file.getInputStream())
                     .head(ConsumptionExcelDTO.class)
                     .sheet("消费")
                     .doReadSync();
+            if (consumptionData != null && consumptionData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：消费Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 医疗
             List<MedicalExcelDTO> medicalData = EasyExcel.read(file.getInputStream())
                     .head(MedicalExcelDTO.class)
                     .sheet("医疗")
                     .doReadSync();
+            if (medicalData != null && medicalData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：医疗Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 住房政策
             List<HousingPolicyExcelDTO> housingPolicyData = EasyExcel.read(file.getInputStream())
                     .head(HousingPolicyExcelDTO.class)
                     .sheet("住房政策")
                     .doReadSync();
+            if (housingPolicyData != null && housingPolicyData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：住房政策Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // Sheet: 租房成本
             List<RentalCostExcelDTO> rentalCostData = EasyExcel.read(file.getInputStream())
                     .head(RentalCostExcelDTO.class)
                     .sheet("租房成本")
                     .doReadSync();
+            if (rentalCostData != null && rentalCostData.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "导入失败：租房成本Sheet数据不能超过" + MAX_IMPORT_ROWS + "行");
+            }
 
             // 按城市名称分组JSONB数据
             Map<String, Map<String, Object>> industryStructureMap = buildJsonbMap(industryStructureData,
