@@ -37,6 +37,8 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
 
     private final InstitutionPositionMapper institutionPositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     @Override
     public IPage<InstitutionPositionListVO> page(InstitutionPositionQueryDTO dto) {
         Page<InstitutionPosition> page = new Page<>(dto.getPage(), dto.getSize());
@@ -318,10 +320,14 @@ public class InstitutionPositionServiceImpl implements InstitutionPositionServic
 
     private List<InstitutionPositionExcelDTO> readExcel(MultipartFile file) {
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<InstitutionPositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(InstitutionPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

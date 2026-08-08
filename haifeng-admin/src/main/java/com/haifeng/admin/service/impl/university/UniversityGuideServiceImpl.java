@@ -42,6 +42,8 @@ import java.util.stream.Collectors;
 public class UniversityGuideServiceImpl implements UniversityGuideService {
 
     private final UniversityGuideMapper universityGuideMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final UniversityMapper universityMapper;
 
     private static final Map<String, String> SHEET_TO_FIELD = new LinkedHashMap<>();
@@ -366,8 +368,12 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 mainDataList = EasyExcel.read(is)
                         .head(UniversityGuideExcelDTO.class)
-                        .sheet("院校主表")
+                        .sheet("院校介绍")
                         .doReadSync();
+            }
+
+            if (mainDataList != null && mainDataList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
             if (mainDataList == null || mainDataList.isEmpty()) {
@@ -495,6 +501,9 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {
         try {
             List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
+            if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
             List<List<String>> result = new ArrayList<>();
             for (Object rawRow : rawRows) {
                 if (rawRow instanceof List) {

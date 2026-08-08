@@ -38,6 +38,8 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
 
     private final TeacherPositionMapper teacherPositionMapper;
 
+    private static final int MAX_IMPORT_ROWS = 1000;
+
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("招聘中", "已结束", "即将开始");
     private static final Set<String> VALID_SCHOOL_TYPES = Set.of(
             "幼儿园", "小学", "初中", "高中", "中职", "高职", "大学", "特殊教育学校");
@@ -437,10 +439,14 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
             throw new BusinessException(400, "文件类型只能是xlsx或xls");
         }
         try {
-            return EasyExcel.read(file.getInputStream())
+            List<TeacherPositionExcelDTO> importList = EasyExcel.read(file.getInputStream())
                     .head(TeacherPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
+            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
+            return importList;
         } catch (IOException e) {
             log.error("读取Excel失败", e);
             throw new BusinessException(400, "读取Excel文件失败");

@@ -42,6 +42,8 @@ import java.util.Map;
 public class UniversityServiceImpl implements UniversityService {
 
     private final UniversityMapper universityMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final UniversityDetailMapper universityDetailMapper;
     private final UniversityGuideMapper universityGuideMapper;
 
@@ -440,6 +442,10 @@ public class UniversityServiceImpl implements UniversityService {
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
         }
 
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
+
         if (dataList == null || dataList.isEmpty()) {
             throw new BusinessException(400, "Excel文件中没有数据");
         }
@@ -523,6 +529,10 @@ public class UniversityServiceImpl implements UniversityService {
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        }
+
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
         }
 
         if (dataList == null || dataList.isEmpty()) {

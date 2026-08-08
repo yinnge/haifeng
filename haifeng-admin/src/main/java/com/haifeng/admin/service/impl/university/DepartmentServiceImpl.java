@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Department> implements DepartmentService {
 
     private final DepartmentMapper departmentMapper;
+
+    private static final int MAX_IMPORT_ROWS = 1000;
     private final DepartmentReportMapper departmentReportMapper;
     private final UniversityMapper universityMapper;
 
@@ -385,6 +387,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
         }
 
+        if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
+
         if (dataList == null || dataList.isEmpty()) {
             throw new BusinessException(400, "Excel文件中没有数据");
         }
@@ -478,6 +484,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                         .head(DepartmentExcelDTO.class)
                         .sheet("院系主表")
                         .doReadSync();
+            }
+
+            if (mainDataList != null && mainDataList.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
             if (mainDataList == null || mainDataList.isEmpty()) {
@@ -794,6 +804,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {
         try {
             List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
+            if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
+                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+            }
             List<List<String>> result = new ArrayList<>();
             for (Object rawRow : rawRows) {
                 if (rawRow instanceof List) {
