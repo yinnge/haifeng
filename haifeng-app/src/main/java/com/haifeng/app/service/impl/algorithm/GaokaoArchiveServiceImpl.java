@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.Year;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,7 +57,18 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     @Override
+    public List<Integer> getAvailableYears() {
+        int currentYear = Year.now().getValue();
+        List<Integer> years = new ArrayList<>(5);
+        for (int y = currentYear - 4; y <= currentYear; y++) {
+            years.add(y);
+        }
+        return years;
+    }
+
+    @Override
     public ScoreRankVO getRank(String province, Integer year, String subjectType, Integer score) {
+        // 1. 先查当年数据
         ScoreRank rank = scoreRankMapper.selectOne(
                 new LambdaQueryWrapper<ScoreRank>()
                         .eq(ScoreRank::getProvince, province)
@@ -67,12 +79,34 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
         );
 
         if (rank == null) {
-            return null;
+            // 2. 当年无数据，回溯最近5年（仅查未删除记录），取最近一年
+            List<ScoreRank> fallback = scoreRankMapper.selectList(
+                    new LambdaQueryWrapper<ScoreRank>()
+                            .eq(ScoreRank::getProvince, province)
+                            .eq(ScoreRank::getSubjectType, subjectType)
+                            .eq(ScoreRank::getScore, score.shortValue())
+                            .eq(ScoreRank::getIsDeleted, false)
+                            .ge(ScoreRank::getYear, (short) (year - 5))
+                            .lt(ScoreRank::getYear, year.shortValue())
+                            .orderByDesc(ScoreRank::getYear)
+                            .last("LIMIT 1")
+            );
+            if (fallback.isEmpty()) {
+                return null;
+            }
+
+            rank = fallback.get(0);
+            return ScoreRankVO.builder()
+                    .rank(rank.getRank())
+                    .sameScoreCount(rank.getSameScoreCount())
+                    .dataYear(rank.getYear().intValue())
+                    .build();
         }
 
         return ScoreRankVO.builder()
                 .rank(rank.getRank())
                 .sameScoreCount(rank.getSameScoreCount())
+                .dataYear(year)
                 .build();
     }
 

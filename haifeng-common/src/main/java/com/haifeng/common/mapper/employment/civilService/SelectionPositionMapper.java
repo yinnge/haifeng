@@ -5,11 +5,19 @@ import com.haifeng.common.entity.employment.civilService.SelectionPosition;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.Collection;
+import java.util.List;
 
 @Mapper
 public interface SelectionPositionMapper extends BaseMapper<SelectionPosition> {
+
+    /**
+     * 查询所有不重复的年份（用于前端年份筛选下拉，按年份倒序）
+     */
+    @Select("SELECT DISTINCT year FROM t_selection_position WHERE is_deleted = false AND year IS NOT NULL AND year <> '' ORDER BY year DESC")
+    List<String> listYears();
 
     /**
      * 物理删除（真实 DELETE FROM，绕过 MyBatis-Plus 逻辑删除拦截）

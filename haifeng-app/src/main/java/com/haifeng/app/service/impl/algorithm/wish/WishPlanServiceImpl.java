@@ -199,7 +199,7 @@ public class WishPlanServiceImpl implements WishPlanService {
 
         // L3. 仅包裹 DB 写操作，CPU 密集型计算已在事务外完成
         return transactionTemplate.execute(status -> {
-            // 6. 获取或创建 WishPlan（plan 数量限制检查在 getOrCreatePlan 内部，仅新建时检查）
+            // 6. 获取或创建 WishPlan（planId 为空 = 前端"新建志愿表"流程，总是创建全新表；数量限制检查在 createPlan 内部）
             WishPlan plan;
             if (dto.getPlanId() != null) {
                 plan = wishPlanMapper.selectById(dto.getPlanId());
@@ -207,7 +207,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                     throw new BusinessException(ResultCode.WISH_PLAN_NOT_FOUND);
                 }
             } else {
-                plan = getOrCreatePlan(memberId, gaokao);
+                plan = createPlan(memberId, gaokao, dto.getPlanName());
             }
 
             // 7. 校验档位数量限制
@@ -414,8 +414,8 @@ public class WishPlanServiceImpl implements WishPlanService {
         Map<Integer, List<WishMajorSnapshot>> finalMajorsByGroup = majorsByGroup;
         result.setRecords(snapPage.getRecords().stream()
                 .map(snap -> {
-                    WishPlanGroupVO vo = toGroupVO(snap);
                     List<WishMajorSnapshot> groupMajors = finalMajorsByGroup.getOrDefault(snap.getId(), Collections.emptyList());
+                    WishPlanGroupVO vo = toGroupVO(snap, groupMajors);
                     boolean allExported = true;
                     for (WishMajorSnapshot major : groupMajors) {
                         String field = RedisKeyConstant.getWishExportField(major.getId());
@@ -664,7 +664,16 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .eq(WishMajorSnapshot::getPlanId, planId));
 
         Set<Integer> exportMajors = getExportMajors(planId, currentMemberId);
-        int exportedCount = exportMajors.size();
+        int exportedCount;
+        if (exportMajors != null) {
+            exportedCount = exportMajors.size();
+        } else {
+            // Redis 为空或异常，降级到数据库 is_exported 字段统计
+            exportedCount = wishMajorSnapshotMapper.selectCount(
+                    new LambdaQueryWrapper<WishMajorSnapshot>()
+                            .eq(WishMajorSnapshot::getPlanId, planId)
+                            .eq(WishMajorSnapshot::getIsExported, true)).intValue();
+        }
 
         int percentage = totalMajors > 0 ? (int) (exportedCount * 100 / totalMajors) : 0;
 
@@ -958,8 +967,12 @@ public class WishPlanServiceImpl implements WishPlanService {
         try {
             entries = redisTemplate.opsForHash().entries(key);
         } catch (Exception e) {
-            log.warn("Redis 读取导出专业列表失败，降级返回空集合: key={}", key, e);
-            return Collections.emptySet();
+            log.warn("Redis 读取导出专业列表失败，降级到数据库 is_exported 字段: key={}", key, e);
+            return null;
+        }
+
+        if (entries.isEmpty()) {
+            return null;
         }
 
         Set<Integer> exportMajors = new HashSet<>();
@@ -988,16 +1001,14 @@ public class WishPlanServiceImpl implements WishPlanService {
         }
     }
 
-    private WishPlan getOrCreatePlan(Long memberId, MemberGaokao gaokao) {
-        WishPlan existing = wishPlanMapper.selectOne(
-                new LambdaQueryWrapper<WishPlan>()
-                        .eq(WishPlan::getMemberId, memberId)
-                        .orderByDesc(WishPlan::getCreatedAt)
-                        .last("LIMIT 1 FOR UPDATE"));
-        if (existing != null) {
-            return existing;
-        }
-        // C4. plan 数量限制检查仅在需要新建时执行
+    /**
+     * 创建一张全新的志愿表（planId 为空时调用）。
+     * 注意：原 getOrCreatePlan 在已有志愿表时"复用最新一张"的旧单表语义，
+     * 与前端多志愿表（VIP 最多 10 张）的"新建志愿表"交互冲突——已在志愿表中的专业
+     * 会误报"以下专业已在志愿表中"。现改为总是新建，受会员数量上限限制。
+     */
+    private WishPlan createPlan(Long memberId, MemberGaokao gaokao, String planName) {
+        // C4. plan 数量限制检查
         long count = wishPlanMapper.selectCount(
                 new LambdaQueryWrapper<WishPlan>().eq(WishPlan::getMemberId, memberId));
         String memberType = SecurityUtil.getCurrentMemberType();
@@ -1007,11 +1018,13 @@ public class WishPlanServiceImpl implements WishPlanService {
                     "当前会员类型最多允许 " + maxPlans + " 个志愿表");
         }
 
-        String planName = "我的志愿方案" + (count + 1);
+        // 名称优先使用前端传入值，为空则自动命名
+        String autoName = "我的志愿方案" + (count + 1);
+        String finalName = (planName != null && !planName.isBlank()) ? planName.trim() : autoName;
 
         WishPlan plan = WishPlan.builder()
                 .memberId(memberId)
-                .planName(planName)
+                .planName(finalName)
                 .planYear(gaokao.getGaokaoYear())
                 .planProvince(gaokao.getGaokaoProvince())
                 .reformModel(gaokao.getReformModel())
@@ -1021,7 +1034,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .boLimit(0).chongLimit(0).wenLimit(0).baoLimit(0).dieLimit(0)
                 .build();
         wishPlanMapper.insert(plan);
-        log.info("创建新志愿表 memberId={}, planId={}, name={}", memberId, plan.getId(), planName);
+        log.info("创建新志愿表 memberId={}, planId={}, name={}", memberId, plan.getId(), finalName);
         return plan;
     }
 
@@ -1050,7 +1063,20 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .build();
     }
 
-    private WishPlanGroupVO toGroupVO(WishGroupSnapshot snap) {
+    private WishPlanGroupVO toGroupVO(WishGroupSnapshot snap, List<WishMajorSnapshot> groupMajors) {
+        // 组级安全等级 = max(组内所有专业快照的 safetyLevel)，levelShort 跟随最大值（与专业组列表页 buildGroupVO 算法一致）
+        BigDecimal maxSafetyLevel = BigDecimal.ZERO;
+        String levelShort = "禁";
+        if (groupMajors != null) {
+            for (WishMajorSnapshot major : groupMajors) {
+                BigDecimal sl = major.getSafetyLevel();
+                if (sl != null && sl.compareTo(maxSafetyLevel) > 0) {
+                    maxSafetyLevel = sl;
+                    levelShort = major.getLevelShort() != null ? major.getLevelShort() : "禁";
+                }
+            }
+        }
+
         return WishPlanGroupVO.builder()
                 .id(snap.getId())
                 .groupId(snap.getGroupId())
@@ -1074,6 +1100,8 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .tags(snap.getTags())
                 .recommendationYear(snap.getRecommendationYear())
                 .recommendationRate(snap.getRecommendationRate())
+                .safetyLevel(maxSafetyLevel)
+                .levelShort(levelShort)
                 .build();
     }
 

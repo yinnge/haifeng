@@ -110,3 +110,16 @@ CLAUDE-C.md
 
 # Git worktrees
 .worktrees/
+
+# 本地需求/数据/文档产物，不入库
+/Need/
+/Excel/
+/Products/
+/docs/
+/haifeng-app/Need/
+/haifeng-app/Products/
+/.workbuddy/
+/test.txt
+/HELP.md
+/code-review-prompt.md
+/code-review-task.md

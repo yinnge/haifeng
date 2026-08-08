@@ -23,4 +23,9 @@ public class ScoreRankVO {
      * 同分人数
      */
     private Integer sameScoreCount;
+
+    /**
+     * 数据实际年份（当年无数据时回溯的最近一年；等于查询年份则为 null 或当前年）
+     */
+    private Integer dataYear;
 }

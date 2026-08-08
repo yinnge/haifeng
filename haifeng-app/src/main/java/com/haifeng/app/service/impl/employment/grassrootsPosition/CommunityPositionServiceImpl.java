@@ -28,6 +28,17 @@ public class CommunityPositionServiceImpl implements CommunityPositionService {
         LambdaQueryWrapper<CommunityPosition> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(CommunityPosition::getIsDeleted, false);
 
+        if (StrUtil.isNotBlank(dto.getKeyword())) {
+            wrapper.and(w -> w
+                    .like(CommunityPosition::getPositionName, dto.getKeyword())
+                    .or()
+                    .like(CommunityPosition::getStreetOffice, dto.getKeyword())
+                    .or()
+                    .like(CommunityPosition::getCommunityName, dto.getKeyword())
+                    .or()
+                    .like(CommunityPosition::getSupervisingDept, dto.getKeyword())
+            );
+        }
         if (StrUtil.isNotBlank(dto.getPositionName())) {
             wrapper.like(CommunityPosition::getPositionName, dto.getPositionName());
         }

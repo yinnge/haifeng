@@ -3,6 +3,8 @@ package com.haifeng.app.service.algorithm;
 import com.haifeng.app.dto.algorithm.GaokaoArchiveSaveDTO;
 import com.haifeng.app.vo.algorithm.*;
 
+import java.util.List;
+
 /**
  * 高考档案服务接口
  */
@@ -16,6 +18,13 @@ public interface GaokaoArchiveService {
      * @return 改革模式及可选科目
      */
     ReformModelVO getReformModel(String province, Integer year);
+
+    /**
+     * 获取可选年份列表（以系统当前年份为准，返回最近5个年份，升序）
+     *
+     * @return 年份列表
+     */
+    List<Integer> getAvailableYears();
 
     /**
      * 查询位次

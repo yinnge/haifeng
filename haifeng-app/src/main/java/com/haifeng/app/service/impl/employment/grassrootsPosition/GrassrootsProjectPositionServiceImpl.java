@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,15 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
         LambdaQueryWrapper<GrassrootsProjectPosition> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GrassrootsProjectPosition::getIsDeleted, false);
 
+        if (StrUtil.isNotBlank(dto.getKeyword())) {
+            wrapper.and(w -> w
+                    .like(GrassrootsProjectPosition::getPositionName, dto.getKeyword())
+                    .or()
+                    .like(GrassrootsProjectPosition::getOrganizingDept, dto.getKeyword())
+                    .or()
+                    .like(GrassrootsProjectPosition::getServiceUnit, dto.getKeyword())
+            );
+        }
         if (StrUtil.isNotBlank(dto.getPositionName())) {
             wrapper.like(GrassrootsProjectPosition::getPositionName, dto.getPositionName());
         }
@@ -84,6 +95,16 @@ public class GrassrootsProjectPositionServiceImpl implements GrassrootsProjectPo
                 .regStartDate(p.getRegStartDate())
                 .regEndDate(p.getRegEndDate())
                 .build());
+    }
+
+    @Override
+    public List<String> listYears() {
+        return grassrootsProjectPositionMapper.listYears();
+    }
+
+    @Override
+    public List<String> listGradYears() {
+        return grassrootsProjectPositionMapper.listGradYears();
     }
 
     @Override

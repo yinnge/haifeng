@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 高考档案控制器
  */
@@ -28,6 +30,14 @@ public class GaokaoArchiveController {
     private final GaokaoArchiveService gaokaoArchiveService;
 
     /**
+     * 获取可选年份列表（以系统当前年份为准，返回最近5个年份）
+     */
+    @GetMapping("/years")
+    public R<List<Integer>> getAvailableYears() {
+        return R.ok(gaokaoArchiveService.getAvailableYears());
+    }
+
+    /**
      * 获取改革模式及可选科目
      *
      * @param province 省份
@@ -38,7 +48,7 @@ public class GaokaoArchiveController {
             @RequestParam @NotBlank(message = "省份不能为空") @Size(max = 30, message = "省份最多30个字符") String province,
             @RequestParam @NotNull(message = "年份不能为空")
             @Min(value = 2020, message = "年份不能早于2020")
-            @Max(value = 2040, message = "年份不能晚于2040") Integer year) {
+            Integer year) {
         return R.ok(gaokaoArchiveService.getReformModel(province, year));
     }
 
@@ -55,7 +65,7 @@ public class GaokaoArchiveController {
             @RequestParam @NotBlank(message = "省份不能为空") @Size(max = 30, message = "省份最多30个字符") String province,
             @RequestParam @NotNull(message = "年份不能为空")
             @Min(value = 2020, message = "年份不能早于2020")
-            @Max(value = 2040, message = "年份不能晚于2040") Integer year,
+             Integer year,
             @RequestParam @NotBlank(message = "科类不能为空") String subjectType,
             @RequestParam @NotNull(message = "分数不能为空")
             @Min(value = 0, message = "分数不能小于0")

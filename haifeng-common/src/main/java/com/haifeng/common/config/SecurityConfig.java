@@ -81,6 +81,8 @@ public class SecurityConfig {
             // 就业（列表公开）
             "/api/v1/app/employment/*/list",
             "/api/v1/app/employment/*/*/list",
+            "/api/v1/app/employment/*/*/years",
+            "/api/v1/app/employment/*/*/grad-years",
             "/api/v1/app/employment/content/*/list-by-type",
             "/api/v1/app/employment/content/*/*/view",
             // Actuator

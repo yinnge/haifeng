@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/app/employment/civil-service/selection")
@@ -27,6 +29,12 @@ public class SelectionPositionController {
     @GetMapping("/list")
     public R<IPage<SelectionPositionListVO>> list(@Valid SelectionPositionSearchDTO dto) {
         return R.ok(selectionPositionService.page(dto));
+    }
+
+    /** 所有不重复的年份（倒序），供前端年份筛选下拉 */
+    @GetMapping("/years")
+    public R<List<String>> years() {
+        return R.ok(selectionPositionService.listYears());
     }
 
     @RequireLogin

@@ -10,6 +10,10 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class CommunityPositionSearchDTO extends BasePageQueryDTO {
 
+    /** 模糊搜索关键词（岗位名称/街道/社区名称/主管部门） */
+    @Size(max = 100, message = "关键词长度不能超过100")
+    private String keyword;
+
     @Size(max = 100, message = "岗位名称长度不能超过100")
     private String positionName;
 
