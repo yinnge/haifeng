@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/app/employment/grassroots/project")
@@ -24,6 +26,18 @@ public class GrassrootsProjectPositionController {
     @GetMapping("/list")
     public R<IPage<GrassrootsProjectPositionListVO>> list(@Valid GrassrootsProjectPositionSearchDTO dto) {
         return R.ok(grassrootsProjectPositionService.page(dto));
+    }
+
+    /** 所有不重复的招募年份（倒序），供前端年份筛选下拉 */
+    @GetMapping("/years")
+    public R<List<String>> years() {
+        return R.ok(grassrootsProjectPositionService.listYears());
+    }
+
+    /** 所有不重复的毕业年份要求（倒序），供前端毕业年份筛选下拉 */
+    @GetMapping("/grad-years")
+    public R<List<String>> gradYears() {
+        return R.ok(grassrootsProjectPositionService.listGradYears());
     }
 
     @RequireLogin

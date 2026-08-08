@@ -28,6 +28,15 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
         LambdaQueryWrapper<PublicWelfarePosition> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PublicWelfarePosition::getIsDeleted, false);
 
+        if (StrUtil.isNotBlank(dto.getKeyword())) {
+            wrapper.and(w -> w
+                    .like(PublicWelfarePosition::getPositionName, dto.getKeyword())
+                    .or()
+                    .like(PublicWelfarePosition::getDevelopingUnit, dto.getKeyword())
+                    .or()
+                    .like(PublicWelfarePosition::getEmployingUnit, dto.getKeyword())
+            );
+        }
         if (StrUtil.isNotBlank(dto.getPositionName())) {
             wrapper.like(PublicWelfarePosition::getPositionName, dto.getPositionName());
         }

@@ -32,4 +32,8 @@ public class WishPlanGroupVO {
     private Integer recommendationYear;
     private BigDecimal recommendationRate;
     private Boolean allExported;
+    /** 组级安全等级（0~1），取组内专业快照 safetyLevel 最大值 */
+    private BigDecimal safetyLevel;
+    /** 组级等级简写（搏/冲/稳/保/垫/禁），跟随组内最大 safetyLevel 对应的专业 */
+    private String levelShort;
 }
