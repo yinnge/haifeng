@@ -1,17 +1,15 @@
 # Compiled class files
 *.class
-CLAUDE.md
-CLAUDE-admin.md
-AGENTS.md
-# Log files
-*.log
-logs/
 
 # BlueJ files
 *.ctxt
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
+
+# Log files
+*.log
+logs/
 
 # Package Files
 *.jar
@@ -71,12 +69,29 @@ build/
 .DS_Store
 Thumbs.db
 
-# Environment - 重要！禁止提交环境变量文件
+# ============================================
+# 环境变量/密钥文件 - 禁止提交任何真实配置
+# ============================================
 .env
 .env.local
 .env.*.local
+.env.server
+.env.development
+.env.test
+.env.production
 *.env
-.env.example
+
+# SSL 证书/私钥
+*.pem
+*.key
+*.jks
+*.p12
+*.pfx
+*.crt
+*.cert
+
+# 密钥目录
+secrets/
 
 # Database dumps
 *.dump
@@ -99,13 +114,13 @@ node_modules/
 docker-compose.override.yml
 
 # Application specific
-/logs/
 *.pid
 
 # Local Claude / project docs (not for repo)
 CLAUDE.md
 CLAUDE-admin.md
 CLAUDE-C.md
+AGENTS.md
 .claude/
 
 # Git worktrees
@@ -114,7 +129,7 @@ CLAUDE-C.md
 # 本地需求/数据/文档产物，不入库
 /Need/
 /Excel/
-/Products/
+/products/
 /docs/
 /haifeng-app/Need/
 /haifeng-app/Products/
