@@ -43,7 +43,7 @@ temp/
 
 # 部署素材与编排文件（镜像不需要）
 deploy/
-docker-compose.yml
+docker-compose.dev.yml
 
 # Maven wrapper（Docker 构建用 maven 镜像，非 wrapper）
 .mvn/

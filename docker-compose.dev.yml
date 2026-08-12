@@ -62,7 +62,7 @@ services:
     container_name: haifeng-admin
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       DB_HOST: postgresql
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}
@@ -100,7 +100,7 @@ services:
     container_name: haifeng-app
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: dev
       DB_HOST: postgresql
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}
