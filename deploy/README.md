@@ -45,7 +45,7 @@ git clone https://github.com/yinnge/haifeng.git /opt/haifeng-src
 # 或 scp 本地仓库文件到 /opt/haifeng-src（排除 .git/.env/dist）
 
 # 3. 复制 compose 和 nginx 配置
-cp /opt/haifeng-src/docker-compose.yml /opt/haifeng/
+cp /opt/haifeng-src/docker-compose.dev.yml /opt/haifeng/
 cp -r /opt/haifeng-src/deploy /opt/haifeng/
 # 注意：deploy/.env.server.example → 复制为 .env 并填真实值
 
