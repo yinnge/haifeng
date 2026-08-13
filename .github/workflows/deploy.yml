@@ -26,3 +26,4 @@ jobs:
             
             # 3. 清理旧镜像（可选，节省空间）
             docker image prune -f
+          timeout: 30m 
