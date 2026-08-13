@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   push:
-    branches: [ "master" ] # 监听 master 分支的推送
+    branches: [ "master" ]
 
 jobs:
   deploy:
@@ -21,9 +21,18 @@ jobs:
             # 1. 拉取最新代码
             git pull --rebase origin master
             
-            # 2. 重新构建并重启后端容器
-            docker compose -f docker-compose.prod.yml up -d --build haifeng-admin haifeng-app
+            # 2. 重新构建 haifeng-admin 镜像（单独执行，避免并行）
+            docker compose -f docker-compose.prod.yml build haifeng-admin
             
-            # 3. 清理旧镜像（可选，节省空间）
+            # 3. 重新构建 haifeng-app 镜像（单独执行，避免并行）
+            docker compose -f docker-compose.prod.yml build haifeng-app
+            
+            # 4. 重启 haifeng-admin 容器
+            docker compose -f docker-compose.prod.yml up -d haifeng-admin
+            
+            # 5. 重启 haifeng-app 容器
+            docker compose -f docker-compose.prod.yml up -d haifeng-app
+            
+            # 6. 清理旧镜像（可选，节省空间）
             docker image prune -f
-          timeout: 30m 
+          timeout: 60m # 增加超时时间（60分钟），因为两个构建加起来约50分钟，留些余量
