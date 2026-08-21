@@ -17,7 +17,8 @@ COPY haifeng-app/src haifeng-app/src
 ENV MAVEN_OPTS="-Xmx768m -XX:MaxMetaspaceSize=128m" \
     JAVA_TOOL_OPTIONS="-Xmx768m"
 
-RUN mvn -B clean package -pl haifeng-app -am -Dmaven.test.skip=true -q
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B clean package -pl haifeng-app -am -Dmaven.test.skip=true -q
 
 # ---------- 运行阶段 ----------
 FROM eclipse-temurin:17-jre-alpine
