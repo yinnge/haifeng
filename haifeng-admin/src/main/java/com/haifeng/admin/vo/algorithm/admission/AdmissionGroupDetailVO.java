@@ -30,6 +30,7 @@ public class AdmissionGroupDetailVO {
     private Integer avgRank;
     private Integer maxScore;
     private Integer maxRank;
+    private List<Object> history;
     private Boolean isDeleted;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;

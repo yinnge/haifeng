@@ -35,6 +35,18 @@ public class GaokaoArchiveSaveDTO {
     @Size(max = 20, message = "首选科目最多20个字符")
     private String subjectType;
 
+    /**
+     * 第二科目（3+1+2 再选科目之一 / 3+3 选考科目之一）
+     */
+    @Size(max = 20, message = "第二科目最多20个字符")
+    private String secondSubjectType;
+
+    /**
+     * 第三科目（3+1+2 再选科目之一 / 3+3 选考科目之一）
+     */
+    @Size(max = 20, message = "第三科目最多20个字符")
+    private String thirdSubjectType;
+
     @NotBlank(message = "批次不能为空")
     @Size(max = 50, message = "批次最多50个字符")
     private String batch;
@@ -131,4 +143,44 @@ public class GaokaoArchiveSaveDTO {
     private String householdType;
 
     private Boolean isPovertyCounty;
+
+    // ========== 可选字段：考生画像与约束条件 ==========
+
+    @Size(max = 10, message = "性别最多10个字符")
+    private String gender;
+
+    @Size(max = 500, message = "其他疾病最多500个字符")
+    private String otherHealthConditions;
+
+    @Size(max = 200, message = "政审情况最多200个字符")
+    private String politicalReviewStatus;
+
+    @Size(max = 500, message = "性格特质最多500个字符")
+    private String personalityTraits;
+
+    private Boolean acceptGrassroot;
+    private Boolean acceptShiftWork;
+    private Boolean acceptNightWork;
+    private Boolean acceptBusinessTrip;
+    private Boolean acceptRelocation;
+
+    @Size(max = 500, message = "兴趣倾向最多500个字符")
+    private String interestDirection;
+
+    @Size(max = 500, message = "排斥行业/岗位最多500个字符")
+    private String rejectedIndustries;
+
+    @Size(max = 50, message = "学费承受度最多50个字符")
+    private String tuitionAffordability;
+
+    private Boolean stayInProvince;
+
+    @Size(max = 500, message = "家庭资源最多500个字符")
+    private String familyResources;
+
+    @Size(max = 50, message = "发展定位最多50个字符")
+    private String careerDevPath;
+
+    @Size(max = 500, message = "排斥方向最多500个字符")
+    private String rejectedDirection;
 }

@@ -1,6 +1,7 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.haifeng.common.config.JsonbTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -66,6 +67,9 @@ public class AdmissionGroup {
     private Integer maxScore;
 
     private Integer maxRank;
+
+    @TableField(typeHandler = JsonbTypeHandler.class)
+    private Object history;
 
     private Boolean isDeleted;
 

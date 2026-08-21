@@ -6,7 +6,11 @@
         /* ===================== CSS Paged Media ===================== */
         @page {
             size: A4;
-            margin: 2cm 1.5cm 2.5cm 1.5cm;
+            margin: 2cm 1.2cm 2.5cm 1.2cm;
+            @top-left {
+                content: element(pageHeader);
+                vertical-align: middle;
+            }
             @bottom-right {
                 content: counter(page);
                 font-size: 10px;
@@ -20,8 +24,25 @@
         }
         @page :first {
             margin: 0;
+            @top-left { content: none; }
             @bottom-right { content: ""; }
             @bottom-center { content: ""; }
+        }
+
+        /* ===================== 内容页页眉（running element，仅内容页显示） ===================== */
+        .page-header {
+            position: running(pageHeader);
+            font-size: 10px;
+            font-weight: 600;
+            color: #0f172a;
+            letter-spacing: 1px;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .page-header img {
+            height: 14px;
+            vertical-align: middle;
+            margin-right: 6px;
         }
 
         /* ===================== Global ===================== */
@@ -43,8 +64,8 @@
             height: 297mm;
             width: 210mm;
             position: relative;
-            background: #0f172a;
-            color: #fff;
+            background: #ffffff;
+            color: #0f172a;
             overflow: hidden;
         }
         /* 顶部装饰线 */
@@ -65,17 +86,17 @@
             right: 0;
             width: 80mm;
             height: 100%;
-            background: linear-gradient(180deg, rgba(212,168,67,0.08) 0%, rgba(212,168,67,0.03) 40%, transparent 70%);
+            background: linear-gradient(180deg, rgba(201,149,42,0.16) 0%, rgba(201,149,42,0.06) 40%, transparent 70%);
         }
         .cover-content {
             position: relative;
             z-index: 1;
-            padding: 55mm 20mm 30mm 25mm;
+            padding: 45mm 20mm 30mm 20mm;
             height: 100%;
             box-sizing: border-box;
         }
         .cover-brand {
-            margin-bottom: 45mm;
+            margin-bottom: 28mm;
         }
         .cover-brand table {
             border-collapse: collapse;
@@ -91,49 +112,50 @@
             font-size: 11px;
             letter-spacing: 3px;
             text-transform: uppercase;
-            color: rgba(255,255,255,0.5);
+            color: rgba(15,23,42,0.55);
             font-weight: 500;
         }
         .cover-title-block {
-            margin-bottom: 35mm;
+            margin-bottom: 20mm;
         }
         .cover-title {
             font-size: 36px;
             font-weight: 300;
             letter-spacing: 2px;
             line-height: 1.3;
-            color: #fff;
+            color: #0f172a;
             margin: 0 0 8px 0;
         }
         .cover-title strong {
             font-weight: 700;
-            color: #d4a843;
+            color: #c9952a;
         }
         .cover-subtitle {
             font-size: 14px;
             font-weight: 400;
-            color: rgba(255,255,255,0.45);
+            color: rgba(15,23,42,0.5);
             letter-spacing: 1px;
             margin: 0;
         }
         .cover-divider {
             width: 48px;
             height: 1px;
-            background: #d4a843;
-            margin: 0 0 35mm 0;
+            background: #c9952a;
+            margin: 0 0 20mm 0;
         }
         .cover-info {
-            width: 100%;
-            max-width: 380px;
+            /* 块级容器，内含 table；靠 table 自身 margin auto 居中（OpenHTMLtoPDF 兼容） */
         }
         .cover-info table {
             border-collapse: collapse;
-            width: 100%;
+            width: auto;
+            margin-left: auto;
+            margin-right: auto;
         }
         .cover-info-label {
             padding: 5px 16px 5px 0;
             font-size: 10px;
-            color: rgba(255,255,255,0.4);
+            color: rgba(15,23,42,0.5);
             letter-spacing: 1px;
             text-transform: uppercase;
             white-space: nowrap;
@@ -143,12 +165,12 @@
             padding: 5px 0;
             font-size: 14px;
             font-weight: 600;
-            color: #fff;
+            color: #0f172a;
             vertical-align: middle;
         }
         .cover-info-divider td {
             padding: 6px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid rgba(15,23,42,0.08);
         }
         .cover-footer {
             position: absolute;
@@ -162,7 +184,7 @@
         }
         .cover-footer-text {
             font-size: 9px;
-            color: rgba(255,255,255,0.25);
+            color: rgba(15,23,42,0.35);
             letter-spacing: 0.5px;
         }
 
@@ -177,16 +199,101 @@
             letter-spacing: 0.5px;
         }
 
+        /* ===================== Profile Section ===================== */
+        .profile-section {
+            page-break-before: always;
+            margin-bottom: 20px;
+        }
+        .profile-section:first-of-type {
+            page-break-before: auto;
+        }
+        .profile-group {
+            margin-bottom: 16px;
+            background: #fafbfc;
+            border: 1px solid #e8eef5;
+            border-radius: 6px;
+            padding: 12px 16px;
+        }
+        .profile-group-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e8eef5;
+        }
+        .profile-grid {
+            display: table;
+            width: 100%;
+        }
+        .profile-row {
+            display: table-row;
+        }
+        .profile-cell {
+            display: table-cell;
+            padding: 4px 8px;
+            font-size: 11px;
+            vertical-align: top;
+            width: 50%;
+        }
+        .profile-cell.full-width {
+            width: 100%;
+        }
+        .profile-label {
+            color: #888;
+            font-size: 10px;
+            margin-right: 4px;
+        }
+        .profile-value {
+            color: #333;
+            font-weight: 500;
+        }
+        .profile-value.empty {
+            color: #ccc;
+            font-style: italic;
+        }
+        .profile-tags {
+            display: table;
+            width: 100%;
+            margin-top: 4px;
+        }
+        .profile-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 2px 4px 2px 0;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .profile-tag.yes {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .profile-tag.no {
+            background: #f5f5f5;
+            color: #999;
+        }
+        .profile-tag.neutral {
+            background: rgba(212,168,67,0.1);
+            color: #8b6914;
+        }
+
         /* ===================== Analysis Sections ===================== */
         .analysis-section {
             margin-bottom: 20px;
             page-break-inside: auto;
+        }
+        /* 每个大标题（二~四）独立换页；第一个紧跟封面，避免与封面分页叠加 */
+        .analysis-section + .analysis-section {
+            page-break-before: always;
         }
         .analysis-section .content {
             text-align: justify;
             font-size: 12px;
             line-height: 1.8;
             color: #444;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
         .analysis-section .content h1,
         .analysis-section .content h2,
@@ -211,21 +318,70 @@
         .analysis-section .content table {
             border-collapse: collapse;
             width: 100%;
+            table-layout: fixed;
             margin: 8px 0;
         }
         .analysis-section .content th,
         .analysis-section .content td {
             border: 1px solid #ddd;
-            padding: 4px 8px;
+            padding: 6px 8px;
             font-size: 11px;
+            vertical-align: top;
+            word-break: break-all;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         .analysis-section .content th {
             background: #f0f4f8;
+            text-align: center;
+            font-weight: 600;
+        }
+        /* SWOT 等 3 列表格：第一列窄，第二/三列等宽 */
+        .analysis-section .content table th:first-child,
+        .analysis-section .content table td:first-child {
+            width: 14%;
+        }
+        .analysis-section .content table th:nth-child(2),
+        .analysis-section .content table td:nth-child(2),
+        .analysis-section .content table th:nth-child(3),
+        .analysis-section .content table td:nth-child(3) {
+            width: 43%;
+        }
+
+        /* ===================== Subsections (2.1-2.4) ===================== */
+        .subsection {
+            margin-bottom: 16px;
+            page-break-inside: auto;
+        }
+        .subsection-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #c9952a;
+            border-left: 3px solid #c9952a;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .reasoning-box {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+        .reasoning-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
         }
 
         /* ===================== Summary Table ===================== */
         .summary-section {
-            page-break-before: auto;
+            page-break-before: always;
         }
         .summary-table {
             width: 100%;
@@ -406,6 +562,8 @@
             font-size: 12px;
             line-height: 1.8;
             color: #444;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
         .commentary-section .content h1,
         .commentary-section .content h2,
@@ -450,6 +608,13 @@
     </style>
 </head>
 <body>
+
+<!-- ===================== 内容页页眉（running element，自动出现在每个内容页顶部） ===================== -->
+<div class="page-header">
+    <img class="logo" th:if="${data.logoDataUri != null and !data.logoDataUri.isEmpty()}"
+         th:src="${data.logoDataUri}" alt=""/>
+    <span>海枫未来规划院</span>
+</div>
 
 <!-- ===================== Cover Page ===================== -->
 <div class="cover">
@@ -503,6 +668,15 @@
                     <td class="cover-info-label">批次</td>
                     <td class="cover-info-value" th:text="${data.planBatch}">-</td>
                 </tr>
+                <!-- 新增：考生选科信息 -->
+                <tr class="cover-info-row" th:if="${data.memberProfile != null and data.memberProfile.subjectType != null}">
+                    <td class="cover-info-label">选科</td>
+                    <td class="cover-info-value" th:text="${data.memberProfile.subjectType}">-</td>
+                </tr>
+                <tr class="cover-info-row" th:if="${data.memberProfile != null and data.memberProfile.scoreAboveLine != null}">
+                    <td class="cover-info-label">线差</td>
+                    <td class="cover-info-value" th:text="${data.memberProfile.scoreAboveLine} + ' 分'">-</td>
+                </tr>
                 <tr class="cover-info-divider"><td colspan="2"></td></tr>
                 <tr class="cover-info-row">
                     <td class="cover-info-label">日期</td>
@@ -519,32 +693,269 @@
                     <span class="cover-footer-text">CONFIDENTIAL</span>
                 </td>
                 <td style="text-align: right;">
-                    <span class="cover-footer-text">海枫未来规划院 &copy; 版权所有</span>
+                    <span class="cover-footer-text">海枫未来规划院 &#169; 版权所有</span>
                 </td>
             </tr>
         </table>
     </div>
 </div>
 
+<!-- ===================== 第一部分：考生基础画像与现实约束条件 ===================== -->
+<div class="profile-section">
+    <div class="section-title">一、考生基础画像与现实约束条件</div>
+
+    <!-- 1.1 高考基础信息 -->
+    <div class="profile-group">
+        <div class="profile-group-title">1.1 高考基础信息</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">所在省份：</span>
+                    <span class="profile-value" th:text="${data.planProvince ?: '-'}">-</span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">选科模式：</span>
+                    <span class="profile-value" th:text="${data.reformModel ?: '-'}">-</span>
+                </div>
+            </div>
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">高考分数：</span>
+                    <span class="profile-value" th:text="${data.userScore != null ? data.userScore + '分' : '-'}">-</span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">全省位次：</span>
+                    <span class="profile-value" th:text="${data.userRank ?: '-'}">-</span>
+                </div>
+            </div>
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">报考批次：</span>
+                    <span class="profile-value" th:text="${data.planBatch ?: '-'}">-</span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">选科：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.subjectType ?: '-'}">-</span>
+                </div>
+            </div>
+            <div class="profile-row" th:if="${data.memberProfile?.scoreAboveLine != null}">
+                <div class="profile-cell">
+                    <span class="profile-label">线差：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.scoreAboveLine + '分'}">-</span>
+                </div>
+                <div class="profile-cell"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.2 身体条件 -->
+    <div class="profile-group">
+        <div class="profile-group-title">1.2 身体条件</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">色觉：</span>
+                    <span class="profile-value">
+                        <span th:if="${data.memberProfile?.isColorBlind}" class="profile-tag yes">色盲</span>
+                        <span th:if="${data.memberProfile?.isColorWeak}" class="profile-tag yes">色弱</span>
+                        <span th:if="${!data.memberProfile?.isColorBlind and !data.memberProfile?.isColorWeak}" class="profile-value empty">正常</span>
+                    </span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">身高：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.heightCm != null ? data.memberProfile.heightCm + 'cm' : '-'}">-</span>
+                </div>
+            </div>
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">视力：</span>
+                    <span class="profile-value">
+                        <span th:if="${data.memberProfile?.visionLeft != null or data.memberProfile?.visionRight != null}">
+                            左<span th:text="${data.memberProfile?.visionLeft ?: '-'}">-</span>/右<span th:text="${data.memberProfile?.visionRight ?: '-'}">-</span>
+                        </span>
+                        <span th:unless="${data.memberProfile?.visionLeft != null or data.memberProfile?.visionRight != null}" class="profile-value empty">未填写</span>
+                    </span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">其他疾病：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.otherHealthConditions ?: '无'}">无</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.3 政审情况 -->
+    <div class="profile-group" th:if="${data.memberProfile?.politicalReviewStatus != null}">
+        <div class="profile-group-title">1.3 政审情况</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">政审状态：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.politicalReviewStatus}">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.4 个人特质 -->
+    <div class="profile-group">
+        <div class="profile-group-title">1.4 个人特质</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">性别：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.gender ?: '-'}">-</span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">性格特质：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.personalityTraits ?: '-'}">-</span>
+                </div>
+            </div>
+            <div class="profile-row">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">兴趣倾向：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.interestDirection ?: '-'}">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.5 接受度 -->
+    <div class="profile-group">
+        <div class="profile-group-title">1.5 接受度</div>
+        <div class="profile-tags">
+            <span class="profile-tag" th:classappend="${data.memberProfile?.acceptGrassroot ? 'yes' : 'no'}">
+                基层岗位 <span th:text="${data.memberProfile?.acceptGrassroot ? '✓' : '✗'}">-</span>
+            </span>
+            <span class="profile-tag" th:classappend="${data.memberProfile?.acceptShiftWork ? 'yes' : 'no'}">
+                倒班 <span th:text="${data.memberProfile?.acceptShiftWork ? '✓' : '✗'}">-</span>
+            </span>
+            <span class="profile-tag" th:classappend="${data.memberProfile?.acceptNightWork ? 'yes' : 'no'}">
+                夜班 <span th:text="${data.memberProfile?.acceptNightWork ? '✓' : '✗'}">-</span>
+            </span>
+            <span class="profile-tag" th:classappend="${data.memberProfile?.acceptBusinessTrip ? 'yes' : 'no'}">
+                长期出差 <span th:text="${data.memberProfile?.acceptBusinessTrip ? '✓' : '✗'}">-</span>
+            </span>
+            <span class="profile-tag" th:classappend="${data.memberProfile?.acceptRelocation ? 'yes' : 'no'}">
+                异地工作 <span th:text="${data.memberProfile?.acceptRelocation ? '✓' : '✗'}">-</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- 1.6 排斥方向 -->
+    <div class="profile-group" th:if="${data.memberProfile?.rejectedIndustries != null or data.memberProfile?.rejectedDirections != null}">
+        <div class="profile-group-title">1.6 排斥方向</div>
+        <div class="profile-grid">
+            <div class="profile-row" th:if="${data.memberProfile?.rejectedIndustries != null}">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">排斥行业/岗位：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.rejectedIndustries}">-</span>
+                </div>
+            </div>
+            <div class="profile-row" th:if="${data.memberProfile?.rejectedDirections != null}">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">排斥方向：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.rejectedDirections}">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.7 家庭约束条件 -->
+    <div class="profile-group">
+        <div class="profile-group-title">1.7 家庭约束条件</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell">
+                    <span class="profile-label">学费承受度：</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.tuitionAffordability ?: '-'}">-</span>
+                </div>
+                <div class="profile-cell">
+                    <span class="profile-label">地域约束：</span>
+                    <span class="profile-value">
+                        <span th:if="${data.memberProfile?.stayInProvince != null}" th:text="${data.memberProfile.stayInProvince ? '必须留本省' : '接受异地'}">-</span>
+                        <span th:unless="${data.memberProfile?.stayInProvince != null}" class="profile-value empty">未设置</span>
+                    </span>
+                </div>
+            </div>
+            <div class="profile-row" th:if="${data.memberProfile?.familyResources != null}">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">家庭资源：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.familyResources}">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1.8 发展定位 -->
+    <div class="profile-group" th:if="${data.memberProfile?.careerDevPath != null}">
+        <div class="profile-group-title">1.8 发展定位</div>
+        <div class="profile-grid">
+            <div class="profile-row">
+                <div class="profile-cell full-width">
+                    <span class="profile-label">发展路径：</span>
+                    <span class="profile-value" th:text="${data.memberProfile.careerDevPath}">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ===================== Global Analysis ===================== -->
 <div class="analysis-section">
-    <div class="section-title">一、全局宏观全景研判</div>
-    <div class="content" th:utext="${data.globalAnalysisHtml}"></div>
+    <div class="section-title">二、外部宏观全景研判</div>
+
+    <!-- 2.1 院校分析 -->
+    <div class="subsection" th:if="${data.universityAnalysisHtml != null and !data.universityAnalysisHtml.isEmpty()}">
+        <div class="subsection-title">2.1 院校分析</div>
+        <div class="content" th:utext="${data.universityAnalysisHtml}"></div>
+    </div>
+
+    <!-- 2.2 专业分析 -->
+    <div class="subsection" th:if="${data.majorAnalysisHtml != null and !data.majorAnalysisHtml.isEmpty()}">
+        <div class="subsection-title">2.2 专业分析</div>
+        <div class="content" th:utext="${data.majorAnalysisHtml}"></div>
+    </div>
+
+    <!-- 2.3 城市分析 -->
+    <div class="subsection" th:if="${data.cityAnalysisHtml != null and !data.cityAnalysisHtml.isEmpty()}">
+        <div class="subsection-title">2.3 城市分析</div>
+        <div class="content" th:utext="${data.cityAnalysisHtml}"></div>
+    </div>
+
+    <!-- 2.4 综合考虑 -->
+    <div class="subsection" th:if="${data.rankingTableHtml != null and !data.rankingTableHtml.isEmpty()}">
+        <div class="subsection-title">2.4 综合考虑</div>
+
+        <!-- 优先级图表 -->
+        <div th:if="${data.chartBase64 != null}" class="chart-container">
+            <img th:src="'data:image/png;base64,' + ${data.chartBase64}" alt="优先级排名图" style="width:100%;max-width:800px;margin:10px auto;display:block;"/>
+        </div>
+
+        <!-- 排名表 -->
+        <div class="content" th:utext="${data.rankingTableHtml}"></div>
+
+        <!-- 排序理由 -->
+        <div th:if="${data.reasoningHtml != null and !data.reasoningHtml.isEmpty()}" class="reasoning-box">
+            <div class="reasoning-title">排序理由</div>
+            <div class="content" th:utext="${data.reasoningHtml}"></div>
+        </div>
+    </div>
 </div>
 
 <div class="analysis-section">
-    <div class="section-title">二、SWOT 象限分析</div>
+    <div class="section-title">三、SWOT 象限分析</div>
     <div class="content" th:utext="${data.swotHtml}"></div>
 </div>
 
 <div class="analysis-section">
-    <div class="section-title">三、海枫强烈推荐填报梯队顺序</div>
+    <div class="section-title">四、海枫强烈推荐填报梯队顺序</div>
     <div class="content" th:utext="${data.recommendationHtml}"></div>
 </div>
 
 <!-- ===================== Summary Table ===================== -->
 <div class="summary-section">
-    <div class="section-title">四、志愿方案汇总表</div>
+    <div class="section-title">五、志愿方案汇总表</div>
     <table class="summary-table">
         <thead>
             <tr>
@@ -570,11 +981,11 @@
                 <td>
                     <span class="level-badge"
                           th:if="${row.levelShort != null}"
-                          th:classappend="${row.levelShort == '搏' ? 'level-bo' :
-                                          row.levelShort == '冲' ? 'level-chong' :
-                                          row.levelShort == '稳' ? 'level-wen' :
-                                          row.levelShort == '保' ? 'level-bao' :
-                                          row.levelShort == '垫' ? 'level-dian' : ''}"
+                          th:classappend='${row.levelShort == "搏" ? "level-bo" :
+                                          row.levelShort == "冲" ? "level-chong" :
+                                          row.levelShort == "稳" ? "level-wen" :
+                                          row.levelShort == "保" ? "level-bao" :
+                                          row.levelShort == "垫" ? "level-dian" : ""}'
                           th:text="${row.levelShort}">-</span>
                 </td>
                 <td th:text="${row.safetyLevel != null ? row.safetyLevel : '-'}">-</td>
@@ -655,11 +1066,11 @@
                 <td>
                     <span class="level-badge"
                           th:if="${major.levelShort != null}"
-                          th:classappend="${major.levelShort == '搏' ? 'level-bo' :
-                                          major.levelShort == '冲' ? 'level-chong' :
-                                          major.levelShort == '稳' ? 'level-wen' :
-                                          major.levelShort == '保' ? 'level-bao' :
-                                          major.levelShort == '垫' ? 'level-dian' : ''}"
+                          th:classappend='${major.levelShort == "搏" ? "level-bo" :
+                                          major.levelShort == "冲" ? "level-chong" :
+                                          major.levelShort == "稳" ? "level-wen" :
+                                          major.levelShort == "保" ? "level-bao" :
+                                          major.levelShort == "垫" ? "level-dian" : ""}'
                           th:text="${major.levelShort}">-</span>
                 </td>
                 <td th:text="${major.safetyLevel != null ? major.safetyLevel : '-'}">-</td>

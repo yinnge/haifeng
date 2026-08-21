@@ -20,9 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -65,10 +63,8 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Integer add(AdmissionMajorScoreAddDTO dto) {
-        // 检查专业组是否存在且未删除
         validateGroupExists(dto.getGroupId());
 
-        // 检查同一专业组内majorCode是否重复
         if (existsByGroupIdAndMajorCode(dto.getGroupId(), dto.getMajorCode(), null)) {
             throw new BusinessException(400, "该专业组内已存在相同的专业代码");
         }
@@ -82,15 +78,20 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         entity.setDuration(dto.getDuration());
         entity.setTuition(dto.getTuition());
         entity.setDescription(dto.getDescription());
-        entity.setAdmissionCount(dto.getAdmissionCount());
-        entity.setMinScore(dto.getMinScore());
-        entity.setMinRank(dto.getMinRank());
-        entity.setAvgScore(dto.getAvgScore());
-        entity.setAvgRank(dto.getAvgRank());
-        entity.setMaxScore(dto.getMaxScore());
-        entity.setMaxRank(dto.getMaxRank());
         entity.setConstraints(dto.getConstraints());
         entity.setIsDeleted(false);
+
+        // 从 DTO 构建 history jsonb：优先使用多年度数组，否则用平铺分数字段构建单条
+        List<Map<String, Object>> historyArray = null;
+        if (dto.getHistory() != null && !dto.getHistory().isEmpty()) {
+            historyArray = dto.getHistory();
+        } else if (dto.getYear() != null) {
+            historyArray = new ArrayList<>();
+            historyArray.add(buildHistoryEntry(dto.getYear(), dto));
+        }
+        if (historyArray != null) {
+            entity.setHistory(historyArray);
+        }
 
         admissionMajorScoreMapper.insert(entity);
         log.info("新增专业录取明细成功，id={}, groupId={}, majorCode={}",
@@ -106,10 +107,8 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
             throw new BusinessException(404, "专业录取明细不存在");
         }
 
-        // 检查专业组是否存在且未删除
         validateGroupExists(dto.getGroupId());
 
-        // 检查同一专业组内majorCode是否重复（排除自己）
         if (existsByGroupIdAndMajorCode(dto.getGroupId(), dto.getMajorCode(), id)) {
             throw new BusinessException(400, "该专业组内已存在相同的专业代码");
         }
@@ -122,14 +121,29 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         if (dto.getDuration() != null) existing.setDuration(dto.getDuration());
         if (dto.getTuition() != null) existing.setTuition(dto.getTuition());
         if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
-        if (dto.getAdmissionCount() != null) existing.setAdmissionCount(dto.getAdmissionCount());
-        if (dto.getMinScore() != null) existing.setMinScore(dto.getMinScore());
-        if (dto.getMinRank() != null) existing.setMinRank(dto.getMinRank());
-        if (dto.getAvgScore() != null) existing.setAvgScore(dto.getAvgScore());
-        if (dto.getAvgRank() != null) existing.setAvgRank(dto.getAvgRank());
-        if (dto.getMaxScore() != null) existing.setMaxScore(dto.getMaxScore());
-        if (dto.getMaxRank() != null) existing.setMaxRank(dto.getMaxRank());
         if (dto.getConstraints() != null) existing.setConstraints(dto.getConstraints());
+
+        // 更新 history：优先整体替换（前端提交全量多年度分数），否则用平铺字段按年份覆盖/追加
+        if (dto.getHistory() != null) {
+            existing.setHistory(dto.getHistory());
+        } else if (dto.getYear() != null && dto.getMinScore() != null) {
+            List<Map<String, Object>> history = parseHistory(existing.getHistory());
+            Map<String, Object> entry = buildHistoryEntry(dto.getYear(), dto);
+            // 替换或追加对应年份
+            boolean replaced = false;
+            for (int i = 0; i < history.size(); i++) {
+                if (Objects.equals(history.get(i).get("year"), dto.getYear())) {
+                    history.set(i, entry);
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) {
+                history.add(entry);
+            }
+            existing.setHistory(history);
+        }
+
         int rows = admissionMajorScoreMapper.updateByIdCustom(existing);
         if (rows == 0) {
             throw new BusinessException(500, "更新专业录取明细失败，记录可能已被禁用或不存在，请刷新后重试");
@@ -155,8 +169,6 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         if (entity == null) {
             throw new BusinessException(404, "专业录取明细不存在");
         }
-
-        // 物理删除，触发器 trg_ams_recalc_group 自动重算所属专业组聚合数据
         int affected = admissionMajorScoreMapper.physicalDeleteById(id);
         if (affected == 0) {
             throw new BusinessException(404, "专业录取明细不存在");
@@ -167,9 +179,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return;
-        }
+        if (ids == null || ids.isEmpty()) return;
         int affected = admissionMajorScoreMapper.update(null,
                 Wrappers.lambdaUpdate(AdmissionMajorScore.class)
                         .set(AdmissionMajorScore::getIsDeleted, true)
@@ -181,11 +191,33 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchHardDelete(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return;
-        }
+        if (ids == null || ids.isEmpty()) return;
         int affected = admissionMajorScoreMapper.physicalDeleteBatchIds(ids);
         log.info("批量物理删除专业录取明细成功，请求{}条，实际删除{}条", ids.size(), affected);
+    }
+
+    // ==================== 辅助方法 ====================
+
+    private Map<String, Object> buildHistoryEntry(Integer year, AdmissionMajorScoreAddDTO dto) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("year", year);
+        entry.put("admissionCount", dto.getAdmissionCount());
+        entry.put("minScore", dto.getMinScore());
+        entry.put("minRank", dto.getMinRank());
+        entry.put("avgScore", dto.getAvgScore());
+        entry.put("avgRank", dto.getAvgRank());
+        entry.put("maxScore", dto.getMaxScore());
+        entry.put("maxRank", dto.getMaxRank());
+        return entry;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseHistory(Object history) {
+        if (history == null) return new ArrayList<>();
+        if (history instanceof List) {
+            return new ArrayList<>((List<Map<String, Object>>) history);
+        }
+        return new ArrayList<>();
     }
 
     private void validateGroupExists(Integer groupId) {
@@ -208,10 +240,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         vo.setMajorCode(entity.getMajorCode());
         vo.setMajorName(entity.getMajorName());
         vo.setEducationLevel(entity.getEducationLevel());
-        vo.setAdmissionCount(entity.getAdmissionCount());
-        vo.setMinScore(entity.getMinScore());
-        vo.setMinRank(entity.getMinRank());
-        vo.setAvgScore(entity.getAvgScore());
+        vo.setHistory(entity.getHistory() instanceof List ? (List<Object>) entity.getHistory() : Collections.emptyList());
         vo.setIsDeleted(entity.getIsDeleted());
         return vo;
     }
@@ -227,13 +256,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         vo.setDuration(entity.getDuration());
         vo.setTuition(entity.getTuition());
         vo.setDescription(entity.getDescription());
-        vo.setAdmissionCount(entity.getAdmissionCount());
-        vo.setMinScore(entity.getMinScore());
-        vo.setMinRank(entity.getMinRank());
-        vo.setAvgScore(entity.getAvgScore());
-        vo.setAvgRank(entity.getAvgRank());
-        vo.setMaxScore(entity.getMaxScore());
-        vo.setMaxRank(entity.getMaxRank());
+        vo.setHistory(entity.getHistory() instanceof List ? (List<Object>) entity.getHistory() : Collections.emptyList());
         vo.setConstraints(entity.getConstraints());
         vo.setIsDeleted(entity.getIsDeleted());
         vo.setCreatedAt(entity.getCreatedAt());

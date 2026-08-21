@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.major.MajorListQueryDTO;
 import com.haifeng.app.dto.major.MajorRankingQueryDTO;
 import com.haifeng.app.service.major.MajorService;
+import com.haifeng.app.vo.major.MajorBriefVO;
 import com.haifeng.app.vo.major.MajorCategoryStatVO;
 import com.haifeng.app.vo.major.MajorDetailVO;
 import com.haifeng.app.vo.major.MajorListVO;
@@ -193,6 +194,31 @@ public class MajorServiceImpl implements MajorService {
                 .competitionName(row.get("competitionName") != null
                         ? String.valueOf(row.get("competitionName")) : null)
                 .build());
+    }
+
+    @Override
+    public MajorBriefVO getBriefByName(String majorName) {
+        Major major = majorMapper.findByMajorName(majorName);
+        if (major == null) {
+            log.debug("专业不存在或已下架, majorName={}", majorName);
+            throw new BusinessException(ResultCode.NOT_FOUND, "专业不存在");
+        }
+        return MajorBriefVO.builder()
+                .id(major.getId())
+                .majorCode(major.getMajorCode())
+                .majorName(major.getMajorName())
+                .disciplineName(major.getDisciplineName())
+                .majorType(major.getMajorType())
+                .majorCategory(major.getMajorCategory())
+                .parentCategory(major.getParentCategory())
+                .majorTags(major.getMajorTags())
+                .degreeAwarded(major.getDegreeAwarded())
+                .studyDuration(major.getStudyDuration())
+                .employmentRate(major.getEmploymentRate())
+                .salaryMin(major.getSalaryMin())
+                .salaryMax(major.getSalaryMax())
+                .description(major.getDescription())
+                .build();
     }
 
     private MajorListVO toListVO(Major e) {

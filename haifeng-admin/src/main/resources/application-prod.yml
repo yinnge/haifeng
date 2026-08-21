@@ -78,3 +78,13 @@ haifeng:
   security:
     aes-key: ${AES_SECRET_KEY}
     hash-salt: ${HASH_SALT}
+
+# 阿里云OSS配置
+oss:
+  endpoint: ${OSS_ENDPOINT}
+  region: ${OSS_REGION}
+  access-key-id: ${OSS_ACCESS_KEY_ID}
+  access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+  bucket-name: ${OSS_BUCKET_NAME}
+  url-expire: ${OSS_URL_EXPIRE:3600}
+  kkfileview-base-url: ${KKFILEVIEW_BASE_URL}

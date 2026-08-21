@@ -1,6 +1,7 @@
 package com.haifeng.common.entity.algorithm.pdf;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.haifeng.common.config.RawJsonbTypeHandler;
 import com.haifeng.common.enums.PdfReportStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,12 +31,15 @@ public class PdfReport {
     private PdfReportStatus status;
 
     /** Map 阶段逐校 AI 简评 JSONB 数组 */
+    @TableField(typeHandler = RawJsonbTypeHandler.class)
     private String mapResults;
 
     /** Reduce 阶段全局研判 JSONB */
+    @TableField(typeHandler = RawJsonbTypeHandler.class)
     private String reduceResult;
 
     /** 封面页数据快照 JSONB */
+    @TableField(typeHandler = RawJsonbTypeHandler.class)
     private String planSnapshot;
 
     private String failReason;

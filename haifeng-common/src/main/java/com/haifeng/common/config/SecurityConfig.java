@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.common.response.R;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -109,6 +110,9 @@ public class SecurityConfig {
                 )
                 // 授权配置
                 .authorizeHttpRequests(auth -> auth
+                        // ERROR/ASYNC dispatch（如 SSE 流异常后的 /error 转发）不经过 JWT 过滤器，
+                        // 放行以免对已提交响应再次鉴权失败
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         .requestMatchers(WHITE_LIST).permitAll()
                         .anyRequest().authenticated()
                 )

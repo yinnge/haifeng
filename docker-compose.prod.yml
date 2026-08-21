@@ -80,6 +80,13 @@ services:
       AES_SECRET_KEY: ${AES_SECRET_KEY}
       HASH_SALT: ${HASH_SALT}
       ADMIN_PORT: 18081
+      OSS_ENDPOINT: ${OSS_ENDPOINT}
+      OSS_REGION: ${OSS_REGION}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
+      OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
+      KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
       JAVA_OPTS: -Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
     networks:
       - haifeng-network
@@ -119,6 +126,13 @@ services:
       HASH_SALT: ${HASH_SALT}
       APP_PORT: 18080
       DEEPSEEK_API_KEYS: ${DEEPSEEK_API_KEYS}
+      OSS_ENDPOINT: ${OSS_ENDPOINT}
+      OSS_REGION: ${OSS_REGION}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
+      OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
+      KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
       JAVA_OPTS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
     depends_on:
       postgresql:
@@ -128,6 +142,21 @@ services:
     networks:
       - haifeng-network
     mem_limit: 640m
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
+
+  kkfileview:
+    image: keking/kkfileview:4.1.0
+    container_name: haifeng-kkfileview
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - haifeng-network
+    mem_limit: 1024m
     logging:
       driver: json-file
       options:

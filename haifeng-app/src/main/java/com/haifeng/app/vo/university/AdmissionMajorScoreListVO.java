@@ -6,8 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -24,12 +24,6 @@ public class AdmissionMajorScoreListVO implements Serializable {
     private String duration;
     private String tuition;
     private String description;
-    private Integer admissionCount;
-    private Integer minScore;
-    private Integer minRank;
-    private Integer maxScore;
-    private Integer maxRank;
-    private BigDecimal avgScore;
-    private Integer avgRank;
+    private List<Map<String, Object>> history;
     private List<String> constraints;
 }

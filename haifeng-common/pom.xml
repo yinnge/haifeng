@@ -107,6 +107,13 @@
             <version>4.0.3</version>
         </dependency>
 
+        <!-- Alibaba Cloud OSS SDK -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
+
         <!-- easy-captcha 验证码 -->
         <dependency>
             <groupId>com.github.whvcse</groupId>

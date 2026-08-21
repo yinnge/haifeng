@@ -46,9 +46,8 @@ public class AdmissionGroupController {
 
     @PutMapping("/{id}")
     @OperationLog(module = "专业组管理", action = "修改专业组")
-    public R<Void> update(@PathVariable Integer id, @Valid @RequestBody AdmissionGroupAddDTO dto) {
-        admissionGroupService.update(id, dto);
-        return R.ok();
+    public R<Integer> update(@PathVariable Integer id, @Valid @RequestBody AdmissionGroupAddDTO dto) {
+        return R.ok(admissionGroupService.update(id, dto));
     }
 
     @PutMapping("/{id}/status")

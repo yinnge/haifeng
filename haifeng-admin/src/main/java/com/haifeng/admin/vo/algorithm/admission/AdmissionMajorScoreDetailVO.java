@@ -1,7 +1,6 @@
 package com.haifeng.admin.vo.algorithm.admission;
 
 import lombok.Data;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -16,13 +15,7 @@ public class AdmissionMajorScoreDetailVO {
     private String duration;
     private String tuition;
     private String description;
-    private Integer admissionCount;
-    private Integer minScore;
-    private Integer minRank;
-    private BigDecimal avgScore;
-    private Integer avgRank;
-    private Integer maxScore;
-    private Integer maxRank;
+    private List<Object> history;
     private List<String> constraints;
     private Boolean isDeleted;
     private OffsetDateTime createdAt;

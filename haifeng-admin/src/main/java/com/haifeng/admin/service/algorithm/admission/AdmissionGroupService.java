@@ -13,7 +13,8 @@ public interface AdmissionGroupService {
     IPage<AdmissionGroupListVO> page(AdmissionGroupQueryDTO dto);
     AdmissionGroupDetailVO detail(Integer id);
     Integer add(AdmissionGroupAddDTO dto);
-    void update(Integer id, AdmissionGroupAddDTO dto);
+    /** 更新专业组；若约束条件变化，级联同步到该组所有专业明细（追加缺失约束，按 code 去重），返回被更新的明细条数 */
+    int update(Integer id, AdmissionGroupAddDTO dto);
     void updateStatus(Integer id, Boolean isDeleted);
     void delete(Integer id);
     void batchDelete(List<Integer> ids);

@@ -1,12 +1,15 @@
 package com.haifeng.common.service.algorithm.safety;
 
 import com.haifeng.common.entity.algorithm.*;
+import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
+import com.haifeng.common.mapper.algorithm.GaokaoConfigMapper;
 import com.haifeng.common.mapper.algorithm.ProvinceConfigMapper;
 import com.haifeng.common.mapper.algorithm.SafetyLevelDictMapper;
 import com.haifeng.common.mapper.algorithm.ScoreRankMapper;
 import com.haifeng.common.service.algorithm.safety.calculator.ConstraintWeightCalculator;
 import com.haifeng.common.service.algorithm.safety.calculator.ScoreBasedCalculator;
 import com.haifeng.common.service.algorithm.safety.dto.ConstraintWeightResult;
+import com.haifeng.common.service.algorithm.safety.dto.SafetyBatchContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,6 +34,46 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
     private final SafetyLevelDictMapper safetyLevelDictMapper;
     private final ProvinceConfigMapper provinceConfigMapper;
     private final ScoreRankMapper scoreRankMapper;
+    private final ConstraintDictMapper constraintDictMapper;
+    private final GaokaoConfigMapper gaokaoConfigMapper;
+    private final SafetyLevelDictCache safetyLevelDictCache;
+
+    @Override
+    public SafetyBatchContext buildBatchContext(MemberGaokao gaokao, List<String> userConstraints) {
+        // 1. 同分密度（与单条路径相同的查询条件）
+        BigDecimal density = null;
+        if (gaokao.getScore() != null && gaokao.getGaokaoProvince() != null
+                && gaokao.getSubjectType() != null && gaokao.getGaokaoYear() != null) {
+            density = scoreRankMapper.selectDensity(
+                    gaokao.getGaokaoProvince(),
+                    gaokao.getGaokaoYear(),
+                    gaokao.getSubjectType(),
+                    gaokao.getScore()
+            );
+        }
+
+        // 2. 省配置
+        ProvinceConfig provinceConfig = gaokao.getGaokaoProvince() != null
+                ? provinceConfigMapper.selectByProvince(gaokao.getGaokaoProvince())
+                : null;
+
+        // 3. 约束权重配置（单例）
+        GaokaoConfig gaokaoConfig = gaokaoConfigMapper.selectSingleton();
+
+        // 4. 用户约束 severity 映射
+        Map<String, String> severityMap = Collections.emptyMap();
+        if (userConstraints != null && !userConstraints.isEmpty()) {
+            severityMap = constraintDictMapper.selectSeverityByCodes(userConstraints).stream()
+                    .collect(Collectors.toMap(ConstraintDict::getCode, ConstraintDict::getSeverity, (a, b) -> a));
+        }
+
+        return SafetyBatchContext.builder()
+                .density(density)
+                .provinceConfig(provinceConfig)
+                .gaokaoConfig(gaokaoConfig)
+                .severityMap(severityMap)
+                .build();
+    }
 
     @Override
     public SafetyCalcResult calculateMajorSafety(MemberGaokao gaokao,
@@ -147,6 +192,58 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
                 .build();
     }
 
+    @Override
+    public SafetyCalcResult calculateMajorSafety(MemberGaokao gaokao,
+                                                 AdmissionMajorScore major,
+                                                 AdmissionGroup group,
+                                                 List<AdmissionGroup> historyGroups,
+                                                 List<String> userConstraints,
+                                                 SafetyBatchContext ctx) {
+        // 1. 约束权重计算（纯内存，使用预取的 GaokaoConfig 与 severityMap）
+        ConstraintWeightResult weightResult = constraintWeightCalculator.calculate(
+                userConstraints,
+                group.getConstraints(),
+                major.getConstraints(),
+                ctx != null ? ctx.getGaokaoConfig() : null,
+                ctx != null ? ctx.getSeverityMap() : Collections.emptyMap()
+        );
+
+        if (weightResult.isBlocked()) {
+            return SafetyCalcResult.blocked(weightResult.getReason());
+        }
+
+        // 2. 检查历史数据
+        if (historyGroups == null || historyGroups.isEmpty()) {
+            return SafetyCalcResult.noData();
+        }
+
+        // 3. 计算基础分（使用预取的密度、省配置）
+        double baseScore = scoreBasedCalculator.calculate(
+                gaokao,
+                historyGroups,
+                ctx != null ? ctx.getDensity() : null,
+                ctx != null ? ctx.getProvinceConfig() : null
+        );
+
+        // 4. 应用约束权重
+        double finalScore = baseScore * weightResult.getWeight().doubleValue();
+
+        // 5. Clamp 并转换
+        finalScore = Math.min(Math.max(finalScore, 0.01), 0.99);
+        BigDecimal safetyLevel = BigDecimal.valueOf(finalScore).setScale(2, RoundingMode.HALF_UP);
+
+        // 6. 获取等级信息（使用字典缓存）
+        SafetyLevelDict levelDict = getLevelByCoefficientCached(safetyLevel);
+        String levelShort = levelDict != null ? levelDict.getNameShort() : "稳";
+        String description = levelDict != null ? levelDict.getDescription() : "";
+
+        return SafetyCalcResult.builder()
+                .safetyLevel(safetyLevel)
+                .levelShort(levelShort)
+                .safetyDescription(description)
+                .build();
+    }
+
     /**
      * 使用预聚合的 severityMap 计算约束权重，避免每条专业重复查询字典
      */
@@ -154,47 +251,9 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
                                                               List<String> groupConstraints,
                                                               List<String> majorConstraints,
                                                               java.util.Map<String, String> severityMap) {
-        if (userConstraints == null || userConstraints.isEmpty()) {
-            return ConstraintWeightResult.ok();
-        }
-        if (severityMap == null) severityMap = Collections.emptyMap();
-
-        BigDecimal weightSoftGroup = new BigDecimal("0.6");
-        BigDecimal weightSoftBoth = new BigDecimal("0.3");
-
-        // 步骤1：专业组约束检查
-        boolean groupHasSoft = false;
-        if (groupConstraints != null) {
-            for (String code : userConstraints) {
-                if (!groupConstraints.contains(code)) continue;
-                String severity = severityMap.get(code);
-                if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业组限制：" + code);
-                }
-                if ("SOFT".equals(severity)) {
-                    groupHasSoft = true;
-                }
-            }
-        }
-
-        // 步骤2：专业明细约束检查
-        if (majorConstraints != null) {
-            for (String code : userConstraints) {
-                if (!majorConstraints.contains(code)) continue;
-                String severity = severityMap.get(code);
-                if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业限制：" + code);
-                }
-                if ("SOFT".equals(severity)) {
-                    return ConstraintWeightResult.softWeight(groupHasSoft ? weightSoftBoth : weightSoftGroup);
-                }
-            }
-        }
-
-        if (groupHasSoft) {
-            return ConstraintWeightResult.softWeight(weightSoftGroup);
-        }
-        return ConstraintWeightResult.ok();
+        // null config -> 权重回退 0.6/0.3，与既有行为一致
+        return constraintWeightCalculator.calculate(
+                userConstraints, groupConstraints, majorConstraints, null, severityMap);
     }
 
     /**
@@ -239,5 +298,26 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
                     .build();
         }
         return safetyLevelDictMapper.selectByCoefficient(coefficient);
+    }
+
+    /**
+     * 根据安全系数反查等级字典（使用 SafetyLevelDictCache，无 DB 查询）
+     * 语义与 getLevelByCoefficient 一致，含系数为 0 返回"禁"的特殊处理
+     */
+    private SafetyLevelDict getLevelByCoefficientCached(BigDecimal coefficient) {
+        if (coefficient == null) {
+            return null;
+        }
+        if (coefficient.compareTo(BigDecimal.ZERO) == 0) {
+            return SafetyLevelDict.builder()
+                    .level((short) 0)
+                    .code("BLOCKED")
+                    .name("不可报考")
+                    .nameShort("禁")
+                    .color("#999999")
+                    .description("存在硬性报考限制，不可报考")
+                    .build();
+        }
+        return safetyLevelDictCache.getByCoefficient(coefficient);
     }
 }

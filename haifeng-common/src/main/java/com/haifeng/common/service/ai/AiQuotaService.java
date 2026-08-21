@@ -44,6 +44,11 @@ public class AiQuotaService {
      * ARGV[1] = end-of-day epoch seconds (for EXPIREAT)
      * ARGV[2] = limit
      * 返回 1 表示允许，0 表示超额
+     *
+     * 注意：ARGV 必须传数值类型（Long/Integer），不能传 String。
+     * 模板的 value 序列化器是 Jackson2JsonRedisSerializer，String 会被序列化成
+     * 带双引号的 JSON 字符串（如 "3"），Lua tonumber('"3"') 返回 nil，
+     * 导致 "attempt to compare nil with number"。
      */
     private static final String INCR_LUA =
             "local c = redis.call('INCR', KEYS[1]) " +
@@ -73,8 +78,8 @@ public class AiQuotaService {
         Long allowed = redisTemplate.execute(
                 incrScript,
                 List.of(key),
-                String.valueOf(endOfTodayEpochSeconds()),
-                String.valueOf(limit));
+                endOfTodayEpochSeconds(),
+                limit);
 
         if (allowed == null || allowed == 0L) {
             log.warn("PDF report quota exceeded for userId={}, limit={}", userId, limit);
@@ -111,6 +116,37 @@ public class AiQuotaService {
         return limit;
     }
 
+    /**
+     * 查询当前用户今日 PDF 生成配额状态
+     */
+    public QuotaStatus getQuotaStatus(Long userId) {
+        int limit = getApiNumberLimit();
+        int used = getUsedToday(userId);
+        int remaining = Math.max(0, limit - used);
+        return new QuotaStatus(limit, used, remaining);
+    }
+
+    /**
+     * 读取今日已使用次数（Redis 当日计数器，无记录视为 0）
+     */
+    public int getUsedToday(Long userId) {
+        try {
+            Object v = redisTemplate.opsForValue().get(quotaKey(userId));
+            if (v instanceof Number) {
+                return ((Number) v).intValue();
+            }
+            if (v instanceof String s) {
+                try {
+                    return Integer.parseInt(s.trim());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read PDF quota used for userId={}: {}", userId, e.getMessage());
+        }
+        return 0;
+    }
+
     private String quotaKey(Long userId) {
         return QUOTA_KEY_PREFIX + userId + ":" + LocalDate.now().format(DATE_FMT);
     }
@@ -118,5 +154,14 @@ public class AiQuotaService {
     private long endOfTodayEpochSeconds() {
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.of(23, 59, 59));
         return endOfDay.atZone(ZoneId.systemDefault()).toEpochSecond();
+    }
+
+    /**
+     * 今日配额状态
+     * @param limit 上限（来自 system_settings.api_number，默认 3）
+     * @param used 今日已生成次数（Redis 当日计数器）
+     * @param remaining 剩余次数
+     */
+    public record QuotaStatus(int limit, int used, int remaining) {
     }
 }

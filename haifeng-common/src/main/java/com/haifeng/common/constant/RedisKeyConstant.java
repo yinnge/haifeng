@@ -219,6 +219,28 @@ public final class RedisKeyConstant {
     public static final String CONSTRAINT_ACTIVE_LIST_KEY = "haifeng:constraint:active:list";
 
     /**
+     * 文件下载/预览悲观锁（防误触重复点击）
+     */
+    public static final String FILELOAD_ACTION_LOCK_PREFIX = "haifeng:fileload:action:";
+
+    /**
+     * 文件下载/预览悲观锁 TTL（秒）
+     */
+    public static final long FILELOAD_ACTION_LOCK_TTL_SECONDS = 30L;
+
+    /**
+     * 获取文件下载/预览锁 Key
+     *
+     * @param fileId   文件ID
+     * @param userId   用户ID
+     * @param action   动作（download / preview）
+     * @return Redis Key
+     */
+    public static String getFileloadActionLockKey(Long fileId, Long userId, String action) {
+        return FILELOAD_ACTION_LOCK_PREFIX + fileId + ":" + userId + ":" + action;
+    }
+
+    /**
      * 首页模块缓存 TTL（分钟）
      */
     public static final long HOME_CACHE_TTL_MINUTES = 30L;

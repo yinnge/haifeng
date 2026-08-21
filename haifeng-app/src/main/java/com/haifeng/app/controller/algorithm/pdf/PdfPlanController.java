@@ -9,6 +9,7 @@ import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
+import com.haifeng.common.service.ai.AiQuotaService;
 import com.haifeng.common.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Flux;
 public class PdfPlanController {
 
     private final PdfReportService pdfReportService;
+    private final AiQuotaService quotaService;
 
     /**
      * 生成 PDF 报告（SSE 流式返回进度）
@@ -92,5 +94,14 @@ public class PdfPlanController {
         Long userId = SecurityUtil.getCurrentMemberId();
         pdfReportService.deleteRecord(userId, recordId);
         return R.ok();
+    }
+
+    /**
+     * 查询当前用户今日 PDF 生成配额（上限 / 已用 / 剩余）
+     */
+    @GetMapping("/quota/today")
+    public R<AiQuotaService.QuotaStatus> getQuotaToday() {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        return R.ok(quotaService.getQuotaStatus(userId));
     }
 }

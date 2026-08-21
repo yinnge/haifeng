@@ -2,6 +2,8 @@ package com.haifeng.app.service.impl.algorithm.admission;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.converter.SubjectsArrayConverter;
 import com.haifeng.app.dto.algorithm.admission.AdmissionGroupQueryDTO;
 import com.haifeng.app.dto.algorithm.admission.AdmissionMajorQueryDTO;
@@ -10,16 +12,18 @@ import com.haifeng.app.vo.algorithm.admission.AdmissionGroupPageVO;
 import com.haifeng.app.vo.algorithm.admission.AdmissionMajorPageVO;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
+import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
+import com.haifeng.common.entity.algorithm.MajorHistoryItem;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.AdmissionGroupMapper;
 import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
-import com.haifeng.common.mapper.algorithm.GroupKey;
 import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatchResult;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatcher;
 import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
+import com.haifeng.common.service.algorithm.safety.dto.SafetyBatchContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
 import com.haifeng.common.security.AuthUser;
@@ -29,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -46,29 +49,42 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
     private final SubjectMatcher subjectMatcher;
     private final SafetyLevelService safetyLevelService;
     private final ConstraintMatcherService constraintMatcherService;
+    private final ObjectMapper objectMapper;
+
+    private static final TypeReference<List<Map<String, Object>>> HISTORY_TYPE_REF =
+            new TypeReference<List<Map<String, Object>>>() {};
+
+    /** 批量加载专业明细时每组 IN 查询的 id 上限 */
+    private static final int MAJOR_LOAD_BATCH_SIZE = 500;
 
     @Override
     public IPage<AdmissionGroupPageVO> pageGroups(AdmissionGroupQueryDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
-        // 1. 获取用户档案
         MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
         if (gaokao == null) {
             throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }
 
+        // 安全系数范围校验（左闭右开 [min, max)）
+        BigDecimal minSafetyLevel = dto.getMinSafetyLevel();
+        BigDecimal maxSafetyLevel = dto.getMaxSafetyLevel();
+        if (minSafetyLevel != null && maxSafetyLevel != null
+                && minSafetyLevel.compareTo(maxSafetyLevel) > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST);
+        }
+        boolean hasSafetyFilter = minSafetyLevel != null || maxSafetyLevel != null;
+
         String province = gaokao.getGaokaoProvince();
         String batch = dto.getBatch();
-        // 构建 batch 模糊匹配模式，兼容 "本科批" vs "本科" 等命名差异
         String batchPattern = "%" + batch.replace("%", "\\%").replace("_", "\\_") + "%";
         boolean subjectFilter = Boolean.TRUE.equals(dto.getSubjectFilter());
 
-        // 构建用户选科数组字符串（PostgreSQL格式）
         String userSubjects = buildUserSubjectsArray(gaokao);
 
-        // 2. 分页查询专业组（优先当年 + 单级 fallback）
+        int page = dto.getPage();
         int size = dto.getSize();
-        int offset = (dto.getPage() - 1) * size;
+        int offset = (page - 1) * size;
         Short targetYear = gaokao.getGaokaoYear();
 
         String universityName = dto.getUniversityName();
@@ -76,70 +92,107 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         String groupName = dto.getGroupName();
         String enrollmentCode = dto.getEnrollmentCode();
 
-        List<AdmissionGroup> groups = admissionGroupMapper.selectPageByCondition(
-                province, batch, targetYear, subjectFilter, userSubjects,
-                universityName, cityName, groupName, enrollmentCode, batchPattern, size, offset);
-        long total = admissionGroupMapper.countByCondition(
-                province, batch, targetYear, subjectFilter, userSubjects,
-                universityName, cityName, groupName, enrollmentCode, batchPattern);
+        List<AdmissionGroup> groups;
+        long total = 0;
+        Short actualYear;
 
-        // fallback: 当年无数据则查上一年
-        Short fallbackYear = null;
-        if (groups.isEmpty() && total == 0) {
-            fallbackYear = (short) (targetYear - 1);
+        if (hasSafetyFilter) {
+            // ===== 有安全系数筛选：全量加载 + 内存计算 + 内存分页 =====
+            actualYear = targetYear;
+            groups = admissionGroupMapper.selectAllByCondition(
+                    province, batch, actualYear, subjectFilter, userSubjects,
+                    universityName, cityName, groupName, enrollmentCode, batchPattern);
+            if (groups.isEmpty()) {
+                // 年份回退（与无筛选路径一致）
+                actualYear = (short) (targetYear - 1);
+                groups = admissionGroupMapper.selectAllByCondition(
+                        province, batch, actualYear, subjectFilter, userSubjects,
+                        universityName, cityName, groupName, enrollmentCode, batchPattern);
+            }
+            if (groups.isEmpty()) {
+                return new Page<AdmissionGroupPageVO>(page, size).setTotal(0);
+            }
+        } else {
+            // ===== 无筛选：原有 SQL 分页路径 =====
             groups = admissionGroupMapper.selectPageByCondition(
-                    province, batch, fallbackYear, subjectFilter, userSubjects,
+                    province, batch, targetYear, subjectFilter, userSubjects,
                     universityName, cityName, groupName, enrollmentCode, batchPattern, size, offset);
             total = admissionGroupMapper.countByCondition(
-                    province, batch, fallbackYear, subjectFilter, userSubjects,
+                    province, batch, targetYear, subjectFilter, userSubjects,
                     universityName, cityName, groupName, enrollmentCode, batchPattern);
+
+            Short fallbackYear = null;
+            if (groups.isEmpty() && total == 0) {
+                fallbackYear = (short) (targetYear - 1);
+                groups = admissionGroupMapper.selectPageByCondition(
+                        province, batch, fallbackYear, subjectFilter, userSubjects,
+                        universityName, cityName, groupName, enrollmentCode, batchPattern, size, offset);
+                total = admissionGroupMapper.countByCondition(
+                        province, batch, fallbackYear, subjectFilter, userSubjects,
+                        universityName, cityName, groupName, enrollmentCode, batchPattern);
+            }
+
+            if (groups.isEmpty()) {
+                return new Page<AdmissionGroupPageVO>(page, size).setTotal(total);
+            }
+            actualYear = fallbackYear != null ? fallbackYear : targetYear;
         }
 
-        if (groups.isEmpty()) {
-            return new Page<AdmissionGroupPageVO>(dto.getPage(), size).setTotal(total);
-        }
-
-        // 3. IN批量查历史数据（带省份过滤）
-        List<GroupKey> keys = groups.stream()
-                .map(g -> new GroupKey(g.getUniversityId(), g.getGroupCode()))
-                .collect(Collectors.toList());
-
-        Short actualYear = fallbackYear != null ? fallbackYear : targetYear;
         Short minYear = (short) (actualYear - 4);
-        List<AdmissionGroup> historyList = admissionGroupMapper.selectHistoryByKeys(keys, province, minYear);
 
-        // 按 university_id + group_code 分组
-        Map<String, List<AdmissionGroup>> historyMap = historyList.stream()
-                .collect(Collectors.groupingBy(g -> g.getUniversityId() + "_" + g.getGroupCode()));
-
-        // 获取用户约束
         List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
+        // 批量预取计算上下文（密度/省配置/权重配置/severityMap，每次请求一次）
+        SafetyBatchContext ctx = safetyLevelService.buildBatchContext(gaokao, userConstraints);
 
-        // 4. 判断会员类型
         AuthUser authUser = SecurityUtil.getCurrentUser();
         boolean isPremium = authUser != null && authUser.isProOrAbove();
 
-        // 5. 批量查询非遮罩专业组的专业明细（消除 N+1）
-        List<Integer> nonMaskedGroupIds = new ArrayList<>();
-        for (int i = 0; i < groups.size(); i++) {
-            boolean shouldMask = !isPremium && i >= 10;
-            if (!shouldMask) {
-                nonMaskedGroupIds.add(groups.get(i).getId());
+        Map<Integer, SafetyCalcResult> precomputedMaxSafety = null;
+        Map<Integer, List<AdmissionMajorScore>> majorsByGroupId;
+
+        if (hasSafetyFilter) {
+            // 一次性加载全部组的专业明细（按 500 个 id 分批）
+            List<Integer> allGroupIds = groups.stream()
+                    .map(AdmissionGroup::getId)
+                    .collect(Collectors.toList());
+            majorsByGroupId = loadMajorsByGroupIds(allGroupIds);
+
+            // 逐组计算组内最大安全系数，保留 safetyLevel ∈ [min, max) 的组（保持 SQL 排序顺序）
+            List<AdmissionGroup> filtered = new ArrayList<>();
+            Map<Integer, SafetyCalcResult> maxSafetyByGroupId = new HashMap<>();
+            for (AdmissionGroup group : groups) {
+                List<AdmissionMajorScore> majors =
+                        majorsByGroupId.getOrDefault(group.getId(), Collections.emptyList());
+                SafetyCalcResult maxSafety =
+                        calculateGroupMaxSafety(group, gaokao, userConstraints, majors, minYear, ctx);
+                BigDecimal level = maxSafety.getSafetyLevel();
+                if (minSafetyLevel != null && level.compareTo(minSafetyLevel) < 0) {
+                    continue;
+                }
+                if (maxSafetyLevel != null && level.compareTo(maxSafetyLevel) >= 0) {
+                    continue;
+                }
+                filtered.add(group);
+                maxSafetyByGroupId.put(group.getId(), maxSafety);
             }
+
+            total = filtered.size();
+            int fromIndex = Math.min(offset, filtered.size());
+            int toIndex = Math.min(fromIndex + size, filtered.size());
+            groups = new ArrayList<>(filtered.subList(fromIndex, toIndex));
+            precomputedMaxSafety = maxSafetyByGroupId;
+        } else {
+            List<Integer> nonMaskedGroupIds = new ArrayList<>();
+            for (int i = 0; i < groups.size(); i++) {
+                if (isPremium || i < 10) {
+                    nonMaskedGroupIds.add(groups.get(i).getId());
+                }
+            }
+            majorsByGroupId = nonMaskedGroupIds.isEmpty()
+                    ? Collections.emptyMap()
+                    : loadMajorsByGroupIds(nonMaskedGroupIds);
         }
 
-        Map<Integer, List<AdmissionMajorScore>> majorsByGroupId = Collections.emptyMap();
-        if (!nonMaskedGroupIds.isEmpty()) {
-            List<AdmissionMajorScore> allMajors = admissionMajorScoreMapper.selectList(
-                    new LambdaQueryWrapper<AdmissionMajorScore>()
-                            .in(AdmissionMajorScore::getGroupId, nonMaskedGroupIds)
-                            .eq(AdmissionMajorScore::getIsDeleted, false)
-            );
-            majorsByGroupId = allMajors.stream()
-                    .collect(Collectors.groupingBy(AdmissionMajorScore::getGroupId));
-        }
-
-        // 6. 组装 VO
         List<AdmissionGroupPageVO> voList = new ArrayList<>();
         for (int i = 0; i < groups.size(); i++) {
             AdmissionGroup group = groups.get(i);
@@ -151,27 +204,99 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                         .masked(true)
                         .build());
             } else {
-                List<AdmissionMajorScore> majors = majorsByGroupId.getOrDefault(group.getId(), Collections.emptyList());
-                voList.add(buildGroupVO(group, historyMap, gaokao, userConstraints, majors));
+                List<AdmissionMajorScore> majors =
+                        majorsByGroupId.getOrDefault(group.getId(), Collections.emptyList());
+                voList.add(buildGroupVO(group, gaokao, userConstraints, majors, minYear, ctx, precomputedMaxSafety));
             }
         }
 
-        Page<AdmissionGroupPageVO> result = new Page<>(dto.getPage(), size);
+        Page<AdmissionGroupPageVO> result = new Page<>(page, size);
         result.setRecords(voList);
         result.setTotal(total);
         return result;
     }
 
+    /**
+     * 批量加载专业明细（按 500 个 groupId 分批 IN 查询）
+     */
+    private Map<Integer, List<AdmissionMajorScore>> loadMajorsByGroupIds(List<Integer> groupIds) {
+        if (groupIds == null || groupIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Integer, List<AdmissionMajorScore>> result = new HashMap<>();
+        for (int i = 0; i < groupIds.size(); i += MAJOR_LOAD_BATCH_SIZE) {
+            List<Integer> batch = groupIds.subList(i, Math.min(i + MAJOR_LOAD_BATCH_SIZE, groupIds.size()));
+            List<AdmissionMajorScore> majors = admissionMajorScoreMapper.selectList(
+                    new LambdaQueryWrapper<AdmissionMajorScore>()
+                            .in(AdmissionMajorScore::getGroupId, batch)
+                            .eq(AdmissionMajorScore::getIsDeleted, false)
+            );
+            for (AdmissionMajorScore major : majors) {
+                result.computeIfAbsent(major.getGroupId(), k -> new ArrayList<>()).add(major);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 计算专业组的最大安全系数（组级：使用各专业自身历史，与专业明细行口径一致，逐专业计算取最大值）
+     */
+    private SafetyCalcResult calculateGroupMaxSafety(AdmissionGroup group,
+                                                     MemberGaokao gaokao,
+                                                     List<String> userConstraints,
+                                                     List<AdmissionMajorScore> majors,
+                                                     Short minYear,
+                                                     SafetyBatchContext ctx) {
+        if (majors.isEmpty()) {
+            return SafetyCalcResult.noData();
+        }
+
+        BigDecimal maxSafetyLevel = BigDecimal.ZERO;
+        String levelShort = "禁";
+        String safetyDescription = "";
+
+        for (AdmissionMajorScore major : majors) {
+            List<AdmissionGroup> historyGroups = majorHistoryToAdmissionGroups(major, minYear);
+            SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
+                    gaokao, major, group, historyGroups, userConstraints, ctx
+            );
+            if (result.getSafetyLevel().compareTo(maxSafetyLevel) > 0) {
+                maxSafetyLevel = result.getSafetyLevel();
+                levelShort = result.getLevelShort();
+                safetyDescription = result.getSafetyDescription();
+            }
+        }
+
+        return SafetyCalcResult.builder()
+                .safetyLevel(maxSafetyLevel)
+                .levelShort(levelShort)
+                .safetyDescription(safetyDescription)
+                .build();
+    }
+
+    @Override
+    public List<Integer> listExistingGroupIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // selectList 受全局逻辑删除拦截器影响，会自动附加 is_deleted=false，
+        // 因此已被物理删除或禁用的组都不会出现在结果中，返回即"当前有效的组"。
+        List<AdmissionGroup> found = admissionGroupMapper.selectList(
+                new LambdaQueryWrapper<AdmissionGroup>()
+                        .select(AdmissionGroup::getId)
+                        .in(AdmissionGroup::getId, ids)
+        );
+        return found.stream().map(AdmissionGroup::getId).collect(Collectors.toList());
+    }
+
     @Override
     public IPage<AdmissionMajorPageVO> pageMajors(AdmissionMajorQueryDTO dto) {
-        // 1. 获取用户档案（提前到此处，用于省份校验）
         Long memberId = SecurityUtil.getCurrentMemberId();
         MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
         if (gaokao == null) {
             throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }
 
-        // 2. 查询当前专业组并校验省份
         AdmissionGroup group = admissionGroupMapper.selectById(dto.getGroupId());
         if (group == null || Boolean.TRUE.equals(group.getIsDeleted())) {
             throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
@@ -180,7 +305,6 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
             throw new BusinessException(ResultCode.ADMISSION_GROUP_NOT_FOUND);
         }
 
-        // 3. 分页查询专业明细
         Page<AdmissionMajorScore> page = new Page<>(dto.getPage(), dto.getSize());
         LambdaQueryWrapper<AdmissionMajorScore> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(AdmissionMajorScore::getGroupId, dto.getGroupId())
@@ -203,33 +327,11 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
             return new Page<AdmissionMajorPageVO>(dto.getPage(), dto.getSize()).setTotal(0);
         }
 
-        // 4. IN批量查历史数据（带省份过滤）
-        List<String> majorCodes = majorPage.getRecords().stream()
-                .map(AdmissionMajorScore::getMajorCode)
-                .collect(Collectors.toList());
-
         Short minYear = (short) (group.getYear() - 4);
-        String province = gaokao.getGaokaoProvince();
-        List<Map<String, Object>> historyList = admissionMajorScoreMapper.selectHistoryByMajorCodes(
-                group.getUniversityId(), majorCodes, minYear);
-
-        // 按 major_code 分组
-        Map<String, List<Map<String, Object>>> historyMap = historyList.stream()
-                .collect(Collectors.groupingBy(m -> (String) m.get("major_code")));
-
-        // 获取用户约束
         List<String> userConstraints = constraintMatcherService.matchConstraints(gaokao);
 
-        // 查询历史专业组数据（带省份过滤）
-        List<GroupKey> keys = Collections.singletonList(
-                new GroupKey(group.getUniversityId(), group.getGroupCode())
-        );
-        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(keys, province, minYear);
-
-        // 5. 组装 VO
         List<AdmissionMajorPageVO> voList = majorPage.getRecords().stream()
-                .map(major -> buildMajorVO(major, historyMap, gaokao, group,
-                        historyGroups, userConstraints))
+                .map(major -> buildMajorVO(major, gaokao, group, userConstraints, minYear))
                 .collect(Collectors.toList());
 
         Page<AdmissionMajorPageVO> result = new Page<>(dto.getPage(), dto.getSize());
@@ -238,19 +340,110 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         return result;
     }
 
-    private AdmissionMajorPageVO buildMajorVO(AdmissionMajorScore major,
-                                              Map<String, List<Map<String, Object>>> historyMap,
-                                              MemberGaokao gaokao,
-                                              AdmissionGroup group,
-                                              List<AdmissionGroup> historyGroups,
-                                              List<String> userConstraints) {
-        List<Map<String, Object>> history = historyMap.getOrDefault(major.getMajorCode(), Collections.emptyList());
-        List<YearScoreVO> historyScores = history.stream()
+    // ==================== history jsonb 提取方法 ====================
+
+    /**
+     * 从 major.history jsonb 提取指定年份范围的历史分数
+     */
+    private List<YearScoreVO> extractMajorHistory(AdmissionMajorScore major, Short minYear) {
+        List<Map<String, Object>> history = parseHistoryJson(major.getHistory());
+        return history.stream()
+                .filter(h -> intVal(h, "year") != null && intVal(h, "year") >= minYear)
+                .sorted((a, b) -> intVal(b, "year") - intVal(a, "year"))
                 .limit(5)
                 .map(this::mapToYearScoreVO)
                 .collect(Collectors.toList());
+    }
 
-        // 计算安全系数
+    /**
+     * 从 group.history jsonb 提取指定年份范围的历史分数
+     */
+    private List<YearScoreVO> extractGroupHistory(AdmissionGroup group, Short minYear) {
+        List<Map<String, Object>> history = parseHistoryJson(group.getHistory());
+        return history.stream()
+                .filter(h -> intVal(h, "year") != null && intVal(h, "year") >= minYear)
+                .sorted((a, b) -> intVal(b, "year") - intVal(a, "year"))
+                .limit(5)
+                .map(this::mapToYearScoreVO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 将 history jsonb 转换为 MajorHistoryItem 列表（供安全系数计算使用）
+     */
+    private List<MajorHistoryItem> historyToMajorHistoryItems(AdmissionMajorScore major, Short minYear) {
+        List<Map<String, Object>> history = parseHistoryJson(major.getHistory());
+        return history.stream()
+                .filter(h -> intVal(h, "year") != null && intVal(h, "year") >= minYear)
+                .sorted((a, b) -> intVal(b, "year") - intVal(a, "year"))
+                .limit(5)
+                .map(h -> MajorHistoryItem.builder()
+                        .majorCode(major.getMajorCode())
+                        .year(shortVal(h, "year"))
+                        .minScore(intVal(h, "minScore"))
+                        .minRank(intVal(h, "minRank"))
+                        .avgScore(bdVal(h, "avgScore"))
+                        .avgRank(intVal(h, "avgRank"))
+                        .maxScore(intVal(h, "maxScore"))
+                        .maxRank(intVal(h, "maxRank"))
+                        .admissionCount(intVal(h, "admissionCount"))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 将 major.history jsonb 转换为 AdmissionGroup 列表（供专业级安全系数计算使用）
+     * 用 major 自身的历史数据代替 group 聚合数据，精度更高
+     */
+    private List<AdmissionGroup> majorHistoryToAdmissionGroups(AdmissionMajorScore major, Short minYear) {
+        List<Map<String, Object>> history = parseHistoryJson(major.getHistory());
+        return history.stream()
+                .filter(h -> intVal(h, "year") != null && intVal(h, "year") >= minYear)
+                .sorted((a, b) -> intVal(b, "year") - intVal(a, "year"))
+                .limit(5)
+                .map(h -> {
+                    AdmissionGroup g = new AdmissionGroup();
+                    g.setYear(shortVal(h, "year"));
+                    g.setMinScore(intVal(h, "minScore"));
+                    g.setMinRank(intVal(h, "minRank"));
+                    g.setAvgScore(bdVal(h, "avgScore"));
+                    g.setAvgRank(intVal(h, "avgRank"));
+                    g.setMaxScore(intVal(h, "maxScore"));
+                    g.setMaxRank(intVal(h, "maxRank"));
+                    g.setAdmissionCount(intVal(h, "admissionCount"));
+                    return g;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 解析 history jsonb 为 List<Map>
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseHistoryJson(Object history) {
+        if (history == null) return Collections.emptyList();
+        if (history instanceof List) {
+            return (List<Map<String, Object>>) history;
+        }
+        try {
+            return objectMapper.readValue(history.toString(), HISTORY_TYPE_REF);
+        } catch (Exception e) {
+            log.warn("解析 history jsonb 失败: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // ==================== VO 构建 ====================
+
+    private AdmissionMajorPageVO buildMajorVO(AdmissionMajorScore major,
+                                              MemberGaokao gaokao,
+                                              AdmissionGroup group,
+                                              List<String> userConstraints,
+                                              Short minYear) {
+        List<YearScoreVO> historyScores = extractMajorHistory(major, minYear);
+
+        List<AdmissionGroup> historyGroups = majorHistoryToAdmissionGroups(major, minYear);
+
         SafetyCalcResult safetyResult = safetyLevelService.calculateMajorSafety(
                 gaokao, major, group, historyGroups, userConstraints
         );
@@ -266,91 +459,51 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .duration(major.getDuration())
                 .tuition(major.getTuition())
                 .description(major.getDescription())
-                .constraints(major.getConstraints())
+                .constraints(mergeDisplayConstraints(major.getConstraints(), group.getConstraints()))
                 .historyScores(historyScores)
                 .build();
     }
 
-    private YearScoreVO mapToYearScoreVO(Map<String, Object> map) {
-        return YearScoreVO.builder()
-                .year(shortVal(map, "year"))
-                .minScore(intVal(map, "min_score"))
-                .minRank(intVal(map, "min_rank"))
-                .avgScore(bdVal(map, "avg_score"))
-                .avgRank(intVal(map, "avg_rank"))
-                .maxScore(intVal(map, "max_score"))
-                .maxRank(intVal(map, "max_rank"))
-                .admissionCount(intVal(map, "admission_count"))
-                .build();
-    }
-
-    private Integer intVal(Map<String, Object> map, String key) {
-        Object v = map.get(key);
-        return v != null ? ((Number) v).intValue() : null;
-    }
-
-    private Short shortVal(Map<String, Object> map, String key) {
-        Object v = map.get(key);
-        return v != null ? ((Number) v).shortValue() : null;
-    }
-
-    private BigDecimal bdVal(Map<String, Object> map, String key) {
-        Object v = map.get(key);
-        return v != null ? new BigDecimal(v.toString()) : null;
-    }
-
-    private String buildUserSubjectsArray(MemberGaokao gaokao) {
-        List<String> subjects = new ArrayList<>();
-        if (gaokao.getSubjectType() != null) subjects.add(gaokao.getSubjectType());
-
-        return SubjectsArrayConverter.toPgArrayLiteral(subjects);
+    /**
+     * 专业明细展示约束 = 明细自身约束 ∪ 专业组约束（组约束追加在后，按 code 去重）。
+     * 组约束不展示，但明细需继承组限制展示，与后端级联落库逻辑保持一致。
+     */
+    private List<String> mergeDisplayConstraints(List<String> majorConstraints, List<String> groupConstraints) {
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        if (majorConstraints != null) {
+            set.addAll(majorConstraints);
+        }
+        if (groupConstraints != null) {
+            set.addAll(groupConstraints);
+        }
+        return new ArrayList<>(set);
     }
 
     private AdmissionGroupPageVO buildGroupVO(AdmissionGroup group,
-                                               Map<String, List<AdmissionGroup>> historyMap,
                                                MemberGaokao gaokao,
                                                List<String> userConstraints,
-                                               List<AdmissionMajorScore> majors) {
-        // 选科匹配
+                                               List<AdmissionMajorScore> majors,
+                                               Short minYear,
+                                               SafetyBatchContext ctx,
+                                               Map<Integer, SafetyCalcResult> precomputedMaxSafety) {
         SubjectMatchResult matchResult = subjectMatcher.match(gaokao, group);
 
-        // 历史数据
-        String key = group.getUniversityId() + "_" + group.getGroupCode();
-        List<AdmissionGroup> history = historyMap.getOrDefault(key, Collections.emptyList());
-        List<YearScoreVO> historyScores = history.stream()
-                .limit(5)
-                .map(this::toYearScoreVO)
-                .collect(Collectors.toList());
+        List<YearScoreVO> historyScores = extractGroupHistory(group, minYear);
 
-        // 计算专业组安全系数 = max(所有专业明细的安全系数)
-        BigDecimal maxSafetyLevel = BigDecimal.ZERO;
-        String levelShort = "禁";
-        String safetyDescription = "";
-
-        for (AdmissionMajorScore major : majors) {
-            SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
-                    gaokao, major, group, history, userConstraints
-            );
-            if (result.getSafetyLevel().compareTo(maxSafetyLevel) > 0) {
-                maxSafetyLevel = result.getSafetyLevel();
-                levelShort = result.getLevelShort();
-                safetyDescription = result.getSafetyDescription();
-            }
-        }
-
-        // 如果没有专业明细，使用中性默认值
-        if (majors.isEmpty()) {
-            maxSafetyLevel = BigDecimal.ZERO;
-            levelShort = "禁";
-            safetyDescription = "暂无专业明细数据";
+        // 优先复用安全系数筛选阶段已计算的结果，避免重复计算
+        SafetyCalcResult maxSafety = precomputedMaxSafety != null
+                ? precomputedMaxSafety.get(group.getId())
+                : null;
+        if (maxSafety == null) {
+            maxSafety = calculateGroupMaxSafety(group, gaokao, userConstraints, majors, minYear, ctx);
         }
 
         return AdmissionGroupPageVO.builder()
                 .id(group.getId())
                 .masked(false)
-                .safetyLevel(maxSafetyLevel)
-                .levelShort(levelShort)
-                .safetyDescription(safetyDescription)
+                .safetyLevel(maxSafety.getSafetyLevel())
+                .levelShort(maxSafety.getLevelShort())
+                .safetyDescription(maxSafety.getSafetyDescription())
                 .universityName(group.getUniversityName())
                 .cityName(group.getCityName())
                 .enrollmentCode(group.getEnrollmentCode())
@@ -361,23 +514,52 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .description(group.getDescription())
                 .majorCount(group.getMajorCount())
                 .categoryCount(group.getCategoryCount())
-                .constraints(group.getConstraints())
+                .constraints(group.getConstraints() == null ? Collections.emptyList() : group.getConstraints())
                 .subjectMatch(matchResult.isMatch())
                 .subjectMatchReason(matchResult.getReason())
                 .historyScores(historyScores)
                 .build();
     }
 
-    private YearScoreVO toYearScoreVO(AdmissionGroup group) {
+    // ==================== 工具方法 ====================
+
+    private YearScoreVO mapToYearScoreVO(Map<String, Object> map) {
         return YearScoreVO.builder()
-                .year(group.getYear())
-                .minScore(group.getMinScore())
-                .minRank(group.getMinRank())
-                .avgScore(group.getAvgScore())
-                .avgRank(group.getAvgRank())
-                .maxScore(group.getMaxScore())
-                .maxRank(group.getMaxRank())
-                .admissionCount(group.getAdmissionCount())
+                .year(shortVal(map, "year"))
+                .minScore(intVal(map, "minScore"))
+                .minRank(intVal(map, "minRank"))
+                .avgScore(bdVal(map, "avgScore"))
+                .avgRank(intVal(map, "avgRank"))
+                .maxScore(intVal(map, "maxScore"))
+                .maxRank(intVal(map, "maxRank"))
+                .admissionCount(intVal(map, "admissionCount"))
                 .build();
+    }
+
+    private Integer intVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).intValue();
+        try { return Integer.parseInt(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private Short shortVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).shortValue();
+        try { return Short.parseShort(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private BigDecimal bdVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        return v != null ? new BigDecimal(v.toString()) : null;
+    }
+
+    private String buildUserSubjectsArray(MemberGaokao gaokao) {
+        List<String> subjects = gaokao.resolveAllSubjects();
+        if (subjects.isEmpty()) {
+            return null;
+        }
+        return SubjectsArrayConverter.toPgArrayLiteral(subjects);
     }
 }

@@ -5,6 +5,7 @@ import com.haifeng.app.dto.major.MajorListQueryDTO;
 import com.haifeng.app.dto.major.MajorRankingQueryDTO;
 import com.haifeng.app.service.major.MajorService;
 import com.haifeng.app.vo.major.CompetitionBriefVO;
+import com.haifeng.app.vo.major.MajorBriefVO;
 import com.haifeng.app.vo.major.MajorCategoryStatVO;
 import com.haifeng.app.vo.major.MajorDetailVO;
 import com.haifeng.app.vo.major.MajorListVO;
@@ -15,11 +16,14 @@ import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -79,5 +83,13 @@ public class MajorController {
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId,
             @Valid BasePageQueryDTO dto) {
         return R.ok(majorService.competitions(majorId, dto));
+    }
+
+    /** 专业简要信息（登录，按名称精确查询；模式同 CityBriefController） */
+    @RequireLogin
+    @GetMapping("/brief")
+    public R<MajorBriefVO> brief(
+            @RequestParam @NotBlank(message = "专业名称不能为空") @Size(max = 100, message = "专业名称长度不能超过100") String name) {
+        return R.ok(majorService.getBriefByName(name));
     }
 }

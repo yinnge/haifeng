@@ -12,7 +12,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import java.util.List;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
@@ -38,5 +40,14 @@ public class AdmissionQueryController {
     @GetMapping("/major/page")
     public R<IPage<AdmissionMajorPageVO>> pageMajors(@Valid AdmissionMajorQueryDTO dto) {
         return R.ok(admissionQueryService.pageMajors(dto));
+    }
+
+    /**
+     * 批量校验专业组是否仍存在于目录（用于清理前端暂存区里指向已删除/已禁用组的孤儿记录）。
+     * 全局逻辑删除会自动过滤 is_deleted=true 的记录，因此返回结果只包含当前有效的组。
+     */
+    @GetMapping("/group/exists")
+    public R<List<Integer>> listExistingGroupIds(@RequestParam("ids") List<Integer> ids) {
+        return R.ok(admissionQueryService.listExistingGroupIds(ids));
     }
 }

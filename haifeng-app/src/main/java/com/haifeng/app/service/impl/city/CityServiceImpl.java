@@ -44,11 +44,7 @@ public class CityServiceImpl implements CityService {
 
     @Override
     public Long findIdByName(String name) {
-        City city = cityMapper.selectOne(new LambdaQueryWrapper<City>()
-                .select(City::getId)
-                .eq(City::getCityName, name)
-                .eq(City::getIsDeleted, false)
-                .last("LIMIT 1"));
+        City city = resolveCityByName(name);
         if (city == null) {
             log.debug("城市不存在, name={}", name);
             throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
@@ -104,11 +100,7 @@ public class CityServiceImpl implements CityService {
 
     @Override
     public CityDetailVO detailByName(String cityName) {
-        City city = cityMapper.selectOne(
-                new LambdaQueryWrapper<City>()
-                        .eq(City::getCityName, cityName)
-                        .eq(City::getIsDeleted, false)
-                        .last("LIMIT 1"));
+        City city = resolveCityByName(cityName);
         if (city == null) {
             log.debug("城市不存在, cityName={}", cityName);
             throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
@@ -118,11 +110,7 @@ public class CityServiceImpl implements CityService {
 
     @Override
     public CityBriefVO getBriefByName(String cityName) {
-        City city = cityMapper.selectOne(
-                new LambdaQueryWrapper<City>()
-                        .eq(City::getCityName, cityName)
-                        .eq(City::getIsDeleted, false)
-                        .last("LIMIT 1"));
+        City city = resolveCityByName(cityName);
         if (city == null) {
             log.debug("城市不存在, cityName={}", cityName);
             throw new BusinessException(ResultCode.NOT_FOUND, "城市不存在");
@@ -135,6 +123,70 @@ public class CityServiceImpl implements CityService {
                 .cityIntro(city.getCityIntro())
                 .collegeCount(city.getCollegeCount())
                 .build();
+    }
+
+    /**
+     * 地级行政区常见后缀，用于「带后缀 / 不带后缀」兼容匹配。
+     * 市 / 自治州 / 地区 / 盟 / 林区 覆盖全部地级行政区类型。
+     */
+    private static final String[] CITY_SUFFIXES = {"市", "自治州", "地区", "盟", "林区"};
+
+    /**
+     * 按城市名解析城市实体，兼容带 / 不带行政后缀的差异。
+     * 匹配顺序：精确 -> 去后缀（含自治州民族前缀剥离）-> 加后缀兜底。
+     * 城市名全局唯一，不会误匹配。
+     * 示例：北京市↔北京、延边朝鲜族自治州↔延边、阿里地区↔阿里。
+     */
+    private City resolveCityByName(String cityName) {
+        if (cityName == null || cityName.isEmpty()) {
+            return null;
+        }
+        City city = selectActiveByName(cityName);
+        if (city != null) {
+            return city;
+        }
+        // 去后缀再试：北京市→北京、延边朝鲜族自治州→延边、阿里地区→阿里
+        String stripped = stripCitySuffix(cityName);
+        if (!stripped.equals(cityName)) {
+            city = selectActiveByName(stripped);
+            if (city != null) {
+                return city;
+            }
+        }
+        // 加后缀兜底：北京→北京市、延边→延边朝鲜族自治州、阿里→阿里地区
+        for (String suffix : CITY_SUFFIXES) {
+            city = selectActiveByName(cityName + suffix);
+            if (city != null) {
+                return city;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 剥离地级行政区后缀。自治州可能带民族前缀（延边朝鲜族自治州），
+     * 一并剥到「族」字之前，得到核心名（延边）。
+     */
+    private String stripCitySuffix(String name) {
+        String s = name.trim();
+        for (String suffix : CITY_SUFFIXES) {
+            if (s.endsWith(suffix)) {
+                s = s.substring(0, s.length() - suffix.length());
+                break;
+            }
+        }
+        int ethnicIdx = s.indexOf("族");
+        if (ethnicIdx > 0) {
+            s = s.substring(0, ethnicIdx);
+        }
+        return s;
+    }
+
+    private City selectActiveByName(String name) {
+        return cityMapper.selectOne(new LambdaQueryWrapper<City>()
+                .eq(City::getCityName, name)
+                .eq(City::getIsDeleted, false)
+                .last("LIMIT 1"));
     }
 
     private CityListVO toListVO(City e) {

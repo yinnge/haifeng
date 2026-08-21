@@ -27,6 +27,9 @@ public class PdfRenderData {
     private Integer userRank;
     private String planBatch;
 
+    /** 用户高考档案（供封面展示选科/线差等信息） */
+    private MemberGaokaoContextVO memberProfile;
+
     /** 生成时间（格式化字符串） */
     private String generatedAt;
 
@@ -35,8 +38,31 @@ public class PdfRenderData {
 
     // ===================== AI 全局分析（HTML） =====================
 
-    private String globalAnalysisHtml;
+    /** 第一部分：学生画像 */
+    private String studentProfileHtml;
+
+    /** 第二部分：院校分析 HTML */
+    private String universityAnalysisHtml;
+
+    /** 第二部分：专业分析 HTML */
+    private String majorAnalysisHtml;
+
+    /** 第二部分：城市分析 HTML */
+    private String cityAnalysisHtml;
+
+    /** 第二部分：综合考虑 - 排名表 HTML */
+    private String rankingTableHtml;
+
+    /** 第二部分：综合考虑 - 排序理由 HTML */
+    private String reasoningHtml;
+
+    /** 第二部分：综合考虑 - 优先级图表 Base64 */
+    private String chartBase64;
+
+    /** 第三部分：SWOT 象限分析 HTML */
     private String swotHtml;
+
+    /** 第三部分：推荐填报梯队顺序 HTML */
     private String recommendationHtml;
 
     // ===================== 汇总表 =====================

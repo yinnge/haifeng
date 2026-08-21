@@ -3,6 +3,8 @@ package com.haifeng.app.service.impl.university;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.dto.university.AdmissionGroupQueryDTO;
 import com.haifeng.app.service.university.AdmissionGroupService;
 import com.haifeng.app.vo.university.AdmissionGroupDetailVO;
@@ -21,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,6 +35,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
     private final AdmissionGroupMapper groupMapper;
     private final AdmissionMajorScoreMapper majorScoreMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public IPage<AdmissionGroupListVO> pageByUniversity(Long universityId, AdmissionGroupQueryDTO dto) {
@@ -137,6 +142,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     }
 
     private AdmissionMajorScoreListVO toScoreVO(AdmissionMajorScore e) {
+        List<Map<String, Object>> history = parseHistoryJson(e.getHistory());
         return AdmissionMajorScoreListVO.builder()
                 .id(e.getId())
                 .groupId(e.getGroupId())
@@ -146,14 +152,23 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 .duration(e.getDuration())
                 .tuition(e.getTuition())
                 .description(e.getDescription())
-                .admissionCount(e.getAdmissionCount())
-                .minScore(e.getMinScore())
-                .minRank(e.getMinRank())
-                .maxScore(e.getMaxScore())
-                .maxRank(e.getMaxRank())
-                .avgScore(e.getAvgScore())
-                .avgRank(e.getAvgRank())
+                .history(history)
                 .constraints(e.getConstraints())
                 .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseHistoryJson(Object history) {
+        if (history == null) return Collections.emptyList();
+        if (history instanceof List) {
+            return (List<Map<String, Object>>) history;
+        }
+        try {
+            return objectMapper.readValue(history.toString(),
+                    new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception ex) {
+            log.warn("解析 history jsonb 失败: {}", ex.getMessage());
+            return Collections.emptyList();
+        }
     }
 }
