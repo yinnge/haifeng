@@ -293,29 +293,47 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             byte[] fileBytes = file.getBytes();
 
             // Sheet: 实验室主表
-            List<LaboratoryExcelDTO> mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                    .head(LaboratoryExcelDTO.class)
-                    .sheet("实验室主表")
-                    .doReadSync();
-            if (mainData != null && mainData.size() > MAX_IMPORT_ROWS) {
+            List<LaboratoryExcelDTO> mainData;
+            try {
+                mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                        .head(LaboratoryExcelDTO.class)
+                        .sheet("实验室主表")
+                        .doReadSync();
+            } catch (RuntimeException e) {
+                throw new BusinessException(400, "读取『实验室主表』Sheet失败，请确认sheet名称为『实验室主表』且表头为：院校名称/实验室名称/实验室类型/成立时间/所在地区/主管部门/实验室主任/人员规模/学生规模/联系邮箱/联系电话/实验室简介/研究方向描述/实验室空间/开放课题/合作交流/访问学者/研究领域(逗号分隔)/主要设备(逗号分隔)/排序/状态");
+            }
+            if (mainData.isEmpty()) {
+                throw new BusinessException(400, "『实验室主表』Sheet中未读取到任何数据，请确认表头是否正确");
+            }
+            if (mainData.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
             // Sheet: 核心团队
-            List<CoreTeamExcelDTO> coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                    .head(CoreTeamExcelDTO.class)
-                    .sheet("核心团队")
-                    .doReadSync();
-            if (coreTeamData != null && coreTeamData.size() > MAX_IMPORT_ROWS) {
+            List<CoreTeamExcelDTO> coreTeamData;
+            try {
+                coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                        .head(CoreTeamExcelDTO.class)
+                        .sheet("核心团队")
+                        .doReadSync();
+            } catch (RuntimeException e) {
+                throw new BusinessException(400, "读取『核心团队』Sheet失败，请确认sheet名称为『核心团队』且表头为：实验室名称/成员姓名/职务/岗位名称");
+            }
+            if (coreTeamData.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
             // Sheet: 统计数据
-            List<StatisticsExcelDTO> statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                    .head(StatisticsExcelDTO.class)
-                    .sheet("统计数据")
-                    .doReadSync();
-            if (statisticsData != null && statisticsData.size() > MAX_IMPORT_ROWS) {
+            List<StatisticsExcelDTO> statisticsData;
+            try {
+                statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                        .head(StatisticsExcelDTO.class)
+                        .sheet("统计数据")
+                        .doReadSync();
+            } catch (RuntimeException e) {
+                throw new BusinessException(400, "读取『统计数据』Sheet失败，请确认sheet名称为『统计数据』且表头为：实验室名称/统计标签/数量");
+            }
+            if (statisticsData.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
@@ -323,7 +341,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             Map<String, List<Map<String, Object>>> coreTeamMap = coreTeamData.stream()
                     .filter(d -> StringUtils.hasText(d.getLabName()))
                     .collect(Collectors.groupingBy(
-                            CoreTeamExcelDTO::getLabName,
+                            d -> d.getLabName().trim(),
                             Collectors.mapping(d -> {
                                 Map<String, Object> m = new HashMap<>();
                                 m.put("name", d.getMemberName());
@@ -336,7 +354,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             Map<String, List<Map<String, Object>>> statisticsMap = statisticsData.stream()
                     .filter(d -> StringUtils.hasText(d.getLabName()))
                     .collect(Collectors.groupingBy(
-                            StatisticsExcelDTO::getLabName,
+                            d -> d.getLabName().trim(),
                             Collectors.mapping(d -> {
                                 Map<String, Object> m = new HashMap<>();
                                 m.put("label", d.getLabel());
@@ -348,6 +366,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             // 校验主表数据
             Map<String, Long> universityIdCache = new HashMap<>();
             Map<String, String> universityNameCache = new HashMap<>();
+            Set<String> mainLabNames = new HashSet<>();
             List<Laboratory> laboratories = new ArrayList<>();
 
             for (int i = 0; i < mainData.size(); i++) {
@@ -366,6 +385,8 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                     errorMsgs.add("第" + rowNum + "行：实验室类型不能为空");
                     continue;
                 }
+                String labName = data.getName().trim();
+                mainLabNames.add(labName);
 
                 // 查询院校ID
                 Long universityId = universityIdCache.get(data.getUniversityName());
@@ -383,8 +404,8 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                 }
 
                 // 检查重复
-                if (laboratoryMapper.existsByUniversityIdAndName(universityId, data.getName())) {
-                    errorMsgs.add("第" + rowNum + "行：该院校下实验室名称'" + data.getName() + "'已存在");
+                if (laboratoryMapper.existsByUniversityIdAndName(universityId, labName)) {
+                    errorMsgs.add("第" + rowNum + "行：该院校下实验室名称'" + labName + "'已存在");
                     continue;
                 }
 
@@ -393,7 +414,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                         .id(SnowflakeIdGenerator.nextId())
                         .universityId(universityId)
                         .universityName(universityNameCache.get(data.getUniversityName()))
-                        .name(data.getName())
+                        .name(labName)
                         .labType(data.getLabType())
                         .establishedYear(data.getEstablishedYear())
                         .region(data.getRegion())
@@ -411,8 +432,8 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                         .visitingScholars(data.getVisitingScholars())
                         .researchFields(data.getResearchFields())
                         .majorEquipment(data.getMajorEquipment())
-                        .coreTeam(coreTeamMap.get(data.getName()))
-                        .statistics(statisticsMap.get(data.getName()))
+                        .coreTeam(coreTeamMap.get(labName))
+                        .statistics(statisticsMap.get(labName))
                         .sortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0)
                         .status(data.getStatus() != null ? data.getStatus().shortValue() : (short) 1)
                         .createdAt(now)
@@ -420,6 +441,17 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
                         .build();
 
                 laboratories.add(lab);
+            }
+
+            for (Map.Entry<String, List<Map<String, Object>>> entry : coreTeamMap.entrySet()) {
+                if (!mainLabNames.contains(entry.getKey())) {
+                    errorMsgs.add("『核心团队』Sheet中实验室名称'" + entry.getKey() + "'在主表中不存在，该团队数据未导入");
+                }
+            }
+            for (Map.Entry<String, List<Map<String, Object>>> entry : statisticsMap.entrySet()) {
+                if (!mainLabNames.contains(entry.getKey())) {
+                    errorMsgs.add("『统计数据』Sheet中实验室名称'" + entry.getKey() + "'在主表中不存在，该统计数据未导入");
+                }
             }
 
             if (!errorMsgs.isEmpty()) {

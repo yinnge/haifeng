@@ -363,13 +363,16 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         try {
             byte[] fileBytes = file.getBytes();
 
-            // Step 1: Read "院校主表" sheet - main data
+            // Step 1: Read "院校介绍" sheet - main data
             List<UniversityGuideExcelDTO> mainDataList;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 mainDataList = EasyExcel.read(is)
                         .head(UniversityGuideExcelDTO.class)
                         .sheet("院校介绍")
                         .doReadSync();
+            } catch (RuntimeException e) {
+                log.error("读取「院校介绍」Sheet失败", e);
+                throw new BusinessException(400, "读取「院校介绍」Sheet失败，请确认sheet名称为「院校介绍」且表头为：院校名称/自定义标签/备注/状态。详细: " + e.getMessage());
             }
 
             if (mainDataList != null && mainDataList.size() > MAX_IMPORT_ROWS) {
@@ -377,14 +380,14 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             }
 
             if (mainDataList == null || mainDataList.isEmpty()) {
-                throw new BusinessException(400, "「院校主表」Sheet中没有任何数据");
+                throw new BusinessException(400, "「院校介绍」Sheet中没有任何数据");
             }
 
             // Step 2: Read Sheet1-14 - JSONB data
-            Map<String, Map<String, Map<String, List<String>>>> jsonbDataMap = buildJsonbDataMap(fileBytes);
+            List<String> errors = new ArrayList<>();
+            Map<String, Map<String, Map<String, List<String>>>> jsonbDataMap = buildJsonbDataMap(fileBytes, errors);
 
             // Step 3: Process each row from Sheet0
-            List<String> errors = new ArrayList<>();
             OffsetDateTime now = OffsetDateTime.now();
             int successCount = 0;
 
@@ -397,13 +400,16 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
                     continue;
                 }
 
+                // 与 JSONB 分类 Sheet 的第一列院校名称做精确匹配（统一 trim，避免前后空格导致匹配不上）
+                String univName = dto.getUniversityName().trim();
+
                 University university = universityMapper.selectOne(
                         new LambdaQueryWrapper<University>()
-                                .eq(University::getName, dto.getUniversityName())
+                                .eq(University::getName, univName)
                                 .ne(University::getStatus, (short) 0));
 
                 if (university == null) {
-                    errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                    errors.add("第" + rowNum + "行: 院校[" + univName + "]不存在");
                     continue;
                 }
 
@@ -412,7 +418,11 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
                                 .eq(UniversityGuide::getUniversityId, university.getId())
                                 .ne(UniversityGuide::getStatus, (short) 0));
 
-                Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(dto.getUniversityName());
+                Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(univName);
+                if (univJsonb == null || univJsonb.isEmpty()) {
+                    errors.add("第" + rowNum + "行: 院校[" + univName + "]在14个分类Sheet中均未匹配到数据，请检查该院校在分类Sheet中的名称是否一致");
+                    continue;
+                }
 
                 if (existingGuide != null) {
                     existingGuide.setCustomTags(dto.getCustomTags());
@@ -454,7 +464,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         }
     }
 
-    private Map<String, Map<String, Map<String, List<String>>>> buildJsonbDataMap(byte[] fileBytes) {
+    private Map<String, Map<String, Map<String, List<String>>>> buildJsonbDataMap(byte[] fileBytes, List<String> errors) {
         Map<String, Map<String, Map<String, List<String>>>> result = new HashMap<>();
 
         for (Map.Entry<String, String> entry : SHEET_TO_FIELD.entrySet()) {
@@ -464,12 +474,17 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             List<List<String>> rows;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 rows = readSheetRows(is, sheetName);
+            } catch (BusinessException e) {
+                throw e;
             } catch (Exception e) {
-                log.warn("Sheet「{}」（{}）读取失败，已跳过: {}", sheetName, fieldName, e.getMessage());
+                errors.add("分类Sheet「" + sheetName + "」（" + fieldName + "）读取失败: " + e.getMessage());
                 continue;
             }
 
-            if (rows == null || rows.size() < 2) continue;
+            if (rows == null || rows.size() < 2) {
+                errors.add("分类Sheet「" + sheetName + "」（" + fieldName + "）没有数据行（至少需要表头+1行数据）");
+                continue;
+            }
 
             List<String> headers = rows.get(0);
 
@@ -499,26 +514,21 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     }
 
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {
-        try {
-            List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
-            if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
-            }
-            List<List<String>> result = new ArrayList<>();
-            for (Object rawRow : rawRows) {
-                if (rawRow instanceof List) {
-                    List<String> row = new ArrayList<>();
-                    for (Object cell : (List<?>) rawRow) {
-                        row.add(cell != null ? cell.toString().trim() : "");
-                    }
-                    result.add(row);
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            log.warn("读取Sheet「{}」失败: {}", sheetName, e.getMessage());
-            return Collections.emptyList();
+        List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
+        if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
         }
+        List<List<String>> result = new ArrayList<>();
+        for (Object rawRow : rawRows) {
+            if (rawRow instanceof List) {
+                List<String> row = new ArrayList<>();
+                for (Object cell : (List<?>) rawRow) {
+                    row.add(cell != null ? cell.toString().trim() : "");
+                }
+                result.add(row);
+            }
+        }
+        return result;
     }
 
     private void setJsonbFields(UniversityGuide guide, Map<String, Map<String, List<String>>> jsonbData) {

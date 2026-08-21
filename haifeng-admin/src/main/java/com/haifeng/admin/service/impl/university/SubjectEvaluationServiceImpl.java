@@ -233,11 +233,19 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         List<String> errorMsgs = new ArrayList<>();
 
         try {
-            List<SubjectEvaluationExcelDTO> dataList = EasyExcel.read(file.getInputStream())
-                    .head(SubjectEvaluationExcelDTO.class)
-                    .sheet("学科评估")
-                    .doReadSync();
-            if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
+            List<SubjectEvaluationExcelDTO> dataList;
+            try {
+                dataList = EasyExcel.read(file.getInputStream())
+                        .head(SubjectEvaluationExcelDTO.class)
+                        .sheet("学科评估")
+                        .doReadSync();
+            } catch (RuntimeException e) {
+                throw new BusinessException(400, "读取『学科评估』Sheet失败，请确认sheet名称为『学科评估』且表头为：院校名称/学科代码/学科名称/评估轮次/评估等级/排序/状态");
+            }
+            if (dataList.isEmpty()) {
+                throw new BusinessException(400, "『学科评估』Sheet中未读取到任何数据，请确认表头是否正确");
+            }
+            if (dataList.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
 
