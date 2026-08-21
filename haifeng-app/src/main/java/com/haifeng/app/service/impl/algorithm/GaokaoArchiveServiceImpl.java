@@ -250,12 +250,24 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
             if (!SUBJECTS_FIRST_312.contains(dto.getSubjectType())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式首选科目只能是物理或历史");
             }
+            if (dto.getSecondSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getSecondSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
+            }
+            if (dto.getThirdSubjectType() != null && !SUBJECTS_SECOND_312.contains(dto.getThirdSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+1+2模式再选科目只能是化学、生物、政治、地理");
+            }
             return;
         }
 
         if (ReformModelEnum.THREE_PLUS_THREE.getValue().equals(reformModel)) {
             if (!SUBJECTS_6.contains(dto.getSubjectType())) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式科目只能是物理、化学、生物、政治、历史、地理");
+            }
+            if (dto.getSecondSubjectType() != null && !SUBJECTS_6.contains(dto.getSecondSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式选考科目只能是物理、化学、生物、政治、历史、地理");
+            }
+            if (dto.getThirdSubjectType() != null && !SUBJECTS_6.contains(dto.getThirdSubjectType())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "3+3模式选考科目只能是物理、化学、生物、政治、历史、地理");
             }
         }
     }
@@ -283,6 +295,8 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .score(dto.getScore())
                 .rank(dto.getRank())
                 .subjectType(dto.getSubjectType())
+                .secondSubjectType(dto.getSecondSubjectType())
+                .thirdSubjectType(dto.getThirdSubjectType())
                 .scoreChinese(dto.getScoreChinese())
                 .scoreMath(dto.getScoreMath())
                 .scoreEnglish(dto.getScoreEnglish())
@@ -311,6 +325,22 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .batch(dto.getBatch())
                 .batchDataYear(dto.getBatchDataYear())
                 .batchLineScore(dto.getBatchLineScore())
+                .gender(dto.getGender())
+                .otherHealthConditions(dto.getOtherHealthConditions())
+                .politicalReviewStatus(dto.getPoliticalReviewStatus())
+                .personalityTraits(dto.getPersonalityTraits())
+                .acceptGrassroot(dto.getAcceptGrassroot())
+                .acceptShiftWork(dto.getAcceptShiftWork())
+                .acceptNightWork(dto.getAcceptNightWork())
+                .acceptBusinessTrip(dto.getAcceptBusinessTrip())
+                .acceptRelocation(dto.getAcceptRelocation())
+                .interestDirection(dto.getInterestDirection())
+                .rejectedIndustries(dto.getRejectedIndustries())
+                .tuitionAffordability(dto.getTuitionAffordability())
+                .stayInProvince(dto.getStayInProvince())
+                .familyResources(dto.getFamilyResources())
+                .careerDevPath(dto.getCareerDevPath())
+                .rejectedDirections(dto.getRejectedDirection())
                 .build();
     }
 
@@ -324,6 +354,8 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
         existing.setRank(dto.getRank());
         existing.setReformModel(reformModel);
         existing.setSubjectType(dto.getSubjectType());
+        existing.setSecondSubjectType(dto.getSecondSubjectType());
+        existing.setThirdSubjectType(dto.getThirdSubjectType());
         existing.setScoreChinese(dto.getScoreChinese());
         existing.setScoreMath(dto.getScoreMath());
         existing.setScoreEnglish(dto.getScoreEnglish());
@@ -352,6 +384,22 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
         existing.setBatch(dto.getBatch());
         existing.setBatchDataYear(dto.getBatchDataYear());
         existing.setBatchLineScore(dto.getBatchLineScore());
+        existing.setGender(dto.getGender());
+        existing.setOtherHealthConditions(dto.getOtherHealthConditions());
+        existing.setPoliticalReviewStatus(dto.getPoliticalReviewStatus());
+        existing.setPersonalityTraits(dto.getPersonalityTraits());
+        existing.setAcceptGrassroot(dto.getAcceptGrassroot());
+        existing.setAcceptShiftWork(dto.getAcceptShiftWork());
+        existing.setAcceptNightWork(dto.getAcceptNightWork());
+        existing.setAcceptBusinessTrip(dto.getAcceptBusinessTrip());
+        existing.setAcceptRelocation(dto.getAcceptRelocation());
+        existing.setInterestDirection(dto.getInterestDirection());
+        existing.setRejectedIndustries(dto.getRejectedIndustries());
+        existing.setTuitionAffordability(dto.getTuitionAffordability());
+        existing.setStayInProvince(dto.getStayInProvince());
+        existing.setFamilyResources(dto.getFamilyResources());
+        existing.setCareerDevPath(dto.getCareerDevPath());
+        existing.setRejectedDirections(dto.getRejectedDirection());
         if (dto.getScore() != null && dto.getBatchLineScore() != null) {
             existing.setScoreAboveLine(dto.getScore() - dto.getBatchLineScore());
         }
@@ -369,6 +417,8 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .rank(entity.getRank())
                 .reformModel(entity.getReformModel())
                 .subjectType(entity.getSubjectType())
+                .secondSubjectType(entity.getSecondSubjectType())
+                .thirdSubjectType(entity.getThirdSubjectType())
                 .scoreChinese(entity.getScoreChinese())
                 .scoreMath(entity.getScoreMath())
                 .scoreEnglish(entity.getScoreEnglish())
@@ -398,6 +448,22 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
                 .batchDataYear(entity.getBatchDataYear())
                 .batchLineScore(entity.getBatchLineScore())
                 .scoreAboveLine(entity.getScoreAboveLine())
+                .gender(entity.getGender())
+                .otherHealthConditions(entity.getOtherHealthConditions())
+                .politicalReviewStatus(entity.getPoliticalReviewStatus())
+                .personalityTraits(entity.getPersonalityTraits())
+                .acceptGrassroot(entity.getAcceptGrassroot())
+                .acceptShiftWork(entity.getAcceptShiftWork())
+                .acceptNightWork(entity.getAcceptNightWork())
+                .acceptBusinessTrip(entity.getAcceptBusinessTrip())
+                .acceptRelocation(entity.getAcceptRelocation())
+                .interestDirection(entity.getInterestDirection())
+                .rejectedIndustries(entity.getRejectedIndustries())
+                .tuitionAffordability(entity.getTuitionAffordability())
+                .stayInProvince(entity.getStayInProvince())
+                .familyResources(entity.getFamilyResources())
+                .careerDevPath(entity.getCareerDevPath())
+                .rejectedDirections(entity.getRejectedDirections())
                 .build();
     }
 }

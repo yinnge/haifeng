@@ -1,10 +1,14 @@
 package com.haifeng.app.dto.algorithm.admission;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.math.BigDecimal;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -27,4 +31,14 @@ public class AdmissionGroupQueryDTO extends BasePageQueryDTO {
 
     @Size(max = 30, message = "招生代码不能超过30字")
     private String enrollmentCode;
+
+    /** 安全系数下界（含），可选；null = 不限 */
+    @DecimalMin(value = "0.0", message = "最小安全系数不能小于0")
+    @DecimalMax(value = "1.0", message = "最小安全系数不能超过1")
+    private BigDecimal minSafetyLevel;
+
+    /** 安全系数上界（不含），可选；null = 不限 */
+    @DecimalMin(value = "0.0", message = "最大安全系数不能小于0")
+    @DecimalMax(value = "1.0", message = "最大安全系数不能超过1")
+    private BigDecimal maxSafetyLevel;
 }

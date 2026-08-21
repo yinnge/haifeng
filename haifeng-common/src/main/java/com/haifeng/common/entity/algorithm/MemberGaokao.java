@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 用户高考档案实体
@@ -60,9 +62,33 @@ public class MemberGaokao {
     // ========== 三、选科信息 ==========
 
     /**
-     * 首选科目/文理类别
+     * 首选科目/文理类别（第一科目）
      */
     private String subjectType;
+
+    /**
+     * 第二科目（3+1+2 再选科目之一 / 3+3 选考科目之一）
+     */
+    @TableField("second_subject_type")
+    private String secondSubjectType;
+
+    /**
+     * 第三科目（3+1+2 再选科目之一 / 3+3 选考科目之一）
+     */
+    @TableField("third_subject_type")
+    private String thirdSubjectType;
+
+    /**
+     * 全部已选科目（首选 + 再选，自动跳过 null），供选科匹配 / 限报 / 查询过滤统一使用。
+     * 命名不使用 get 前缀，避免被 MyBatis-Plus 当作实体属性映射。
+     */
+    public List<String> resolveAllSubjects() {
+        List<String> list = new ArrayList<>();
+        if (subjectType != null) list.add(subjectType);
+        if (secondSubjectType != null) list.add(secondSubjectType);
+        if (thirdSubjectType != null) list.add(thirdSubjectType);
+        return list;
+    }
 
     // ========== 四、各科成绩 ==========
 
@@ -226,6 +252,88 @@ public class MemberGaokao {
      * 线差（总分-省控线）
      */
     private Integer scoreAboveLine;
+
+    // ========== 十、考生画像与约束条件（PDF报告用） ==========
+
+    /**
+     * 性别（男/女）
+     */
+    private String gender;
+
+    /**
+     * 其他疾病（用户自述）
+     */
+    private String otherHealthConditions;
+
+    /**
+     * 政审情况（军校/公安/司法等特殊院校）
+     */
+    private String politicalReviewStatus;
+
+    /**
+     * 性格特质
+     */
+    private String personalityTraits;
+
+    /**
+     * 是否接受基层岗位
+     */
+    private Boolean acceptGrassroot;
+
+    /**
+     * 是否接受倒班
+     */
+    private Boolean acceptShiftWork;
+
+    /**
+     * 是否接受夜班
+     */
+    private Boolean acceptNightWork;
+
+    /**
+     * 是否接受长期出差
+     */
+    private Boolean acceptBusinessTrip;
+
+    /**
+     * 是否接受异地工作
+     */
+    private Boolean acceptRelocation;
+
+    /**
+     * 兴趣倾向
+     */
+    private String interestDirection;
+
+    /**
+     * 排斥行业/岗位
+     */
+    private String rejectedIndustries;
+
+    /**
+     * 学费承受度（每年可承担上限）
+     */
+    private String tuitionAffordability;
+
+    /**
+     * 是否必须留本省
+     */
+    private Boolean stayInProvince;
+
+    /**
+     * 家庭资源（体制内亲属、行业资源等）
+     */
+    private String familyResources;
+
+    /**
+     * 发展定位（本科就业/考研深造/并行）
+     */
+    private String careerDevPath;
+
+    /**
+     * 排斥方向
+     */
+    private String rejectedDirections;
 
     // ========== 审计字段 ==========
 

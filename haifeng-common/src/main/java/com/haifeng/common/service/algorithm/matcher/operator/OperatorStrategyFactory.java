@@ -26,6 +26,8 @@ public class OperatorStrategyFactory {
         strategies.put("NOT_IN", new NotInStrategy());
         strategies.put("IS_NULL", new IsNullStrategy());
         strategies.put("IS_NOT_NULL", new IsNotNullStrategy());
+        strategies.put("IS_TRUE", new IsTrueStrategy());
+        strategies.put("IS_FALSE", new IsFalseStrategy());
     }
 
     /**

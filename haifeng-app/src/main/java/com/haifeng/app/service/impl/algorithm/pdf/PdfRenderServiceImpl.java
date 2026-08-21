@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
 import com.haifeng.app.util.algorithm.pdf.EnrichmentLoader;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
+import com.haifeng.app.vo.algorithm.pdf.MacroAnalysisVO;
 import com.haifeng.app.vo.algorithm.pdf.MapResultItem;
 import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRenderData;
@@ -20,6 +21,7 @@ import com.haifeng.common.mapper.algorithm.wish.WishGroupSnapshotMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishMajorSnapshotMapper;
 import com.haifeng.common.response.ResultCode;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.vladsch.flexmark.ext.tables.TablesExtension;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.ast.Node;
@@ -81,8 +83,12 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         this.objectMapper = objectMapper;
         this.enrichmentLoader = enrichmentLoader;
 
-        this.flexmarkParser = Parser.builder().build();
-        this.flexmarkRenderer = HtmlRenderer.builder().build();
+        this.flexmarkParser = Parser.builder()
+                .extensions(java.util.Collections.singletonList(TablesExtension.create()))
+                .build();
+        this.flexmarkRenderer = HtmlRenderer.builder()
+                .extensions(java.util.Collections.singletonList(TablesExtension.create()))
+                .build();
 
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
         resolver.setPrefix("templates/");
@@ -258,12 +264,122 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         }
 
         // 5. Reduce 结果 Markdown → HTML
-        String globalAnalysisHtml = reduceResult != null && reduceResult.getGlobalAnalysis() != null
-                ? markdownToHtml(reduceResult.getGlobalAnalysis()) : "";
-        String swotHtml = reduceResult != null && reduceResult.getSwot() != null
-                ? markdownToHtml(reduceResult.getSwot()) : "";
-        String recommendationHtml = reduceResult != null && reduceResult.getRecommendation() != null
-                ? markdownToHtml(reduceResult.getRecommendation()) : "";
+        String studentProfileHtml = "";
+        String universityAnalysisHtml = "";
+        String majorAnalysisHtml = "";
+        String cityAnalysisHtml = "";
+        String rankingTableHtml = "";
+        String reasoningHtml = "";
+        String chartBase64 = null;
+        String swotHtml = "";
+        String recommendationHtml = "";
+
+        if (reduceResult != null) {
+            // 第一部分：学生画像
+            if (reduceResult.getStudentProfile() != null && !reduceResult.getStudentProfile().isBlank()) {
+                studentProfileHtml = markdownToHtml(reduceResult.getStudentProfile());
+            }
+
+            // 第二部分：外部宏观全景研判
+            MacroAnalysisVO macroAnalysis = reduceResult.getMacroAnalysis();
+            if (macroAnalysis != null) {
+                // 院校分析
+                if (macroAnalysis.getUniversityAnalysis() != null) {
+                    StringBuilder uniSb = new StringBuilder();
+                    for (MacroAnalysisVO.UniversityAnalysis ua : macroAnalysis.getUniversityAnalysis()) {
+                        uniSb.append("### ").append(ua.getUniversityName()).append("\n");
+                        if (ua.getTags() != null && !ua.getTags().isEmpty()) {
+                            uniSb.append("**标签**：").append(String.join("、", ua.getTags())).append("\n\n");
+                        }
+                        if (ua.getCategory() != null) uniSb.append("**类别**：").append(ua.getCategory()).append("\n\n");
+                        if (ua.getNature() != null) uniSb.append("**办学性质**：").append(ua.getNature()).append("\n\n");
+                        if (ua.getAiAnalysis() != null) uniSb.append(ua.getAiAnalysis()).append("\n\n");
+                    }
+                    universityAnalysisHtml = markdownToHtml(uniSb.toString());
+                }
+
+                // 专业分析
+                if (macroAnalysis.getMajorAnalysis() != null) {
+                    StringBuilder majSb = new StringBuilder();
+                    for (MacroAnalysisVO.MajorAnalysis ma : macroAnalysis.getMajorAnalysis()) {
+                        majSb.append("### ").append(ma.getMajorName()).append("\n");
+                        majSb.append("**学科门类**：").append(ma.getMajorCategory() != null ? ma.getMajorCategory() : "未知").append("\n\n");
+                        majSb.append("**专业类**：").append(ma.getParentCategory() != null ? ma.getParentCategory() : "未知").append("\n\n");
+                        majSb.append("**授予学位**：").append(ma.getDegreeAwarded() != null ? ma.getDegreeAwarded() : "未知").append("\n\n");
+                        if (ma.getEmploymentRate() != null) majSb.append("**就业率**：").append(ma.getEmploymentRate()).append("%\n\n");
+                        if (ma.getSalaryMin() != null || ma.getSalaryMax() != null) {
+                            majSb.append("**薪资范围**：");
+                            majSb.append(ma.getSalaryMin() != null ? ma.getSalaryMin() : "?");
+                            majSb.append(" - ");
+                            majSb.append(ma.getSalaryMax() != null ? ma.getSalaryMax() : "?");
+                            majSb.append(" 元/月\n\n");
+                        }
+                        if (ma.getAiAnalysis() != null) majSb.append(ma.getAiAnalysis()).append("\n\n");
+                    }
+                    majorAnalysisHtml = markdownToHtml(majSb.toString());
+                }
+
+                // 城市分析
+                if (macroAnalysis.getCityAnalysis() != null) {
+                    StringBuilder citySb = new StringBuilder();
+                    for (MacroAnalysisVO.CityAnalysis ca : macroAnalysis.getCityAnalysis()) {
+                        citySb.append("### ").append(ca.getCityName()).append("\n");
+                        if (ca.getCityLevel() != null) citySb.append("**城市等级**：").append(ca.getCityLevel()).append("\n\n");
+                        if (ca.getGdp() != null) citySb.append("**GDP**：").append(ca.getGdp()).append(" 亿元\n\n");
+                        if (ca.getGdpGrowthRate() != null) citySb.append("**GDP增长率**：").append(ca.getGdpGrowthRate()).append("%\n\n");
+                        if (ca.getFortune500Count() != null) citySb.append("**世界500强数量**：").append(ca.getFortune500Count()).append("\n\n");
+                        if (ca.getMainIndustries() != null && !ca.getMainIndustries().isEmpty()) {
+                            citySb.append("**主要产业**：").append(String.join("、", ca.getMainIndustries())).append("\n\n");
+                        }
+                        if (ca.getEmergingIndustries() != null && !ca.getEmergingIndustries().isEmpty()) {
+                            citySb.append("**新兴产业**：").append(String.join("、", ca.getEmergingIndustries())).append("\n\n");
+                        }
+                        if (ca.getAvgSalary() != null) citySb.append("**平均薪资**：").append(ca.getAvgSalary()).append(" 元/月\n\n");
+                        if (ca.getUnemploymentRate() != null) citySb.append("**失业率**：").append(ca.getUnemploymentRate()).append("%\n\n");
+                        if (ca.getAiAnalysis() != null) citySb.append(ca.getAiAnalysis()).append("\n\n");
+                    }
+                    cityAnalysisHtml = markdownToHtml(citySb.toString());
+                }
+
+                // 综合考虑
+                MacroAnalysisVO.ComprehensiveAnalysis comprehensive = macroAnalysis.getComprehensiveAnalysis();
+                if (comprehensive != null) {
+                    // 排名表
+                    if (comprehensive.getRanking() != null && !comprehensive.getRanking().isEmpty()) {
+                        StringBuilder rankSb = new StringBuilder();
+                        rankSb.append("| 排名 | 专业组 | 大学 | 城市 | 专业 | 综合得分 | 档位 |\n");
+                        rankSb.append("|------|--------|------|------|------|----------|------|\n");
+                        for (MacroAnalysisVO.RankingItem item : comprehensive.getRanking()) {
+                            rankSb.append("| ").append(item.getRank())
+                                    .append(" | ").append(item.getGroupName())
+                                    .append(" | ").append(item.getUniversityName())
+                                    .append(" | ").append(item.getCityName())
+                                    .append(" | ").append(item.getMajorName())
+                                    .append(" | ").append(item.getScore())
+                                    .append(" | ").append(item.getLevelShort())
+                                    .append(" |\n");
+                        }
+                        rankingTableHtml = markdownToHtml(rankSb.toString());
+                    }
+
+                    // 排序理由
+                    if (comprehensive.getReasoning() != null && !comprehensive.getReasoning().isBlank()) {
+                        reasoningHtml = markdownToHtml(comprehensive.getReasoning());
+                    }
+
+                    // 图表
+                    chartBase64 = comprehensive.getChartBase64();
+                }
+            }
+
+            // 第三部分：SWOT 和推荐梯队
+            if (reduceResult.getSwot() != null && !reduceResult.getSwot().isBlank()) {
+                swotHtml = markdownToHtml(reduceResult.getSwot());
+            }
+            if (reduceResult.getRecommendation() != null && !reduceResult.getRecommendation().isBlank()) {
+                recommendationHtml = markdownToHtml(reduceResult.getRecommendation());
+            }
+        }
 
         // 6. 组装 PdfRenderData
         PdfRenderData data = PdfRenderData.builder()
@@ -273,10 +389,17 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                 .userScore(planSnapshot != null ? planSnapshot.getUserScore() : null)
                 .userRank(planSnapshot != null ? planSnapshot.getUserRank() : null)
                 .planBatch(planSnapshot != null ? planSnapshot.getPlanBatch() : null)
+                .memberProfile(planSnapshot != null ? planSnapshot.getMemberProfile() : null)
                 .generatedAt(OffsetDateTime.now().format(
                         DateTimeFormatter.ofPattern("yyyy年MM月dd日")))
                 .logoDataUri(getLogoDataUri())
-                .globalAnalysisHtml(globalAnalysisHtml)
+                .studentProfileHtml(studentProfileHtml)
+                .universityAnalysisHtml(universityAnalysisHtml)
+                .majorAnalysisHtml(majorAnalysisHtml)
+                .cityAnalysisHtml(cityAnalysisHtml)
+                .rankingTableHtml(rankingTableHtml)
+                .reasoningHtml(reasoningHtml)
+                .chartBase64(chartBase64)
                 .swotHtml(swotHtml)
                 .recommendationHtml(recommendationHtml)
                 .summaryRows(summaryRows)

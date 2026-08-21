@@ -1,6 +1,6 @@
 package com.haifeng.app.dto.algorithm.wish;
 
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -23,7 +23,22 @@ public class WishPlanAddMajorsDTO {
     @NotNull(message = "专业组ID不能为空")
     private Integer groupId;
 
-    @NotEmpty(message = "请选择至少一个专业")
+    /**
+     * 旧接口：按数据库 ID 传入（兼容未迁移的前端）。
+     */
     @Size(max = 100, message = "单次最多添加100个专业")
     private List<Long> majorIds;
+
+    /**
+     * 新接口：按专业代码传入（不受数据库 ID 变化影响，推荐使用）。
+     * 优先使用 majorCodes；若为空则回退到 majorIds。
+     */
+    @Size(max = 100, message = "单次最多添加100个专业")
+    private List<String> majorCodes;
+
+    @AssertTrue(message = "请选择至少一个专业（majorCodes 或 majorIds 至少提供一个）")
+    public boolean isMajorsNotEmpty() {
+        return (majorCodes != null && !majorCodes.isEmpty())
+                || (majorIds != null && !majorIds.isEmpty());
+    }
 }

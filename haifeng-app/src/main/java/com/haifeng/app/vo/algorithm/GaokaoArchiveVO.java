@@ -29,6 +29,8 @@ public class GaokaoArchiveVO {
 
     // ========== 选科信息 ==========
     private String subjectType;
+    private String secondSubjectType;
+    private String thirdSubjectType;
 
     // ========== 各科成绩 ==========
     private Integer scoreChinese;
@@ -70,4 +72,22 @@ public class GaokaoArchiveVO {
     private Short batchDataYear;
     private Integer batchLineScore;
     private Integer scoreAboveLine;
+
+    // ========== 考生画像与约束条件 ==========
+    private String gender;
+    private String otherHealthConditions;
+    private String politicalReviewStatus;
+    private String personalityTraits;
+    private Boolean acceptGrassroot;
+    private Boolean acceptShiftWork;
+    private Boolean acceptNightWork;
+    private Boolean acceptBusinessTrip;
+    private Boolean acceptRelocation;
+    private String interestDirection;
+    private String rejectedIndustries;
+    private String tuitionAffordability;
+    private Boolean stayInProvince;
+    private String familyResources;
+    private String careerDevPath;
+    private String rejectedDirections;
 }

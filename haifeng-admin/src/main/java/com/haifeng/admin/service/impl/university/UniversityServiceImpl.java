@@ -30,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -522,13 +523,17 @@ public class UniversityServiceImpl implements UniversityService {
 
         List<UniversityDetailExcelDTO> dataList;
         try {
+            // 按 sheet 名读取「院校详情」，避免误读第一个 sheet（如主表 sheet）
             dataList = EasyExcel.read(file.getInputStream())
                     .head(UniversityDetailExcelDTO.class)
-                    .sheet()
+                    .sheet("院校详情")
                     .doReadSync();
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("读取Excel详情sheet失败", e);
+            throw new BusinessException(400, "读取Excel详情数据失败，请确认sheet名称为「院校详情」且表头与模板一致: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
@@ -578,6 +583,7 @@ public class UniversityServiceImpl implements UniversityService {
                 existingDetail.setScienceGroupScore(dto.getScienceGroupScore());
                 existingDetail.setCarouselImages(dto.getCarouselImages());
                 existingDetail.setIntroduction(dto.getIntroduction());
+                existingDetail.setRankings(buildRankings(dto));
                 existingDetail.setAbroadRate(dto.getAbroadRate());
                 existingDetail.setGenderRatio(dto.getGenderRatio());
                 existingDetail.setUpdatedAt(now);
@@ -595,6 +601,7 @@ public class UniversityServiceImpl implements UniversityService {
                         .scienceGroupScore(dto.getScienceGroupScore())
                         .carouselImages(dto.getCarouselImages())
                         .introduction(dto.getIntroduction())
+                        .rankings(buildRankings(dto))
                         .abroadRate(dto.getAbroadRate())
                         .genderRatio(dto.getGenderRatio())
                         .sortOrder(0)
@@ -614,5 +621,28 @@ public class UniversityServiceImpl implements UniversityService {
         }
 
         log.info("导入院校详情数据成功: 共{}条", successCount);
+    }
+
+    /**
+     * 组装排名 JSONB Map（跳过空值）
+     */
+    private Map<String, Integer> buildRankings(UniversityDetailExcelDTO dto) {
+        Map<String, Integer> rankings = new HashMap<>();
+        if (dto.getRuanke() != null) {
+            rankings.put("ruanke", dto.getRuanke());
+        }
+        if (dto.getXiaoyouhui() != null) {
+            rankings.put("xiaoyouhui", dto.getXiaoyouhui());
+        }
+        if (dto.getWushulian() != null) {
+            rankings.put("wushulian", dto.getWushulian());
+        }
+        if (dto.getQs() != null) {
+            rankings.put("qs", dto.getQs());
+        }
+        if (dto.getUsnews() != null) {
+            rankings.put("usnews", dto.getUsnews());
+        }
+        return rankings.isEmpty() ? null : rankings;
     }
 }

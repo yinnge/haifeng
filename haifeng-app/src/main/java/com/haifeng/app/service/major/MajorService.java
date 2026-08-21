@@ -3,6 +3,7 @@ package com.haifeng.app.service.major;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.major.MajorListQueryDTO;
 import com.haifeng.app.dto.major.MajorRankingQueryDTO;
+import com.haifeng.app.vo.major.MajorBriefVO;
 import com.haifeng.app.vo.major.MajorCategoryStatVO;
 import com.haifeng.app.vo.major.MajorDetailVO;
 import com.haifeng.app.vo.major.MajorListVO;
@@ -31,4 +32,7 @@ public interface MajorService {
 
     /** 任务3接口1：专业 → 关联竞赛列表（Pro 及以上） */
     IPage<CompetitionBriefVO> competitions(Long majorId, BasePageQueryDTO dto);
+
+    /** 任务4接口1：按专业名称精确查询简要信息（登录，模式同 CityBriefVO） */
+    MajorBriefVO getBriefByName(String majorName);
 }

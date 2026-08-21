@@ -4,18 +4,13 @@ import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import com.haifeng.common.entity.algorithm.MemberGaokao;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Component
 public class SubjectMatcher {
 
     public SubjectMatchResult match(MemberGaokao gaokao, AdmissionGroup group) {
-        List<String> userSubjects = Arrays.asList(
-                gaokao.getSubjectType()
-        ).stream().filter(Objects::nonNull).collect(Collectors.toList());
+        List<String> userSubjects = gaokao.resolveAllSubjects();
 
         List<String> groupSubjects = group.getSubjects();
         String reqType = group.getRequirementType();

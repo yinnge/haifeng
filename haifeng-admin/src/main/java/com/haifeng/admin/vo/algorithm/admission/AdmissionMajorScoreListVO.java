@@ -1,7 +1,7 @@
 package com.haifeng.admin.vo.algorithm.admission;
 
 import lombok.Data;
-import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class AdmissionMajorScoreListVO {
@@ -10,9 +10,6 @@ public class AdmissionMajorScoreListVO {
     private String majorCode;
     private String majorName;
     private String educationLevel;
-    private Integer admissionCount;
-    private Integer minScore;
-    private Integer minRank;
-    private BigDecimal avgScore;
+    private List<Object> history;
     private Boolean isDeleted;
 }

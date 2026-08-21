@@ -7,6 +7,7 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
+import com.haifeng.app.vo.algorithm.wish.SafetyLevelDictVO;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
@@ -31,6 +32,15 @@ public interface WishPlanService {
      * @return 默认数量限制 VO，system_settings 为空时返回零值
      */
     WishPlanLimitVO getDefaultLimits();
+
+    /**
+     * 获取安全等级档位字典（含推荐上限）
+     * <p>合并 t_safety_level_dict 字典与 system_settings 推荐数量上限，
+     * 按 level 升序返回 5 档（搏/冲/稳/保/垫）。
+     *
+     * @return 档位字典 VO 列表
+     */
+    List<SafetyLevelDictVO> getLevelDict();
 
     WishPlanListVO addMajors(WishPlanAddMajorsDTO dto);
 

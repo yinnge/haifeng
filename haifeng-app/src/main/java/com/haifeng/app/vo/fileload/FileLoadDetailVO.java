@@ -1,0 +1,30 @@
+package com.haifeng.app.vo.fileload;
+
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import lombok.Data;
+
+import java.time.OffsetDateTime;
+
+@Data
+public class FileLoadDetailVO {
+
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long id;
+
+    private String fileName;
+
+    private String fileType;
+
+    private Long fileSize;
+
+    private String subject;
+
+    private String applicableStage;
+
+    private String previewUrl;
+
+    private String downloadUrl;
+
+    private OffsetDateTime createTime;
+}

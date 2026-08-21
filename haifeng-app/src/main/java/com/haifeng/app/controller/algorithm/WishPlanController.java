@@ -7,6 +7,8 @@ import com.haifeng.app.dto.algorithm.wish.WishMajorExportDTO;
 import com.haifeng.app.dto.algorithm.wish.WishMajorSortDTO;
 import com.haifeng.app.dto.algorithm.wish.WishPlanAddMajorsDTO;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
+import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
+import com.haifeng.app.vo.algorithm.wish.SafetyLevelDictVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanGroupVO;
@@ -45,6 +47,11 @@ public class WishPlanController {
         return R.ok(wishPlanService.getDefaultLimits());
     }
 
+    @GetMapping("/level-dict")
+    public R<List<SafetyLevelDictVO>> getLevelDict() {
+        return R.ok(wishPlanService.getLevelDict());
+    }
+
     @PostMapping("/add-majors")
     public R<WishPlanListVO> addMajors(@Valid @RequestBody WishPlanAddMajorsDTO dto) {
         return R.ok(wishPlanService.addMajors(dto));
@@ -67,6 +74,15 @@ public class WishPlanController {
             @RequestParam(defaultValue = "1") @Min(1) Integer page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer size) {
         return R.ok(wishPlanService.pageGroups(planId, page, size));
+    }
+
+    /**
+     * 志愿表可导出的专业组上下文（仅 is_exported=true 的专业）
+     * <p>供前端 AI 智能分析确认弹窗展示「将分析的专业组与专业明细」。
+     */
+    @GetMapping("/{planId}/export-group-contexts")
+    public R<List<ExportGroupContextVO>> exportGroupContexts(@PathVariable @Min(1) Integer planId) {
+        return R.ok(wishPlanService.getExportGroupContexts(planId));
     }
 
     @GetMapping("/{planId}/groups/{groupSnapshotId}/majors")

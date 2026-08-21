@@ -91,6 +91,70 @@ public class ConstraintWeightCalculator {
         return ConstraintWeightResult.ok();
     }
 
+    /**
+     * 计算约束权重（纯内存版本，无 DB 查询）
+     * 权重值与 severityMap 由调用方预取（如 SafetyBatchContext），适用于批量计算场景
+     *
+     * @param userConstraints  用户触发的约束 codes
+     * @param groupConstraints 专业组的 constraints 数组
+     * @param majorConstraints 专业明细的 constraints 数组
+     * @param config           预取的 GaokaoConfig（null 时权重回退 0.6/0.3）
+     * @param severityMap      预取的 code -> HARD/SOFT 映射
+     * @return 权重结果
+     */
+    public ConstraintWeightResult calculate(List<String> userConstraints,
+                                            List<String> groupConstraints,
+                                            List<String> majorConstraints,
+                                            GaokaoConfig config,
+                                            Map<String, String> severityMap) {
+        if (userConstraints == null || userConstraints.isEmpty()) {
+            return ConstraintWeightResult.ok();
+        }
+        if (severityMap == null) {
+            severityMap = java.util.Collections.emptyMap();
+        }
+
+        BigDecimal weightSoftGroup = config != null && config.getWeightSoftGroup() != null
+                ? config.getWeightSoftGroup() : BigDecimal.valueOf(0.6);
+        BigDecimal weightSoftBoth = config != null && config.getWeightSoftBoth() != null
+                ? config.getWeightSoftBoth() : BigDecimal.valueOf(0.3);
+
+        // 步骤1：专业组约束检查
+        boolean groupHasSoft = false;
+        if (groupConstraints != null) {
+            for (String code : userConstraints) {
+                if (!groupConstraints.contains(code)) continue;
+                String severity = severityMap.get(code);
+                if ("HARD".equals(severity)) {
+                    return ConstraintWeightResult.blocked("专业组限制：" + code);
+                }
+                if ("SOFT".equals(severity)) {
+                    groupHasSoft = true;
+                }
+            }
+        }
+
+        // 步骤2：专业明细约束检查
+        if (majorConstraints != null) {
+            for (String code : userConstraints) {
+                if (!majorConstraints.contains(code)) continue;
+                String severity = severityMap.get(code);
+                if ("HARD".equals(severity)) {
+                    return ConstraintWeightResult.blocked("专业限制：" + code);
+                }
+                if ("SOFT".equals(severity)) {
+                    return ConstraintWeightResult.softWeight(groupHasSoft ? weightSoftBoth : weightSoftGroup);
+                }
+            }
+        }
+
+        // 步骤3：无约束冲突
+        if (groupHasSoft) {
+            return ConstraintWeightResult.softWeight(weightSoftGroup);
+        }
+        return ConstraintWeightResult.ok();
+    }
+
     private List<String> intersection(List<String> list1, List<String> list2) {
         if (list1 == null || list2 == null) {
             return new ArrayList<>();

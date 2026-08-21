@@ -5,11 +5,15 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class AdmissionMajorScoreAddDTO {
     @NotNull(message = "专业组ID不能为空")
     private Integer groupId;
+
+    @NotNull(message = "年份不能为空")
+    private Integer year;
 
     private Long majorId;
 
@@ -31,4 +35,11 @@ public class AdmissionMajorScoreAddDTO {
     private Integer maxScore;
     private Integer maxRank;
     private List<String> constraints;
+
+    /**
+     * 可选：多年度分数数组（优先于平铺分数字段）。
+     * <p>元素结构：{ year, admissionCount, minScore, minRank, avgScore, avgRank, maxScore, maxRank }。
+     * 新增时整体作为 history；修改时整体替换 history（以表单提交为准）。
+     */
+    private List<Map<String, Object>> history;
 }

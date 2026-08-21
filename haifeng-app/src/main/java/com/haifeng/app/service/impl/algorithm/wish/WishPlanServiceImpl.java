@@ -16,6 +16,7 @@ import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.ExportGroupContextVO;
 import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
+import com.haifeng.app.vo.algorithm.wish.SafetyLevelDictVO;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportFileVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanExportProgressVO;
@@ -40,6 +41,7 @@ import com.haifeng.common.mapper.system.SystemSettingsMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.service.algorithm.ProvinceReformService;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
+import com.haifeng.common.service.algorithm.safety.SafetyLevelDictCache;
 import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.util.SecurityUtil;
@@ -80,6 +82,7 @@ public class WishPlanServiceImpl implements WishPlanService {
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final UniversityMapper universityMapper;
     private final SafetyLevelService safetyLevelService;
+    private final SafetyLevelDictCache safetyLevelDictCache;
     private final ConstraintMatcherService constraintMatcherService;
     private final ConstraintDictMapper constraintDictMapper;
     private final ScoreRankMapper scoreRankMapper;
@@ -118,6 +121,36 @@ public class WishPlanServiceImpl implements WishPlanService {
     }
 
     @Override
+    public List<SafetyLevelDictVO> getLevelDict() {
+        WishPlanLimitVO limits = getDefaultLimits();
+
+        // code -> 推荐上限
+        Map<String, Integer> limitByCode = new HashMap<>();
+        limitByCode.put("REACH_HIGH", limits.getReachHighCount());
+        limitByCode.put("REACH", limits.getReachCount());
+        limitByCode.put("MATCH", limits.getMatchCount());
+        limitByCode.put("SAFE", limits.getSafeCount());
+        limitByCode.put("FLOOR", limits.getFloorCount());
+
+        List<SafetyLevelDict> dicts = safetyLevelDictCache.getAll();
+        List<SafetyLevelDictVO> result = new ArrayList<>(dicts.size());
+        for (SafetyLevelDict dict : dicts) {
+            Integer limit = limitByCode.get(dict.getCode());
+            result.add(SafetyLevelDictVO.builder()
+                    .code(dict.getCode())
+                    .name(dict.getName())
+                    .nameShort(dict.getNameShort())
+                    .minCoefficient(dict.getMinCoefficient())
+                    .maxCoefficient(dict.getMaxCoefficient())
+                    .color(dict.getColor())
+                    .description(dict.getDescription())
+                    .limit(limit != null ? limit : 0)
+                    .build());
+        }
+        return result;
+    }
+
+    @Override
     public WishPlanListVO addMajors(WishPlanAddMajorsDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
@@ -127,10 +160,26 @@ public class WishPlanServiceImpl implements WishPlanService {
             throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }
 
-        // 2. 查询专业明细
-        List<AdmissionMajorScore> majorScores = admissionMajorScoreMapper.selectBatchIds(dto.getMajorIds());
-        if (majorScores.size() != dto.getMajorIds().size()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "部分专业明细不存在");
+        // 2. 查询专业明细（优先按 majorCode 查询，不受数据库 ID 变化影响）
+        List<AdmissionMajorScore> majorScores;
+        if (dto.getMajorCodes() != null && !dto.getMajorCodes().isEmpty()) {
+            majorScores = admissionMajorScoreMapper.selectByGroupIdAndMajorCodes(
+                    dto.getGroupId(), dto.getMajorCodes());
+        } else {
+            majorScores = admissionMajorScoreMapper.selectBatchIds(dto.getMajorIds());
+        }
+        if (majorScores.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "所选专业明细均不存在，请刷新页面后重试");
+        }
+        if (dto.getMajorCodes() != null && majorScores.size() < dto.getMajorCodes().size()) {
+            int skipped = dto.getMajorCodes().size() - majorScores.size();
+            log.warn("会员 {} 添加专业时 {} 个专业不存在已跳过（可能数据已更新），请求 {} 个，找到 {} 个",
+                    SecurityUtil.getCurrentMemberId(), skipped, dto.getMajorCodes().size(), majorScores.size());
+        } else if (dto.getMajorCodes() == null && dto.getMajorIds() != null
+                && majorScores.size() < dto.getMajorIds().size()) {
+            int skipped = dto.getMajorIds().size() - majorScores.size();
+            log.warn("会员 {} 添加专业时 {} 个 ID 不存在已跳过，请求 {} 个，找到 {} 个",
+                    SecurityUtil.getCurrentMemberId(), skipped, dto.getMajorIds().size(), majorScores.size());
         }
 
         // 3. 查询专业组
@@ -147,30 +196,23 @@ public class WishPlanServiceImpl implements WishPlanService {
             }
         }
 
-        // 3.5 查询组级别历史数据（与列表页 pageMajors 保持一致）
-        List<GroupKey> groupKeys = Collections.singletonList(
-                new GroupKey(group.getUniversityId(), group.getGroupCode()));
-        Short groupMinYear = (short) (group.getYear() - 4);
-        List<AdmissionGroup> historyGroups = admissionGroupMapper.selectHistoryByKeys(
-                groupKeys, gaokao.getGaokaoProvince(), groupMinYear);
-
         // 4. 预查询安全系数计算所需上下文
         List<String> constraintCodes = constraintMatcherService.matchConstraints(gaokao);
         if (constraintCodes == null) constraintCodes = Collections.emptyList();
 
-        // 专业级别历史（仅用于 snapshot HistoryScore）
-        Short majorMinYear = (short) (gaokao.getGaokaoYear() - 5);
-        List<String> majorCodes = majorScores.stream().map(AdmissionMajorScore::getMajorCode).collect(Collectors.toList());
-        List<MajorHistoryItem> majorHistoryList = admissionMajorScoreMapper.selectMajorHistoryItems(
-                group.getUniversityId(), majorCodes, majorMinYear);
-        Map<String, List<MajorHistoryItem>> majorHistoryMap = majorHistoryList.stream()
-                .filter(m -> m.getMajorCode() != null)
-                .collect(Collectors.groupingBy(MajorHistoryItem::getMajorCode));
+        // 3.5 专业级别历史：从各 major.history jsonb 提取（与专业明细行 pageMajors 口径一致）
+        Short majorMinYear = (short) (group.getYear() - 4);
+        Map<String, List<MajorHistoryItem>> majorHistoryMap = new HashMap<>();
+        for (AdmissionMajorScore major : majorScores) {
+            List<MajorHistoryItem> items = extractMajorHistoryAsItems(major, majorMinYear);
+            majorHistoryMap.put(major.getMajorCode(), items);
+        }
 
         // 5. 计算每个专业的安全系数，检查"禁"级别，收集数据
         List<MajorSafetyInfo> majorInfos = new ArrayList<>();
         for (AdmissionMajorScore major : majorScores) {
             List<MajorHistoryItem> history = majorHistoryMap.getOrDefault(major.getMajorCode(), Collections.emptyList());
+            List<AdmissionGroup> historyGroups = majorHistoryToAdmissionGroups(history);
             SafetyCalcResult result = safetyLevelService.calculateMajorSafety(
                     gaokao, major, group, historyGroups, constraintCodes);
 
@@ -279,21 +321,21 @@ public class WishPlanServiceImpl implements WishPlanService {
                 wishGroupSnapshotMapper.insert(groupSnap);
             }
 
-            // M3. 校验重复添加专业
-            List<Long> newMajorIds = majorInfos.stream()
-                    .map(m -> m.major.getId().longValue())
+            // M3. 校验重复添加专业（按 majorCode 去重，不受数据库 ID 变化影响）
+            List<String> newMajorCodes = majorInfos.stream()
+                    .map(m -> m.major.getMajorCode())
                     .collect(Collectors.toList());
-            List<Long> existingMajorIds = wishMajorSnapshotMapper.selectList(
+            List<String> existingMajorCodes = wishMajorSnapshotMapper.selectList(
                     new LambdaQueryWrapper<WishMajorSnapshot>()
                             .eq(WishMajorSnapshot::getPlanId, plan.getId())
-                            .in(WishMajorSnapshot::getMajorId, newMajorIds)
-                            .select(WishMajorSnapshot::getMajorId))
+                            .in(WishMajorSnapshot::getMajorCode, newMajorCodes)
+                            .select(WishMajorSnapshot::getMajorCode))
                     .stream()
-                    .map(WishMajorSnapshot::getMajorId)
+                    .map(WishMajorSnapshot::getMajorCode)
                     .collect(Collectors.toList());
-            if (!existingMajorIds.isEmpty()) {
+            if (!existingMajorCodes.isEmpty()) {
                 throw new BusinessException(ResultCode.BAD_REQUEST,
-                        "以下专业已在志愿表中: " + existingMajorIds);
+                        "以下专业已在志愿表中: " + existingMajorCodes);
             }
 
             // 9. 批量创建 WishMajorSnapshot
@@ -310,7 +352,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                             .duration(info.major.getDuration())
                             .tuition(info.major.getTuition())
                             .description(info.major.getDescription())
-                            .admissionCount(info.major.getAdmissionCount())
+                            .admissionCount(info.historyScores.isEmpty() ? null : info.historyScores.get(0).getAdmissionCount())
                             .safetyLevel(info.result.getSafetyLevel())
                             .levelShort(info.result.getLevelShort())
                             .historyScores(info.historyScores)
@@ -1174,6 +1216,79 @@ public class WishPlanServiceImpl implements WishPlanService {
         } catch (Exception e) {
             log.warn("Redis 写入失败: key={}", key, e);
         }
+    }
+
+    // ==================== history jsonb 提取辅助方法 ====================
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseHistoryJson(Object history) {
+        if (history == null) return Collections.emptyList();
+        if (history instanceof List) {
+            return (List<Map<String, Object>>) history;
+        }
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return mapper.readValue(history.toString(),
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            log.warn("解析 history jsonb 失败: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 将专业自身历史（MajorHistoryItem）转换为 AdmissionGroup 列表（供安全系数计算使用），
+     * 与 AdmissionQueryServiceImpl.majorHistoryToAdmissionGroups 口径完全一致（不设 subjects）
+     */
+    private List<AdmissionGroup> majorHistoryToAdmissionGroups(List<MajorHistoryItem> items) {
+        return items.stream()
+                .map(h -> {
+                    AdmissionGroup g = new AdmissionGroup();
+                    g.setYear(h.getYear());
+                    g.setMinScore(h.getMinScore());
+                    g.setMinRank(h.getMinRank());
+                    g.setAvgScore(h.getAvgScore());
+                    g.setAvgRank(h.getAvgRank());
+                    g.setMaxScore(h.getMaxScore());
+                    g.setMaxRank(h.getMaxRank());
+                    g.setAdmissionCount(h.getAdmissionCount());
+                    return g;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private List<MajorHistoryItem> extractMajorHistoryAsItems(AdmissionMajorScore major, Short minYear) {
+        List<Map<String, Object>> history = parseHistoryJson(major.getHistory());
+        return history.stream()
+                .filter(h -> wpIntVal(h, "year") != null && wpIntVal(h, "year") >= minYear)
+                .sorted((a, b) -> wpIntVal(b, "year") - wpIntVal(a, "year"))
+                .limit(5)
+                .map(h -> MajorHistoryItem.builder()
+                        .majorCode(major.getMajorCode())
+                        .year(wpShortVal(h, "year"))
+                        .minScore(wpIntVal(h, "minScore"))
+                        .minRank(wpIntVal(h, "minRank"))
+                        .avgScore(h.get("avgScore") != null ? new java.math.BigDecimal(h.get("avgScore").toString()) : null)
+                        .avgRank(wpIntVal(h, "avgRank"))
+                        .maxScore(wpIntVal(h, "maxScore"))
+                        .maxRank(wpIntVal(h, "maxRank"))
+                        .admissionCount(wpIntVal(h, "admissionCount"))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private Integer wpIntVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).intValue();
+        try { return Integer.parseInt(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private Short wpShortVal(Map<String, Object> map, String key) {
+        Object v = map.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).shortValue();
+        try { return Short.parseShort(v.toString()); } catch (Exception e) { return null; }
     }
 
     @lombok.AllArgsConstructor

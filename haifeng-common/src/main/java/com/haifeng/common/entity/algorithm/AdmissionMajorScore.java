@@ -1,13 +1,13 @@
 package com.haifeng.common.entity.algorithm;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.haifeng.common.config.JsonbTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -37,19 +37,8 @@ public class AdmissionMajorScore {
 
     private String description;
 
-    private Integer admissionCount;
-
-    private Integer minScore;
-
-    private Integer minRank;
-
-    private BigDecimal avgScore;
-
-    private Integer avgRank;
-
-    private Integer maxScore;
-
-    private Integer maxRank;
+    @TableField(typeHandler = JsonbTypeHandler.class)
+    private Object history;
 
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> constraints;

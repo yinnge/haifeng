@@ -14,12 +14,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReduceResult {
 
-    /** 全局宏观分析 */
-    private String globalAnalysis;
+    /** 第一部分：学生画像（保留原逻辑） */
+    private String studentProfile;
 
-    /** SWOT 象限分析 */
+    /** 第二部分：外部宏观全景研判 */
+    private MacroAnalysisVO macroAnalysis;
+
+    /** 第三部分：SWOT 象限分析 */
     private String swot;
 
-    /** 推荐填报梯队顺序 */
+    /** 第三部分：推荐填报梯队顺序 */
     private String recommendation;
 }
