@@ -66,6 +66,7 @@ public class SpecialChannelUniversityServiceImpl implements SpecialChannelUniver
 
     private SpecialChannelUnivListVO toListVO(SpecialChannelUniversity e) {
         return SpecialChannelUnivListVO.builder()
+                .id(e.getId())
                 .universityId(e.getUniversityId())
                 .universityName(e.getUniversityName())
                 .year(e.getYear())

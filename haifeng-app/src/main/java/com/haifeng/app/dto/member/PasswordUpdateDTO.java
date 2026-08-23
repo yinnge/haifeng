@@ -1,7 +1,7 @@
 package com.haifeng.app.dto.member;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data
@@ -11,6 +11,7 @@ public class PasswordUpdateDTO {
     private String oldPassword;
 
     @NotBlank(message = "新密码不能为空")
-    @Size(min = 6, max = 20, message = "密码长度6-20个字符")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{6,16}$",
+             message = "密码必须是数字+字母，长度6-16位")
     private String newPassword;
 }
