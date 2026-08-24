@@ -11,11 +11,15 @@ import com.haifeng.common.enums.PdfReportStatus;
 import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
 import com.haifeng.common.entity.algorithm.pdf.PdfReport;
+import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.service.ai.AiQuotaService;
+import com.haifeng.common.config.OssProperties;
+import com.haifeng.common.config.PdfPreviewConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -38,6 +42,11 @@ class PdfReportServiceImplTest {
     private WishPlanService wishPlanService = mock(WishPlanService.class);
     private WishPlanMapper wishPlanMapper = mock(WishPlanMapper.class);
     private PdfRenderService pdfRenderService = mock(PdfRenderService.class);
+    private MemberGaokaoMapper memberGaokaoMapper = mock(MemberGaokaoMapper.class);
+    private ChartService chartService = mock(ChartService.class);
+    private PdfPreviewConfig pdfPreviewConfig = mock(PdfPreviewConfig.class);
+    private OssProperties ossProperties = mock(OssProperties.class);
+    private StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
     private ObjectMapper objectMapper = new ObjectMapper();
     // 使用真实线程池而非 mock，避免 CompletableFuture.runAsync 供应链被 mock 截断
     private ExecutorService pdfMapExecutor = Executors.newFixedThreadPool(2);
@@ -48,7 +57,9 @@ class PdfReportServiceImplTest {
     void setup() {
         service = new PdfReportServiceImpl(
                 pdfReportMapper, aiChatService, quotaService,
-                wishPlanService, objectMapper, wishPlanMapper, pdfRenderService, pdfMapExecutor);
+                wishPlanService, objectMapper, wishPlanMapper, memberGaokaoMapper,
+                pdfRenderService, chartService, pdfMapExecutor,
+                pdfPreviewConfig, ossProperties, redisTemplate);
     }
 
     @Test

@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -397,13 +396,26 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
                     .head(SelectionPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
-            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+            if (importList == null || importList.isEmpty()) {
+                throw new BusinessException(400, "Excel文件中没有数据");
+            }
+            if (importList.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
+            // 归一化字符串首尾空格：业务键 / 枚举字段，避免校验误判与脏数据
+            for (SelectionPositionExcelDTO dto : importList) {
+                if (dto.getPositionName() != null) dto.setPositionName(dto.getPositionName().trim());
+                if (dto.getSelectionType() != null) dto.setSelectionType(dto.getSelectionType().trim());
+                if (dto.getYear() != null) dto.setYear(dto.getYear().trim());
+                if (dto.getProvince() != null) dto.setProvince(dto.getProvince().trim());
+                if (dto.getEducationRequirement() != null) dto.setEducationRequirement(dto.getEducationRequirement().trim());
+                if (dto.getPoliticalStatus() != null) dto.setPoliticalStatus(dto.getPoliticalStatus().trim());
+                if (dto.getPositionStatus() != null) dto.setPositionStatus(dto.getPositionStatus().trim());
+            }
             return importList;
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel失败", e);
-            throw new BusinessException(400, "读取Excel文件失败");
+            throw new BusinessException(400, "Excel文件读取失败，请检查文件格式与单元格数据类型");
         }
     }
 }

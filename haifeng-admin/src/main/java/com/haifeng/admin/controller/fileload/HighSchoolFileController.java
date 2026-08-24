@@ -17,6 +17,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 /**
  * 管理端 - 高中文件管理
  */
@@ -41,7 +43,7 @@ public class HighSchoolFileController {
         String operatorName = SecurityUtil.getCurrentUser() != null
                 ? SecurityUtil.getCurrentUser().getUsername() : "unknown";
         return R.ok(fileLoadService.upload(file, TARGET_AUDIENCE, dto.getSubject(),
-                dto.getApplicableStage(), operatorName));
+                dto.getApplicableStage(), dto.getDescription(), dto.getTag(), operatorName));
     }
 
     /**
@@ -50,6 +52,24 @@ public class HighSchoolFileController {
     @GetMapping("/list")
     public R<IPage<FileLoadListVO>> list(@Valid FileLoadQueryDTO dto) {
         return R.ok(fileLoadService.page(dto, TARGET_AUDIENCE));
+    }
+
+    /** 动态返回 applicable_stage 去重值（前端筛选下拉，不再写死） */
+    @GetMapping("/stages")
+    public R<List<String>> stages() {
+        return R.ok(fileLoadService.listStages(TARGET_AUDIENCE));
+    }
+
+    /** 动态返回 subject 去重值 */
+    @GetMapping("/subjects")
+    public R<List<String>> subjects() {
+        return R.ok(fileLoadService.listSubjects(TARGET_AUDIENCE));
+    }
+
+    /** 动态返回 tag 去重值 */
+    @GetMapping("/tags")
+    public R<List<String>> tags() {
+        return R.ok(fileLoadService.listTags(TARGET_AUDIENCE));
     }
 
     /**
@@ -70,7 +90,7 @@ public class HighSchoolFileController {
         String operatorName = SecurityUtil.getCurrentUser() != null
                 ? SecurityUtil.getCurrentUser().getUsername() : "unknown";
         fileLoadService.update(id, null, dto.getSubject(), dto.getApplicableStage(),
-                dto.getVersion(), operatorName);
+                dto.getDescription(), dto.getTag(), dto.getVersion(), operatorName);
         return R.ok();
     }
 

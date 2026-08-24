@@ -356,40 +356,44 @@ public class CityServiceImpl implements CityService {
                 int rowNum = i + 2;
                 CityExcelDTO data = mainData.get(i);
 
+                String cityName = data.getCityName() == null ? null : data.getCityName().trim();
+                String province = data.getProvince() == null ? null : data.getProvince().trim();
+                String region = data.getRegion() == null ? null : data.getRegion().trim();
+
                 // 校验必填字段
-                if (!StringUtils.hasText(data.getCityName())) {
+                if (!StringUtils.hasText(cityName)) {
                     errorMsgs.add("第" + rowNum + "行：城市名称不能为空");
                     continue;
                 }
-                if (!StringUtils.hasText(data.getProvince())) {
+                if (!StringUtils.hasText(province)) {
                     errorMsgs.add("第" + rowNum + "行：省份不能为空");
                     continue;
                 }
 
                 // 校验字段长度
-                if (data.getCityName().length() > 50) {
+                if (cityName.length() > 50) {
                     errorMsgs.add("第" + rowNum + "行：城市名称不能超过50个字符");
                     continue;
                 }
-                if (data.getProvince().length() > 30) {
+                if (province.length() > 30) {
                     errorMsgs.add("第" + rowNum + "行：省份不能超过30个字符");
                     continue;
                 }
-                if (data.getRegion() != null && data.getRegion().length() > 20) {
+                if (region != null && region.length() > 20) {
                     errorMsgs.add("第" + rowNum + "行：所属地区不能超过20个字符");
                     continue;
                 }
 
                 // 检查文件内重复
-                if (cityNamesInFile.contains(data.getCityName())) {
-                    errorMsgs.add("第" + rowNum + "行：城市名称'" + data.getCityName() + "'在文件中重复");
+                if (cityNamesInFile.contains(cityName)) {
+                    errorMsgs.add("第" + rowNum + "行：城市名称'" + cityName + "'在文件中重复");
                     continue;
                 }
-                cityNamesInFile.add(data.getCityName());
+                cityNamesInFile.add(cityName);
 
                 // 检查数据库中是否已存在
-                if (cityMapper.existsByCityName(data.getCityName())) {
-                    errorMsgs.add("第" + rowNum + "行：城市名称'" + data.getCityName() + "'已存在");
+                if (cityMapper.existsByCityName(cityName)) {
+                    errorMsgs.add("第" + rowNum + "行：城市名称'" + cityName + "'已存在");
                     continue;
                 }
 
@@ -399,9 +403,9 @@ public class CityServiceImpl implements CityService {
 
                 City city = City.builder()
                         .id(cityId)
-                        .cityName(data.getCityName())
-                        .province(data.getProvince())
-                        .region(data.getRegion())
+                        .cityName(cityName)
+                        .province(province)
+                        .region(region)
                         .cityIntro(data.getCityIntro())
                         .collegeCount(data.getCollegeCount() != null ? data.getCollegeCount() : 0)
                         .keyCollegeCount(data.getKeyCollegeCount() != null ? data.getKeyCollegeCount() : 0)
@@ -415,7 +419,7 @@ public class CityServiceImpl implements CityService {
                 CityDetail detail = CityDetail.builder()
                         .id(detailId)
                         .cityId(cityId)
-                        .cityName(data.getCityName())
+                        .cityName(cityName)
                         .isDeleted(false)
                         .createdAt(now)
                         .updatedAt(now)
@@ -586,7 +590,7 @@ public class CityServiceImpl implements CityService {
 
             // 按城市名称分组JSONB数据
             Map<String, Map<String, Object>> industryStructureMap = buildJsonbMap(industryStructureData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("primaryRatio", dto.getPrimaryRatio());
@@ -596,7 +600,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> housingPriceMap = buildJsonbMap(housingPriceData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("avgPrice", dto.getAvgPrice());
@@ -608,7 +612,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> highEducationMap = buildJsonbMap(highEducationData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("totalColleges", dto.getTotalColleges());
@@ -619,7 +623,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> basicEducationMap = buildJsonbMap(basicEducationData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("totalSchools", dto.getTotalSchools());
@@ -630,7 +634,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> transportationMap = buildJsonbMap(transportationData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("metroLines", dto.getMetroLines());
@@ -641,7 +645,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> employmentMap = buildJsonbMap(employmentData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("unemploymentRate", dto.getUnemploymentRate());
@@ -656,7 +660,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> enterpriseStatsMap = buildJsonbMap(enterpriseStatsData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("enterpriseCategories", dto.getEnterpriseCategories());
@@ -666,7 +670,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> futurePlanMap = buildJsonbMap(futurePlanData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("targetYear", dto.getTargetYear());
@@ -676,7 +680,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> cultureMap = buildJsonbMap(cultureData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("worldHeritageCount", dto.getWorldHeritageCount());
@@ -687,7 +691,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> consumptionMap = buildJsonbMap(consumptionData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("perCapitaConsumption", dto.getPerCapitaConsumption());
@@ -700,7 +704,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> medicalMap = buildJsonbMap(medicalData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("topHospitalCount", dto.getTopHospitalCount());
@@ -711,7 +715,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> housingPolicyMap = buildJsonbMap(housingPolicyData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("purchaseRestriction", dto.getPurchaseRestriction());
@@ -723,7 +727,7 @@ public class CityServiceImpl implements CityService {
                     });
 
             Map<String, Map<String, Object>> rentalCostMap = buildJsonbMap(rentalCostData,
-                    dto -> dto.getCityName(),
+                    dto -> dto.getCityName() == null ? null : dto.getCityName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("downtownRentRange", dto.getDowntownRentRange());
@@ -737,7 +741,7 @@ public class CityServiceImpl implements CityService {
             Set<String> sheet0CityNames = new HashSet<>();
             for (CityDetailExcelDTO dto : detailData) {
                 if (StringUtils.hasText(dto.getCityName())) {
-                    sheet0CityNames.add(dto.getCityName());
+                    sheet0CityNames.add(dto.getCityName().trim());
                 }
             }
             validateSheetCityNames(industryStructureData, "产业结构", IndustryStructureExcelDTO::getCityName, sheet0CityNames, errorMsgs);
@@ -763,7 +767,9 @@ public class CityServiceImpl implements CityService {
                 int rowNum = i + 2;
                 CityDetailExcelDTO data = detailData.get(i);
 
-                if (!StringUtils.hasText(data.getCityName())) {
+                String cityName = data.getCityName() == null ? null : data.getCityName().trim();
+
+                if (!StringUtils.hasText(cityName)) {
                     errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称不能为空");
                     continue;
                 }
@@ -791,24 +797,24 @@ public class CityServiceImpl implements CityService {
                 if (pctError != null) { errorMsgs.add(pctError); continue; }
 
                 // 查询城市ID
-                Long cityId = cityIdCache.get(data.getCityName());
+                Long cityId = cityIdCache.get(cityName);
                 if (cityId == null) {
                     LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
-                    wrapper.eq(City::getCityName, data.getCityName())
+                    wrapper.eq(City::getCityName, cityName)
                            .eq(City::getIsDeleted, false);
                     City city = cityMapper.selectOne(wrapper);
                     if (city == null) {
-                        errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称'" + data.getCityName() + "'不存在");
+                        errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称'" + cityName + "'不存在");
                         continue;
                     }
                     cityId = city.getId();
-                    cityIdCache.put(data.getCityName(), cityId);
+                    cityIdCache.put(cityName, cityId);
                 }
 
                 // 查询详情记录
                 CityDetail detail = cityDetailMapper.findByCityId(cityId);
                 if (detail == null) {
-                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市'" + data.getCityName() + "'的详情记录不存在");
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市'" + cityName + "'的详情记录不存在");
                     continue;
                 }
 
@@ -829,19 +835,19 @@ public class CityServiceImpl implements CityService {
                 detail.setEmergingIndustries(data.getEmergingIndustries());
 
                 // 设置JSONB字段
-                detail.setIndustryStructure(industryStructureMap.get(data.getCityName()));
-                detail.setHousingPriceLevel(housingPriceMap.get(data.getCityName()));
-                detail.setHighEducation(highEducationMap.get(data.getCityName()));
-                detail.setBasicEducation(basicEducationMap.get(data.getCityName()));
-                detail.setTransportation(transportationMap.get(data.getCityName()));
-                detail.setEmployment(employmentMap.get(data.getCityName()));
-                detail.setEnterpriseStats(enterpriseStatsMap.get(data.getCityName()));
-                detail.setFuturePlan(futurePlanMap.get(data.getCityName()));
-                detail.setCulture(cultureMap.get(data.getCityName()));
-                detail.setConsumption(consumptionMap.get(data.getCityName()));
-                detail.setMedical(medicalMap.get(data.getCityName()));
-                detail.setHousingPolicy(housingPolicyMap.get(data.getCityName()));
-                detail.setRentalCost(rentalCostMap.get(data.getCityName()));
+                detail.setIndustryStructure(industryStructureMap.get(cityName));
+                detail.setHousingPriceLevel(housingPriceMap.get(cityName));
+                detail.setHighEducation(highEducationMap.get(cityName));
+                detail.setBasicEducation(basicEducationMap.get(cityName));
+                detail.setTransportation(transportationMap.get(cityName));
+                detail.setEmployment(employmentMap.get(cityName));
+                detail.setEnterpriseStats(enterpriseStatsMap.get(cityName));
+                detail.setFuturePlan(futurePlanMap.get(cityName));
+                detail.setCulture(cultureMap.get(cityName));
+                detail.setConsumption(consumptionMap.get(cityName));
+                detail.setMedical(medicalMap.get(cityName));
+                detail.setHousingPolicy(housingPolicyMap.get(cityName));
+                detail.setRentalCost(rentalCostMap.get(cityName));
 
                 detail.setUpdatedAt(OffsetDateTime.now());
                 cityDetailMapper.updateById(detail);
@@ -905,6 +911,7 @@ public class CityServiceImpl implements CityService {
         if (dataList == null) return;
         for (int i = 0; i < dataList.size(); i++) {
             String cityName = nameExtractor.apply(dataList.get(i));
+            if (cityName != null) cityName = cityName.trim();
             if (StringUtils.hasText(cityName) && !validNames.contains(cityName)) {
                 errorMsgs.add(sheetName + "第" + (i + 2) + "行：城市名称'" + cityName + "'在详情基础字段Sheet中不存在");
             }

@@ -326,9 +326,9 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                     .head(PostgradMajorImportDTO.class)
                     .sheet()
                     .doReadSync();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+            throw new BusinessException(400, "Excel文件解析失败，请确认文件为有效的.xlsx且表头正确: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
@@ -347,13 +347,16 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2; // Excel行号（从2开始，1是表头）
             PostgradMajorImportDTO dto = dataList.get(i);
+            // 去除首尾空格，避免 Excel 单元格空格导致代码匹配/查重误判
+            String majorName = dto.getMajorName() == null ? null : dto.getMajorName().trim();
+            String majorCode = dto.getMajorCode() == null ? null : dto.getMajorCode().trim();
 
             // 校验必填字段
-            if (!StringUtils.hasText(dto.getMajorName())) {
+            if (!StringUtils.hasText(majorName)) {
                 errors.add("第" + rowNum + "行: 专业名称不能为空");
                 continue;
             }
-            if (!StringUtils.hasText(dto.getMajorCode())) {
+            if (!StringUtils.hasText(majorCode)) {
                 errors.add("第" + rowNum + "行: 专业代码不能为空");
                 continue;
             }
@@ -391,15 +394,15 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             }
 
             // 检查文件内重复
-            if (majorCodesInFile.contains(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在文件中重复");
+            if (majorCodesInFile.contains(majorCode)) {
+                errors.add("第" + rowNum + "行: 专业代码[" + majorCode + "]在文件中重复");
                 continue;
             }
-            majorCodesInFile.add(dto.getMajorCode());
+            majorCodesInFile.add(majorCode);
 
             // 检查数据库中是否已存在
-            if (postgradMajorMapper.existsByMajorCode(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]已存在");
+            if (postgradMajorMapper.existsByMajorCode(majorCode)) {
+                errors.add("第" + rowNum + "行: 专业代码[" + majorCode + "]已存在");
                 continue;
             }
 
@@ -412,8 +415,8 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             Long id = SnowflakeIdGenerator.nextId();
             PostgradMajor major = PostgradMajor.builder()
                     .id(id)
-                    .majorName(dto.getMajorName())
-                    .majorCode(dto.getMajorCode())
+                    .majorName(majorName)
+                    .majorCode(majorCode)
                     .degreeType(dto.getDegreeType())
                     .disciplineCategory(dto.getDisciplineCategory())
                     .popularity(dto.getPopularity())

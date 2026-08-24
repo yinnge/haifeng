@@ -218,6 +218,13 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
             throw new BusinessException(400, "Excel文件中没有数据");
         }
 
+        // 归一化字符串字段首尾空格，避免业务键/落库因空格产生静默重复或匹配失败
+        for (BatchScoreLineImportDTO dto : dataList) {
+            if (dto.getProvince() != null) dto.setProvince(dto.getProvince().trim());
+            if (dto.getSubjectType() != null) dto.setSubjectType(dto.getSubjectType().trim());
+            if (dto.getBatch() != null) dto.setBatch(dto.getBatch().trim());
+        }
+
         // P2: 行数上限
         if (dataList.size() > 1000) {
             throw new BusinessException(400, "单次导入不能超过1000条记录");

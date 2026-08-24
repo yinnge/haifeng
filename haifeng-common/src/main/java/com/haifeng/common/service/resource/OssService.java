@@ -2,7 +2,9 @@ package com.haifeng.common.service.resource;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.ResponseHeaderOverrides;
 import com.haifeng.common.config.OssProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +13,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Date;
-import java.util.HexFormat;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -64,6 +66,44 @@ public class OssService {
         try {
             URL url = ossClient.generatePresignedUrl(
                     ossProperties.getBucketName(), objectKey, expiration);
+            return url.toString();
+        } catch (Exception e) {
+            log.error("生成预签名URL失败: {}", e.getMessage(), e);
+            throw new RuntimeException("生成预签名URL失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    /**
+     * 生成带下载文件名的预签名 URL。
+     * 通过 response-content-disposition 指定下载文件名（与源文件名一致），
+     * 浏览器下载时同名文件会自动追加 (1)、(2) 等后缀。
+     *
+     * @param objectKey         OSS 对象 key
+     * @param downloadFileName  下载文件名（如「高中数学指南.pdf」）
+     */
+    public String generatePresignedUrl(String objectKey, String downloadFileName) {
+        Date expiration = new Date(System.currentTimeMillis() + ossProperties.getUrlExpire() * 1000L);
+
+        OSS ossClient = createClient();
+        try {
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                    ossProperties.getBucketName(), objectKey);
+            request.setExpiration(expiration);
+            if (downloadFileName != null && !downloadFileName.isBlank()) {
+                // attachment + filename*=UTF-8''<percent-encoded>：正确支持中文文件名
+                // URLEncoder 是表单编码（空格→+），但 RFC 5987 attr-value 应是 percent-encoded（空格→%20），
+                // 否则浏览器按字面 "+" 显示文件名。预览路径另走干净 URL（不带 disposition），见 FileLoadServiceImpl。
+                // 兼容性：3.17.4 SDK 无 setResponseDisposition，统一用 setResponseHeaders(ResponseHeaderOverrides)（3.17.4 原生 API）。
+                String disposition = "attachment; filename*=UTF-8''"
+                        + URLEncoder.encode(downloadFileName, StandardCharsets.UTF_8)
+                                .replace("+", "%20");
+                ResponseHeaderOverrides responseHeaders = new ResponseHeaderOverrides();
+                responseHeaders.setContentDisposition(disposition);
+                request.setResponseHeaders(responseHeaders);
+            }
+            URL url = ossClient.generatePresignedUrl(request);
             return url.toString();
         } catch (Exception e) {
             log.error("生成预签名URL失败: {}", e.getMessage(), e);

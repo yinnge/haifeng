@@ -1,6 +1,7 @@
 package com.haifeng.app.service.impl.algorithm.pdf;
 
 import com.haifeng.app.vo.algorithm.pdf.MacroAnalysisVO;
+import com.haifeng.app.vo.algorithm.pdf.ReduceResult;
 import lombok.extern.slf4j.Slf4j;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtils;
@@ -61,6 +62,43 @@ public class ChartService {
     }
 
     /**
+     * 生成体制内适配度水平柱状图（第十部分）
+     *
+     * @param scores 打分列表（专业名+分数0-100）
+     * @return Base64编码的PNG图片
+     */
+    public String generateScoreChart(List<ReduceResult.ScoreItem> scores) {
+        if (scores == null || scores.isEmpty()) {
+            log.warn("Score list is empty, skip chart generation");
+            return null;
+        }
+
+        try {
+            DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+            // 从高到低排列（JFreeChart从下到上显示，所以倒序添加）
+            List<ReduceResult.ScoreItem> sorted = new java.util.ArrayList<>(scores);
+            sorted.sort((a, b) -> Integer.compare(b.getScore() != null ? b.getScore() : 0,
+                    a.getScore() != null ? a.getScore() : 0));
+            for (int i = sorted.size() - 1; i >= 0; i--) {
+                ReduceResult.ScoreItem item = sorted.get(i);
+                String label = item.getMajorName() != null ? item.getMajorName() : "未知专业";
+                if (item.getGroupName() != null && !item.getGroupName().isBlank()) {
+                    label = item.getGroupName() + " - " + label;
+                }
+                dataset.addValue(item.getScore() != null ? item.getScore() : 0, "体制内适配度", label);
+            }
+            JFreeChart chart = createChart(dataset, "体制内适配度");
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ChartUtils.writeChartAsPNG(baos, chart, 800, Math.max(400, sorted.size() * 50 + 100));
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (IOException e) {
+            log.error("Failed to generate score chart", e);
+            return null;
+        }
+    }
+
+    /**
      * 创建数据集
      */
     private CategoryDataset createDataset(List<MacroAnalysisVO.RankingItem> rankingList) {
@@ -80,9 +118,16 @@ public class ChartService {
      * 创建图表
      */
     private JFreeChart createChart(CategoryDataset dataset) {
+        return createChart(dataset, "综合得分");
+    }
+
+    /**
+     * 创建图表（自定义X轴标签）
+     */
+    private JFreeChart createChart(CategoryDataset dataset, String rangeAxisLabel) {
         JFreeChart chart = ChartFactory.createBarChart(
                 null,           // 标题
-                "综合得分",      // X轴标签
+                rangeAxisLabel, // X轴标签
                 null,           // Y轴标签
                 dataset,
                 PlotOrientation.HORIZONTAL,

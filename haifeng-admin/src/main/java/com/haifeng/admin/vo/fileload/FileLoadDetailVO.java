@@ -32,6 +32,10 @@ public class FileLoadDetailVO {
 
     private String subject;
 
+    private String description;
+
+    private String tag;
+
     private Integer version;
 
     private String createBy;

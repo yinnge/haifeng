@@ -245,6 +245,22 @@ public final class RedisKeyConstant {
      */
     public static final long HOME_CACHE_TTL_MINUTES = 30L;
 
+    /**
+     * PDF 预览签名 token
+     * value: recordId（一次性使用，用完即删）
+     */
+    public static final String PDF_PREVIEW_TOKEN_PREFIX = "haifeng:pdf:preview:";
+
+    /**
+     * 获取 PDF 预览 token Key
+     *
+     * @param token 签名 token
+     * @return Redis Key
+     */
+    public static String getPdfPreviewTokenKey(String token) {
+        return PDF_PREVIEW_TOKEN_PREFIX + token;
+    }
+
     /** 用户输入拼入缓存key时的最大长度 */
     private static final int MAX_INPUT_LENGTH_IN_KEY = 50;
 

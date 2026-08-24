@@ -21,6 +21,13 @@ public class FileLoadUploadDTO {
     @Size(max = 20, message = "适合人群最长20字符")
     private String applicableStage;
 
+    /** 文档简介 */
+    private String description;
+
+    /** 标签（备考指南/就业辅导等，用于精准查询） */
+    @Size(max = 100, message = "标签最长100字符")
+    private String tag;
+
     /** 乐观锁版本号（修改时必传） */
     private Integer version;
 }

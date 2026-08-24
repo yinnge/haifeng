@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -314,13 +313,23 @@ public class CivilPositionServiceImpl implements CivilPositionService {
                     .head(CivilPositionExcelDTO.class)
                     .sheet()
                     .doReadSync();
-            if (importList != null && importList.size() > MAX_IMPORT_ROWS) {
+            if (importList == null || importList.isEmpty()) {
+                throw new BusinessException(400, "Excel文件中没有数据");
+            }
+            if (importList.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
+            // 归一化业务键/枚举字段首尾空格，避免去重误判与静默重复插入
+            for (CivilPositionExcelDTO dto : importList) {
+                if (dto.getPositionName() != null) dto.setPositionName(dto.getPositionName().trim());
+                if (dto.getExamType() != null) dto.setExamType(dto.getExamType().trim());
+                if (dto.getDeptCode() != null) dto.setDeptCode(dto.getDeptCode().trim());
+                if (dto.getPositionCode() != null) dto.setPositionCode(dto.getPositionCode().trim());
+            }
             return importList;
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel失败", e);
-            throw new BusinessException(400, "读取Excel文件失败");
+            throw new BusinessException(400, "Excel文件读取失败，请检查文件格式与单元格数据类型");
         }
     }
 }

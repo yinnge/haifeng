@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.*;
 
 @Slf4j
@@ -182,13 +181,19 @@ public class ScoreRankServiceImpl implements ScoreRankService {
                     .head(ScoreRankImportDTO.class)
                     .sheet()
                     .doReadSync();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+            throw new BusinessException(400, "Excel文件读取失败，请检查文件格式与单元格数据类型");
         }
 
         if (dataList == null || dataList.isEmpty()) {
             throw new BusinessException(400, "Excel文件中没有数据");
+        }
+
+        // 归一化字符串字段首尾空格，避免业务键因空格产生静默重复或匹配失败
+        for (ScoreRankImportDTO dto : dataList) {
+            if (dto.getProvince() != null) dto.setProvince(dto.getProvince().trim());
+            if (dto.getSubjectType() != null) dto.setSubjectType(dto.getSubjectType().trim());
         }
 
         // P2: 行数上限

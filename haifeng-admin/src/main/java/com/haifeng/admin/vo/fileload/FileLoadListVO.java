@@ -22,6 +22,10 @@ public class FileLoadListVO {
 
     private String applicableStage;
 
+    private String description;
+
+    private String tag;
+
     private String createBy;
 
     private OffsetDateTime createTime;

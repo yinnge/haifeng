@@ -195,9 +195,9 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
                     .head(PostgradMajorUniversityImportDTO.class)
                     .sheet()
                     .doReadSync();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+            throw new BusinessException(400, "Excel文件解析失败，请确认文件为有效的.xlsx且表头正确: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
@@ -217,44 +217,47 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2; // Excel行号（从2开始，1是表头）
             PostgradMajorUniversityImportDTO dto = dataList.get(i);
+            // 去除首尾空格，避免 Excel 单元格空格导致大学/专业匹配误判
+            String universityName = dto.getUniversityName() == null ? null : dto.getUniversityName().trim();
+            String postgradMajorCode = dto.getPostgradMajorCode() == null ? null : dto.getPostgradMajorCode().trim();
 
             // 校验必填字段
-            if (!StringUtils.hasText(dto.getUniversityName())) {
+            if (!StringUtils.hasText(universityName)) {
                 errors.add("第" + rowNum + "行: 大学名称不能为空");
                 continue;
             }
-            if (!StringUtils.hasText(dto.getPostgradMajorCode())) {
+            if (!StringUtils.hasText(postgradMajorCode)) {
                 errors.add("第" + rowNum + "行: 考研专业代码不能为空");
                 continue;
             }
 
             // 检查文件内是否有重复组合
-            String relationKey = dto.getUniversityName() + "|" + dto.getPostgradMajorCode();
+            String relationKey = universityName + "|" + postgradMajorCode;
             if (relationKeysInFile.contains(relationKey)) {
-                errors.add("第" + rowNum + "行: [" + dto.getUniversityName() + ", " + dto.getPostgradMajorCode() + "]组合在文件中重复");
+                errors.add("第" + rowNum + "行: [" + universityName + ", " + postgradMajorCode + "]组合在文件中重复");
                 continue;
             }
             relationKeysInFile.add(relationKey);
 
             // 根据大学名称查询university_id
-            Long universityId = universityMapper.selectIdByName(dto.getUniversityName());
+            Long universityId = universityMapper.selectIdByName(universityName);
             if (universityId == null) {
-                errors.add("第" + rowNum + "行: 大学[" + dto.getUniversityName() + "]不存在");
+                errors.add("第" + rowNum + "行: 大学[" + universityName + "]不存在");
                 continue;
             }
 
             // 根据考研专业代码查询postgrad_major_id和postgrad_major_name
-            Long postgradMajorId = postgradMajorMapper.selectIdByMajorCode(dto.getPostgradMajorCode());
+            Long postgradMajorId = postgradMajorMapper.selectIdByMajorCode(postgradMajorCode);
             if (postgradMajorId == null) {
-                errors.add("第" + rowNum + "行: 考研专业[" + dto.getPostgradMajorCode() + "]不存在");
+                errors.add("第" + rowNum + "行: 考研专业[" + postgradMajorCode + "]不存在");
                 continue;
             }
 
-            String postgradMajorName = postgradMajorMapper.selectNameByMajorCode(dto.getPostgradMajorCode());
+            String postgradMajorName = postgradMajorMapper.selectNameByMajorCode(postgradMajorCode);
 
             // 检查数据库中是否已存在该关联
             if (postgradMajorUniversityMapper.existsByRelation(postgradMajorId, universityId)) {
-                errors.add("第" + rowNum + "行: [" + dto.getUniversityName() + ", " + dto.getPostgradMajorCode() + "]关联已存在");
+                errors.add("第" + rowNum + "行: [" + universityName + ", " + postgradMajorCode + "]关联已存在");
                 continue;
             }
 
@@ -264,7 +267,7 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
                     .id(id)
                     .postgradMajorId(postgradMajorId)
                     .universityId(universityId)
-                    .universityName(dto.getUniversityName())
+                    .universityName(universityName)
                     .postgradMajorName(postgradMajorName)
                     .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
                     .status((short) 1)

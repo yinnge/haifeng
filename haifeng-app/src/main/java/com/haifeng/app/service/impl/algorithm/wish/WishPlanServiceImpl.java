@@ -309,6 +309,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                         .groupCode(group.getGroupCode())
                         .groupName(group.getGroupName())
                         .subjects(group.getSubjects())
+                        .requirementType(group.getRequirementType())
                         .description(group.getDescription())
                         .constraintsDescription(group.getConstraints())
                         .category(univ != null ? univ.getCategory() : null)
@@ -1081,9 +1082,9 @@ public class WishPlanServiceImpl implements WishPlanService {
     }
 
     private int getMaxPlans(String memberType) {
-        if ("vip".equals(memberType)) return 10;
-        if ("pro".equals(memberType)) return 5;
-        return 1;
+        if ("vip".equals(memberType)) return 20;
+        if ("pro".equals(memberType)) return 10;
+        return 2;
     }
 
     private WishPlanListVO toPlanListVO(WishPlan plan) {
@@ -1136,6 +1137,7 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .province(snap.getProvince())
                 .batch(snap.getBatch())
                 .subjects(snap.getSubjects())
+                .requirementType(snap.getRequirementType())
                 .constraintsDescription(snap.getConstraintsDescription())
                 .description(snap.getDescription())
                 .majorCount(snap.getMajorCount())

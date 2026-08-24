@@ -187,43 +187,45 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             for (int i = 0; i < excelData.size(); i++) {
                 int rowNum = i + 2;
                 EnterpriseIndustryExcelDTO dto = excelData.get(i);
+                String enterpriseName = dto.getEnterpriseName().trim();
+                String industryName = dto.getIndustryName().trim();
 
                 // 校验企业名称必填
-                if (!StringUtils.hasText(dto.getEnterpriseName())) {
+                if (!StringUtils.hasText(enterpriseName)) {
                     errorMsgs.add("第" + rowNum + "行：企业名称不能为空");
                     continue;
                 }
 
                 // 校验行业名称必填
-                if (!StringUtils.hasText(dto.getIndustryName())) {
+                if (!StringUtils.hasText(industryName)) {
                     errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
                     continue;
                 }
 
                 // 校验字段长度
-                if (dto.getEnterpriseName().length() > 200) {
+                if (enterpriseName.length() > 200) {
                     errorMsgs.add("第" + rowNum + "行：企业名称长度不能超过200个字符");
                     continue;
                 }
-                if (dto.getIndustryName().length() > 100) {
+                if (industryName.length() > 100) {
                     errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
                     continue;
                 }
 
                 // 校验企业名称存在于t_enterprise
-                Long enterpriseId = enterpriseMapper.findIdByEnterpriseName(dto.getEnterpriseName());
+                Long enterpriseId = enterpriseMapper.findIdByEnterpriseName(enterpriseName);
                 if (enterpriseId == null) {
-                    errorMsgs.add("第" + rowNum + "行：企业名称'" + dto.getEnterpriseName() + "'不存在");
+                    errorMsgs.add("第" + rowNum + "行：企业名称'" + enterpriseName + "'不存在");
                     continue;
                 }
 
                 // 校验行业名称存在于t_industry
                 LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(Industry::getIndustryName, dto.getIndustryName())
+                wrapper.eq(Industry::getIndustryName, industryName)
                        .eq(Industry::getIsDeleted, false);
                 Industry industry = industryMapper.selectOne(wrapper);
                 if (industry == null) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + dto.getIndustryName() + "'不存在");
+                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'不存在");
                     continue;
                 }
                 Long industryId = industry.getId();
@@ -231,16 +233,16 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
                 // 检查文件内(enterpriseId, industryId)重复
                 String pairKey = enterpriseId + "_" + industryId;
                 if (pairsInFile.contains(pairKey)) {
-                    errorMsgs.add("第" + rowNum + "行：企业'" + dto.getEnterpriseName()
-                            + "'与行业'" + dto.getIndustryName() + "'的关联在文件中重复");
+                    errorMsgs.add("第" + rowNum + "行：企业'" + enterpriseName
+                            + "'与行业'" + industryName + "'的关联在文件中重复");
                     continue;
                 }
                 pairsInFile.add(pairKey);
 
                 // 检查数据库中(enterpriseId, industryId)是否已存在
                 if (enterpriseIndustryMapper.existsByEnterpriseIdAndIndustryId(enterpriseId, industryId)) {
-                    errorMsgs.add("第" + rowNum + "行：企业'" + dto.getEnterpriseName()
-                            + "'与行业'" + dto.getIndustryName() + "'的关联已存在于数据库中");
+                        errorMsgs.add("第" + rowNum + "行：企业'" + enterpriseName
+                                + "'与行业'" + industryName + "'的关联已存在于数据库中");
                     continue;
                 }
 
@@ -249,9 +251,9 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
                 EnterpriseIndustry entity = EnterpriseIndustry.builder()
                         .id(id)
                         .enterpriseId(enterpriseId)
-                        .enterpriseName(dto.getEnterpriseName())
+                        .enterpriseName(enterpriseName)
                         .industryId(industryId)
-                        .industryName(dto.getIndustryName())
+                        .industryName(industryName)
                         .isPrimary(false)
                         .sortOrder((short) 0)
                         .createdAt(now)
