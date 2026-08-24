@@ -2,6 +2,7 @@ package com.haifeng.app.service.impl.fileload;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.service.fileload.FileLoadService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
@@ -23,7 +24,11 @@ import org.springframework.util.StringUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,7 +42,7 @@ public class FileLoadServiceImpl implements FileLoadService {
 
     @Override
     public IPage<FileLoadListVO> page(BasePageQueryDTO dto, String targetAudience,
-                                       String subject, String applicableStage) {
+                                       String subject, String applicableStage, String tag) {
         Page<FileInfo> page = new Page<>(dto.getPage(), dto.getSize());
 
         LambdaQueryWrapper<FileInfo> wrapper = new LambdaQueryWrapper<>();
@@ -49,6 +54,9 @@ public class FileLoadServiceImpl implements FileLoadService {
         }
         if (StringUtils.hasText(applicableStage)) {
             wrapper.eq(FileInfo::getApplicableStage, applicableStage);
+        }
+        if (StringUtils.hasText(tag)) {
+            wrapper.eq(FileInfo::getTag, tag);
         }
 
         wrapper.orderByDesc(FileInfo::getCreateTime);
@@ -63,6 +71,36 @@ public class FileLoadServiceImpl implements FileLoadService {
     }
 
     @Override
+    public List<String> listStages(String targetAudience) {
+        return distinctColumn(targetAudience, FileInfo::getApplicableStage);
+    }
+
+    @Override
+    public List<String> listSubjects(String targetAudience) {
+        return distinctColumn(targetAudience, FileInfo::getSubject);
+    }
+
+    @Override
+    public List<String> listTags(String targetAudience) {
+        return distinctColumn(targetAudience, FileInfo::getTag);
+    }
+
+    /** 取某受众下指定列的去重非空值（用于前端筛选下拉/按钮） */
+    private List<String> distinctColumn(String targetAudience, SFunction<FileInfo, String> column) {
+        LambdaQueryWrapper<FileInfo> w = new LambdaQueryWrapper<>();
+        w.eq(FileInfo::getDeleted, false)
+         .eq(FileInfo::getTargetAudience, targetAudience)
+         .isNotNull(column)
+         .ne(column, "")
+         .groupBy(column)
+         .select(column);
+        return fileInfoMapper.selectObjs(w).stream()
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public FileLoadDetailVO detail(Long id) {
         FileInfo fileInfo = fileInfoMapper.selectById(id);
         if (fileInfo == null || fileInfo.getDeleted()) {
@@ -72,13 +110,24 @@ public class FileLoadServiceImpl implements FileLoadService {
         FileLoadDetailVO vo = new FileLoadDetailVO();
         BeanUtils.copyProperties(fileInfo, vo);
 
-        // 生成预签名下载URL
-        String downloadUrl = ossService.generatePresignedUrl(fileInfo.getFileUrl());
+        // 生成预签名下载URL（带源文件名，浏览器下载时同名自动加 (1)、(2)）
+        String downloadUrl = ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName());
         vo.setDownloadUrl(downloadUrl);
 
-        // 生成KKFileView预览URL
+        // 生成KKFileView预览URL（4.x 要求 url 参数为 Base64 编码）
+        // 【关键1】预览必须用【干净】的 OSS 预签名 URL（不带 disposition），否则 URL 里 response-content-disposition
+        // 的 +/中文百分号编码会让 KKFileView 解析时 500（Spring Boot 默认 Whitelabel）。
+        // 【关键2】Base64 用【标准版】(getEncoder，A-Za-z0-9+/)：KKFileView 用 Spring Base64Utils 解码，
+        // 不认 URL-safe 的 -/_（容器日志实测 Illegal base64 character 5f=_）；标准 Base64 含 +/= 作 query
+        // 参数会被当空格/截断，所以【必须再 URL 编码一次】（+→%2B 等）。
         if (isPreviewable(fileInfo.getFileType())) {
-            String encodedUrl = URLEncoder.encode(downloadUrl, StandardCharsets.UTF_8);
+            String previewOssUrl = ossService.generatePresignedUrl(fileInfo.getFileUrl());
+            // KKFileView 内部会 URLDecoder.decode 一次源 URL：签名 URL 里的 %2B(+) 会被还原成 +，
+            // 而 + 在 query 中被 OSS 当作空格 → 签名失效 403（docx 等需下载转换的文件必现，PDF 靠运气）。
+            // 解法：% → %25 双重编码，KKFileView 解码一次后恰好还原为原始 %XX，OSS 正常解析。
+            String b64 = Base64.getEncoder().encodeToString(
+                    previewOssUrl.replace("%", "%25").getBytes(StandardCharsets.UTF_8));
+            String encodedUrl = URLEncoder.encode(b64, StandardCharsets.UTF_8);
             vo.setPreviewUrl(ossProperties.getKkfileviewBaseUrl() + "/onlinePreview?url=" + encodedUrl);
         }
 
@@ -105,9 +154,13 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(429, "操作频繁，请稍后再试");
         }
 
-        // 生成OSS预签名URL（临时可访问）
+        // 生成【干净】OSS预签名URL（不带 disposition，否则 KKFileView 解析 URL 里的
+        // response-content-disposition 中的 +/中文百分号编码时会 500）
         String ossUrl = ossService.generatePresignedUrl(fileInfo.getFileUrl());
-        String encodedUrl = URLEncoder.encode(ossUrl, StandardCharsets.UTF_8);
+        // KKFileView 会 URLDecoder.decode 一次源 URL（%2B→+ 被 OSS 当空格 → 403）；%→%25 双重编码抵消
+        String b64 = Base64.getEncoder().encodeToString(
+                ossUrl.replace("%", "%25").getBytes(StandardCharsets.UTF_8));
+        String encodedUrl = URLEncoder.encode(b64, StandardCharsets.UTF_8);
 
         // 返回KKFileView预览地址
         return ossProperties.getKkfileviewBaseUrl() + "/onlinePreview?url=" + encodedUrl;
@@ -129,7 +182,7 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(429, "操作频繁，请稍后再试");
         }
 
-        return ossService.generatePresignedUrl(fileInfo.getFileUrl());
+        return ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName());
     }
 
     private boolean isPreviewable(String fileType) {

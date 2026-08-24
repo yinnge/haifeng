@@ -293,23 +293,24 @@ public class EnterpriseServiceImpl implements EnterpriseService {
             for (int i = 0; i < enterpriseData.size(); i++) {
                 int rowNum = i + 2;
                 EnterpriseExcelDTO data = enterpriseData.get(i);
+                String enterpriseName = data.getEnterpriseName().trim();
 
                 // 校验企业名称必填
-                if (!StringUtils.hasText(data.getEnterpriseName())) {
+                if (!StringUtils.hasText(enterpriseName)) {
                     errorMsgs.add("企业主表第" + rowNum + "行：企业名称不能为空");
                     continue;
                 }
 
                 // 检查文件内重复
-                if (enterpriseNamesInFile.contains(data.getEnterpriseName())) {
-                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'在文件中重复");
+                if (enterpriseNamesInFile.contains(enterpriseName)) {
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + enterpriseName + "'在文件中重复");
                     continue;
                 }
-                enterpriseNamesInFile.add(data.getEnterpriseName());
+                enterpriseNamesInFile.add(enterpriseName);
 
                 // 检查数据库中是否已存在
-                if (enterpriseMapper.existsByEnterpriseName(data.getEnterpriseName())) {
-                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + data.getEnterpriseName() + "'已存在于数据库中");
+                if (enterpriseMapper.existsByEnterpriseName(enterpriseName)) {
+                    errorMsgs.add("企业主表第" + rowNum + "行：企业名称'" + enterpriseName + "'已存在于数据库中");
                     continue;
                 }
 
@@ -327,7 +328,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 }
 
                 // 校验字段长度
-                if (data.getEnterpriseName().length() > 200) {
+                if (enterpriseName.length() > 200) {
                     errorMsgs.add("企业主表第" + rowNum + "行：企业名称长度不能超过200个字符");
                     continue;
                 }
@@ -365,12 +366,12 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 }
 
                 Long enterpriseId = SnowflakeIdGenerator.nextId();
-                enterpriseNameToIdMap.put(data.getEnterpriseName(), enterpriseId);
+                enterpriseNameToIdMap.put(enterpriseName, enterpriseId);
 
                 Enterprise enterprise = Enterprise.builder()
                         .id(enterpriseId)
                         .cityName(data.getCityName())
-                        .enterpriseName(data.getEnterpriseName())
+                        .enterpriseName(enterpriseName)
                         .enterpriseNature(data.getEnterpriseNature())
                         .enterpriseType(data.getEnterpriseType())
                         .logoUrl(data.getLogoUrl())
@@ -393,16 +394,17 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 for (int i = 0; i < positionData.size(); i++) {
                     int rowNum = i + 2;
                     EnterprisePositionExcelDTO data = positionData.get(i);
+                    String enterpriseName = data.getEnterpriseName().trim();
 
                     // 校验企业名称必填
-                    if (!StringUtils.hasText(data.getEnterpriseName())) {
+                    if (!StringUtils.hasText(enterpriseName)) {
                         errorMsgs.add("企业岗位第" + rowNum + "行：企业名称不能为空");
                         continue;
                     }
 
                     // 校验企业名称必须在企业主表中存在
-                    if (!enterpriseNameToIdMap.containsKey(data.getEnterpriseName())) {
-                        errorMsgs.add("企业岗位第" + rowNum + "行：企业名称'" + data.getEnterpriseName()
+                    if (!enterpriseNameToIdMap.containsKey(enterpriseName)) {
+                        errorMsgs.add("企业岗位第" + rowNum + "行：企业名称'" + enterpriseName
                                 + "'在企业数据Sheet中不存在");
                         continue;
                     }
@@ -474,7 +476,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                         continue;
                     }
 
-                    Long enterpriseId = enterpriseNameToIdMap.get(data.getEnterpriseName());
+                    Long enterpriseId = enterpriseNameToIdMap.get(enterpriseName);
                     Long positionId = SnowflakeIdGenerator.nextId();
 
                     EnterprisePosition position = EnterprisePosition.builder()

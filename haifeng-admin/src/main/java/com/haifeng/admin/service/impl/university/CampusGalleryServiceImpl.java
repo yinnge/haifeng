@@ -251,13 +251,13 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
         List<CampusGalleryExcelDTO> dataList;
         try {
-dataList = EasyExcel.read(file.getInputStream())
-                .head(CampusGalleryExcelDTO.class)
-                .sheet("校园图库")
-                .doReadSync();
-        } catch (IOException e) {
-            log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+            dataList = EasyExcel.read(file.getInputStream())
+                    .head(CampusGalleryExcelDTO.class)
+                    .sheet("校园图库")
+                    .doReadSync();
+        } catch (Exception e) {
+            log.error("读取『校园图库』Sheet失败", e);
+            throw new BusinessException(400, "读取『校园图库』Sheet失败，请确认Sheet名称为『校园图库』且表头正确: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {

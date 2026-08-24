@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * 外部宏观全景研判（Reduce 阶段第二部分）
- * <p>包含院校分析、专业分析、城市分析、综合考虑四个子模块
+ * <p>包含赛道分类研判、政策红利分析、院校分析、专业分析、城市分析、综合考虑
  */
 @Data
 @Builder
@@ -18,17 +18,25 @@ import java.util.List;
 @AllArgsConstructor
 public class MacroAnalysisVO {
 
-    /** 2.1 院校分析列表 */
+    /** 2.1 赛道分类研判（HTML） */
+    private String trackAnalysis;
+
+    /** 2.2 政策红利分析（HTML） */
+    private String policyAnalysis;
+
+    /** 2.3 综合考虑 */
+    private ComprehensiveAnalysis comprehensiveAnalysis;
+
+    // ===================== 院校/专业/城市分析（用于第六、七、八部分） =====================
+
+    /** 院校分析列表 */
     private List<UniversityAnalysis> universityAnalysis;
 
-    /** 2.2 专业分析列表（去重后） */
+    /** 专业分析列表（去重后） */
     private List<MajorAnalysis> majorAnalysis;
 
-    /** 2.3 城市分析列表（去重后） */
+    /** 城市分析列表（去重后） */
     private List<CityAnalysis> cityAnalysis;
-
-    /** 2.4 综合考虑 */
-    private ComprehensiveAnalysis comprehensiveAnalysis;
 
     // ===================== 嵌套类 =====================
 

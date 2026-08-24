@@ -314,27 +314,29 @@ public class IndustryServiceImpl implements IndustryService {
                 int rowNum = i + 2;
                 IndustryExcelDTO data = mainData.get(i);
 
+                String industryName = data.getIndustryName() == null ? null : data.getIndustryName().trim();
+
                 // 校验必填字段
-                if (!StringUtils.hasText(data.getIndustryName())) {
+                if (!StringUtils.hasText(industryName)) {
                     errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
                     continue;
                 }
 
                 // 检查文件内重复
-                if (industryNamesInFile.contains(data.getIndustryName())) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'在文件中重复");
+                if (industryNamesInFile.contains(industryName)) {
+                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'在文件中重复");
                     continue;
                 }
-                industryNamesInFile.add(data.getIndustryName());
+                industryNamesInFile.add(industryName);
 
                 // 检查数据库中是否已存在
-                if (industryMapper.existsByIndustryName(data.getIndustryName())) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'已存在");
+                if (industryMapper.existsByIndustryName(industryName)) {
+                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'已存在");
                     continue;
                 }
 
                 // 校验字段长度
-                if (data.getIndustryName().length() > 100) {
+                if (industryName.length() > 100) {
                     errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
                     continue;
                 }
@@ -395,7 +397,7 @@ public class IndustryServiceImpl implements IndustryService {
 
                 Industry industry = Industry.builder()
                         .id(industryId)
-                        .industryName(data.getIndustryName())
+                        .industryName(industryName)
                         .category(data.getCategory())
                         .iconClass(data.getIconClass())
                         .description(data.getDescription())
@@ -415,7 +417,7 @@ public class IndustryServiceImpl implements IndustryService {
                 IndustryDetail detail = IndustryDetail.builder()
                         .id(detailId)
                         .industryId(industryId)
-                        .industryName(data.getIndustryName())
+                        .industryName(industryName)
                         .isDeleted(false)
                         .createdAt(now)
                         .updatedAt(now)
@@ -548,7 +550,7 @@ public class IndustryServiceImpl implements IndustryService {
 
             // 按行业名称分组JSONB数据
             Map<String, Map<String, Object>> scaleMap = buildJsonbMap(scaleData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("scaleValue", dto.getScaleValue());
@@ -558,7 +560,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> talentDemandMap = buildJsonbMap(talentDemandData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("demandValue", dto.getDemandValue());
@@ -568,7 +570,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> salaryMap = buildJsonbMap(salaryData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("salaryRange", dto.getSalaryRange());
@@ -578,7 +580,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> policyInfoMap = buildJsonbMap(policyInfoData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("policyOverview", dto.getPolicyOverview());
@@ -588,7 +590,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> developmentSupportMap = buildJsonbMap(developmentSupportData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("regionalOverview", dto.getRegionalOverview());
@@ -598,7 +600,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> talentAnalysisMap = buildJsonbMap(talentAnalysisData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("analysisTitle", dto.getAnalysisTitle());
@@ -610,7 +612,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> talentPolicyMap = buildJsonbMap(talentPolicyData,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("policyTitle", dto.getPolicyTitle());
@@ -621,7 +623,7 @@ public class IndustryServiceImpl implements IndustryService {
                     });
 
             Map<String, Map<String, Object>> salaryDataMap = buildJsonbMap(salaryDataExcelList,
-                    dto -> dto.getIndustryName(),
+                    dto -> dto.getIndustryName() == null ? null : dto.getIndustryName().trim(),
                     dto -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("salaryAnalysisTitle", dto.getSalaryAnalysisTitle());
@@ -643,17 +645,19 @@ public class IndustryServiceImpl implements IndustryService {
                 int rowNum = i + 2;
                 IndustryDetailExcelDTO data = detailData.get(i);
 
-                if (!StringUtils.hasText(data.getIndustryName())) {
+                String industryName = data.getIndustryName() == null ? null : data.getIndustryName().trim();
+
+                if (!StringUtils.hasText(industryName)) {
                     errorMsgs.add("Sheet0第" + rowNum + "行：行业名称不能为空");
                     continue;
                 }
 
                 // 检查文件内重复
-                if (detailNamesInFile.contains(data.getIndustryName())) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'在文件中重复");
+                if (detailNamesInFile.contains(industryName)) {
+                    errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + industryName + "'在文件中重复");
                     continue;
                 }
-                detailNamesInFile.add(data.getIndustryName());
+                detailNamesInFile.add(industryName);
 
                 // 校验字段长度
                 if (StringUtils.hasText(data.getShortDescription()) && data.getShortDescription().length() > 500) {
@@ -662,24 +666,24 @@ public class IndustryServiceImpl implements IndustryService {
                 }
 
                 // 查询行业ID
-                Long industryId = industryIdCache.get(data.getIndustryName());
+                Long industryId = industryIdCache.get(industryName);
                 if (industryId == null) {
                     LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
-                    wrapper.eq(Industry::getIndustryName, data.getIndustryName())
+                    wrapper.eq(Industry::getIndustryName, industryName)
                            .eq(Industry::getIsDeleted, false);
                     Industry industry = industryMapper.selectOne(wrapper);
                     if (industry == null) {
-                        errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + data.getIndustryName() + "'不存在");
+                        errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + industryName + "'不存在");
                         continue;
                     }
                     industryId = industry.getId();
-                    industryIdCache.put(data.getIndustryName(), industryId);
+                    industryIdCache.put(industryName, industryId);
                 }
 
                 // 查询详情记录
                 IndustryDetail detail = industryDetailMapper.findByIndustryId(industryId);
                 if (detail == null) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：行业'" + data.getIndustryName() + "'的详情记录不存在");
+                    errorMsgs.add("Sheet0第" + rowNum + "行：行业'" + industryName + "'的详情记录不存在");
                     continue;
                 }
 
@@ -688,14 +692,14 @@ public class IndustryServiceImpl implements IndustryService {
                 detail.setDetailedDescription(data.getDetailedDescription());
 
                 // 设置JSONB字段
-                detail.setIndustryScale(scaleMap.get(data.getIndustryName()));
-                detail.setIndustryTalentDemand(talentDemandMap.get(data.getIndustryName()));
-                detail.setIndustrySalary(salaryMap.get(data.getIndustryName()));
-                detail.setPolicyInfo(policyInfoMap.get(data.getIndustryName()));
-                detail.setDevelopmentSupportInfo(developmentSupportMap.get(data.getIndustryName()));
-                detail.setTalentAnalysis(talentAnalysisMap.get(data.getIndustryName()));
-                detail.setTalentPolicy(talentPolicyMap.get(data.getIndustryName()));
-                detail.setSalaryData(salaryDataMap.get(data.getIndustryName()));
+                detail.setIndustryScale(scaleMap.get(industryName));
+                detail.setIndustryTalentDemand(talentDemandMap.get(industryName));
+                detail.setIndustrySalary(salaryMap.get(industryName));
+                detail.setPolicyInfo(policyInfoMap.get(industryName));
+                detail.setDevelopmentSupportInfo(developmentSupportMap.get(industryName));
+                detail.setTalentAnalysis(talentAnalysisMap.get(industryName));
+                detail.setTalentPolicy(talentPolicyMap.get(industryName));
+                detail.setSalaryData(salaryDataMap.get(industryName));
 
                 detail.setUpdatedAt(OffsetDateTime.now());
                 industryDetailMapper.updateById(detail);
@@ -739,6 +743,7 @@ public class IndustryServiceImpl implements IndustryService {
         Set<String> seen = new HashSet<>();
         for (int i = 0; i < dataList.size(); i++) {
             String name = nameExtractor.apply(dataList.get(i));
+            if (name != null) name = name.trim();
             if (StringUtils.hasText(name) && !seen.add(name)) {
                 errorMsgs.add(sheetName + "第" + (i + 2) + "行：行业名称'" + name + "'在文件中重复");
             }
@@ -755,6 +760,7 @@ public class IndustryServiceImpl implements IndustryService {
         if (dataList == null) return;
         for (int i = 0; i < dataList.size(); i++) {
             String name = nameExtractor.apply(dataList.get(i));
+            if (name != null) name = name.trim();
             if (StringUtils.hasText(name) && !validNames.contains(name)) {
                 errorMsgs.add(sheetName + "第" + (i + 2) + "行：行业名称'" + name + "'在Sheet0中不存在");
             }

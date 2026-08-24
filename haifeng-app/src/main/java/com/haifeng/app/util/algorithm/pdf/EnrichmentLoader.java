@@ -11,6 +11,8 @@ import com.haifeng.common.mapper.city.CityDetailMapper;
 import com.haifeng.common.mapper.city.CityMapper;
 import com.haifeng.common.mapper.major.MajorDetailMapper;
 import com.haifeng.common.mapper.major.MajorMapper;
+import com.haifeng.common.mapper.university.UniversityDetailMapper;
+import com.haifeng.common.entity.university.UniversityDetail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -37,6 +39,7 @@ public class EnrichmentLoader {
     private final CityDetailMapper cityDetailMapper;
     private final MajorMapper majorMapper;
     private final MajorDetailMapper majorDetailMapper;
+    private final UniversityDetailMapper universityDetailMapper;
 
     /**
      * 按城市名加载城市增强数据
@@ -164,6 +167,41 @@ public class EnrichmentLoader {
             return result;
         } catch (Exception e) {
             log.warn("批量加载专业增强数据失败, majorIds.size={}: {}", majorIds.size(), e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * 批量加载大学官网地址：按 universityId 查询 t_universities_detail.website，
+     * 查询失败或未命中时对应 key 不在 Map 中（不抛异常，调用方应做 null 防御）。
+     *
+     * @param universityIds 大学ID集合
+     * @return universityId -> website 的映射
+     */
+    public Map<Long, String> loadUniversityWebsites(Collection<Long> universityIds) {
+        if (CollectionUtils.isEmpty(universityIds)) {
+            return Collections.emptyMap();
+        }
+        try {
+            List<Long> ids = universityIds.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (ids.isEmpty()) {
+                return Collections.emptyMap();
+            }
+            List<UniversityDetail> details = universityDetailMapper.selectList(
+                    new LambdaQueryWrapper<UniversityDetail>()
+                            .in(UniversityDetail::getUniversityId, ids)
+                            .isNotNull(UniversityDetail::getWebsite));
+            if (CollectionUtils.isEmpty(details)) {
+                return Collections.emptyMap();
+            }
+            return details.stream()
+                    .filter(d -> d.getUniversityId() != null && d.getWebsite() != null && !d.getWebsite().isBlank())
+                    .collect(Collectors.toMap(UniversityDetail::getUniversityId, UniversityDetail::getWebsite, (a, b) -> a));
+        } catch (Exception e) {
+            log.warn("批量加载大学官网失败, universityIds.size={}: {}", universityIds.size(), e.getMessage());
             return Collections.emptyMap();
         }
     }

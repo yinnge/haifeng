@@ -22,6 +22,10 @@ public class FileLoadDetailVO {
 
     private String applicableStage;
 
+    private String description;
+
+    private String tag;
+
     private String previewUrl;
 
     private String downloadUrl;

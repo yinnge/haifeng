@@ -382,9 +382,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                     .head(DepartmentExcelDTO.class)
                     .sheet("院系主表")
                     .doReadSync();
-        } catch (IOException e) {
-            log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("读取『院系主表』Sheet失败", e);
+            throw new BusinessException(400, "读取『院系主表』Sheet失败，请确认Sheet名称为『院系主表』且表头正确: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {
@@ -396,6 +396,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         }
 
         List<String> errors = new ArrayList<>();
+        List<String> mainDeptNames = new ArrayList<>();
         List<Department> validList = new ArrayList<>();
         Map<String, University> universityCache = new HashMap<>();
         OffsetDateTime now = OffsetDateTime.now();
@@ -412,6 +413,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 errors.add("第" + rowNum + "行: 院系名称不能为空");
                 continue;
             }
+            mainDeptNames.add(dto.getDepartmentName().trim());
             if (!StringUtils.hasText(dto.getDepartmentType())) {
                 errors.add("第" + rowNum + "行: 院系类型不能为空");
                 continue;
@@ -499,6 +501,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             List<String> errors = new ArrayList<>();
             OffsetDateTime now = OffsetDateTime.now();
             int successCount = 0;
+            List<String> mainDeptNames = new ArrayList<>();
 
             for (int i = 0; i < mainDataList.size(); i++) {
                 int rowNum = i + 2;
@@ -533,7 +536,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 }
 
                 DepartmentReport existingReport = departmentReportMapper.selectByDepartmentId(dept.getId());
-                Map<String, Object> reportData = reportDataMap.get(dto.getDepartmentName());
+                Map<String, Object> reportData = reportDataMap.get(dto.getDepartmentName().trim());
 
                 if (existingReport != null) {
                     applyReportData(existingReport, reportData);
@@ -555,6 +558,12 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 successCount++;
             }
 
+            for (String reportDept : reportDataMap.keySet()) {
+                if (!mainDeptNames.contains(reportDept)) {
+                    errors.add("报告分类Sheet中的院系名称[" + reportDept + "]在主表『院系主表』中不存在，该数据未导入");
+                }
+            }
+
             if (!errors.isEmpty()) {
                 String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
                         errors.size(), String.join("; ", errors));
@@ -563,9 +572,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
             log.info("导入院系报告数据成功: 共{}条", successCount);
 
-        } catch (IOException e) {
-            log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("读取院系报告Excel失败", e);
+            throw new BusinessException(400, "读取院系报告Excel失败: " + e.getMessage());
         }
     }
 
@@ -579,9 +588,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             List<List<String>> rows;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 rows = readSheetRows(is, sheetName);
+            } catch (BusinessException be) {
+                throw be;
             } catch (Exception e) {
-                log.warn("Sheet「{}」读取失败，已跳过: {}", sheetName, e.getMessage());
-                continue;
+                throw new BusinessException(400, "分类Sheet「" + sheetName + "」读取失败: " + e.getMessage());
             }
 
             if (rows == null || rows.size() < 2) continue;
@@ -818,9 +828,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 }
             }
             return result;
+        } catch (BusinessException be) {
+            throw be;
         } catch (Exception e) {
-            log.warn("读取Sheet「{}」失败: {}", sheetName, e.getMessage());
-            return Collections.emptyList();
+            throw new BusinessException(400, "读取Sheet「" + sheetName + "」失败: " + e.getMessage());
         }
     }
 }

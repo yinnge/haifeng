@@ -195,9 +195,9 @@ public class MajorPostgradDirectionServiceImpl implements MajorPostgradDirection
                     .head(MajorPostgradDirectionImportDTO.class)
                     .sheet()
                     .doReadSync();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+            throw new BusinessException(400, "Excel文件解析失败，请确认文件为有效的.xlsx且表头正确: " + e.getMessage());
         }
 
         if (dataList != null && dataList.size() > MAX_IMPORT_ROWS) {

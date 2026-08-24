@@ -74,4 +74,20 @@ public interface PdfReportService {
      * @param recordId 报告记录ID
      */
     void deleteRecord(Long userId, Integer recordId);
+
+    /**
+     * 生成 PDF 预览签名 token（存 Redis，一次性使用）
+     *
+     * @param recordId 报告记录ID
+     * @return 签名 token
+     */
+    String generatePreviewToken(Integer recordId);
+
+    /**
+     * 不校验 userId 的 PDF 渲染（给公开预览端点用）
+     *
+     * @param recordId 报告记录ID
+     * @return PDF 字节数组
+     */
+    byte[] renderPdf(Integer recordId);
 }

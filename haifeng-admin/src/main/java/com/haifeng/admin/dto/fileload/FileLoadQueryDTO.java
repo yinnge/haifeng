@@ -17,4 +17,7 @@ public class FileLoadQueryDTO extends BasePageQueryDTO {
 
     /** 适合人群筛选（初一/初二/高一/高二等） */
     private String applicableStage;
+
+    /** 标签筛选（备考指南/就业辅导等，精准匹配） */
+    private String tag;
 }

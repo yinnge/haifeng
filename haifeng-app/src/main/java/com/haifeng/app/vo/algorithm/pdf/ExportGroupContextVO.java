@@ -1,6 +1,8 @@
 package com.haifeng.app.vo.algorithm.pdf;
 
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
+import com.haifeng.common.entity.major.MajorDetail;
+import com.haifeng.common.entity.major.MajorPostgradDirection;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -45,4 +47,13 @@ public class ExportGroupContextVO {
 
     /** 城市增强数据（产业/GDP/薪资等，供 AI 分析与 PDF 展示） */
     private CityEnrichmentVO cityEnrichment;
+
+    /** 院校详细信息（从 University entity 获取，供第六部分：大学专项拆解） */
+    private UniversityInfoVO universityInfo;
+
+    /** 专业详情（从 MajorDetail 获取，供第七部分：专业专项拆解） */
+    private MajorDetail majorDetail;
+
+    /** 研究生方向列表（从 MajorPostgradDirection 获取） */
+    private List<MajorPostgradDirection> postgradDirections;
 }

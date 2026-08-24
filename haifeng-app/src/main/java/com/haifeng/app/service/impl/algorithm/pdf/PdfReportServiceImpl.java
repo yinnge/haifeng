@@ -20,16 +20,26 @@ import com.haifeng.common.exception.QuotaExceededException;
 import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
+import com.haifeng.common.config.OssProperties;
+import com.haifeng.common.config.PdfPreviewConfig;
+import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.ai.AiQuotaService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.HmacAlgorithms;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -57,6 +67,9 @@ public class PdfReportServiceImpl implements PdfReportService {
     private final PdfRenderService pdfRenderService;
     private final ChartService chartService;
     private final ExecutorService pdfMapExecutor;
+    private final PdfPreviewConfig pdfPreviewConfig;
+    private final OssProperties ossProperties;
+    private final StringRedisTemplate redisTemplate;
 
     public PdfReportServiceImpl(PdfReportMapper pdfReportMapper,
                                 AiChatService aiChatService,
@@ -67,7 +80,10 @@ public class PdfReportServiceImpl implements PdfReportService {
                                 MemberGaokaoMapper memberGaokaoMapper,
                                 PdfRenderService pdfRenderService,
                                 ChartService chartService,
-                                @Qualifier("pdfMapExecutor") ExecutorService pdfMapExecutor) {
+                                @Qualifier("pdfMapExecutor") ExecutorService pdfMapExecutor,
+                                PdfPreviewConfig pdfPreviewConfig,
+                                OssProperties ossProperties,
+                                StringRedisTemplate redisTemplate) {
         this.pdfReportMapper = pdfReportMapper;
         this.aiChatService = aiChatService;
         this.quotaService = quotaService;
@@ -78,6 +94,9 @@ public class PdfReportServiceImpl implements PdfReportService {
         this.pdfRenderService = pdfRenderService;
         this.chartService = chartService;
         this.pdfMapExecutor = pdfMapExecutor;
+        this.pdfPreviewConfig = pdfPreviewConfig;
+        this.ossProperties = ossProperties;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -260,6 +279,12 @@ public class PdfReportServiceImpl implements PdfReportService {
                 String chartBase64 = chartService.generateRankingChart(
                         reduceResult.getMacroAnalysis().getComprehensiveAnalysis().getRanking());
                 reduceResult.getMacroAnalysis().getComprehensiveAnalysis().setChartBase64(chartBase64);
+            }
+
+            // 生成体制内适配度图表（第十部分）
+            if (reduceResult.getCivilServiceScores() != null && !reduceResult.getCivilServiceScores().isEmpty()) {
+                String scoreChartBase64 = chartService.generateScoreChart(reduceResult.getCivilServiceScores());
+                reduceResult.setCivilServiceChartBase64(scoreChartBase64);
             }
 
             // M8: 若 Reduce 三段内容全空，视为失败
@@ -571,9 +596,21 @@ public class PdfReportServiceImpl implements PdfReportService {
                 ExportGroupContextVO group = item.getGroupSnapshotId() != null
                         ? groupMap.get(item.getGroupSnapshotId()) : null;
                 if (group != null) {
-                    // 从 WishGroupSnapshot 获取院校信息
                     if (group.getUniversityName() != null) {
                         uniNode.put("universityName", group.getUniversityName());
+                    }
+                    // 院校详细属性
+                    if (group.getUniversityInfo() != null) {
+                        var uni = group.getUniversityInfo();
+                        if (uni.getCategory() != null) uniNode.put("类别", uni.getCategory());
+                        if (uni.getEducationLevel() != null) uniNode.put("办学层次", uni.getEducationLevel());
+                        if (uni.getNature() != null) uniNode.put("办学性质", uni.getNature());
+                        if (Boolean.TRUE.equals(uni.getHasDoctorate())) uniNode.put("博士点", "有");
+                        if (Boolean.TRUE.equals(uni.getHasMaster())) uniNode.put("硕士点", "有");
+                        if (uni.getRecommendationRate() != null) uniNode.put("保研率", uni.getRecommendationRate());
+                        if (uni.getTags() != null && !uni.getTags().isEmpty()) {
+                            uniNode.set("标签", objectMapper.valueToTree(uni.getTags()));
+                        }
                     }
                 }
 
@@ -623,6 +660,22 @@ public class PdfReportServiceImpl implements PdfReportService {
                                 }
                             }
                         }
+                        // 专业详情（课程/培养目标/就业前景）
+                        if (group.getMajorDetail() != null) {
+                            var detail = group.getMajorDetail();
+                            if (detail.getMainCourses() != null) mNode.set("核心课程", objectMapper.valueToTree(detail.getMainCourses()));
+                            if (detail.getTrainingObjective() != null) mNode.put("培养目标", detail.getTrainingObjective());
+                            if (detail.getCareerProspect() != null) mNode.put("就业前景", detail.getCareerProspect());
+                        }
+                        // 研究生方向
+                        if (group.getPostgradDirections() != null && !group.getPostgradDirections().isEmpty()) {
+                            java.util.List<String> dirs = new java.util.ArrayList<>();
+                            for (var dir : group.getPostgradDirections()) {
+                                if (dir.getPostgradMajorName() != null) dirs.add(dir.getPostgradMajorName());
+                            }
+                            if (!dirs.isEmpty()) mNode.set("研究生方向", objectMapper.valueToTree(dirs));
+                        }
+                        break; // 只需从一个 group 获取即可
                     }
 
                     majorsNode.add(mNode);
@@ -757,17 +810,17 @@ public class PdfReportServiceImpl implements PdfReportService {
 
     /**
      * 构建 Reduce 阶段 System Prompt
-     * <p>新结构：院校/专业/城市分析 + 综合排名
+     * <p>新结构：学生画像 + 赛道分类 + 政策红利 + SWOT + 推荐梯队 + 大学/专业/城市专项拆解 + 综合评判
      */
     private String buildReduceSystemPrompt() {
         return """
-            你是海枫未来规划院的首席志愿规划专家。请根据提供的院校、专业、城市数据，进行外部宏观全景研判。
+            你是海枫未来规划院的首席志愿规划专家。请根据提供的院校、专业、城市数据，进行全面分析。
 
             数据结构说明：
-            - 「院校维度」：各专业组对应的大学信息 + Map阶段AI简评
-            - 「专业维度」：去重后的专业详情（就业率、薪资等）
-            - 「城市维度」：去重后的城市详情（GDP、产业等）
-            - 「专业明细」：每个专业组-专业的完整信息（用于排名）
+            - 「院校维度」：各专业组对应的大学信息 + Map阶段AI简评 + 院校详细属性（985/211/硕士点/博士点/保研率等）
+            - 「专业维度」：去重后的专业详情（就业率、薪资、课程、培养目标、就业前景等）
+            - 「城市维度」：去重后的城市详情（GDP、产业、薪资等）
+            - 「专业明细」：每个专业组-专业的完整信息（用于综合排名）
             - 「考生画像」：考生个人条件（可选）
 
             ## 输出要求
@@ -777,28 +830,138 @@ public class PdfReportServiceImpl implements PdfReportService {
             ## 学生画像
             如果有「考生画像」数据，用1-2句话总结考生核心条件（分数、位次、关键约束）。如果没有，输出"暂无考生画像数据"。
 
-            ## 院校分析
-            对「院校维度」中的每个大学，输出以下内容（每个大学100-200字）：
+            ## 赛道分类研判
+            把「专业维度」中的所有专业归入以下4类赛道，每个赛道列出相关专业名称并给出分析：
+
+            ### 高风险高收益赛道
+            - 赛道名称、产业逻辑、薪资上限、必须读研？、风险点、适配哪类考生
+
+            ### 高性价比赛道
+            - 赛道名称、产业逻辑、就业起薪区间、城市购买力、向外辐射就业圈、优缺点
+
+            ### 稳健保底赛道（下限高，上限一般）
+            - 赛道名称、刚需来源、岗位缺口、潜在隐忧、适配考生
+
+            ### 谨慎/规避赛道（结构性收缩）
+            - 赛道名称、收缩原因、仅适合的极小部分人群
+
+            ## 政策红利分析
+            国家政策对目标专业的影响：双碳、国产替代、军工、养老医疗、新型电力系统等。对每个相关专业说明机遇或风险。
+
+            ## 大学专项拆解
+            对「院校维度」中的每个大学，输出详细分析（500-800字）：
+
             ### [大学名称]
-            - **标签**：展示标签、类别、办学性质（从数据中提取）
-            - **分析**：结合该校的学科实力、就业资源、城市区位，给出客观研判
-            - 若有考生画像，结合考生条件说明匹配度
+            #### 6.1 大学基本面
+            - 院校属性：公办/民办、985/211/双一流、本科/专科、硕士点/博士点
+            - 就读城市：主导产业、本地国企央企资源、生活成本、向外辐射就业圈
+            - 本专业在校实力：学科评估等级、是否校级重点、师资力量、实验室条件、竞赛平台
+            - 深造数据：保研率、考研去向、往届学长学姐冲刺/稳妥/保底院校
+            - 入学限制：转专业政策、专项计划转专业限制、单科成绩要求、身体条件
 
-            ## 专业分析
-            对「专业维度」中的每个专业，输出以下内容（每个专业100-200字）：
+            #### 6.2 专业赛道研判
+            - 本科核心课程清单、学习难度
+            - 赛道归类：高风险/性价比/稳健/谨慎
+            - 行业前景：人才缺口、岗位饱和、AI替代风险、本科/硕士薪资区间、是否必须读研
+            - 岗位工作特征：是否倒班、出差、下现场、工作强度
+
+            #### 6.3 本科直接就业分析
+            - 可就业行业清单
+            - 可投递企业分层：高竞争池（央企总部）、中竞争池（央企二级/省属国企）、低竞争池（地市县级）
+            - 事业单位/公务员岗位清单、头部民企/中小企业
+            - 代表性岗位清单、硬性门槛（四六级/计算机证/党员等）
+            - 就业地域流向、本科就业风险点
+
+            #### 6.4 考研路径分析
+            - 本专业考研：考试科目、学硕/专硕区别、冲刺/稳妥/保底院校、分数线/报录比、复试风险
+            - 可跨考方向：需提前自学课程、复试追问的跨考动机、跨考风险
+            - 不建议跨考方向及原因
+            - 读研成本：学制、学费、预期收益
+            - 考研失利预案
+
+            #### 6.5 研究生毕业就业分析
+            - 硕士可冲击更高层级岗位：央企研究院、省公司、大厂研发、事业单位
+            - 硕士薪资区间、岗位上限
+            - 是否适合读博、读博适配人群
+            - 硕士就业风险：学历通胀、第一学历歧视、读博沉没成本
+
+            #### 6.6 综合适配结论
+            - 适合的学生特质
+            - 不适合的学生特质
+            - 大学四年关键动作提示（证书、竞赛、科研、实习）
+            - 核心风险提示
+
+            ## 专业专项拆解
+            对「专业维度」中的每个专业，输出详细分析（500-800字）：
+
             ### [专业名称]
-            - **信息**：学科门类、专业类、授予学位、就业率、薪资范围
-            - **分析**：结合就业前景、行业趋势、薪资水平，给出客观研判
-            - 若有考生画像，结合考生兴趣、身体条件、发展定位说明匹配度
+            #### 7.1 专业基本面
+            - 专业全名、学科门类、专业类、授予学位
+            - 核心课程清单、学习难度
+            - 培养目标、就业前景概述
 
-            ## 城市分析
-            对「城市维度」中的每个城市，输出以下内容（每个城市100-200字）：
+            #### 7.2 专业赛道研判
+            - 赛道归类
+            - 行业前景：人才缺口、饱和度、AI替代风险
+            - 本科/硕士薪资区间、天花板
+            - 是否必须读研
+            - 岗位特征：工作强度、出差频率、基层占比
+
+            #### 7.3 本科直接就业分析
+            - 可就业行业清单
+            - 企业分层：高/中/低竞争池
+            - 代表性岗位清单
+            - 硬性门槛
+            - 就业地域流向
+            - 本科就业风险点
+
+            #### 7.4 考研路径分析
+            - 本专业考研方向
+            - 跨考方向与风险
+            - 读研成本与收益
+
+            #### 7.5 研究生就业分析
+            - 硕士岗位层级提升
+            - 薪资区间
+            - 读博适配性
+            - 就业风险
+
+            #### 7.6 综合适配结论
+            - 适合/不适合的学生特质
+            - 大学四年关键动作
+            - 核心风险提示
+
+            ## 城市专项拆解
+            对「城市维度」中的每个城市，输出详细分析（500-800字）：
+
             ### [城市名称]
-            - **信息**：城市等级、GDP、增长率、500强数量、主要产业、新兴产业、平均薪资
-            - **分析**：结合产业结构、就业机会、发展潜力，给出客观研判
-            - 若有考生画像，结合考生留本省意愿、接受异地工作等条件说明匹配度
+            #### 8.1 城市基本面
+            - 城市等级、人口、GDP、增长率
+            - 500强企业数量、主要产业、新兴产业
 
-            ## 综合考虑
+            #### 8.2 城市产业分析
+            - 主导产业详细分析
+            - 产业结构优劣势
+            - 与目标专业的产业匹配度
+
+            #### 8.3 城市就业分析
+            - 就业机会总量与质量
+            - 体制内/体制外岗位分布
+            - 企业薪资水平
+            - 就业竞争激烈程度
+
+            #### 8.4 城市生活成本分析
+            - 房价/房租水平
+            - 生活物价
+            - 交通成本
+            - 落户难度
+
+            #### 8.5 城市综合适配结论
+            - 适合哪类考生
+            - 不适合哪类考生
+            - 核心建议
+
+            ## 综合评判
             对「专业明细」中的每个专业进行综合排名，输出以下内容：
 
             ### 排名表
@@ -813,13 +976,73 @@ public class PdfReportServiceImpl implements PdfReportService {
             3. 哪些是高风险高收益，哪些是稳妥选择
             4. 给出明确的填报建议
 
+            ## 就业前景与展望
+            基于志愿表中各专业的就业方向，输出以下3个子节：
+
+            ### 央国企对口方向
+            针对「专业维度」中的各专业，逐一分析其对口央企/国企方向（如电气工程->国家电网/南方电网、土木->中铁/中建等），200-400字。
+
+            ### 体制内适配分析
+            分析各专业报考体制内（事业单位/公务员/选调生）的机会：
+            - 岗位类型：省考/国考/事业单位联考/单招/选调生
+            - 报考限制：专业目录限制、学历要求、政治面貌、应届身份
+            - 适合条件：哪些专业适合走体制内，哪些受限
+            本子节末尾**必须**输出一个打分表格（Markdown格式），为每个志愿专业评估体制内适配度：
+            | 专业组 | 专业 | 体制内适配度 |
+            |--------|------|--------------|
+            | [大学名称] | [专业名称] | [0-100整数] |
+
+            ### 民营企业赛道
+            对「专业维度」中的每个专业，输出一个小模块：
+
+            #### {专业名称}
+            - 代表企业：该专业毕业生可去的头部/中腰部民营企业名称
+            - 典型岗位：可投递的代表性岗位清单
+            - 优缺点：民企就业的薪资、成长性、稳定性等利弊分析
+
+            ## SWOT象限分析
+            基于以上所有分析，输出全局SWOT综合象限分析。每个象限恰好3条，最后附博弈辩证结论。
+            **必须使用以下HTML格式输出（带CSS class）**：
+
+            <h3 class="swot-strength">S 优势</h3>
+            - [优势1：城市产业红利、院校层次、学科实力等]
+            - [优势2：实验室平台、保研考研资源、本地就业认可度等]
+            - [优势3：专项计划红利、录取概率优势等]
+
+            <h3 class="swot-weakness">W 劣势（建设性看，全部可补强）</h3>
+            - [劣势1：专项计划转专业限制]
+            - [劣势2：院校全国知名度不足、城市实习资源薄弱]
+            - [劣势3：物价高、岗位内卷]
+
+            <h3 class="swot-opportunity">O 机会</h3>
+            - [机会1：国家产业政策扩张、读研深造通道]
+            - [机会2：跨城市就业机会、体制内岗位供给]
+            - [机会3：专升本通道（专科）]
+
+            <h3 class="swot-threat">T 威胁</h3>
+            - [威胁1：行业周期下行、本科学历贬值]
+            - [威胁2：AI技术替代、同赛道高分考生竞争]
+            - [威胁3：专项计划转专业壁垒]
+
+            <div class="swot-conclusion">
+            **博弈辩证结论**：用300-500字说明：
+            1. 该套志愿组合属于什么赛道（放大镜赛道/稳定器赛道/保险箱赛道）
+            2. 适合什么类型考生，不适合什么类型考生
+            3. 核心冲突分析（如院校名气溢价 VS 产业实战能力，城市平台 VS 生活成本）
+            </div>
+
+            ## 海枫强烈推荐填报梯队顺序
+            基于以上所有分析，输出推荐的填报梯队顺序（搏/冲/稳/保/垫），用3-5句话说明推荐逻辑。
+
             ## 要求
-            1. 院校/专业/城市分析要独立成章，不要重复Map阶段的简评内容
+            1. 大学/专业/城市专项拆解要详细，每个大学500-800字
             2. 综合排名要给出具体分数（0-100分），分数差异要有区分度
             3. 使用Markdown格式输出（**加粗**、- 列表、表格等）
             4. 若某维度数据为空，基于常识判断并说明
+            5. SWOT部分必须使用指定的HTML class格式，确保样式正确渲染
             """;
     }
+
 
     /**
      * 解析 Reduce 阶段 AI 响应
@@ -853,11 +1076,67 @@ public class PdfReportServiceImpl implements PdfReportService {
             // 解析宏观分析文本中的排名数据
             MacroAnalysisVO macroAnalysis = parseMacroAnalysisFromText(macroAnalysisText);
 
+            // 提取第六、七、八、九部分
+            String sixthPartText = extractSection(response, "大学专项拆解");
+            String seventhPartText = extractSection(response, "专业专项拆解");
+            String eighthPartText = extractSection(response, "城市专项拆解");
+            String ninthPartText = extractSection(response, "综合评判");
+
+            List<ReduceResult.HtmlPartResult> sixthPartResults = parseSubPartsFromText(sixthPartText, "大学");
+            List<ReduceResult.HtmlPartResult> seventhPartResults = parseSubPartsFromText(seventhPartText, "专业");
+            List<ReduceResult.HtmlPartResult> eighthPartResults = parseSubPartsFromText(eighthPartText, "城市");
+            ReduceResult.HtmlPartResult ninthPartResult = null;
+            if (ninthPartText != null && !ninthPartText.isBlank()) {
+                ninthPartResult = ReduceResult.HtmlPartResult.builder()
+                        .identifier("综合评判")
+                        .title("综合评判")
+                        .contentMd(ninthPartText)
+                        .build();
+            }
+
+            // 提取第十部分：就业前景与展望
+            String tenthPartText = extractSection(response, "就业前景与展望");
+            ReduceResult.HtmlPartResult soeDirectionResult = null;
+            ReduceResult.HtmlPartResult civilServiceResult = null;
+            List<ReduceResult.ScoreItem> civilServiceScores = null;
+            List<ReduceResult.HtmlPartResult> privateSectorResults = null;
+            if (tenthPartText != null && !tenthPartText.isBlank()) {
+                String soeText = extractSubSection(tenthPartText, "央国企对口方向");
+                if (!soeText.isBlank()) {
+                    soeDirectionResult = ReduceResult.HtmlPartResult.builder()
+                            .identifier("央国企对口方向")
+                            .title("央国企对口方向")
+                            .contentMd(soeText)
+                            .build();
+                }
+                String civilText = extractSubSection(tenthPartText, "体制内适配分析");
+                if (!civilText.isBlank()) {
+                    civilServiceScores = extractScoreItems(civilText);
+                    civilServiceResult = ReduceResult.HtmlPartResult.builder()
+                            .identifier("体制内适配分析")
+                            .title("体制内适配分析")
+                            .contentMd(removeMarkdownTables(civilText))
+                            .build();
+                }
+                String privateText = extractSubSection(tenthPartText, "民营企业赛道");
+                if (!privateText.isBlank()) {
+                    privateSectorResults = parseSubPartsByHeading(privateText, "#### ");
+                }
+            }
+
             return ReduceResult.builder()
                     .studentProfile(studentProfile)
                     .macroAnalysis(macroAnalysis)
                     .swot(swot)
                     .recommendation(recommendation)
+                    .sixthPartResults(sixthPartResults)
+                    .seventhPartResults(seventhPartResults)
+                    .eighthPartResults(eighthPartResults)
+                    .ninthPartResult(ninthPartResult)
+                    .soeDirectionResult(soeDirectionResult)
+                    .civilServiceResult(civilServiceResult)
+                    .civilServiceScores(civilServiceScores)
+                    .privateSectorResults(privateSectorResults)
                     .build();
         }
 
@@ -899,11 +1178,36 @@ public class PdfReportServiceImpl implements PdfReportService {
             builder.recommendation(root.get("recommendation").asText(""));
         }
 
+        // 第十部分：就业前景与展望
+        if (root.has("soeDirectionResult")) {
+            builder.soeDirectionResult(objectMapper.treeToValue(root.get("soeDirectionResult"), ReduceResult.HtmlPartResult.class));
+        }
+        if (root.has("civilServiceResult")) {
+            builder.civilServiceResult(objectMapper.treeToValue(root.get("civilServiceResult"), ReduceResult.HtmlPartResult.class));
+        }
+        if (root.has("civilServiceScores")) {
+            List<ReduceResult.ScoreItem> scores = new ArrayList<>();
+            for (com.fasterxml.jackson.databind.JsonNode node : root.get("civilServiceScores")) {
+                scores.add(objectMapper.treeToValue(node, ReduceResult.ScoreItem.class));
+            }
+            builder.civilServiceScores(scores);
+        }
+        if (root.has("civilServiceChartBase64")) {
+            builder.civilServiceChartBase64(root.get("civilServiceChartBase64").asText(null));
+        }
+        if (root.has("privateSectorResults")) {
+            List<ReduceResult.HtmlPartResult> parts = new ArrayList<>();
+            for (com.fasterxml.jackson.databind.JsonNode node : root.get("privateSectorResults")) {
+                parts.add(objectMapper.treeToValue(node, ReduceResult.HtmlPartResult.class));
+            }
+            builder.privateSectorResults(parts);
+        }
+
         return builder.build();
     }
 
     /**
-     * 提取宏观分析部分的完整文本（从"院校分析"到"SWOT"之前）
+     * 提取宏观分析部分的完整文本（从"院校分析"或"赛道分类研判"到"SWOT"之前）
      */
     private String extractMacroAnalysisSection(String text) {
         String[] lines = text.split("\n");
@@ -914,8 +1218,11 @@ public class PdfReportServiceImpl implements PdfReportService {
                 if (inSection) {
                     break; // 遇到下一个 ## 标题，结束
                 }
-                // 宏观分析从"院校分析"开始
-                if (line.contains("院校分析") || line.contains("专业分析") || line.contains("城市分析") || line.contains("综合考虑")) {
+                // 宏观分析从"赛道分类研判"或"院校分析"开始
+                if (line.contains("赛道分类研判") || line.contains("政策红利分析")
+                        || line.contains("院校分析") || line.contains("专业分析")
+                        || line.contains("城市分析") || line.contains("综合考虑")
+                        || line.contains("综合评判")) {
                     inSection = true;
                 }
             } else if (inSection) {
@@ -930,6 +1237,14 @@ public class PdfReportServiceImpl implements PdfReportService {
      */
     private MacroAnalysisVO parseMacroAnalysisFromText(String text) {
         MacroAnalysisVO.MacroAnalysisVOBuilder builder = MacroAnalysisVO.builder();
+
+        // 解析赛道分类研判
+        String trackAnalysis = extractSection(text, "赛道分类研判");
+        builder.trackAnalysis(trackAnalysis);
+
+        // 解析政策红利分析
+        String policyAnalysis = extractSection(text, "政策红利分析");
+        builder.policyAnalysis(policyAnalysis);
 
         // 解析排名表
         List<MacroAnalysisVO.RankingItem> ranking = extractRankingFromText(text);
@@ -984,6 +1299,162 @@ public class PdfReportServiceImpl implements PdfReportService {
             }
         }
         return ranking;
+    }
+
+    /**
+     * 从专项拆解文本中解析出各子部分（### [名称] 分割）
+     */
+    private List<ReduceResult.HtmlPartResult> parseSubPartsFromText(String text, String typePrefix) {
+        List<ReduceResult.HtmlPartResult> results = new ArrayList<>();
+        if (text == null || text.isBlank()) return results;
+
+        String[] lines = text.split("\n");
+        StringBuilder currentContent = new StringBuilder();
+        String currentName = null;
+        String currentTitle = null;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("### ")) {
+                // 保存上一个
+                if (currentName != null && currentContent.length() > 0) {
+                    results.add(ReduceResult.HtmlPartResult.builder()
+                            .identifier(currentName)
+                            .title(currentTitle)
+                            .contentMd(currentContent.toString().trim())
+                            .build());
+                }
+                currentTitle = trimmed.substring(4).trim();
+                currentName = currentTitle;
+                currentContent = new StringBuilder();
+            } else if (trimmed.startsWith("#### ") && currentName != null) {
+                currentContent.append(line).append("\n");
+            } else if (currentName != null) {
+                currentContent.append(line).append("\n");
+            }
+        }
+        // 保存最后一个
+        if (currentName != null && currentContent.length() > 0) {
+            results.add(ReduceResult.HtmlPartResult.builder()
+                    .identifier(currentName)
+                    .title(currentTitle)
+                    .contentMd(currentContent.toString().trim())
+                    .build());
+        }
+        return results;
+    }
+
+    /**
+     * 从大节文本中提取指定 ### 小节内容（到下一个 ### 或文本末尾）
+     */
+    private String extractSubSection(String text, String title) {
+        if (text == null) return "";
+        String[] lines = text.split("\n");
+        StringBuilder content = new StringBuilder();
+        boolean inSection = false;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("### ")) {
+                if (inSection) {
+                    break;
+                }
+                if (trimmed.contains(title)) {
+                    inSection = true;
+                    continue; // 跳过标题行本身
+                }
+            } else if (inSection) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString().trim();
+    }
+
+    /**
+     * 从体制内适配分析文本中解析打分表（| 专业组 | 专业 | 适配度 |）
+     */
+    private List<ReduceResult.ScoreItem> extractScoreItems(String text) {
+        List<ReduceResult.ScoreItem> scores = new ArrayList<>();
+        String[] lines = text.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("|") || trimmed.startsWith("|--") || trimmed.startsWith("| --")) {
+                continue;
+            }
+            String[] cells = trimmed.split("\\|");
+            if (cells.length >= 4) {
+                String scoreText = cells[cells.length - 1].trim();
+                try {
+                    int score = (int) Math.round(Double.parseDouble(scoreText));
+                    if (score < 0) score = 0;
+                    if (score > 100) score = 100;
+                    String majorName = cells[cells.length - 2].trim();
+                    if (!majorName.isEmpty()) {
+                        String groupName = cells.length >= 5 ? cells[cells.length - 3].trim() : "";
+                        scores.add(ReduceResult.ScoreItem.builder()
+                                .groupName(groupName)
+                                .majorName(majorName)
+                                .score(score)
+                                .build());
+                    }
+                } catch (NumberFormatException e) {
+                    log.debug("Failed to parse score row: {}", trimmed);
+                }
+            }
+        }
+        return scores.isEmpty() ? null : scores;
+    }
+
+    /**
+     * 移除文本中的 Markdown 表格行（含表头与分隔行）
+     */
+    private String removeMarkdownTables(String text) {
+        String[] lines = text.split("\n");
+        StringBuilder content = new StringBuilder();
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("|")) {
+                continue;
+            }
+            content.append(line).append("\n");
+        }
+        return content.toString().trim();
+    }
+
+    /**
+     * 按指定标题前缀（如 "#### "）拆分子模块
+     */
+    private List<ReduceResult.HtmlPartResult> parseSubPartsByHeading(String text, String headingPrefix) {
+        List<ReduceResult.HtmlPartResult> results = new ArrayList<>();
+        if (text == null || text.isBlank()) return results;
+
+        String[] lines = text.split("\n");
+        StringBuilder currentContent = new StringBuilder();
+        String currentName = null;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith(headingPrefix)) {
+                if (currentName != null && currentContent.length() > 0) {
+                    results.add(ReduceResult.HtmlPartResult.builder()
+                            .identifier(currentName)
+                            .title(currentName)
+                            .contentMd(currentContent.toString().trim())
+                            .build());
+                }
+                currentName = trimmed.substring(headingPrefix.length()).trim();
+                currentContent = new StringBuilder();
+            } else if (currentName != null) {
+                currentContent.append(line).append("\n");
+            }
+        }
+        if (currentName != null && currentContent.length() > 0) {
+            results.add(ReduceResult.HtmlPartResult.builder()
+                    .identifier(currentName)
+                    .title(currentName)
+                    .contentMd(currentContent.toString().trim())
+                    .build());
+        }
+        return results;
     }
 
     /**
@@ -1117,6 +1588,18 @@ public class PdfReportServiceImpl implements PdfReportService {
             planName = plan != null ? plan.getPlanName() : null;
         }
 
+        // 生成 kkfileview 预览 URL
+        String previewUrl = null;
+        if (report.getStatus() == PdfReportStatus.SUCCESS) {
+            String token = generatePreviewToken(recordId);
+            String backendUrl = pdfPreviewConfig.getBaseUrl()
+                    + "/api/v1/public/pdf/preview/" + recordId
+                    + "?token=" + token
+                    + "&expire=" + (System.currentTimeMillis() + pdfPreviewConfig.getExpireSeconds() * 1000L);
+            String encodedUrl = URLEncoder.encode(backendUrl, StandardCharsets.UTF_8);
+            previewUrl = ossProperties.getKkfileviewBaseUrl() + "/onlinePreview?url=" + encodedUrl;
+        }
+
         return PdfRecordDetailVO.builder()
                 .id(report.getId())
                 .planId(report.getPlanId())
@@ -1127,6 +1610,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                 .planSnapshot(report.getPlanSnapshot())
                 .failReason(report.getFailReason())
                 .createdAt(report.getCreatedAt())
+                .previewUrl(previewUrl)
                 .build();
     }
 
@@ -1219,5 +1703,28 @@ public class PdfReportServiceImpl implements PdfReportService {
                 .careerDevPath(gaokao.getCareerDevPath())
                 .rejectedDirections(gaokao.getRejectedDirections())
                 .build();
+    }
+
+    @Override
+    public String generatePreviewToken(Integer recordId) {
+        long expire = System.currentTimeMillis() + pdfPreviewConfig.getExpireSeconds() * 1000L;
+        String data = recordId + ":" + expire;
+        String sign = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, pdfPreviewConfig.getSecret())
+                .hmacHex(data);
+
+        String token = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString((data + ":" + sign).getBytes(StandardCharsets.UTF_8));
+
+        String redisKey = RedisKeyConstant.getPdfPreviewTokenKey(token);
+        redisTemplate.opsForValue().set(redisKey, String.valueOf(recordId),
+                pdfPreviewConfig.getExpireSeconds(), TimeUnit.SECONDS);
+
+        log.debug("PDF preview token generated, recordId={}, expire={}", recordId, expire);
+        return token;
+    }
+
+    @Override
+    public byte[] renderPdf(Integer recordId) {
+        return pdfRenderService.renderPdf(recordId);
     }
 }

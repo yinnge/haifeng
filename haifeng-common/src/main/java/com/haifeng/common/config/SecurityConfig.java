@@ -86,6 +86,9 @@ public class SecurityConfig {
             "/api/v1/app/employment/*/*/grad-years",
             "/api/v1/app/employment/content/*/list-by-type",
             "/api/v1/app/employment/content/*/*/view",
+            // 专栏文件（列表公开，详情/预览/下载仍需 VIP 鉴权）
+            "/api/v1/app/fileload/middle/list",
+            "/api/v1/app/fileload/high/list",
             // Actuator
             "/actuator/**",
             // Swagger

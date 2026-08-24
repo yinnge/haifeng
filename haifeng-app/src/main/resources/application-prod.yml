@@ -85,3 +85,10 @@ oss:
   bucket-name: ${OSS_BUCKET_NAME}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: ${KKFILEVIEW_BASE_URL}
+
+# PDF预览配置
+pdf:
+  preview:
+    secret: ${PDF_PREVIEW_SECRET}
+    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:300}
+    base-url: ${PDF_PREVIEW_BASE_URL}

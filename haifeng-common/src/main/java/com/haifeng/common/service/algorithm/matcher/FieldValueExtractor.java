@@ -45,6 +45,7 @@ public class FieldValueExtractor {
         FIELD_GETTERS.put("subject_type", MemberGaokao::getSubjectType);
 
         // 高考基本信息
+        FIELD_GETTERS.put("gender", MemberGaokao::getGender);
         FIELD_GETTERS.put("gaokao_year", MemberGaokao::getGaokaoYear);
         FIELD_GETTERS.put("gaokao_province", MemberGaokao::getGaokaoProvince);
         FIELD_GETTERS.put("score", MemberGaokao::getScore);

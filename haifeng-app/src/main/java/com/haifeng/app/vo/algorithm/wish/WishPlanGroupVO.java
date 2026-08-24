@@ -25,6 +25,8 @@ public class WishPlanGroupVO {
     private String province;
     private String batch;
     private List<String> subjects;
+    /** 选科要求类型：不限/2选1/3选1/必选1/必选2/必选3 */
+    private String requirementType;
     private List<String> constraintsDescription;
     private String description;
     private Integer majorCount;

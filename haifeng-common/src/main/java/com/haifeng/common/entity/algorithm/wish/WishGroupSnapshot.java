@@ -64,6 +64,9 @@ public class WishGroupSnapshot {
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> subjects;
 
+    /** 选科要求类型：不限/2选1/3选1/必选1/必选2/必选3（与 AdmissionGroup.requirementType 一致） */
+    private String requirementType;
+
     private String description;
 
     @TableField(typeHandler = StringListTypeHandler.class)

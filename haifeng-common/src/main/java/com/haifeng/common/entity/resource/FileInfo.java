@@ -41,6 +41,12 @@ public class FileInfo {
     /** 学科（数学/语文/英语等） */
     private String subject;
 
+    /** 文档简介（备考指南、政策说明等） */
+    private String description;
+
+    /** 标签（备考指南/就业辅导等，用于精准查询） */
+    private String tag;
+
     @Version
     private Integer version;
 

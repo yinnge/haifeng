@@ -379,15 +379,128 @@
             margin-bottom: 8px;
         }
 
-        /* ===================== Summary Table ===================== */
+        /* ===================== SWOT Quadrant Styles ===================== */
+        .analysis-section h3.swot-strength,
+        .analysis-section h3.swot-weakness,
+        .analysis-section h3.swot-opportunity,
+        .analysis-section h3.swot-threat {
+            margin: 12px 0 8px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 700;
+            border-left: 4px solid;
+        }
+        .analysis-section h3.swot-strength {
+            background: #dcfce7;
+            color: #166534;
+            border-left-color: #22c55e;
+        }
+        .analysis-section h3.swot-weakness {
+            background: #fef3c7;
+            color: #92400e;
+            border-left-color: #f59e0b;
+        }
+        .analysis-section h3.swot-opportunity {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left-color: #3b82f6;
+        }
+        .analysis-section h3.swot-threat {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left-color: #ef4444;
+        }
+        .analysis-section .swot-conclusion {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 16px;
+        }
+
+        /* ===================== Level Cards and Groups ===================== */
         .summary-section {
             page-break-before: always;
         }
+        .level-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .level-card {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .level-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .level-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .level-name {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .level-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        .level-card-body {
+            font-size: 12px;
+            color: #444;
+        }
+        .level-range {
+            margin-bottom: 6px;
+        }
+        .level-count {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .count-current {
+            color: #0f172a;
+        }
+        .count-exceeded {
+            color: #ef4444;
+        }
+        .count-limit {
+            color: #999;
+            font-weight: normal;
+        }
+        .level-group {
+            margin-bottom: 24px;
+            page-break-inside: auto;
+        }
+        .level-group-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ===================== Summary Table ===================== */
         .summary-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
             font-size: 11px;
+            table-layout: fixed;
         }
         .summary-table th {
             background: #0f172a;
@@ -395,14 +508,62 @@
             padding: 8px 6px;
             text-align: center;
             font-weight: 600;
+            white-space: nowrap;
         }
         .summary-table td {
             border: 1px solid #e0e0e0;
             padding: 6px;
             text-align: center;
+            vertical-align: middle;
         }
         .summary-table tr:nth-child(even) td {
             background: #f8f9fa;
+        }
+        .summary-table th:nth-child(1),
+        .summary-table td:nth-child(1) { width: 5%; }
+        .summary-table th:nth-child(2),
+        .summary-table td:nth-child(2) { width: 16%; }
+        .summary-table th:nth-child(3),
+        .summary-table td:nth-child(3) { width: 12%; }
+        .summary-table th:nth-child(4),
+        .summary-table td:nth-child(4) { width: 12%; }
+        .summary-table th:nth-child(5),
+        .summary-table td:nth-child(5) { width: 7%; }
+        .summary-table th:nth-child(6),
+        .summary-table td:nth-child(6) { width: 7%; }
+        .summary-table th:nth-child(7),
+        .summary-table td:nth-child(7) { width: 7%; }
+        .summary-table th:nth-child(8),
+        .summary-table td:nth-child(8) { width: 7%; }
+        .summary-table th:nth-child(9),
+        .summary-table td:nth-child(9) { width: 27%; }
+
+        /* ===================== History Scores Table ===================== */
+        .history-scores-cell {
+            padding: 4px !important;
+            vertical-align: top !important;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            margin: 0;
+        }
+        .history-table th {
+            background: #f0f0f0;
+            color: #333;
+            padding: 3px 4px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .history-table td {
+            padding: 3px 4px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .history-table tr:nth-child(even) td {
+            background: #fafafa;
         }
 
         /* ===================== University Detail Sections ===================== */
@@ -605,6 +766,24 @@
         .level-dian { background: #95a5a6; }
 
         .page-break { page-break-after: always; }
+
+        /* ===================== Table of Contents ===================== */
+        .toc-page {
+            padding-top: 40px;
+        }
+        .toc-item {
+            display: block;
+            padding: 10px 0 10px 14px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            color: #333;
+        }
+        .toc-num {
+            display: inline-block;
+            width: 36px;
+            font-weight: 700;
+            color: #c9a14a;
+        }
     </style>
 </head>
 <body>
@@ -700,6 +879,23 @@
     </div>
 </div>
 
+<!-- ===================== Table of Contents ===================== -->
+<div class="toc-page" style="page-break-after: always;">
+    <div class="section-title">目录</div>
+    <div class="toc-item"><span class="toc-num">一</span>考生基础画像与现实约束条件</div>
+    <div class="toc-item"><span class="toc-num">二</span>外部宏观全景研判</div>
+    <div class="toc-item"><span class="toc-num">三</span>SWOT 象限分析</div>
+    <div class="toc-item"><span class="toc-num">四</span>海枫强烈推荐填报梯队顺序</div>
+    <div class="toc-item"><span class="toc-num">五</span>志愿梯队总览</div>
+    <div class="toc-item"><span class="toc-num">六</span>大学专项拆解</div>
+    <div class="toc-item"><span class="toc-num">七</span>专业专项拆解</div>
+    <div class="toc-item"><span class="toc-num">八</span>城市专项拆解</div>
+    <div class="toc-item"><span class="toc-num">九</span>综合评判</div>
+    <div class="toc-item"><span class="toc-num">十</span>就业前景与展望</div>
+    <div class="toc-item"><span class="toc-num">十一</span>官方数据源与查询渠道清单</div>
+    <div class="toc-item"><span class="toc-num">附录</span>各校详情（如有需要）</div>
+</div>
+
 <!-- ===================== 第一部分：考生基础画像与现实约束条件 ===================== -->
 <div class="profile-section">
     <div class="section-title">一、考生基础画像与现实约束条件</div>
@@ -711,11 +907,11 @@
             <div class="profile-row">
                 <div class="profile-cell">
                     <span class="profile-label">所在省份：</span>
-                    <span class="profile-value" th:text="${data.planProvince ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.planProvince != null ? data.planProvince : '-'}">-</span>
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">选科模式：</span>
-                    <span class="profile-value" th:text="${data.reformModel ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.reformModel != null ? data.reformModel : '-'}">-</span>
                 </div>
             </div>
             <div class="profile-row">
@@ -725,17 +921,17 @@
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">全省位次：</span>
-                    <span class="profile-value" th:text="${data.userRank ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.userRank != null ? data.userRank : '-'}">-</span>
                 </div>
             </div>
             <div class="profile-row">
                 <div class="profile-cell">
                     <span class="profile-label">报考批次：</span>
-                    <span class="profile-value" th:text="${data.planBatch ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.planBatch != null ? data.planBatch : '-'}">-</span>
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">选科：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.subjectType ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.subjectType != null ? data.memberProfile.subjectType : '-'}">-</span>
                 </div>
             </div>
             <div class="profile-row" th:if="${data.memberProfile?.scoreAboveLine != null}">
@@ -771,14 +967,14 @@
                     <span class="profile-label">视力：</span>
                     <span class="profile-value">
                         <span th:if="${data.memberProfile?.visionLeft != null or data.memberProfile?.visionRight != null}">
-                            左<span th:text="${data.memberProfile?.visionLeft ?: '-'}">-</span>/右<span th:text="${data.memberProfile?.visionRight ?: '-'}">-</span>
+                            左<span th:text="${data.memberProfile?.visionLeft != null ? data.memberProfile.visionLeft : '-'}">-</span>/右<span th:text="${data.memberProfile?.visionRight != null ? data.memberProfile.visionRight : '-'}">-</span>
                         </span>
                         <span th:unless="${data.memberProfile?.visionLeft != null or data.memberProfile?.visionRight != null}" class="profile-value empty">未填写</span>
                     </span>
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">其他疾病：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.otherHealthConditions ?: '无'}">无</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.otherHealthConditions != null ? data.memberProfile.otherHealthConditions : '无'}">无</span>
                 </div>
             </div>
         </div>
@@ -804,17 +1000,17 @@
             <div class="profile-row">
                 <div class="profile-cell">
                     <span class="profile-label">性别：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.gender ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.gender != null ? data.memberProfile.gender : '-'}">-</span>
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">性格特质：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.personalityTraits ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.personalityTraits != null ? data.memberProfile.personalityTraits : '-'}">-</span>
                 </div>
             </div>
             <div class="profile-row">
                 <div class="profile-cell full-width">
                     <span class="profile-label">兴趣倾向：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.interestDirection ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.interestDirection != null ? data.memberProfile.interestDirection : '-'}">-</span>
                 </div>
             </div>
         </div>
@@ -868,7 +1064,7 @@
             <div class="profile-row">
                 <div class="profile-cell">
                     <span class="profile-label">学费承受度：</span>
-                    <span class="profile-value" th:text="${data.memberProfile?.tuitionAffordability ?: '-'}">-</span>
+                    <span class="profile-value" th:text="${data.memberProfile?.tuitionAffordability != null ? data.memberProfile.tuitionAffordability : '-'}">-</span>
                 </div>
                 <div class="profile-cell">
                     <span class="profile-label">地域约束：</span>
@@ -905,41 +1101,16 @@
 <div class="analysis-section">
     <div class="section-title">二、外部宏观全景研判</div>
 
-    <!-- 2.1 院校分析 -->
-    <div class="subsection" th:if="${data.universityAnalysisHtml != null and !data.universityAnalysisHtml.isEmpty()}">
-        <div class="subsection-title">2.1 院校分析</div>
-        <div class="content" th:utext="${data.universityAnalysisHtml}"></div>
+    <!-- 2.1 赛道分类研判 -->
+    <div class="subsection" th:if="${data.trackAnalysisHtml != null and !data.trackAnalysisHtml.isEmpty()}">
+        <div class="subsection-title">2.1 赛道分类研判</div>
+        <div class="content" th:utext="${data.trackAnalysisHtml}"></div>
     </div>
 
-    <!-- 2.2 专业分析 -->
-    <div class="subsection" th:if="${data.majorAnalysisHtml != null and !data.majorAnalysisHtml.isEmpty()}">
-        <div class="subsection-title">2.2 专业分析</div>
-        <div class="content" th:utext="${data.majorAnalysisHtml}"></div>
-    </div>
-
-    <!-- 2.3 城市分析 -->
-    <div class="subsection" th:if="${data.cityAnalysisHtml != null and !data.cityAnalysisHtml.isEmpty()}">
-        <div class="subsection-title">2.3 城市分析</div>
-        <div class="content" th:utext="${data.cityAnalysisHtml}"></div>
-    </div>
-
-    <!-- 2.4 综合考虑 -->
-    <div class="subsection" th:if="${data.rankingTableHtml != null and !data.rankingTableHtml.isEmpty()}">
-        <div class="subsection-title">2.4 综合考虑</div>
-
-        <!-- 优先级图表 -->
-        <div th:if="${data.chartBase64 != null}" class="chart-container">
-            <img th:src="'data:image/png;base64,' + ${data.chartBase64}" alt="优先级排名图" style="width:100%;max-width:800px;margin:10px auto;display:block;"/>
-        </div>
-
-        <!-- 排名表 -->
-        <div class="content" th:utext="${data.rankingTableHtml}"></div>
-
-        <!-- 排序理由 -->
-        <div th:if="${data.reasoningHtml != null and !data.reasoningHtml.isEmpty()}" class="reasoning-box">
-            <div class="reasoning-title">排序理由</div>
-            <div class="content" th:utext="${data.reasoningHtml}"></div>
-        </div>
+    <!-- 2.2 政策红利分析 -->
+    <div class="subsection" th:if="${data.policyAnalysisHtml != null and !data.policyAnalysisHtml.isEmpty()}">
+        <div class="subsection-title">2.2 政策红利分析</div>
+        <div class="content" th:utext="${data.policyAnalysisHtml}"></div>
     </div>
 </div>
 
@@ -953,46 +1124,106 @@
     <div class="content" th:utext="${data.recommendationHtml}"></div>
 </div>
 
-<!-- ===================== Summary Table ===================== -->
+<!-- ===================== 志愿梯队总览 ===================== -->
 <div class="summary-section">
-    <div class="section-title">五、志愿方案汇总表</div>
-    <table class="summary-table">
-        <thead>
-            <tr>
-                <th>序号</th>
-                <th>院校</th>
-                <th>专业组</th>
-                <th>专业名称</th>
-                <th>专业代码</th>
-                <th>城市</th>
-                <th>档位</th>
-                <th>安全系数</th>
-                <th>学费(元/年)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr th:each="row, stat : ${data.summaryRows}">
-                <td th:text="${stat.count}">1</td>
-                <td th:text="${row.universityName}">-</td>
-                <td th:text="${row.groupName}">-</td>
-                <td th:text="${row.majorName}">-</td>
-                <td th:text="${row.majorCode}">-</td>
-                <td th:text="${row.cityName}">-</td>
-                <td>
-                    <span class="level-badge"
-                          th:if="${row.levelShort != null}"
-                          th:classappend='${row.levelShort == "搏" ? "level-bo" :
-                                          row.levelShort == "冲" ? "level-chong" :
-                                          row.levelShort == "稳" ? "level-wen" :
-                                          row.levelShort == "保" ? "level-bao" :
-                                          row.levelShort == "垫" ? "level-dian" : ""}'
-                          th:text="${row.levelShort}">-</span>
-                </td>
-                <td th:text="${row.safetyLevel != null ? row.safetyLevel : '-'}">-</td>
-                <td th:text="${row.tuition != null ? row.tuition : '-'}">-</td>
-            </tr>
-        </tbody>
-    </table>
+    <div class="section-title">五、志愿梯队总览</div>
+    
+    <!-- 上方：5个档位卡片 -->
+    <div class="level-cards">
+        <div class="level-card" th:each="level : ${data.levelGroupSummaries}" 
+             th:style="'background-color:' + ${level.bgColor}">
+            <div class="level-card-header">
+                <span class="level-dot" th:style="'background-color:' + ${level.color}"></span>
+                <span class="level-name" th:style="'color:' + ${level.color}" th:text="${level.levelShort}">搏</span>
+                <span class="level-desc" th:text="${level.levelName}">大胆冲刺</span>
+            </div>
+            <div class="level-card-body">
+                <div class="level-range">安全系数 <span th:text="${level.rangeText}">0.00 ~ 0.30</span></div>
+                <div class="level-count">
+                    已选 <span class="count-current"
+                              th:classappend="${(level.levelShort == '搏' and data.levelLimits?.reachHighCount != null and level.selectedCount >= data.levelLimits?.reachHighCount)
+                                              or (level.levelShort == '冲' and data.levelLimits?.reachCount != null and level.selectedCount >= data.levelLimits?.reachCount)
+                                              or (level.levelShort == '稳' and data.levelLimits?.matchCount != null and level.selectedCount >= data.levelLimits?.matchCount)
+                                              or (level.levelShort == '保' and data.levelLimits?.safeCount != null and level.selectedCount >= data.levelLimits?.safeCount)
+                                              or (level.levelShort == '垫' and data.levelLimits?.floorCount != null and level.selectedCount >= data.levelLimits?.floorCount)} ? 'count-exceeded' : ''"
+                              th:text="${level.selectedCount}">0</span>
+                    / <span class="count-limit" 
+                            th:text="${level.levelShort == '搏' ? data.levelLimits?.reachHighCount : 
+                                      level.levelShort == '冲' ? data.levelLimits?.reachCount : 
+                                      level.levelShort == '稳' ? data.levelLimits?.matchCount : 
+                                      level.levelShort == '保' ? data.levelLimits?.safeCount : 
+                                      data.levelLimits?.floorCount}">5</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 下方：按档位分组的表格 -->
+    <div class="level-group" th:each="level : ${data.levelGroupSummaries}" 
+         th:if="${level.majors != null and !level.majors.isEmpty()}">
+        <div class="level-group-title" th:style="'background-color:' + ${level.bgColor}">
+            <span class="level-dot" th:style="'background-color:' + ${level.color}"></span>
+            <span th:style="'color:' + ${level.color}" th:text="${level.levelShort}">搏</span> 
+            · <span th:text="${level.levelName}">大胆冲刺</span>
+            （<span th:text="${level.selectedCount}">0</span>个专业）
+        </div>
+        
+        <!-- 专业表格 -->
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>院校</th>
+                    <th>专业组</th>
+                    <th>专业名称</th>
+                    <th>专业代码</th>
+                    <th>城市</th>
+                    <th>安全系数</th>
+                    <th>学费(元/年)</th>
+                    <th>近年录取分</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="row, stat : ${level.majors}">
+                    <td th:text="${stat.count}">1</td>
+                    <td th:text="${row.universityName}">-</td>
+                    <td>
+                        <span th:text="${row.groupCode}">-</span>
+                        <span th:if="${row.groupName != null}" th:text="'(' + ${row.groupName} + ')'">-</span>
+                    </td>
+                    <td th:text="${row.majorName}">-</td>
+                    <td th:text="${row.majorCode}">-</td>
+                    <td th:text="${row.cityName}">-</td>
+                    <td th:text="${row.safetyLevel}">-</td>
+                    <td th:text="${row.tuition != null ? row.tuition : '-'}">-</td>
+                    <td class="history-scores-cell">
+                        <!-- 历史分数表格 -->
+                        <table class="history-table" th:if="${row.historyScores != null and !row.historyScores.isEmpty()}">
+                            <thead>
+                                <tr>
+                                    <th>年份</th>
+                                    <th>最低分/位次</th>
+                                    <th>平均分/位次</th>
+                                    <th>最高分/位次</th>
+                                    <th>录取人数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="h : ${row.historyScores}">
+                                    <td th:text="${h.year}">2024</td>
+                                    <td th:text="${h.minScore} + '/' + ${h.minRank}">-</td>
+                                    <td th:text="${h.avgScore} + '/' + ${h.avgRank}">-</td>
+                                    <td th:text="${h.maxScore} + '/' + ${h.maxRank}">-</td>
+                                    <td th:text="${h.admissionCount}">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <span th:if="${row.historyScores == null or row.historyScores.isEmpty()}">-</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- ===================== University Detail Sections ===================== -->
@@ -1128,6 +1359,159 @@
              th:utext="${group.commentaryHtml}"></div>
         <div class="commentary-unavailable" th:if="${group.commentaryHtml == null or group.commentaryHtml.isEmpty()}">
             AI 分析暂不可用
+        </div>
+    </div>
+</div>
+
+<!-- ===================== 第六部分：大学专项拆解 ===================== -->
+<div class="analysis-section" th:if="${data.sixthPartResults != null and !data.sixthPartResults.isEmpty()}">
+    <div class="section-title">六、大学专项拆解</div>
+    <div th:each="part : ${data.sixthPartResults}" class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title" th:text="${part.title}">-</div>
+        <div class="content" th:utext="${part.contentMd}"></div>
+    </div>
+</div>
+
+<!-- ===================== 第七部分：专业专项拆解 ===================== -->
+<div class="analysis-section" th:if="${data.seventhPartResults != null and !data.seventhPartResults.isEmpty()}">
+    <div class="section-title">七、专业专项拆解</div>
+    <div th:each="part : ${data.seventhPartResults}" class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title" th:text="${part.title}">-</div>
+        <div class="content" th:utext="${part.contentMd}"></div>
+    </div>
+</div>
+
+<!-- ===================== 第八部分：城市专项拆解 ===================== -->
+<div class="analysis-section" th:if="${data.eighthPartResults != null and !data.eighthPartResults.isEmpty()}">
+    <div class="section-title">八、城市专项拆解</div>
+    <div th:each="part : ${data.eighthPartResults}" class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title" th:text="${part.title}">-</div>
+        <div class="content" th:utext="${part.contentMd}"></div>
+    </div>
+</div>
+
+<!-- ===================== 第九部分：综合评判 ===================== -->
+<div class="analysis-section" th:if="${data.ninthPartResult != null}" style="page-break-before: always;">
+    <div class="section-title">九、综合评判</div>
+    <div class="subsection" th:if="${data.rankingTableHtml != null and !data.rankingTableHtml.isEmpty()}">
+        <div class="subsection-title">排名表</div>
+        <div class="content" th:utext="${data.rankingTableHtml}"></div>
+    </div>
+    <div th:if="${data.chartBase64 != null}" class="chart-container">
+        <img th:src="'data:image/png;base64,' + ${data.chartBase64}" alt="优先级排名图" style="width:100%;max-width:800px;margin:10px auto;display:block;"/>
+    </div>
+    <div th:if="${data.reasoningHtml != null and !data.reasoningHtml.isEmpty()}" class="reasoning-box">
+        <div class="reasoning-title">排序理由</div>
+        <div class="content" th:utext="${data.reasoningHtml}"></div>
+    </div>
+    <div class="analysis-subsection" th:if="${data.ninthPartResult.contentMd != null and !data.ninthPartResult.contentMd.isEmpty()}">
+        <div class="content" th:utext="${data.ninthPartResult.contentMd}"></div>
+    </div>
+</div>
+
+<!-- ===================== 第十部分：就业前景与展望 ===================== -->
+<div class="analysis-section"
+     th:if="${(data.soeDirectionHtml != null and !data.soeDirectionHtml.isEmpty())
+         or (data.civilServiceHtml != null and !data.civilServiceHtml.isEmpty())
+         or data.civilServiceChartBase64 != null
+         or (data.privateSectorResults != null and !data.privateSectorResults.isEmpty())}"
+     style="page-break-before: always;">
+    <div class="section-title">十、就业前景与展望</div>
+
+    <!-- 10.1 央国企体系 -->
+    <div class="analysis-subsection">
+        <div class="subsection-title">10.1 央国企体系</div>
+        <div class="content">
+            <p><strong>招录渠道：</strong>央企国企招录主要分为四类渠道：①校园招聘（秋招9-11月、春招3-4月，央企总部及二级公司主力渠道）；②统一招聘考试（如国家电网、南方电网、中国烟草、三大运营商每年组织全国统一笔试面试）；③定向培养与人才引进（面向"双一流"院校的专项引才计划）；④劳务派遣/业务外包转正通道（部分单位先外包后择优转正）。</p>
+            <p><strong>典型校招流程：</strong>网申（每年9月起）→ 简历筛选 → 全国统一笔试（行测+专业知识）→ 结构化面试 → 体检与政审 → 签约录用。多数央企要求应届生身份，部分岗位要求硕士学历或党员身份。</p>
+        </div>
+        <div class="subsection-title">志愿专业对口央企方向（AI分析）</div>
+        <div class="content" th:if="${data.soeDirectionHtml != null and !data.soeDirectionHtml.isEmpty()}"
+             th:utext="${data.soeDirectionHtml}"></div>
+        <div class="content" th:if="${data.soeDirectionHtml == null or data.soeDirectionHtml.isEmpty()}">
+            AI 分析暂不可用
+        </div>
+    </div>
+
+    <!-- 10.2 事业单位 / 公务员 / 选调生 -->
+    <div class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title">10.2 事业单位 / 公务员 / 选调生</div>
+        <div class="content" th:if="${data.civilServiceHtml != null and !data.civilServiceHtml.isEmpty()}"
+             th:utext="${data.civilServiceHtml}"></div>
+        <div class="content" th:if="${data.civilServiceHtml == null or data.civilServiceHtml.isEmpty()}">
+            AI 分析暂不可用
+        </div>
+        <div th:if="${data.civilServiceChartBase64 != null}" class="chart-container">
+            <div class="subsection-title">体制内适配度评分</div>
+            <img th:src="'data:image/png;base64,' + ${data.civilServiceChartBase64}" alt="体制内适配度柱状图"
+                 style="width:100%;max-width:800px;margin:10px auto;display:block;"/>
+        </div>
+    </div>
+
+    <!-- 10.3 民营企业赛道 -->
+    <div class="analysis-subsection" th:if="${data.privateSectorResults != null and !data.privateSectorResults.isEmpty()}">
+        <div class="subsection-title">10.3 民营企业赛道</div>
+        <div th:each="part : ${data.privateSectorResults}" class="analysis-subsection" style="page-break-inside: auto;">
+            <div class="subsection-title" th:text="${part.title}">-</div>
+            <div class="content" th:utext="${part.contentMd}"></div>
+        </div>
+    </div>
+
+    <!-- 10.4 其他兜底路径 -->
+    <div class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title">10.4 其他兜底路径</div>
+        <div class="content">
+            <p><strong>三支一扶：</strong>高校毕业生到基层从事支教、支农、支医和帮扶乡村振兴工作。报考条件为应届毕业生或毕业2年内未就业的高校毕业生；服务期一般为2年，服务期间享受工作生活补贴；服务期满后可享受定向招录公务员/事业单位（笔试加分或专项岗位）、考研初试加分（加10分、同等条件优先录取）、学费补偿代偿等政策。</p>
+            <p><strong>西部计划：</strong>全国大学生志愿服务西部计划，招募应届毕业生或在读研究生到西部基层开展教育、卫生、乡村建设等志愿服务。服务期1-3年，服务期间享受中央财政补贴；服务期满且考核合格后，可享受公务员定向考录、事业单位专项招聘、考研加分（初试加10分）、应届生身份保留等政策支持。</p>
+            <p><strong>社区基层项目：</strong>包括社区工作者、大学生村官（部分地区）、基层治理专干等岗位。一般要求大专及以上学历，部分岗位面向应届生定向招聘；社区工作者多为合同制，但稳定且可积累基层工作经历；任职一定年限且考核优秀者，可参加面向基层经历的公务员/事业单位定向招录，部分省份实行"优秀社区工作者事业编激励"政策。</p>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== 第十一部分：官方数据源与查询渠道清单 ===================== -->
+<div class="analysis-section" style="page-break-before: always;">
+    <div class="section-title">十一、官方数据源与查询渠道清单</div>
+
+    <!-- 11.1 高考志愿官方平台 -->
+    <div class="analysis-subsection">
+        <div class="subsection-title">11.1 高考志愿官方平台</div>
+        <div class="content">
+            <p><strong>阳光高考平台（教育部高校招生阳光工程指定平台）：</strong><a href="https://gaokao.chsi.com.cn">https://gaokao.chsi.com.cn</a> —— 院校库、专业库、招生章程、往年录取数据、特殊类型招生报名等权威信息。</p>
+            <p>高考报名、成绩查询、志愿填报、征集志愿等环节均通过各省（市）教育考试院官方平台进行，请以本省考试院发布的通知为准。</p>
+        </div>
+        <div th:if="${data.provinceExamSite != null}" class="subsection">
+            <div class="subsection-title" th:text="${data.provinceExamSite.province + ' - ' + data.provinceExamSite.siteName}">-</div>
+            <div class="content">
+                <p>官方网址：<a th:href="${data.provinceExamSite.url}" th:text="${data.provinceExamSite.url}">-</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11.2 院校信息渠道 -->
+    <div class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title">11.2 院校信息渠道</div>
+        <div class="content">
+            <p>各校招生章程、历年录取分数、专业介绍、招生计划等，以各校本科招生网官方发布为准。以下为本方案涉及院校的官方网站：</p>
+        </div>
+        <div class="content" th:if="${data.universitySites != null and !data.universitySites.isEmpty()}">
+            <ul>
+                <li th:each="site : ${data.universitySites}">
+                    <span th:text="${site.universityName}">-</span> ：
+                    <a th:href="${site.website}" th:text="${site.website}">-</a>
+                </li>
+            </ul>
+        </div>
+        <div class="content" th:if="${data.universitySites == null or data.universitySites.isEmpty()}">
+            <p>暂未收录本方案院校的官网信息，请通过阳光高考平台或各校本科招生网查询。</p>
+        </div>
+    </div>
+
+    <!-- 数据来源说明 -->
+    <div class="analysis-subsection" style="page-break-inside: auto;">
+        <div class="subsection-title">数据来源说明</div>
+        <div class="content">
+            <p>本报告数据来自海峰未来规划院专业数据库（院校、专业、城市、就业数据），其中 AI 分析内容由人工智能生成，仅供参考。</p>
+            <p>招生计划、录取规则、招生简章等信息以各省级教育考试院及院校官方发布为准。</p>
         </div>
     </div>
 </div>

@@ -3,6 +3,7 @@ package com.haifeng.app.service.impl.algorithm.pdf;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
+import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.util.algorithm.pdf.EnrichmentLoader;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.MacroAnalysisVO;
@@ -11,10 +12,12 @@ import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRenderData;
 import com.haifeng.app.vo.algorithm.pdf.PlanSnapshot;
 import com.haifeng.app.vo.algorithm.pdf.ReduceResult;
+import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.common.entity.algorithm.pdf.PdfReport;
 import com.haifeng.common.entity.algorithm.wish.WishGroupSnapshot;
 import com.haifeng.common.entity.algorithm.wish.WishMajorSnapshot;
 import com.haifeng.common.enums.PdfReportStatus;
+import com.haifeng.common.enums.ProvinceExamSiteEnum;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishGroupSnapshotMapper;
@@ -62,6 +65,7 @@ public class PdfRenderServiceImpl implements PdfRenderService {
     private final WishMajorSnapshotMapper wishMajorSnapshotMapper;
     private final ObjectMapper objectMapper;
     private final EnrichmentLoader enrichmentLoader;
+    private final WishPlanService wishPlanService;
 
     private final Parser flexmarkParser;
     private final HtmlRenderer flexmarkRenderer;
@@ -76,12 +80,14 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                                  WishGroupSnapshotMapper wishGroupSnapshotMapper,
                                  WishMajorSnapshotMapper wishMajorSnapshotMapper,
                                  ObjectMapper objectMapper,
-                                 EnrichmentLoader enrichmentLoader) {
+                                 EnrichmentLoader enrichmentLoader,
+                                 WishPlanService wishPlanService) {
         this.pdfReportMapper = pdfReportMapper;
         this.wishGroupSnapshotMapper = wishGroupSnapshotMapper;
         this.wishMajorSnapshotMapper = wishMajorSnapshotMapper;
         this.objectMapper = objectMapper;
         this.enrichmentLoader = enrichmentLoader;
+        this.wishPlanService = wishPlanService;
 
         this.flexmarkParser = Parser.builder()
                 .extensions(java.util.Collections.singletonList(TablesExtension.create()))
@@ -97,6 +103,8 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         resolver.setCharacterEncoding("UTF-8");
         resolver.setCacheable(true);
         this.templateEngine = new TemplateEngine();
+        // SpEL 方言：支持 Groovy 风格安全导航 ?. 等模板中已有语法（OGNL 不支持）
+        this.templateEngine.setDialect(new org.thymeleaf.spring6.dialect.SpringStandardDialect());
         this.templateEngine.setTemplateResolver(resolver);
     }
 
@@ -104,7 +112,6 @@ public class PdfRenderServiceImpl implements PdfRenderService {
     public byte[] renderPdf(Long userId, Integer recordId) {
         log.info("Rendering PDF, userId={}, recordId={}", userId, recordId);
 
-        // 1. 加载报告记录
         PdfReport report = pdfReportMapper.selectById(recordId);
         if (report == null || !userId.equals(report.getMemberId())
                 || Boolean.TRUE.equals(report.getDeleted())) {
@@ -114,14 +121,38 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "报告尚未生成完成");
         }
 
-        // 2. 检查缓存
         CachedPdf cached = pdfCache.get(recordId);
         if (cached != null && cached.updatedAt().equals(report.getUpdatedAt())) {
             log.debug("PDF cache hit, recordId={}", recordId);
             return cached.data();
         }
 
-        // 2. 解析 JSONB
+        return doRender(report);
+    }
+
+    @Override
+    public byte[] renderPdf(Integer recordId) {
+        log.info("Rendering PDF (no auth), recordId={}", recordId);
+
+        PdfReport report = pdfReportMapper.selectById(recordId);
+        if (report == null || Boolean.TRUE.equals(report.getDeleted())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "报告记录不存在");
+        }
+        if (report.getStatus() != PdfReportStatus.SUCCESS) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "报告尚未生成完成");
+        }
+
+        CachedPdf cached = pdfCache.get(recordId);
+        if (cached != null && cached.updatedAt().equals(report.getUpdatedAt())) {
+            log.debug("PDF cache hit, recordId={}", recordId);
+            return cached.data();
+        }
+
+        return doRender(report);
+    }
+
+    private byte[] doRender(PdfReport report) {
+        Integer recordId = report.getId();
         PlanSnapshot planSnapshot = parseJson(report.getPlanSnapshot(), PlanSnapshot.class);
         List<MapResultItem> mapResults = parseJsonList(report.getMapResults(), MapResultItem.class);
         ReduceResult reduceResult = parseJson(report.getReduceResult(), ReduceResult.class);
@@ -185,19 +216,6 @@ public class PdfRenderServiceImpl implements PdfRenderService {
 
             List<PdfRenderData.MajorRenderData> majorRenderList = majorSnapshots.stream()
                     .map(m -> {
-                        // 汇总表行
-                        summaryRows.add(PdfRenderData.SummaryRow.builder()
-                                .universityName(gs.getUniversityName())
-                                .groupName(gs.getGroupName())
-                                .groupCode(gs.getGroupCode())
-                                .majorName(m.getMajorName())
-                                .majorCode(m.getMajorCode())
-                                .levelShort(m.getLevelShort())
-                                .safetyLevel(m.getSafetyLevel())
-                                .tuition(m.getTuition())
-                                .cityName(gs.getCityName())
-                                .build());
-
                         // 历史录取分
                         List<PdfRenderData.HistoryScoreRender> historyRenders = m.getHistoryScores() != null
                                 ? m.getHistoryScores().stream()
@@ -213,6 +231,20 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                                                 .build())
                                         .collect(Collectors.toList())
                                 : null;
+
+                        // 汇总表行（包含历史分数）
+                        summaryRows.add(PdfRenderData.SummaryRow.builder()
+                                .universityName(gs.getUniversityName())
+                                .groupName(gs.getGroupName())
+                                .groupCode(gs.getGroupCode())
+                                .majorName(m.getMajorName())
+                                .majorCode(m.getMajorCode())
+                                .levelShort(m.getLevelShort())
+                                .safetyLevel(m.getSafetyLevel())
+                                .tuition(m.getTuition())
+                                .cityName(gs.getCityName())
+                                .historyScores(historyRenders)
+                                .build());
 
                         // 从批量加载结果中获取专业增强数据
                         MajorEnrichmentVO majorEnrichment = m.getMajorId() != null
@@ -273,6 +305,16 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         String chartBase64 = null;
         String swotHtml = "";
         String recommendationHtml = "";
+        String trackAnalysisHtml = "";
+        String policyAnalysisHtml = "";
+        List<PdfRenderData.HtmlPartResult> sixthPartResults = new ArrayList<>();
+        List<PdfRenderData.HtmlPartResult> seventhPartResults = new ArrayList<>();
+        List<PdfRenderData.HtmlPartResult> eighthPartResults = new ArrayList<>();
+        PdfRenderData.HtmlPartResult ninthPartResult = null;
+        String soeDirectionHtml = "";
+        String civilServiceHtml = "";
+        String civilServiceChartBase64 = null;
+        List<PdfRenderData.HtmlPartResult> privateSectorResults = new ArrayList<>();
 
         if (reduceResult != null) {
             // 第一部分：学生画像
@@ -379,9 +421,147 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             if (reduceResult.getRecommendation() != null && !reduceResult.getRecommendation().isBlank()) {
                 recommendationHtml = markdownToHtml(reduceResult.getRecommendation());
             }
+
+            // 第二部分：赛道分类研判 & 政策红利分析
+            MacroAnalysisVO macro = reduceResult.getMacroAnalysis();
+            if (macro != null) {
+                if (macro.getTrackAnalysis() != null && !macro.getTrackAnalysis().isBlank()) {
+                    trackAnalysisHtml = markdownToHtml(macro.getTrackAnalysis());
+                }
+                if (macro.getPolicyAnalysis() != null && !macro.getPolicyAnalysis().isBlank()) {
+                    policyAnalysisHtml = markdownToHtml(macro.getPolicyAnalysis());
+                }
+            }
+
+            // 第六部分：大学专项拆解
+            if (reduceResult.getSixthPartResults() != null) {
+                for (ReduceResult.HtmlPartResult part : reduceResult.getSixthPartResults()) {
+                    sixthPartResults.add(PdfRenderData.HtmlPartResult.builder()
+                            .identifier(part.getIdentifier())
+                            .title(part.getTitle())
+                            .contentMd(markdownToHtml(part.getContentMd()))
+                            .build());
+                }
+            }
+
+            // 第七部分：专业专项拆解
+            if (reduceResult.getSeventhPartResults() != null) {
+                for (ReduceResult.HtmlPartResult part : reduceResult.getSeventhPartResults()) {
+                    seventhPartResults.add(PdfRenderData.HtmlPartResult.builder()
+                            .identifier(part.getIdentifier())
+                            .title(part.getTitle())
+                            .contentMd(markdownToHtml(part.getContentMd()))
+                            .build());
+                }
+            }
+
+            // 第八部分：城市专项拆解
+            if (reduceResult.getEighthPartResults() != null) {
+                for (ReduceResult.HtmlPartResult part : reduceResult.getEighthPartResults()) {
+                    eighthPartResults.add(PdfRenderData.HtmlPartResult.builder()
+                            .identifier(part.getIdentifier())
+                            .title(part.getTitle())
+                            .contentMd(markdownToHtml(part.getContentMd()))
+                            .build());
+                }
+            }
+
+            // 第九部分：综合评判
+            if (reduceResult.getNinthPartResult() != null) {
+                ninthPartResult = PdfRenderData.HtmlPartResult.builder()
+                        .identifier(reduceResult.getNinthPartResult().getIdentifier())
+                        .title(reduceResult.getNinthPartResult().getTitle())
+                        .contentMd(markdownToHtml(reduceResult.getNinthPartResult().getContentMd()))
+                        .build();
+            }
+
+            // 第十部分：就业前景与展望
+            if (reduceResult.getSoeDirectionResult() != null
+                    && reduceResult.getSoeDirectionResult().getContentMd() != null
+                    && !reduceResult.getSoeDirectionResult().getContentMd().isBlank()) {
+                soeDirectionHtml = markdownToHtml(reduceResult.getSoeDirectionResult().getContentMd());
+            }
+            if (reduceResult.getCivilServiceResult() != null
+                    && reduceResult.getCivilServiceResult().getContentMd() != null
+                    && !reduceResult.getCivilServiceResult().getContentMd().isBlank()) {
+                civilServiceHtml = markdownToHtml(reduceResult.getCivilServiceResult().getContentMd());
+            }
+            civilServiceChartBase64 = reduceResult.getCivilServiceChartBase64();
+            if (reduceResult.getPrivateSectorResults() != null) {
+                for (ReduceResult.HtmlPartResult part : reduceResult.getPrivateSectorResults()) {
+                    privateSectorResults.add(PdfRenderData.HtmlPartResult.builder()
+                            .identifier(part.getIdentifier())
+                            .title(part.getTitle())
+                            .contentMd(markdownToHtml(part.getContentMd()))
+                            .build());
+                }
+            }
         }
 
-        // 6. 组装 PdfRenderData
+        // 6. 构建按档位分组的汇总数据
+        WishPlanLimitVO levelLimits = wishPlanService.getDefaultLimits();
+
+        // 11.1 用户省份对应的省级教育考试院
+        PdfRenderData.ProvinceExamSiteVO provinceExamSite = null;
+        String planProvince = planSnapshot != null ? planSnapshot.getPlanProvince() : null;
+        ProvinceExamSiteEnum examSite = ProvinceExamSiteEnum.findByProvince(planProvince);
+        if (examSite != null) {
+            provinceExamSite = PdfRenderData.ProvinceExamSiteVO.builder()
+                    .province(examSite.getProvince())
+                    .siteName(examSite.getSiteName())
+                    .url(examSite.getUrl())
+                    .build();
+        }
+
+        // 11.2 志愿表大学去重 -> 批量查官网 -> 过滤未收录
+        List<Long> universityIds = groupSnapshots.stream()
+                .map(WishGroupSnapshot::getUniversityId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, String> websiteMap = enrichmentLoader.loadUniversityWebsites(universityIds);
+        List<PdfRenderData.UniversitySiteVO> universitySites = groupSnapshots.stream()
+                .filter(gs -> gs.getUniversityId() != null && gs.getUniversityName() != null)
+                .collect(Collectors.toMap(WishGroupSnapshot::getUniversityId, WishGroupSnapshot::getUniversityName, (a, b) -> a, java.util.LinkedHashMap::new))
+                .entrySet().stream()
+                .filter(e -> websiteMap.containsKey(e.getKey()))
+                .map(e -> PdfRenderData.UniversitySiteVO.builder()
+                        .universityName(e.getValue())
+                        .website(websiteMap.get(e.getKey()))
+                        .build())
+                .collect(Collectors.toList());
+
+        // 5档配置：{levelShort, levelName, rangeText, color, bgColor}
+        String[][] levelConfig = {
+            {"搏", "大胆冲刺", "0.00 ~ 0.30", "#FF4D4F", "#FFF1F0"},
+            {"冲", "可以冲击", "0.30 ~ 0.50", "#FFA940", "#FFF7E6"},
+            {"稳", "较为稳妥", "0.50 ~ 0.70", "#FADB14", "#FFFBE6"},
+            {"保", "比较安全", "0.70 ~ 0.85", "#52C41A", "#F6FFED"},
+            {"垫", "高度保底", "0.85 ~ 1.00", "#1890FF", "#E6F7FF"}
+        };
+
+        // 按 levelShort 分组
+        Map<String, List<PdfRenderData.SummaryRow>> grouped = summaryRows.stream()
+                .filter(r -> r.getLevelShort() != null)
+                .collect(Collectors.groupingBy(PdfRenderData.SummaryRow::getLevelShort));
+
+        // 构建 levelGroupSummaries
+        List<PdfRenderData.LevelGroupSummary> levelGroupSummaries = new ArrayList<>();
+        for (String[] config : levelConfig) {
+            String levelShort = config[0];
+            List<PdfRenderData.SummaryRow> majors = grouped.getOrDefault(levelShort, Collections.emptyList());
+            levelGroupSummaries.add(PdfRenderData.LevelGroupSummary.builder()
+                    .levelShort(levelShort)
+                    .levelName(config[1])
+                    .rangeText(config[2])
+                    .color(config[3])
+                    .bgColor(config[4])
+                    .selectedCount(majors.size())
+                    .majors(majors)
+                    .build());
+        }
+
+        // 7. 组装 PdfRenderData
         PdfRenderData data = PdfRenderData.builder()
                 .planYear(planSnapshot != null ? planSnapshot.getPlanYear() : null)
                 .planProvince(planSnapshot != null ? planSnapshot.getPlanProvince() : null)
@@ -402,8 +582,21 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                 .chartBase64(chartBase64)
                 .swotHtml(swotHtml)
                 .recommendationHtml(recommendationHtml)
-                .summaryRows(summaryRows)
+                .trackAnalysisHtml(trackAnalysisHtml)
+                .policyAnalysisHtml(policyAnalysisHtml)
+                .sixthPartResults(sixthPartResults)
+                .seventhPartResults(seventhPartResults)
+                .eighthPartResults(eighthPartResults)
+                .ninthPartResult(ninthPartResult)
+                .soeDirectionHtml(soeDirectionHtml)
+                .civilServiceHtml(civilServiceHtml)
+                .civilServiceChartBase64(civilServiceChartBase64)
+                .privateSectorResults(privateSectorResults)
+                .levelGroupSummaries(levelGroupSummaries)
+                .levelLimits(levelLimits)
                 .groups(groupRenderList)
+                .provinceExamSite(provinceExamSite)
+                .universitySites(universitySites)
                 .build();
 
         // 7. Thymeleaf 渲染

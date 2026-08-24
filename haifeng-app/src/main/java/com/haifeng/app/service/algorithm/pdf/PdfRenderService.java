@@ -16,6 +16,14 @@ public interface PdfRenderService {
     byte[] renderPdf(Long userId, Integer recordId);
 
     /**
+     * 渲染 PDF 报告（不校验 userId，给公开预览端点用）
+     *
+     * @param recordId PDF 报告记录ID
+     * @return PDF 字节数组
+     */
+    byte[] renderPdf(Integer recordId);
+
+    /**
      * 清除指定记录的 PDF 渲染缓存
      *
      * @param recordId PDF 报告记录ID

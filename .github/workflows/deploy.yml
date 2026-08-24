@@ -6,10 +6,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_BUILDKIT: "1"
     steps:
-      - name: Deploy to Server
+      - name: Stop old containers
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -18,29 +16,57 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             cd /opt/haifeng
-            
-            # 1. 停止并删除旧容器（释放资源）
             docker compose -f docker-compose.prod.yml down
-            
-            # 2. 拉取最新代码
+          timeout: 2m
+
+      - name: Pull latest code
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /opt/haifeng
             git pull --rebase origin master
-            
-            # 3. 重新构建 haifeng-admin 镜像（单独执行，避免并行）
+          timeout: 2m
+
+      - name: Build haifeng-admin
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /opt/haifeng
+            export DOCKER_BUILDKIT=1
             docker compose -f docker-compose.prod.yml build haifeng-admin
-            
-            # 4. 重新构建 haifeng-app 镜像（单独执行，避免并行）
+          timeout: 30m
+
+      - name: Build haifeng-app
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /opt/haifeng
+            export DOCKER_BUILDKIT=1
             docker compose -f docker-compose.prod.yml build haifeng-app
-            
-            # 5. 重启 haifeng-admin 容器
-            docker compose -f docker-compose.prod.yml up -d haifeng-admin
-            
-            # 6. 重启 haifeng-app 容器
-            docker compose -f docker-compose.prod.yml up -d haifeng-app
-            
-            # 7. 重启 KKFileView 预览服务（拉取最新镜像）
+          timeout: 30m
+
+      - name: Start services
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /opt/haifeng
+            docker compose -f docker-compose.prod.yml up -d haifeng-admin haifeng-app
             docker compose -f docker-compose.prod.yml pull kkfileview
             docker compose -f docker-compose.prod.yml up -d kkfileview
-            
-            # 8. 清理旧镜像（可选，节省空间）
-            docker image prune -f
-          timeout: 90m # 设置为 90 分钟，给构建留出足够时间
+          timeout: 5m

@@ -81,3 +81,10 @@ oss:
   bucket-name: ${OSS_BUCKET_NAME}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: http://127.0.0.1:8012
+
+# PDF预览配置
+pdf:
+  preview:
+    secret: ${PDF_PREVIEW_SECRET}
+    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:300}
+    base-url: http://haifeng-app:18080

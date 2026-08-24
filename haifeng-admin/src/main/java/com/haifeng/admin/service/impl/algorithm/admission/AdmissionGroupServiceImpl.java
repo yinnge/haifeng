@@ -370,23 +370,31 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // ---- 字符串长度校验（对齐数据库列长度，超长会绕过校验直接打崩DB）----
+            // 必填项已在上一步校验非空，此处统一 trim，避免单元格空格导致枚举误判/落库脏数据
             String uniName = dto.getUniversityName().trim();
+            String province = dto.getProvince().trim();
+            String batch = dto.getBatch().trim();
+            String groupCode = dto.getGroupCode().trim();
+            String majorCode = dto.getMajorCode().trim();
+            String majorName = dto.getMajorName().trim();
+            String reqType = StringUtils.hasText(dto.getRequirementType()) ? dto.getRequirementType().trim() : null;
+            String eduLevel = StringUtils.hasText(dto.getEducationLevel()) ? dto.getEducationLevel().trim() : null;
             if (uniName.length() > 50) {
                 errors.add("第" + rowNum + "行: 大学名长度不能超过50");
             }
             if (dto.getEnrollmentCode() != null && dto.getEnrollmentCode().length() > 30) {
                 errors.add("第" + rowNum + "行: 省招代码长度不能超过30");
             }
-            if (dto.getGroupCode().length() > 30) {
+            if (groupCode.length() > 30) {
                 errors.add("第" + rowNum + "行: 专业组代码长度不能超过30");
             }
             if (dto.getGroupName() != null && dto.getGroupName().length() > 100) {
                 errors.add("第" + rowNum + "行: 专业组名称长度不能超过100");
             }
-            if (dto.getMajorCode().length() > 20) {
+            if (majorCode.length() > 20) {
                 errors.add("第" + rowNum + "行: 专业代码长度不能超过20");
             }
-            if (dto.getMajorName().length() > 100) {
+            if (majorName.length() > 100) {
                 errors.add("第" + rowNum + "行: 专业名称长度不能超过100");
             }
             if (dto.getDuration() != null && dto.getDuration().length() > 20) {
@@ -414,18 +422,18 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // ---- 省份枚举 ----
-            if (!validProvinces.contains(dto.getProvince())) {
-                errors.add("第" + rowNum + "行: 省份[" + dto.getProvince() + "]不合法");
+            if (!validProvinces.contains(province)) {
+                errors.add("第" + rowNum + "行: 省份[" + province + "]不合法");
             }
 
             // ---- 批次枚举 ----
-            if (!validBatches.contains(dto.getBatch())) {
-                errors.add("第" + rowNum + "行: 批次[" + dto.getBatch() + "]不合法，只允许：本科批/提前批/专科批");
+            if (!validBatches.contains(batch)) {
+                errors.add("第" + rowNum + "行: 批次[" + batch + "]不合法，只允许：本科批/提前批/专科批");
             }
 
             // ---- 选科类型枚举 ----
-            if (StringUtils.hasText(dto.getRequirementType()) && !validReqTypes.contains(dto.getRequirementType())) {
-                errors.add("第" + rowNum + "行: 选科类型[" + dto.getRequirementType() + "]不合法，只允许：不限/2选1/3选1/必选1/必选2/必选3");
+            if (StringUtils.hasText(reqType) && !validReqTypes.contains(reqType)) {
+                errors.add("第" + rowNum + "行: 选科类型[" + reqType + "]不合法，只允许：不限/2选1/3选1/必选1/必选2/必选3");
             }
 
             // ---- 科目枚举与数量 ----
@@ -448,26 +456,26 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // ---- 层次枚举 ----
-            if (StringUtils.hasText(dto.getEducationLevel()) && !validEduLevels.contains(dto.getEducationLevel())) {
-                errors.add("第" + rowNum + "行: 层次[" + dto.getEducationLevel() + "]不合法，只允许：本科/专科");
+            if (StringUtils.hasText(eduLevel) && !validEduLevels.contains(eduLevel)) {
+                errors.add("第" + rowNum + "行: 层次[" + eduLevel + "]不合法，只允许：本科/专科");
             }
 
             // ---- 选科类型与科目数量一致性 ----
-            if (StringUtils.hasText(dto.getRequirementType()) && !subjectsList.isEmpty()) {
+            if (StringUtils.hasText(reqType) && !subjectsList.isEmpty()) {
                 int count = subjectsList.size();
-                switch (dto.getRequirementType()) {
+                switch (reqType) {
                     case "不限":
                         break;
                     case "2选1":
                     case "必选2":
                         if (count != 2) {
-                            errors.add("第" + rowNum + "行: 选科类型[" + dto.getRequirementType() + "]需要2个科目，实际" + count + "个");
+                            errors.add("第" + rowNum + "行: 选科类型[" + reqType + "]需要2个科目，实际" + count + "个");
                         }
                         break;
                     case "3选1":
                     case "必选3":
                         if (count != 3) {
-                            errors.add("第" + rowNum + "行: 选科类型[" + dto.getRequirementType() + "]需要3个科目，实际" + count + "个");
+                            errors.add("第" + rowNum + "行: 选科类型[" + reqType + "]需要3个科目，实际" + count + "个");
                         }
                         break;
                     case "必选1":
@@ -540,8 +548,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
             // ---- 与数据库已有专业代码冲突检查（关键：保证要么全成功要么全失败）----
             String groupKey = String.format("%s_%d_%s_%s_%s",
-                    uniName, dto.getYear(), dto.getProvince(),
-                    dto.getBatch(), dto.getGroupCode());
+                    uniName, dto.getYear(), province,
+                    batch, groupCode);
 
             // 查询 DB 中该业务键对应的专业组（带缓存，null 也会缓存表示查过但不存在）
             AdmissionGroup existingGroup = existingGroupCache.get(groupKey);
@@ -550,9 +558,9 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                         Wrappers.lambdaQuery(AdmissionGroup.class)
                                 .eq(AdmissionGroup::getUniversityId, university.getId())
                                 .eq(AdmissionGroup::getYear, dto.getYear())
-                                .eq(AdmissionGroup::getProvince, dto.getProvince())
-                                .eq(AdmissionGroup::getBatch, dto.getBatch())
-                                .eq(AdmissionGroup::getGroupCode, dto.getGroupCode())
+                                .eq(AdmissionGroup::getProvince, province)
+                                .eq(AdmissionGroup::getBatch, batch)
+                                .eq(AdmissionGroup::getGroupCode, groupCode)
                                 .eq(AdmissionGroup::getIsDeleted, false));
                 existingGroupCache.put(groupKey, existingGroup);
             }
@@ -572,19 +580,19 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                             .collect(Collectors.toSet());
                     existingMajorCodesCache.put(groupId, dbMajorCodes);
                 }
-                if (dbMajorCodes.contains(dto.getMajorCode())) {
-                    errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在数据库该专业组下已存在");
+                if (dbMajorCodes.contains(majorCode)) {
+                    errors.add("第" + rowNum + "行: 专业代码[" + majorCode + "]在数据库该专业组下已存在");
                     continue;
                 }
             }
 
             // ---- Excel 内同组专业代码重复检查 ----
             Set<String> excelCodes = groupMajorCodes.computeIfAbsent(groupKey, k -> new HashSet<>());
-            if (excelCodes.contains(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在同一专业组内重复");
+            if (excelCodes.contains(majorCode)) {
+                errors.add("第" + rowNum + "行: 专业代码[" + majorCode + "]在同一专业组内重复");
                 continue;
             }
-            excelCodes.add(dto.getMajorCode());
+            excelCodes.add(majorCode);
         }
 
         // 错误条数限制 + 校验失败则全部不插入
@@ -620,8 +628,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         Map<String, List<AdmissionImportDTO>> groupedData = new LinkedHashMap<>();
         for (AdmissionImportDTO dto : dataList) {
             String groupKey = String.format("%s_%d_%s_%s_%s",
-                    dto.getUniversityName().trim(), dto.getYear(), dto.getProvince(),
-                    dto.getBatch(), dto.getGroupCode());
+                    dto.getUniversityName().trim(), dto.getYear(), dto.getProvince().trim(),
+                    dto.getBatch().trim(), dto.getGroupCode().trim());
             groupedData.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(dto);
         }
 
@@ -637,15 +645,15 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 AdmissionGroup group = AdmissionGroup.builder()
                         .universityId(university.getId())
                         .universityName(university.getName())
-                        .cityName(university.getCityName())
-                        .year(firstRow.getYear())
-                        .province(firstRow.getProvince())
-                        .batch(firstRow.getBatch())
-                        .enrollmentCode(firstRow.getEnrollmentCode())
-                        .groupCode(firstRow.getGroupCode())
-                        .groupName(StringUtils.hasText(firstRow.getGroupName()) ? firstRow.getGroupName() : firstRow.getGroupCode())
+                    .cityName(university.getCityName())
+                    .year(firstRow.getYear())
+                    .province(firstRow.getProvince().trim())
+                    .batch(firstRow.getBatch().trim())
+                    .enrollmentCode(firstRow.getEnrollmentCode())
+                    .groupCode(firstRow.getGroupCode().trim())
+                        .groupName(StringUtils.hasText(firstRow.getGroupName()) ? firstRow.getGroupName().trim() : firstRow.getGroupCode().trim())
                         .subjects(parseList(firstRow.getSubjectsStr()))
-                        .requirementType(StringUtils.hasText(firstRow.getRequirementType()) ? firstRow.getRequirementType() : "不限")
+                        .requirementType(StringUtils.hasText(firstRow.getRequirementType()) ? firstRow.getRequirementType().trim() : "不限")
                         .description(firstRow.getGroupDescription())
                         .isDeleted(false)
                         .createdAt(now)
@@ -693,7 +701,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 AdmissionMajorScore existingMajor = admissionMajorScoreMapper.selectOne(
                         Wrappers.lambdaQuery(AdmissionMajorScore.class)
                                 .eq(AdmissionMajorScore::getGroupId, groupId)
-                                .eq(AdmissionMajorScore::getMajorCode, row.getMajorCode())
+                                .eq(AdmissionMajorScore::getMajorCode, row.getMajorCode().trim())
                                 .eq(AdmissionMajorScore::getIsDeleted, false));
 
                 if (existingMajor != null) {
@@ -709,8 +717,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
                     AdmissionMajorScore majorScore = AdmissionMajorScore.builder()
                             .groupId(groupId)
-                            .majorCode(row.getMajorCode())
-                            .majorName(row.getMajorName())
+                            .majorCode(row.getMajorCode().trim())
+                            .majorName(row.getMajorName().trim())
                             .educationLevel(row.getEducationLevel())
                             .duration(row.getDuration())
                             .tuition(row.getTuition())

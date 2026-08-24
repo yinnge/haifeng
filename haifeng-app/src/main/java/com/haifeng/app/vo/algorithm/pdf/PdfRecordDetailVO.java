@@ -25,4 +25,5 @@ public class PdfRecordDetailVO {
     private String planSnapshot;
     private String failReason;
     private OffsetDateTime createdAt;
+    private String previewUrl;
 }
