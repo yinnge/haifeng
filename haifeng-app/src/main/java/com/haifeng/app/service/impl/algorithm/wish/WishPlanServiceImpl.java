@@ -353,6 +353,8 @@ public class WishPlanServiceImpl implements WishPlanService {
                             .duration(info.major.getDuration())
                             .tuition(info.major.getTuition())
                             .description(info.major.getDescription())
+                            .educationLevel(info.major.getEducationLevel())
+                            .constraints(info.major.getConstraints())
                             .admissionCount(info.historyScores.isEmpty() ? null : info.historyScores.get(0).getAdmissionCount())
                             .safetyLevel(info.result.getSafetyLevel())
                             .levelShort(info.result.getLevelShort())
@@ -731,6 +733,9 @@ public class WishPlanServiceImpl implements WishPlanService {
 
     @Override
     public WishPlanExportFileVO generateExportFile(Integer planId) {
+        // 0. 先将 Redis 中的导出状态同步到 DB（确保导出数据最新）
+        saveExportStatusToDatabase(planId);
+
         // 1. 验证志愿方案存在
         WishPlan wishPlan = wishPlanMapper.selectById(planId);
         if (wishPlan == null || wishPlan.getDeleted()) {
@@ -1173,6 +1178,8 @@ public class WishPlanServiceImpl implements WishPlanService {
                 .duration(snap.getDuration())
                 .tuition(snap.getTuition())
                 .description(snap.getDescription())
+                .educationLevel(snap.getEducationLevel())
+                .constraints(snap.getConstraints() != null ? snap.getConstraints() : Collections.emptyList())
                 .admissionCount(snap.getAdmissionCount())
                 .safetyLevel(snap.getSafetyLevel())
                 .levelShort(snap.getLevelShort())

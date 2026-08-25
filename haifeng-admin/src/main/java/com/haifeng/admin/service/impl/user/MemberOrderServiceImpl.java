@@ -299,16 +299,12 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         member.setMemberType(order.getAfterType().getValue());
         member.setExpireAt(order.getAfterExpireAt());
         member.setUpdatedAt(now);
-        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
 
-        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
-        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
-        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
-                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+        // 会员类型变更属权限授予，不 bump tokenVersion（避免生产 Redis 版本号使旧 token 失效）。VIP 实时性由 AuthAspect.checkVip 回退 DB 查询保证。
 
         // 4. 更新订单 status = COMPLETED
         order.setStatus(OrderStatus.COMPLETED);
@@ -393,16 +389,12 @@ public class MemberOrderServiceImpl implements MemberOrderService {
             member.setSuspendedRemainingMonths(null);
         }
         member.setUpdatedAt(now);
-        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
 
-        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
-        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
-        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
-                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+        // 撤销会员类型变更同样不 bump tokenVersion（VIP 实时性由 AuthAspect.checkVip 回退 DB 查询保证）。
 
         // 4. 更新订单 status = REVOKED，追加 remark
         String finalRemark = order.getRemark();

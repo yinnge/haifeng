@@ -1,5 +1,5 @@
 # ============
-# haifeng-app 构建镜像（用户端，内存限制同 admin）
+# haifeng-app 构建镜像（用户端，服务器 2核4G，内存限制同 admin）
 # ============
 
 # ---------- 构建阶段 ----------
@@ -26,8 +26,8 @@ WORKDIR /app
 
 ENV TZ=Asia/Shanghai
 
-# 运行时 JVM 限制
-ENV JAVA_OPTS="-Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+# 运行时 JVM 限制，App 端承担 AI + PDF 预览等重任务，多分配64m
+ENV JAVA_OPTS="-Xms128m -Xmx384m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
 
 COPY --from=builder /build/haifeng-app/target/haifeng-app-*.jar app.jar
 

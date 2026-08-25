@@ -4,8 +4,10 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
+import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.permission.SysAdminMapper;
+import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.security.AuthUser;
 import com.haifeng.common.util.SecurityUtil;
@@ -31,6 +33,7 @@ import java.lang.reflect.Method;
 public class AuthAspect {
 
     private final SysAdminMapper adminMapper;
+    private final MemberMapper memberMapper;
 
     /**
      * 检查登录状态
@@ -89,11 +92,23 @@ public class AuthAspect {
             throw new BusinessException(ResultCode.UNAUTHORIZED);
         }
 
-        if (!currentUser.isVip()) {
-            log.warn("用户非VIP，拒绝访问: userId={}, memberType={}",
-                    currentUser.getUserId(), currentUser.getMemberType());
-            throw new BusinessException(ResultCode.VIP_REQUIRED);
+        // 快速路径：token 已声明 VIP
+        if (currentUser.isVip()) {
+            return;
         }
+
+        // 实时校验：admin 可能刚升级会员，token 中 memberType 尚未刷新（避免用户必须重登才能用 VIP）。
+        // 会员类型变更不再 bump tokenVersion，故此处回退 DB 查询保证 VIP 立即生效。
+        if (currentUser.isMember() && currentUser.getUserId() != null) {
+            Member member = memberMapper.selectById(currentUser.getUserId());
+            if (member != null && !member.getDeleted() && member.isVipActive()) {
+                return;
+            }
+        }
+
+        log.warn("用户非VIP，拒绝访问: userId={}, memberType={}",
+                currentUser.getUserId(), currentUser.getMemberType());
+        throw new BusinessException(ResultCode.VIP_REQUIRED);
     }
 
     /**

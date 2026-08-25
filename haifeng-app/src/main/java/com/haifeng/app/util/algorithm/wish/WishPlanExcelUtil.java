@@ -65,7 +65,7 @@ public class WishPlanExcelUtil {
     private static final Map<String, Short> SAFETY_COLOR_MAP = Map.of(
             "搏", IndexedColors.RED.getIndex(),
             "冲", IndexedColors.LIGHT_ORANGE.getIndex(),
-            "稳", IndexedColors.YELLOW.getIndex(),
+            "稳", IndexedColors.ORANGE.getIndex(),
             "保", IndexedColors.GREEN.getIndex(),
             "垫", IndexedColors.BLUE.getIndex()
     );
@@ -74,10 +74,12 @@ public class WishPlanExcelUtil {
     private static final Short COLOR_RED = IndexedColors.RED.getIndex();
     private static final Short COLOR_BLUE = IndexedColors.BLUE.getIndex();
 
-    /** 单元格基准字号（与数据行 12 号一致）；大学名/专业名为 14 号；安全系数 level 描述放大两号 = 14 号 */
+    /** 单元格基准字号（与数据行 12 号一致）；大学名/专业名为 14 号 */
     private static final short BASE_FONT_SIZE = 12;
-    /** 安全系数 level(百分比) 描述字号：在基准上放大两个字号 */
-    private static final short SAFETY_LEVEL_SIZE = 14;
+    /** 安全系数 short(档位简写) 字号：在基准上放大两个字号 = 14 */
+    private static final short SAFETY_SHORT_SIZE = 14;
+    /** 安全系数 level(百分比) 描述字号：在基准上放大约一个字号 = 13 */
+    private static final short SAFETY_LEVEL_SIZE = 13;
 
     /** 列宽相关常量（POI 列宽单位：1/256 个字符宽度） */
     private static final int WIDTH_UNITS_PER_CHAR = 256;
@@ -263,7 +265,7 @@ public class WishPlanExcelUtil {
                         row.add(universitySpec.text);
                         row.add(group.getMajorCount());
                         row.add(group.getRecommendationYear());
-                        row.add(formatBigDecimal(group.getRecommendationRate()));
+                        row.add(formatPercent(group.getRecommendationRate()));
                         row.add(groupSeq);
                         row.add(majorSpec.text);
                         row.add(formatDurationTuition(major));
@@ -351,8 +353,29 @@ public class WishPlanExcelUtil {
         return value.stripTrailingZeros().toPlainString();
     }
 
+    /**
+     * 推免率格式化：库里存的是整数百分比（如 56.00 表示 56%），直接拼百分号。
+     * 既不要裸数字（56），也不要比率形式（0.56）。
+     */
+    private String formatPercent(BigDecimal value) {
+        if (value == null) {
+            return "";
+        }
+        return value.stripTrailingZeros().toPlainString() + "%";
+    }
+
     private String formatDurationTuition(WishMajorSnapshot major) {
-        String duration = major.getDuration() != null ? major.getDuration() : "";
+        // 学制兼容：数据库可能存 "4" 或 "4年"，统一去掉已有"年"字后追加"年"，避免重复或缺失单位
+        String rawDuration = major.getDuration() != null ? major.getDuration().trim() : "";
+        String duration;
+        if (rawDuration.isEmpty()) {
+            duration = "";
+        } else {
+            String normalized = rawDuration.endsWith("年")
+                    ? rawDuration.substring(0, rawDuration.length() - 1)
+                    : rawDuration;
+            duration = normalized + "年";
+        }
         String tuitionStr = major.getTuition() != null ? major.getTuition() : "";
         if (!duration.isEmpty() && !tuitionStr.isEmpty()) {
             return duration + "/" + tuitionStr;
@@ -521,10 +544,10 @@ public class WishPlanExcelUtil {
                 .toString() + "%";
         String text = levelShort + "\n" + percentage;
         List<RichTextSegment> segments = new ArrayList<>();
-        // 只给短词(levelShort)上色，百分比保持默认黑色；百分比(level描述)字号为基准放大约两个字号
+        // 只给短词(levelShort)上色并放大两号；百分比保持默认黑色，放大约一个字号
         Short color = SAFETY_COLOR_MAP.get(levelShort);
         if (color != null) {
-            segments.add(new RichTextSegment(0, levelShort.length(), color, false, BASE_FONT_SIZE));
+            segments.add(new RichTextSegment(0, levelShort.length(), color, false, SAFETY_SHORT_SIZE));
         }
         int pctStart = levelShort.length() + 1; // +1 跳过换行符
         segments.add(new RichTextSegment(pctStart, pctStart + percentage.length(), null, false, SAFETY_LEVEL_SIZE));
