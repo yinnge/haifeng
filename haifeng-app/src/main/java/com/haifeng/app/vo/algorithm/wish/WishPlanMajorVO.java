@@ -19,6 +19,8 @@ public class WishPlanMajorVO {
     private String duration;
     private String tuition;
     private String description;
+    private String educationLevel;
+    private List<String> constraints;
     private Integer admissionCount;
     private BigDecimal safetyLevel;
     private String levelShort;

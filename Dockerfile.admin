@@ -1,5 +1,5 @@
 # ============================================================
-# haifeng-admin 构建镜像（服务器 2核2G，限制构建内存防 OOM）
+# haifeng-admin 构建镜像（服务器 2核4G，限制构建内存防 OOM）
 # ============================================================
 
 # ---------- 构建阶段 ----------
@@ -28,8 +28,8 @@ WORKDIR /app
 # TZ 时区
 RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-# 运行时 JVM 内存限制，服务器 2G 下两台后端共约 1.2G
-ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+# 运行时 JVM 内存限制，服务器 4G 下两台后端共约 1.5G
+ENV JAVA_OPTS="-Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
 
 COPY --from=builder /build/haifeng-admin/target/haifeng-admin-*.jar app.jar
 

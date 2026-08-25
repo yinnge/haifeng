@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.haifeng.common.config.HistoryScoreListTypeHandler;
+import com.haifeng.common.config.StringListTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -47,6 +48,12 @@ public class WishMajorSnapshot {
     private String tuition;
 
     private String description;
+
+    /** 学历层次（如：本科、专科） */
+    private String educationLevel;
+
+    @TableField(typeHandler = StringListTypeHandler.class)
+    private List<String> constraints;
 
     private Integer admissionCount;
 

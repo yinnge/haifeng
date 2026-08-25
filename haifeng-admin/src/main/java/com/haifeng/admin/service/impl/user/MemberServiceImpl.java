@@ -246,16 +246,14 @@ public class MemberServiceImpl implements MemberService {
         member.setMemberType(dto.getTargetType());
         member.setExpireAt(newExpireAt);
         member.setUpdatedAt(now);
-        member.setTokenVersion((member.getTokenVersion() == null ? 0 : member.getTokenVersion()) + 1);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
         }
 
-        // 更新 Redis 中的 tokenVersion（使旧 Token 失效）
-        String versionKey = RedisKeyConstant.getTokenVersionKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
-        redisTemplate.opsForValue().set(versionKey, String.valueOf(member.getTokenVersion()),
-                jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
+        // 注意：会员类型变更(升级/降级)是权限授予，不是安全事件，不再 bump tokenVersion。
+        // 否则生产 Redis 中存在版本号会导致用户旧 access token 立即失效，
+        // 引发「用户不存在」且必须重登（VIP 也不实时）。VIP 实时性由 AuthAspect.checkVip 回退 DB 查询保证。
 
         // 9. 创建订单记录
         Long orderId = SnowflakeIdGenerator.nextId();

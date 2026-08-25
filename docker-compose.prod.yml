@@ -87,7 +87,7 @@ services:
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
       OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
       KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
-      JAVA_OPTS: -Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
+      JAVA_OPTS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
     networks:
       - haifeng-network
     depends_on:
@@ -95,7 +95,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    mem_limit: 640m
+    mem_limit: 704m
     logging:
       driver: json-file
       options:
@@ -133,7 +133,12 @@ services:
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
       OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
       KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
-      JAVA_OPTS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
+      # PDF 报告预览：base-url 仅由 kkfileview 在 Docker 内网服务端拉取，故填内部服务名 haifeng-app:18080，
+      # 切勿填 127.0.0.1 / 公网 IP（前者是 kkfileview 自身回环抓不到 app，后者无意义）。
+      PDF_PREVIEW_BASE_URL: ${PDF_PREVIEW_BASE_URL}
+      PDF_PREVIEW_SECRET: ${PDF_PREVIEW_SECRET}
+      PDF_PREVIEW_EXPIRE_SECONDS: ${PDF_PREVIEW_EXPIRE_SECONDS:-300}
+      JAVA_OPTS: -Xms128m -Xmx384m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
     depends_on:
       postgresql:
         condition: service_healthy
@@ -141,7 +146,7 @@ services:
         condition: service_healthy
     networks:
       - haifeng-network
-    mem_limit: 640m
+    mem_limit: 768m
     logging:
       driver: json-file
       options:
@@ -152,6 +157,11 @@ services:
     image: keking/kkfileview:4.1.0
     container_name: haifeng-kkfileview
     restart: unless-stopped
+    # 关键：生产环境必须映射到宿主机端口，否则浏览器（Docker 外网）无法访问 kkfileview，
+    # 预览链接里的 KKFILEVIEW_BASE_URL 只能填 Docker 服务名/127.0.0.1，远程用户会 DNS_PROBE_FINISHED_NXDOMAIN。
+    # 与 docker-compose.dev.yml 保持一致，对外暴露 8012。
+    ports:
+      - "8012:8012"
     environment:
       TZ: Asia/Shanghai
     networks:
