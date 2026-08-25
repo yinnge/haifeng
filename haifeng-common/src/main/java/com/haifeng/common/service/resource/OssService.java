@@ -33,46 +33,6 @@ public class OssService {
         );
     }
 
-    /**
-     * 生成预签名上传 URL（前端直传 OSS 用）
-     * @param fileName 原始文件名（用于提取扩展名）
-     * @return PresignedUploadResult 包含上传 URL 和 objectKey
-     */
-    public PresignedUploadResult generatePresignedUploadUrl(String fileName) {
-        String ext = "";
-        if (fileName != null && fileName.contains(".")) {
-            ext = fileName.substring(fileName.lastIndexOf("."));
-        }
-        String objectKey = "haifeng/files/" + UUID.randomUUID().toString().replace("-", "") + ext;
-
-        // 预签名 URL 有效期10分钟
-        Date expiration = new Date(System.currentTimeMillis() + 10 * 60 * 1000L);
-
-        OSS ossClient = createClient();
-        try {
-            // 使用 GeneratePresignedUrlRequest 指定 PUT 方法（兼容 SDK 3.17.4）
-            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
-                    ossProperties.getBucketName(), objectKey);
-            request.setExpiration(expiration);
-            request.setMethod(com.aliyun.oss.model.HttpMethod.PUT);
-
-            URL url = ossClient.generatePresignedUrl(request);
-
-            log.info("生成预签名上传URL成功: key={}", objectKey);
-            return new PresignedUploadResult(url.toString(), objectKey);
-        } catch (Exception e) {
-            log.error("生成预签名上传URL失败: {}", e.getMessage(), e);
-            throw new RuntimeException("生成预签名上传URL失败: " + e.getMessage());
-        } finally {
-            ossClient.shutdown();
-        }
-    }
-
-    /**
-     * 预签名上传结果
-     */
-    public record PresignedUploadResult(String uploadUrl, String objectKey) {}
-
     public String uploadFile(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
         String ext = "";
