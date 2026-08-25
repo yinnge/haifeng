@@ -50,12 +50,13 @@ public class OssService {
 
         OSS ossClient = createClient();
         try {
-            // 生成 PUT 方法的预签名 URL
-            URL url = ossClient.generatePresignedUrl(
-                    ossProperties.getBucketName(),
-                    objectKey,
-                    expiration,
-                    com.aliyun.oss.http.HttpMethod.PUT);
+            // 使用 GeneratePresignedUrlRequest 指定 PUT 方法（兼容 SDK 3.17.4）
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                    ossProperties.getBucketName(), objectKey);
+            request.setExpiration(expiration);
+            request.setMethod(com.aliyun.oss.model.HttpMethod.PUT);
+
+            URL url = ossClient.generatePresignedUrl(request);
 
             log.info("生成预签名上传URL成功: key={}", objectKey);
             return new PresignedUploadResult(url.toString(), objectKey);
