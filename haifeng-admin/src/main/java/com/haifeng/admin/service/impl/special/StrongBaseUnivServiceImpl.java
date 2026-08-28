@@ -147,7 +147,7 @@ public class StrongBaseUnivServiceImpl implements StrongBaseUnivService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchDelete(List<Long> ids) {
-        strongBaseUniversityMapper.deleteBatchIds(ids);
+        strongBaseUniversityMapper.deleteByIds(ids);
         log.info("批量删除强基院校配置: count={}", ids.size());
     }
 }

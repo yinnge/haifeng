@@ -180,7 +180,7 @@ public class SpecialChannelServiceImpl implements SpecialChannelService {
         if (relatedCount > 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "部分通道下仍有大学关联，请先删除");
         }
-        specialChannelMapper.deleteBatchIds(ids);
+        specialChannelMapper.deleteByIds(ids);
         log.info("批量删除招生通道: count={}", ids.size());
     }
 }

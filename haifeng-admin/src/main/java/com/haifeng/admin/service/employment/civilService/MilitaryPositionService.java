@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.employment.civilService.MilitaryPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionUpdateDTO;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -19,5 +20,5 @@ public interface MilitaryPositionService {
     void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
     String preValidate(MultipartFile file);
-    void importExcel(MultipartFile file);
+    ImportResultVO importExcel(MultipartFile file);
 }

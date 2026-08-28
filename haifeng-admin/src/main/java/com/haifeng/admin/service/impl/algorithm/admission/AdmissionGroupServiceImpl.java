@@ -11,6 +11,7 @@ import com.haifeng.admin.excel.algorithm.admission.AdmissionImportDTO;
 import com.haifeng.admin.service.algorithm.admission.AdmissionGroupService;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.common.entity.algorithm.AdmissionGroup;
 import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -42,6 +44,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final UniversityMapper universityMapper;
     private final PlatformTransactionManager transactionManager;
+
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<AdmissionGroupListVO> page(AdmissionGroupQueryDTO dto) {
@@ -219,7 +223,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
     }
 
     @Override
-    public void importData(MultipartFile file) {
+    public ImportResultVO importData(MultipartFile file) {
         // ==================== 0. 文件基础校验 ====================
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
@@ -268,6 +272,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         Map<Integer, Set<String>> existingMajorCodesCache = new HashMap<>();
         // 业务键 -> Excel内已出现专业代码（Excel内去重）
         Map<String, Set<String>> groupMajorCodes = new HashMap<>();
+        Map<AdmissionImportDTO, Integer> rowNumMap = new HashMap<>();
 
         Set<String> validBatches = Set.of("本科批", "提前批", "专科批");
         Set<String> validReqTypes = Set.of("不限", "2选1", "3选1", "必选1", "必选2", "必选3");
@@ -283,6 +288,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
             AdmissionImportDTO dto = dataList.get(i);
+            rowNumMap.put(dto, rowNum);   // 记录原 Excel 行号，供 phase2 写库异常定位
 
             // ---- 必填字段 ----
             if (!StringUtils.hasText(dto.getUniversityName())) {
@@ -540,34 +546,51 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             excelCodes.add(majorCode);
         }
 
-        // 错误条数限制 + 校验失败则全部不插入
+        // 错误条数限制 + 校验失败则全部不插入（用 joinErrors 统一截断，上限 MAX_ERROR_DISPLAY）
         if (!errors.isEmpty()) {
-            String detail = errors.size() > 20
-                    ? String.join("; ", errors.subList(0, 20)) + " 等" + errors.size() + "条错误"
-                    : String.join("; ", errors);
-            throw new BusinessException(400, "数据校验失败：" + detail);
+            throw new BusinessException(400, "数据校验失败：" + joinErrors(errors));
         }
 
         // ==================== 3. 第二轮：全量插入（事务内，校验全过后才执行） ====================
-        // 插入阶段不再做任何跳过/校验，保证"要么全成功，要么全失败"
+        // 插入阶段不再做任何跳过/校验，保证"要么全成功，要么全失败"；
+        // 每行写库异常在 doInsert 内带行号收集，统一回滚后抛出。
         final OffsetDateTime now = OffsetDateTime.now();
-        new TransactionTemplate(transactionManager).execute(status -> {
-            doInsert(dataList, universityCache, existingGroupCache, now);
-            return null;
-        });
+        int[] counters = new TransactionTemplate(transactionManager).execute(status ->
+                doInsert(dataList, universityCache, existingGroupCache, now, rowNumMap, status));
 
-        log.info("导入专业组数据成功，总行数={}", dataList.size());
+        int total = dataList.size();
+        int updated = counters[1] + counters[3];
+        log.info("导入专业组数据成功，总行数={}, 新增组={}, 补空更新组={}, 新增专业={}, 补空更新专业={}",
+                total, counters[0], counters[1], counters[2], counters[3]);
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(updated)
+                .errors(Collections.emptyList())
+                .build();
     }
 
     /**
      * 执行实际插入：按专业组分组，新建或更新专业组，再全量插入专业明细。
      * 校验阶段已确认无冲突，此处不再 skip。
+     * 每行写库（insert/updateById/appendHistory）均包 try-catch，异常带原 Excel 行号收集到 rowErrors；
+     * 任一写库失败即标记整批回滚，结束后统一抛出，保证"要么全成功，要么全失败"。
+     *
+     * @return int[]{groupsCreated, groupsUpdated, majorsCreated, majorsUpdated}
      */
-    private void doInsert(List<AdmissionImportDTO> dataList,
-                          Map<String, University> universityCache,
-                          Map<String, AdmissionGroup> existingGroupCache,
-                          OffsetDateTime now) {
+    private int[] doInsert(List<AdmissionImportDTO> dataList,
+                           Map<String, University> universityCache,
+                           Map<String, AdmissionGroup> existingGroupCache,
+                           OffsetDateTime now,
+                           Map<AdmissionImportDTO, Integer> rowNumMap,
+                           TransactionStatus status) {
         final ObjectMapper objectMapper = new ObjectMapper();
+        List<String> rowErrors = new ArrayList<>();
+        int groupsCreated = 0;
+        int groupsUpdated = 0;
+        int majorsCreated = 0;
+        int majorsUpdated = 0;
 
         // 按专业组业务键分组
         Map<String, List<AdmissionImportDTO>> groupedData = new LinkedHashMap<>();
@@ -582,6 +605,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             List<AdmissionImportDTO> rows = entry.getValue();
             AdmissionImportDTO firstRow = rows.get(0);
             University university = universityCache.get(firstRow.getUniversityName().trim());
+            int groupRowNum = rowNumMap.getOrDefault(firstRow, 0);
 
             // 查询或创建专业组
             AdmissionGroup existingGroup = existingGroupCache.get(entry.getKey());
@@ -604,8 +628,15 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                         .createdAt(now)
                         .updatedAt(now)
                         .build();
-                admissionGroupMapper.insert(group);
-                groupId = group.getId();
+                try {
+                    admissionGroupMapper.insert(group);
+                    groupId = group.getId();
+                    groupsCreated++;
+                } catch (Exception e) {
+                    status.setRollbackOnly();
+                    rowErrors.add("第" + groupRowNum + "行: 专业组保存失败[" + firstRow.getGroupCode() + "]: " + e.getMessage());
+                    continue;
+                }
             } else {
                 groupId = existingGroup.getId();
                 if (StringUtils.hasText(firstRow.getEnrollmentCode())) {
@@ -624,11 +655,19 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                     existingGroup.setDescription(firstRow.getGroupDescription());
                 }
                 existingGroup.setUpdatedAt(now);
-                admissionGroupMapper.updateById(existingGroup);
+                try {
+                    admissionGroupMapper.updateById(existingGroup);
+                    groupsUpdated++;
+                } catch (Exception e) {
+                    status.setRollbackOnly();
+                    rowErrors.add("第" + groupRowNum + "行: 专业组更新失败[" + firstRow.getGroupCode() + "]: " + e.getMessage());
+                    continue;
+                }
             }
 
             // 插入或更新专业明细（history jsonb 追加当年数据）
             for (AdmissionImportDTO row : rows) {
+                int majorRowNum = rowNumMap.getOrDefault(row, 0);
                 List<String> constraintsList = parseList(row.getConstraintsStr());
 
                 // 构建当年的 history 条目
@@ -642,41 +681,80 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 historyEntry.put("maxScore", row.getMaxScore());
                 historyEntry.put("maxRank", row.getMaxRank());
 
-                // 查找已存在的专业明细
-                AdmissionMajorScore existingMajor = admissionMajorScoreMapper.selectOne(
-                        Wrappers.lambdaQuery(AdmissionMajorScore.class)
-                                .eq(AdmissionMajorScore::getGroupId, groupId)
-                                .eq(AdmissionMajorScore::getMajorCode, row.getMajorCode().trim())
-                                .eq(AdmissionMajorScore::getIsDeleted, false));
+                try {
+                    // 查找已存在的专业明细
+                    AdmissionMajorScore existingMajor = admissionMajorScoreMapper.selectOne(
+                            Wrappers.lambdaQuery(AdmissionMajorScore.class)
+                                    .eq(AdmissionMajorScore::getGroupId, groupId)
+                                    .eq(AdmissionMajorScore::getMajorCode, row.getMajorCode().trim())
+                                    .eq(AdmissionMajorScore::getIsDeleted, false));
 
-                if (existingMajor != null) {
-                    // 追加 history（如果该年份已存在则跳过）
-                    admissionMajorScoreMapper.appendHistory(
-                            existingMajor.getId(),
-                            row.getYear().intValue(),
-                            historyEntry);
-                } else {
-                    // 新建专业明细，history = [当年条目]
-                    List<Map<String, Object>> historyArray = new ArrayList<>();
-                    historyArray.add(historyEntry);
+                    if (existingMajor != null) {
+                        // 补空不覆盖：DB 为空且导入有值才补齐静态字段，已有数据保留
+                        boolean majorChanged = false;
+                        if (StringUtils.hasText(row.getEducationLevel()) && !StringUtils.hasText(existingMajor.getEducationLevel())) {
+                            existingMajor.setEducationLevel(row.getEducationLevel());
+                            majorChanged = true;
+                        }
+                        if (StringUtils.hasText(row.getDuration()) && !StringUtils.hasText(existingMajor.getDuration())) {
+                            existingMajor.setDuration(row.getDuration());
+                            majorChanged = true;
+                        }
+                        if (StringUtils.hasText(row.getTuition()) && !StringUtils.hasText(existingMajor.getTuition())) {
+                            existingMajor.setTuition(row.getTuition());
+                            majorChanged = true;
+                        }
+                        if (StringUtils.hasText(row.getMajorDescription()) && !StringUtils.hasText(existingMajor.getDescription())) {
+                            existingMajor.setDescription(row.getMajorDescription());
+                            majorChanged = true;
+                        }
+                        // constraints 是 TEXT[] 数组，空集合陷阱防护：DB 为 null/空数组且导入有值才补
+                        if (!isBlankList(constraintsList) && isBlankList(existingMajor.getConstraints())) {
+                            existingMajor.setConstraints(constraintsList);
+                            majorChanged = true;
+                        }
+                        if (majorChanged) {
+                            existingMajor.setUpdatedAt(now);
+                            admissionMajorScoreMapper.updateById(existingMajor);
+                            majorsUpdated++;
+                        }
+                        // 追加 history（年份去重，JSONB 安全；已有同年份数据不覆盖）
+                        admissionMajorScoreMapper.appendHistory(
+                                existingMajor.getId(),
+                                row.getYear().intValue(),
+                                historyEntry);
+                    } else {
+                        // 新建专业明细，history = [当年条目]
+                        List<Map<String, Object>> historyArray = new ArrayList<>();
+                        historyArray.add(historyEntry);
 
-                    AdmissionMajorScore majorScore = AdmissionMajorScore.builder()
-                            .groupId(groupId)
-                            .majorCode(row.getMajorCode().trim())
-                            .majorName(row.getMajorName().trim())
-                            .educationLevel(row.getEducationLevel())
-                            .duration(row.getDuration())
-                            .tuition(row.getTuition())
-                            .description(row.getMajorDescription())
-                            .history(historyArray)
-                            .constraints(constraintsList)
-                            .createdAt(now)
-                            .updatedAt(now)
-                            .build();
-                    admissionMajorScoreMapper.insert(majorScore);
+                        AdmissionMajorScore majorScore = AdmissionMajorScore.builder()
+                                .groupId(groupId)
+                                .majorCode(row.getMajorCode().trim())
+                                .majorName(row.getMajorName().trim())
+                                .educationLevel(row.getEducationLevel())
+                                .duration(row.getDuration())
+                                .tuition(row.getTuition())
+                                .description(row.getMajorDescription())
+                                .history(historyArray)
+                                .constraints(constraintsList)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        admissionMajorScoreMapper.insert(majorScore);
+                        majorsCreated++;
+                    }
+                } catch (Exception e) {
+                    status.setRollbackOnly();
+                    rowErrors.add("第" + majorRowNum + "行: 专业明细保存失败[" + row.getMajorCode() + "]: " + e.getMessage());
                 }
             }
         }
+
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+        return new int[]{groupsCreated, groupsUpdated, majorsCreated, majorsUpdated};
     }
 
     /**
@@ -693,6 +771,26 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
         }
         return result;
+    }
+
+    /**
+     * 判断集合是否为空（null 或空列表），用于 JSONB/数组字段的补空不覆盖判空
+     */
+    private boolean isBlankList(List<?> list) {
+        return list == null || list.isEmpty();
+    }
+
+    /**
+     * 错误列表统一截断：超过 MAX_ERROR_DISPLAY 条时提示总数，避免 msg 过长。
+     */
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
     }
 
     @Override
@@ -785,7 +883,9 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         vo.setAvgRank(entity.getAvgRank());
         vo.setMaxScore(entity.getMaxScore());
         vo.setMaxRank(entity.getMaxRank());
-        vo.setHistory(entity.getHistory() instanceof List ? (List<Object>) entity.getHistory() : Collections.emptyList());
+        vo.setHistory(entity.getHistory() instanceof List
+                ? new ArrayList<>((List<?>) entity.getHistory())
+                : Collections.emptyList());
         vo.setIsDeleted(entity.getIsDeleted());
         vo.setCreatedAt(entity.getCreatedAt());
         vo.setUpdatedAt(entity.getUpdatedAt());

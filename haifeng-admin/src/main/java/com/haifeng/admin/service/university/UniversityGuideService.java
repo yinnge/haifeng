@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.university.UniversityGuideQueryDTO;
 import com.haifeng.admin.dto.university.UniversityGuideUpdateDTO;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
 import com.haifeng.admin.vo.university.UniversityGuideListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -88,5 +89,5 @@ public interface UniversityGuideService {
      *
      * @param file Excel文件
      */
-    void importGuide(MultipartFile file);
+    ImportResultVO importGuide(MultipartFile file);
 }

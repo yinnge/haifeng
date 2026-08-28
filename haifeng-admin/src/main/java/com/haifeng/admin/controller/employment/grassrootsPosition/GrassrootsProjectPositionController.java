@@ -11,6 +11,7 @@ import com.haifeng.admin.vo.employment.grassrootsPosition.GrassrootsProjectPosit
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -85,8 +86,7 @@ public class GrassrootsProjectPositionController {
 
     @PostMapping("/import")
     @OperationLog(module = "基层服务管理", action = "导入基层服务项目岗位")
-    public R<Void> importExcel(@RequestParam("file") MultipartFile file) {
-        grassrootsProjectPositionService.importExcel(file);
-        return R.ok();
+    public R<ImportResultVO> importExcel(@RequestParam("file") MultipartFile file) {
+        return R.ok(grassrootsProjectPositionService.importExcel(file));
     }
 }

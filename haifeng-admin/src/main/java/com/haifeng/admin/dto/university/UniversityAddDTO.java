@@ -15,7 +15,7 @@ public class UniversityAddDTO {
     private String name;
 
     @NotBlank(message = "院校英文名称不能为空")
-    @Size(max = 50, message = "院校英文名称不能超过50个字符")
+    @Size(max = 100, message = "院校英文名称不能超过100个字符")
     private String nameEn;
 
     @NotBlank(message = "省份不能为空")

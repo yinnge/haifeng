@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.algorithm.config.BatchScoreLineAddDTO;
 import com.haifeng.admin.dto.algorithm.config.BatchScoreLineQueryDTO;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineDetailVO;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
@@ -18,5 +19,5 @@ public interface BatchScoreLineService {
     void updateStatus(Long id, Boolean isDeleted);
     void batchDelete(List<Long> ids);
     void batchHardDelete(List<Long> ids);
-    void importData(MultipartFile file);
+    ImportResultVO importData(MultipartFile file);
 }

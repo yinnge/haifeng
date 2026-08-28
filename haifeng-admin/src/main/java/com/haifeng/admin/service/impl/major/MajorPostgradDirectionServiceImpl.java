@@ -24,13 +24,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,8 +46,10 @@ public class MajorPostgradDirectionServiceImpl implements MajorPostgradDirection
     private final MajorPostgradDirectionMapper majorPostgradDirectionMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final MajorMapper majorMapper;
     private final PostgradMajorMapper postgradMajorMapper;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public IPage<MajorPostgradDirectionListVO> list(MajorPostgradDirectionQueryDTO queryDTO) {
@@ -177,13 +182,12 @@ public class MajorPostgradDirectionServiceImpl implements MajorPostgradDirection
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        int deleted = majorPostgradDirectionMapper.deleteBatchIds(ids);
+        int deleted = majorPostgradDirectionMapper.deleteByIds(ids);
 
         log.info("批量删除本科专业-考研方向关联完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importData(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
@@ -210,77 +214,127 @@ public class MajorPostgradDirectionServiceImpl implements MajorPostgradDirection
 
         List<String> errors = new ArrayList<>();
         Set<String> relationKeysInFile = new HashSet<>();
+        int[] updatedCount = {0};
         OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
 
-        for (int i = 0; i < dataList.size(); i++) {
-            int rowNum = i + 2;
-            MajorPostgradDirectionImportDTO dto = dataList.get(i);
+        new TransactionTemplate(transactionManager).execute(status -> {
+            for (int i = 0; i < dataList.size(); i++) {
+                int rowNum = i + 2;
+                MajorPostgradDirectionImportDTO dto = dataList.get(i);
 
-            // 校验必填字段
-            if (!StringUtils.hasText(dto.getMajorName())) {
-                errors.add("第" + rowNum + "行: 本科专业名称不能为空");
-                continue;
+                // 校验必填字段
+                if (!StringUtils.hasText(dto.getMajorName())) {
+                    errors.add("第" + rowNum + "行: 本科专业名称不能为空");
+                    continue;
+                }
+                if (!StringUtils.hasText(dto.getPostgradMajorName())) {
+                    errors.add("第" + rowNum + "行: 考研专业名称不能为空");
+                    continue;
+                }
+
+                // 检查文件内是否有重复组合
+                String relationKey = dto.getMajorName() + "|" + dto.getPostgradMajorName();
+                if (relationKeysInFile.contains(relationKey)) {
+                    errors.add("第" + rowNum + "行: [" + dto.getMajorName() + ", " + dto.getPostgradMajorName() + "]组合在文件中重复");
+                    continue;
+                }
+                relationKeysInFile.add(relationKey);
+
+                // 根据本科专业名称查询major_id
+                Major major = majorMapper.findByMajorName(dto.getMajorName());
+                if (major == null) {
+                    errors.add("第" + rowNum + "行: 本科专业[" + dto.getMajorName() + "]不存在");
+                    continue;
+                }
+
+                // 根据考研专业名称查询postgrad_major_id
+                Long postgradMajorId = postgradMajorMapper.selectIdByName(dto.getPostgradMajorName());
+                if (postgradMajorId == null) {
+                    errors.add("第" + rowNum + "行: 考研专业[" + dto.getPostgradMajorName() + "]不存在");
+                    continue;
+                }
+
+                // 查询是否已存在该关联
+                MajorPostgradDirection existing = majorPostgradDirectionMapper.selectOne(
+                        new LambdaQueryWrapper<MajorPostgradDirection>()
+                                .eq(MajorPostgradDirection::getMajorId, major.getId())
+                                .eq(MajorPostgradDirection::getPostgradMajorId, postgradMajorId));
+
+                if (existing == null) {
+                    // ===== 数据库不存在：新增 =====
+                    MajorPostgradDirection entity = MajorPostgradDirection.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .majorId(major.getId())
+                            .postgradMajorId(postgradMajorId)
+                            .majorName(dto.getMajorName())
+                            .postgradMajorName(dto.getPostgradMajorName())
+                            .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                            .createdAt(now)
+                            .build();
+
+                    try {
+                        majorPostgradDirectionMapper.insert(entity);
+                    } catch (Exception e) {
+                        status.setRollbackOnly();
+                        errors.add("第" + rowNum + "行: 关联保存失败[" + dto.getMajorName() + "->" + dto.getPostgradMajorName() + "]: " + e.getMessage());
+                    }
+                } else {
+                    // ===== 数据库已存在：仅补齐为空的列（仅排序权重），已有数据的列绝不覆盖 =====
+                    boolean changed = mergeMajorPostgradDirectionIfBlank(existing, dto);
+                    if (changed) {
+                        try {
+                            majorPostgradDirectionMapper.updateById(existing);
+                            updatedCount[0]++;
+                        } catch (Exception e) {
+                            status.setRollbackOnly();
+                            errors.add("第" + rowNum + "行: 关联更新失败[" + dto.getMajorName() + "->" + dto.getPostgradMajorName() + "]: " + e.getMessage());
+                        }
+                    }
+                }
             }
-            if (!StringUtils.hasText(dto.getPostgradMajorName())) {
-                errors.add("第" + rowNum + "行: 考研专业名称不能为空");
-                continue;
+
+            if (!errors.isEmpty()) {
+                throw new BusinessException(400, "数据校验失败：" + joinErrors(errors));
             }
+            return null;
+        });
 
-            // 检查文件内是否有重复组合
-            String relationKey = dto.getMajorName() + "|" + dto.getPostgradMajorName();
-            if (relationKeysInFile.contains(relationKey)) {
-                errors.add("第" + rowNum + "行: [" + dto.getMajorName() + ", " + dto.getPostgradMajorName() + "]组合在文件中重复");
-                continue;
-            }
-            relationKeysInFile.add(relationKey);
-
-            // 根据本科专业名称查询major_id
-            Major major = majorMapper.findByMajorName(dto.getMajorName());
-            if (major == null) {
-                errors.add("第" + rowNum + "行: 本科专业[" + dto.getMajorName() + "]不存在");
-                continue;
-            }
-
-            // 根据考研专业名称查询postgrad_major_id
-            Long postgradMajorId = postgradMajorMapper.selectIdByName(dto.getPostgradMajorName());
-            if (postgradMajorId == null) {
-                errors.add("第" + rowNum + "行: 考研专业[" + dto.getPostgradMajorName() + "]不存在");
-                continue;
-            }
-
-            // 检查数据库中是否已存在该关联
-            if (majorPostgradDirectionMapper.existsByRelation(major.getId(), postgradMajorId)) {
-                errors.add("第" + rowNum + "行: [" + dto.getMajorName() + ", " + dto.getPostgradMajorName() + "]关联已存在");
-                continue;
-            }
-
-            // 构建实体并插入
-            MajorPostgradDirection entity = MajorPostgradDirection.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .majorId(major.getId())
-                    .postgradMajorId(postgradMajorId)
-                    .majorName(dto.getMajorName())
-                    .postgradMajorName(dto.getPostgradMajorName())
-                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
-                    .createdAt(now)
-                    .build();
-
-            majorPostgradDirectionMapper.insert(entity);
-            successCount++;
-        }
-
-        if (!errors.isEmpty()) {
-            log.warn("导入本科专业-考研方向关联数据部分失败: 成功{}条, 失败{}条", successCount, errors.size());
-        } else {
-            log.info("导入本科专业-考研方向关联数据成功: 共{}条", successCount);
-        }
-
+        int total = dataList.size();
+        log.info("导入本科专业-考研方向关联数据完成: 总行数={}, 补空更新={}", total, updatedCount[0]);
         return ImportResultVO.builder()
-                .total(dataList.size())
-                .success(successCount)
-                .failed(errors.size())
-                .errors(errors.isEmpty() ? null : errors)
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(updatedCount[0])
+                .errors(Collections.emptyList())
                 .build();
+    }
+
+    /**
+     * 关联表合并策略：仅当数据库字段为 null 且上传数据有值时，才用上传值填补；
+     * 数据库已有数据的列（无论上传是否有值）一律保留，不覆盖。
+     */
+    private boolean mergeMajorPostgradDirectionIfBlank(MajorPostgradDirection existing, MajorPostgradDirectionImportDTO dto) {
+        boolean changed = false;
+        if (existing.getSortOrder() == null && dto.getSortOrder() != null) {
+            existing.setSortOrder(dto.getSortOrder());
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
+     * 将错误列表拼接为单行文本，超过 MAX_ERROR_DISPLAY 条时截断并提示总数。
+     */
+    private String joinErrors(List<String> errs) {
+        if (errs == null || errs.isEmpty()) {
+            return null;
+        }
+        int shown = Math.min(errs.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errs.subList(0, shown));
+        if (errs.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errs.size() + "行存在错误";
+        }
+        return joined;
     }
 }

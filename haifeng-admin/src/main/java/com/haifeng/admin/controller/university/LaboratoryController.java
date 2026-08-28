@@ -11,6 +11,7 @@ import com.haifeng.admin.vo.university.LaboratoryDetailVO;
 import com.haifeng.admin.vo.university.LaboratoryListVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -120,8 +121,7 @@ public class LaboratoryController {
      */
     @PostMapping("/import")
     @OperationLog(module = "实验室管理", action = "导入实验室数据")
-    public R<Void> importLaboratories(@RequestParam("file") MultipartFile file) {
-        laboratoryService.importLaboratories(file);
-        return R.ok();
+    public R<ImportResultVO> importLaboratories(@RequestParam("file") MultipartFile file) {
+        return R.ok(laboratoryService.importLaboratories(file));
     }
 }

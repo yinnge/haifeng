@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.university.SubjectEvaluationAddDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationQueryDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationUpdateDTO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationDetailVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationListVO;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,5 +31,5 @@ public interface SubjectEvaluationService {
 
     void batchHardDelete(List<Long> ids);
 
-    void importSubjectEvaluations(MultipartFile file);
+    ImportResultVO importSubjectEvaluations(MultipartFile file);
 }

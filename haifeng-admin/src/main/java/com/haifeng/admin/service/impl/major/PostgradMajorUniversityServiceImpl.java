@@ -45,6 +45,7 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
     private final PostgradMajorUniversityMapper postgradMajorUniversityMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final PostgradMajorMapper postgradMajorMapper;
     private final UniversityMapper universityMapper;
 
@@ -177,7 +178,7 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        int deleted = postgradMajorUniversityMapper.deleteBatchIds(ids);
+        int deleted = postgradMajorUniversityMapper.deleteByIds(ids);
 
         log.info("批量硬删除考研专业-大学关联完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
@@ -213,6 +214,7 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
         Set<String> relationKeysInFile = new HashSet<>();
         OffsetDateTime now = OffsetDateTime.now();
         int successCount = 0;
+        int updatedCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2; // Excel行号（从2开始，1是表头）
@@ -255,42 +257,81 @@ public class PostgradMajorUniversityServiceImpl implements PostgradMajorUniversi
 
             String postgradMajorName = postgradMajorMapper.selectNameByMajorCode(postgradMajorCode);
 
-            // 检查数据库中是否已存在该关联
-            if (postgradMajorUniversityMapper.existsByRelation(postgradMajorId, universityId)) {
-                errors.add("第" + rowNum + "行: [" + universityName + ", " + postgradMajorCode + "]关联已存在");
-                continue;
+            // 查询是否已存在该关联
+            PostgradMajorUniversity existing = postgradMajorUniversityMapper.selectOne(
+                    new LambdaQueryWrapper<PostgradMajorUniversity>()
+                            .eq(PostgradMajorUniversity::getPostgradMajorId, postgradMajorId)
+                            .eq(PostgradMajorUniversity::getUniversityId, universityId));
+
+            if (existing == null) {
+                // ===== 数据库不存在：新增 =====
+                Long id = SnowflakeIdGenerator.nextId();
+                PostgradMajorUniversity entity = PostgradMajorUniversity.builder()
+                        .id(id)
+                        .postgradMajorId(postgradMajorId)
+                        .universityId(universityId)
+                        .universityName(universityName)
+                        .postgradMajorName(postgradMajorName)
+                        .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                        .status((short) 1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+
+                try {
+                    postgradMajorUniversityMapper.insert(entity);
+                    successCount++;
+                } catch (Exception e) {
+                    errors.add("第" + rowNum + "行: 保存失败[大学=" + universityName + ", 专业代码=" + postgradMajorCode + "]: " + e.getMessage());
+                }
+            } else {
+                // ===== 数据库已存在：仅补齐为空的列（仅排序权重），已有数据的列绝不覆盖 =====
+                boolean changed = mergePostgradMajorUniversityIfBlank(existing, dto);
+                boolean saved = true;
+                if (changed) {
+                    existing.setUpdatedAt(now);
+                    try {
+                        postgradMajorUniversityMapper.updateById(existing);
+                        updatedCount++;
+                    } catch (Exception e) {
+                        errors.add("第" + rowNum + "行: 保存失败[大学=" + universityName + ", 专业代码=" + postgradMajorCode + "]: " + e.getMessage());
+                        saved = false;
+                    }
+                }
+                if (saved) {
+                    successCount++;
+                }
             }
-
-            // 构建实体并插入
-            Long id = SnowflakeIdGenerator.nextId();
-            PostgradMajorUniversity entity = PostgradMajorUniversity.builder()
-                    .id(id)
-                    .postgradMajorId(postgradMajorId)
-                    .universityId(universityId)
-                    .universityName(universityName)
-                    .postgradMajorName(postgradMajorName)
-                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            postgradMajorUniversityMapper.insert(entity);
-            successCount++;
         }
 
         if (!errors.isEmpty()) {
-            log.warn("导入考研专业-大学关联数据部分失败: 成功{}条, 失败{}条", successCount, errors.size());
-        } else {
-            log.info("导入考研专业-大学关联数据成功: 共{}条", successCount);
+            String detail = errors.size() > MAX_ERROR_DISPLAY
+                    ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + " 等" + errors.size() + "条错误"
+                    : String.join("; ", errors);
+            throw new BusinessException(400, "导入失败，共" + errors.size() + "行数据存在错误，已全部回滚：" + detail);
         }
 
+        log.info("导入考研专业-大学关联数据完成: 新增/补齐{}条, 其中补齐{}条", successCount, updatedCount);
         return ImportResultVO.builder()
                 .total(dataList.size())
                 .success(successCount)
-                .failed(errors.size())
-                .errors(errors.isEmpty() ? null : errors)
+                .failed(0)
+                .updated(updatedCount)
+                .errors(null)
                 .build();
+    }
+
+    /**
+     * 关联表合并策略：仅当数据库字段为 null 且上传数据有值时，才用上传值填补；
+     * 数据库已有数据的列（无论上传是否有值）一律保留，不覆盖。
+     */
+    private boolean mergePostgradMajorUniversityIfBlank(PostgradMajorUniversity existing, PostgradMajorUniversityImportDTO dto) {
+        boolean changed = false;
+        if (existing.getSortOrder() == null && dto.getSortOrder() != null) {
+            existing.setSortOrder(dto.getSortOrder());
+            changed = true;
+        }
+        return changed;
     }
 
     @Override

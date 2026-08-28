@@ -15,6 +15,7 @@ import com.haifeng.admin.excel.university.StatisticsExcelDTO;
 import com.haifeng.admin.service.university.LaboratoryService;
 import com.haifeng.admin.vo.university.LaboratoryDetailVO;
 import com.haifeng.admin.vo.university.LaboratoryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.university.Laboratory;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
@@ -25,7 +26,9 @@ import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,8 +44,10 @@ import java.util.stream.Collectors;
 public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laboratory> implements LaboratoryService {
 
     private final LaboratoryMapper laboratoryMapper;
+    private final PlatformTransactionManager transactionManager;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final UniversityMapper universityMapper;
 
     @Override
@@ -280,167 +285,182 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         if (records.size() != ids.size()) {
             throw new BusinessException(400, "部分记录不存在");
         }
-        laboratoryMapper.deleteBatchIds(ids);
+        laboratoryMapper.deleteByIds(ids);
         log.info("批量硬删除实验室，ids={}", ids);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void importLaboratories(MultipartFile file) {
-        List<String> errorMsgs = new ArrayList<>();
-
+    public ImportResultVO importLaboratories(MultipartFile file) {
+        byte[] fileBytes;
         try {
-            byte[] fileBytes = file.getBytes();
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            log.error("读取Excel文件失败", e);
+            throw new BusinessException(500, "读取Excel文件失败");
+        }
 
-            // Sheet: 实验室主表
-            List<LaboratoryExcelDTO> mainData;
-            try {
-                mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                        .head(LaboratoryExcelDTO.class)
-                        .sheet("实验室主表")
-                        .doReadSync();
-            } catch (RuntimeException e) {
-                throw new BusinessException(400, "读取『实验室主表』Sheet失败，请确认sheet名称为『实验室主表』且表头为：院校名称/实验室名称/实验室类型/成立时间/所在地区/主管部门/实验室主任/人员规模/学生规模/联系邮箱/联系电话/实验室简介/研究方向描述/实验室空间/开放课题/合作交流/访问学者/研究领域(逗号分隔)/主要设备(逗号分隔)/排序/状态");
-            }
-            if (mainData.isEmpty()) {
-                throw new BusinessException(400, "『实验室主表』Sheet中未读取到任何数据，请确认表头是否正确");
-            }
-            if (mainData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
-            }
+        // Sheet: 实验室主表
+        List<LaboratoryExcelDTO> mainData;
+        try {
+            mainData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                    .head(LaboratoryExcelDTO.class)
+                    .sheet("实验室主表")
+                    .doReadSync();
+        } catch (RuntimeException e) {
+            throw new BusinessException(400, "读取『实验室主表』Sheet失败，请确认sheet名称为『实验室主表』且表头为：院校名称/实验室名称/实验室类型/成立时间/所在地区/主管部门/实验室主任/人员规模/学生规模/联系邮箱/联系电话/实验室简介/研究方向描述/实验室空间/开放课题/合作交流/访问学者/研究领域(逗号分隔)/主要设备(逗号分隔)/排序/状态");
+        }
+        if (mainData.isEmpty()) {
+            throw new BusinessException(400, "『实验室主表』Sheet中未读取到任何数据，请确认表头是否正确");
+        }
+        if (mainData.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
 
-            // Sheet: 核心团队
-            List<CoreTeamExcelDTO> coreTeamData;
-            try {
-                coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                        .head(CoreTeamExcelDTO.class)
-                        .sheet("核心团队")
-                        .doReadSync();
-            } catch (RuntimeException e) {
-                throw new BusinessException(400, "读取『核心团队』Sheet失败，请确认sheet名称为『核心团队』且表头为：实验室名称/成员姓名/职务/岗位名称");
-            }
-            if (coreTeamData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
-            }
+        // Sheet: 核心团队
+        List<CoreTeamExcelDTO> coreTeamData;
+        try {
+            coreTeamData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                    .head(CoreTeamExcelDTO.class)
+                    .sheet("核心团队")
+                    .doReadSync();
+        } catch (RuntimeException e) {
+            throw new BusinessException(400, "读取『核心团队』Sheet失败，请确认sheet名称为『核心团队』且表头为：实验室名称/成员姓名/职务/岗位名称");
+        }
+        if (coreTeamData.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
 
-            // Sheet: 统计数据
-            List<StatisticsExcelDTO> statisticsData;
-            try {
-                statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
-                        .head(StatisticsExcelDTO.class)
-                        .sheet("统计数据")
-                        .doReadSync();
-            } catch (RuntimeException e) {
-                throw new BusinessException(400, "读取『统计数据』Sheet失败，请确认sheet名称为『统计数据』且表头为：实验室名称/统计标签/数量");
-            }
-            if (statisticsData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
-            }
+        // Sheet: 统计数据
+        List<StatisticsExcelDTO> statisticsData;
+        try {
+            statisticsData = EasyExcel.read(new ByteArrayInputStream(fileBytes))
+                    .head(StatisticsExcelDTO.class)
+                    .sheet("统计数据")
+                    .doReadSync();
+        } catch (RuntimeException e) {
+            throw new BusinessException(400, "读取『统计数据』Sheet失败，请确认sheet名称为『统计数据』且表头为：实验室名称/统计标签/数量");
+        }
+        if (statisticsData.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
+        }
 
-            // 按实验室名称分组JSONB数据
-            Map<String, List<Map<String, Object>>> coreTeamMap = coreTeamData.stream()
-                    .filter(d -> StringUtils.hasText(d.getLabName()))
-                    .collect(Collectors.groupingBy(
-                            d -> d.getLabName().trim(),
-                            Collectors.mapping(d -> {
-                                Map<String, Object> m = new HashMap<>();
-                                m.put("name", d.getMemberName());
-                                m.put("position", d.getPosition());
-                                m.put("title", d.getJobTitle());
-                                return m;
-                            }, Collectors.toList())
-                    ));
+        // 按实验室名称分组JSONB数据
+        Map<String, List<Map<String, Object>>> coreTeamMap = coreTeamData.stream()
+                .filter(d -> StringUtils.hasText(d.getLabName()))
+                .collect(Collectors.groupingBy(
+                        d -> d.getLabName().trim(),
+                        Collectors.mapping(d -> {
+                            Map<String, Object> m = new HashMap<>();
+                            m.put("name", d.getMemberName());
+                            m.put("position", d.getPosition());
+                            m.put("title", d.getJobTitle());
+                            return m;
+                        }, Collectors.toList())
+                ));
 
-            Map<String, List<Map<String, Object>>> statisticsMap = statisticsData.stream()
-                    .filter(d -> StringUtils.hasText(d.getLabName()))
-                    .collect(Collectors.groupingBy(
-                            d -> d.getLabName().trim(),
-                            Collectors.mapping(d -> {
-                                Map<String, Object> m = new HashMap<>();
-                                m.put("label", d.getLabel());
-                                m.put("count", d.getCount());
-                                return m;
-                            }, Collectors.toList())
-                    ));
+        Map<String, List<Map<String, Object>>> statisticsMap = statisticsData.stream()
+                .filter(d -> StringUtils.hasText(d.getLabName()))
+                .collect(Collectors.groupingBy(
+                        d -> d.getLabName().trim(),
+                        Collectors.mapping(d -> {
+                            Map<String, Object> m = new HashMap<>();
+                            m.put("label", d.getLabel());
+                            m.put("count", d.getCount());
+                            return m;
+                        }, Collectors.toList())
+                ));
 
-            // 校验主表数据
-            Map<String, Long> universityIdCache = new HashMap<>();
-            Map<String, String> universityNameCache = new HashMap<>();
-            Set<String> mainLabNames = new HashSet<>();
-            List<Laboratory> laboratories = new ArrayList<>();
+        Map<String, Long> universityIdCache = new HashMap<>();
+        Map<String, String> universityNameCache = new HashMap<>();
+        Set<String> mainLabNames = new HashSet<>();
+        List<String> errorMsgs = new ArrayList<>();
+        int[] counters = {0, 0}; // [0]=新增, [1]=补齐
 
+        TransactionTemplate tmpl = new TransactionTemplate(transactionManager);
+        tmpl.execute(status -> {
             for (int i = 0; i < mainData.size(); i++) {
                 int rowNum = i + 2;
                 LaboratoryExcelDTO data = mainData.get(i);
-
-                if (!StringUtils.hasText(data.getUniversityName())) {
-                    errorMsgs.add("第" + rowNum + "行：院校名称不能为空");
-                    continue;
-                }
-                if (!StringUtils.hasText(data.getName())) {
-                    errorMsgs.add("第" + rowNum + "行：实验室名称不能为空");
-                    continue;
-                }
-                if (!StringUtils.hasText(data.getLabType())) {
-                    errorMsgs.add("第" + rowNum + "行：实验室类型不能为空");
-                    continue;
-                }
-                String labName = data.getName().trim();
-                mainLabNames.add(labName);
-
-                // 查询院校ID
-                Long universityId = universityIdCache.get(data.getUniversityName());
-                if (universityId == null) {
-                    LambdaQueryWrapper<University> uniWrapper = new LambdaQueryWrapper<>();
-                    uniWrapper.eq(University::getName, data.getUniversityName()).eq(University::getStatus, (short) 1);
-                    University university = universityMapper.selectOne(uniWrapper);
-                    if (university == null) {
-                        errorMsgs.add("第" + rowNum + "行：院校名称'" + data.getUniversityName() + "'不存在");
+                try {
+                    if (!StringUtils.hasText(data.getUniversityName())) {
+                        errorMsgs.add("第" + rowNum + "行：院校名称不能为空");
                         continue;
                     }
-                    universityId = university.getId();
-                    universityIdCache.put(data.getUniversityName(), universityId);
-                    universityNameCache.put(data.getUniversityName(), university.getName());
+                    if (!StringUtils.hasText(data.getName())) {
+                        errorMsgs.add("第" + rowNum + "行：实验室名称不能为空");
+                        continue;
+                    }
+                    if (!StringUtils.hasText(data.getLabType())) {
+                        errorMsgs.add("第" + rowNum + "行：实验室类型不能为空");
+                        continue;
+                    }
+                    String labName = data.getName().trim();
+                    mainLabNames.add(labName);
+
+                    Long universityId = universityIdCache.get(data.getUniversityName());
+                    if (universityId == null) {
+                        LambdaQueryWrapper<University> uniWrapper = new LambdaQueryWrapper<>();
+                        uniWrapper.eq(University::getName, data.getUniversityName()).eq(University::getStatus, (short) 1);
+                        University university = universityMapper.selectOne(uniWrapper);
+                        if (university == null) {
+                            errorMsgs.add("第" + rowNum + "行：院校名称'" + data.getUniversityName() + "'不存在");
+                            continue;
+                        }
+                        universityId = university.getId();
+                        universityIdCache.put(data.getUniversityName(), universityId);
+                        universityNameCache.put(data.getUniversityName(), university.getName());
+                    }
+
+                    // 同院校+同名实验室：已存在则只补空，不再报"已存在"
+                    List<Laboratory> existingList = laboratoryMapper.selectList(
+                            new LambdaQueryWrapper<Laboratory>()
+                                    .eq(Laboratory::getUniversityId, universityId)
+                                    .eq(Laboratory::getName, labName)
+                                    .eq(Laboratory::getStatus, (short) 1));
+                    Laboratory existing = existingList.isEmpty() ? null : existingList.get(0);
+
+                    OffsetDateTime now = OffsetDateTime.now();
+                    if (existing != null) {
+                        fillLabGaps(existing, data, coreTeamMap.get(labName), statisticsMap.get(labName), now);
+                        laboratoryMapper.updateById(existing);
+                        counters[1]++;
+                    } else {
+                        Laboratory lab = Laboratory.builder()
+                                .id(SnowflakeIdGenerator.nextId())
+                                .universityId(universityId)
+                                .universityName(universityNameCache.get(data.getUniversityName()))
+                                .name(labName)
+                                .labType(data.getLabType())
+                                .establishedYear(data.getEstablishedYear())
+                                .region(data.getRegion())
+                                .department(data.getDepartment())
+                                .director(data.getDirector())
+                                .staffCount(data.getStaffCount())
+                                .studentCount(data.getStudentCount())
+                                .email(data.getEmail())
+                                .phone(data.getPhone())
+                                .introduction(data.getIntroduction())
+                                .researchDescription(data.getResearchDescription())
+                                .labSpace(data.getLabSpace())
+                                .openTopics(data.getOpenTopics())
+                                .cooperation(data.getCooperation())
+                                .visitingScholars(data.getVisitingScholars())
+                                .researchFields(data.getResearchFields())
+                                .majorEquipment(data.getMajorEquipment())
+                                .coreTeam(coreTeamMap.get(labName))
+                                .statistics(statisticsMap.get(labName))
+                                .sortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0)
+                                .status(data.getStatus() != null ? data.getStatus().shortValue() : (short) 1)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        laboratoryMapper.insert(lab);
+                        counters[0]++;
+                    }
+                } catch (Exception e) {
+                    status.setRollbackOnly();
+                    errorMsgs.add("第" + rowNum + "行: 保存失败[" + (data.getName() != null ? data.getName() : data.getUniversityName()) + "]: " + e.getMessage());
                 }
-
-                // 检查重复
-                if (laboratoryMapper.existsByUniversityIdAndName(universityId, labName)) {
-                    errorMsgs.add("第" + rowNum + "行：该院校下实验室名称'" + labName + "'已存在");
-                    continue;
-                }
-
-                OffsetDateTime now = OffsetDateTime.now();
-                Laboratory lab = Laboratory.builder()
-                        .id(SnowflakeIdGenerator.nextId())
-                        .universityId(universityId)
-                        .universityName(universityNameCache.get(data.getUniversityName()))
-                        .name(labName)
-                        .labType(data.getLabType())
-                        .establishedYear(data.getEstablishedYear())
-                        .region(data.getRegion())
-                        .department(data.getDepartment())
-                        .director(data.getDirector())
-                        .staffCount(data.getStaffCount())
-                        .studentCount(data.getStudentCount())
-                        .email(data.getEmail())
-                        .phone(data.getPhone())
-                        .introduction(data.getIntroduction())
-                        .researchDescription(data.getResearchDescription())
-                        .labSpace(data.getLabSpace())
-                        .openTopics(data.getOpenTopics())
-                        .cooperation(data.getCooperation())
-                        .visitingScholars(data.getVisitingScholars())
-                        .researchFields(data.getResearchFields())
-                        .majorEquipment(data.getMajorEquipment())
-                        .coreTeam(coreTeamMap.get(labName))
-                        .statistics(statisticsMap.get(labName))
-                        .sortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0)
-                        .status(data.getStatus() != null ? data.getStatus().shortValue() : (short) 1)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                laboratories.add(lab);
             }
 
             for (Map.Entry<String, List<Map<String, Object>>> entry : coreTeamMap.entrySet()) {
@@ -455,17 +475,105 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误，已全部回滚。错误信息：" + String.join("；", errorMsgs));
+                status.setRollbackOnly();
+                throw new BusinessException(400, joinErrors(errorMsgs));
             }
+            return null;
+        });
 
-            if (!laboratories.isEmpty()) {
-                saveBatch(laboratories);
-                log.info("导入实验室成功，数量={}", laboratories.size());
-            }
+        int total = counters[0] + counters[1];
+        log.info("导入实验室成功: 新增{}条, 补齐{}条", counters[0], counters[1]);
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(counters[1])
+                .errors(List.of())
+                .build();
+    }
 
-        } catch (IOException e) {
-            log.error("读取Excel文件失败", e);
-            throw new BusinessException(500, "读取Excel文件失败");
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
         }
+        return joined;
+    }
+
+    /**
+     * 已有实验室记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+
+    /**
+     * 已有实验室记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+    private void fillLabGaps(Laboratory db, LaboratoryExcelDTO data,
+                             List<Map<String, Object>> coreTeam,
+                             List<Map<String, Object>> statistics,
+                             OffsetDateTime now) {
+        if (db.getEstablishedYear() == null) {
+            db.setEstablishedYear(data.getEstablishedYear());
+        }
+        if (db.getRegion() == null) {
+            db.setRegion(data.getRegion());
+        }
+        if (db.getDepartment() == null) {
+            db.setDepartment(data.getDepartment());
+        }
+        if (db.getDirector() == null) {
+            db.setDirector(data.getDirector());
+        }
+        if (db.getStaffCount() == null) {
+            db.setStaffCount(data.getStaffCount());
+        }
+        if (db.getStudentCount() == null) {
+            db.setStudentCount(data.getStudentCount());
+        }
+        if (db.getEmail() == null) {
+            db.setEmail(data.getEmail());
+        }
+        if (db.getPhone() == null) {
+            db.setPhone(data.getPhone());
+        }
+        if (db.getIntroduction() == null) {
+            db.setIntroduction(data.getIntroduction());
+        }
+        if (db.getResearchDescription() == null) {
+            db.setResearchDescription(data.getResearchDescription());
+        }
+        if (db.getLabSpace() == null) {
+            db.setLabSpace(data.getLabSpace());
+        }
+        if (db.getOpenTopics() == null) {
+            db.setOpenTopics(data.getOpenTopics());
+        }
+        if (db.getCooperation() == null) {
+            db.setCooperation(data.getCooperation());
+        }
+        if (db.getVisitingScholars() == null) {
+            db.setVisitingScholars(data.getVisitingScholars());
+        }
+        if (db.getResearchFields() == null || db.getResearchFields().isEmpty()) {
+            if (data.getResearchFields() != null && !data.getResearchFields().isEmpty()) {
+                db.setResearchFields(data.getResearchFields());
+            }
+        }
+        if (db.getMajorEquipment() == null || db.getMajorEquipment().isEmpty()) {
+            if (data.getMajorEquipment() != null && !data.getMajorEquipment().isEmpty()) {
+                db.setMajorEquipment(data.getMajorEquipment());
+            }
+        }
+        if ((db.getCoreTeam() == null || db.getCoreTeam().isEmpty()) && coreTeam != null && !coreTeam.isEmpty()) {
+            db.setCoreTeam(coreTeam);
+        }
+        if ((db.getStatistics() == null || db.getStatistics().isEmpty()) && statistics != null && !statistics.isEmpty()) {
+            db.setStatistics(statistics);
+        }
+        if (db.getSortOrder() == null) {
+            db.setSortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0);
+        }
+        db.setUpdatedAt(now);
     }
 }

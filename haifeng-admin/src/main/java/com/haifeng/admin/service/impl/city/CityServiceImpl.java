@@ -41,6 +41,8 @@ public class CityServiceImpl implements CityService {
     private final CityDetailMapper cityDetailMapper;
 
     private static final int MAX_IMPORT_ROWS = 500;
+    /** 导入报错信息最多展示条数，避免单条 msg 过长（完整错误见后端日志） */
+    private static final int MAX_ERROR_DISPLAY = 50;
     private static final Set<String> VALID_CITY_LEVELS = Set.of("直辖市", "省会城市", "地级市", "县级市");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
@@ -348,9 +350,13 @@ public class CityServiceImpl implements CityService {
                 throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
             }
 
-            List<City> cities = new ArrayList<>();
-            List<CityDetail> cityDetails = new ArrayList<>();
+            // 新增/补齐分别收集，避免逐行DB操作互相影响
+            List<City> citiesToInsert = new ArrayList<>();
+            List<CityDetail> detailsToInsert = new ArrayList<>();
+            List<City> citiesToUpdate = new ArrayList<>();
             Set<String> cityNamesInFile = new HashSet<>();
+            int insertCount = 0;
+            int updateCount = 0;
 
             for (int i = 0; i < mainData.size(); i++) {
                 int rowNum = i + 2;
@@ -391,54 +397,89 @@ public class CityServiceImpl implements CityService {
                 }
                 cityNamesInFile.add(cityName);
 
-                // 检查数据库中是否已存在
-                if (cityMapper.existsByCityName(cityName)) {
-                    errorMsgs.add("第" + rowNum + "行：城市名称'" + cityName + "'已存在");
-                    continue;
+                // 本行DB操作整体包try-catch：异常转成"第N行"行级错误，否则丢失行号
+                try {
+                    City existing = cityMapper.selectOne(new LambdaQueryWrapper<City>()
+                            .eq(City::getCityName, cityName)
+                            .eq(City::getIsDeleted, false));
+
+                    if (existing == null) {
+                        // 新增：空列直接存NULL，便于后续导入补齐
+                        OffsetDateTime now = OffsetDateTime.now();
+                        Long cityId = SnowflakeIdGenerator.nextId();
+                        Long detailId = SnowflakeIdGenerator.nextId();
+
+                        City city = City.builder()
+                                .id(cityId)
+                                .cityName(cityName)
+                                .province(province)
+                                .region(region)
+                                .cityIntro(data.getCityIntro())
+                                .collegeCount(data.getCollegeCount())
+                                .keyCollegeCount(data.getKeyCollegeCount())
+                                .residentPopulation(data.getResidentPopulation())
+                                .gdp(data.getGdp())
+                                .isDeleted(false)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        citiesToInsert.add(city);
+
+                        CityDetail detail = CityDetail.builder()
+                                .id(detailId)
+                                .cityId(cityId)
+                                .cityName(cityName)
+                                .isDeleted(false)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        detailsToInsert.add(detail);
+                        insertCount++;
+                    } else {
+                        // 已存在：仅补齐库中为空(NULL)的列，已有数据一律不覆盖
+                        boolean changed = mergeCityIfBlank(existing, data);
+                        if (changed) {
+                            citiesToUpdate.add(existing);
+                        }
+                        // 确保1:1详情记录存在（仅缺失时补骨架，不覆盖已有详情数据）
+                        CityDetail d = cityDetailMapper.findByCityId(existing.getId());
+                        if (d == null) {
+                            OffsetDateTime now = OffsetDateTime.now();
+                            CityDetail detail = CityDetail.builder()
+                                    .id(SnowflakeIdGenerator.nextId())
+                                    .cityId(existing.getId())
+                                    .cityName(cityName)
+                                    .isDeleted(false)
+                                    .createdAt(now)
+                                    .updatedAt(now)
+                                    .build();
+                            detailsToInsert.add(detail);
+                        }
+                        updateCount++;
+                    }
+                } catch (Exception e) {
+                    errorMsgs.add("第" + rowNum + "行：数据库操作失败[" + cityName + "]：" + e.getMessage());
                 }
-
-                OffsetDateTime now = OffsetDateTime.now();
-                Long cityId = SnowflakeIdGenerator.nextId();
-                Long detailId = SnowflakeIdGenerator.nextId();
-
-                City city = City.builder()
-                        .id(cityId)
-                        .cityName(cityName)
-                        .province(province)
-                        .region(region)
-                        .cityIntro(data.getCityIntro())
-                        .collegeCount(data.getCollegeCount() != null ? data.getCollegeCount() : 0)
-                        .keyCollegeCount(data.getKeyCollegeCount() != null ? data.getKeyCollegeCount() : 0)
-                        .residentPopulation(data.getResidentPopulation())
-                        .gdp(data.getGdp())
-                        .isDeleted(false)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                CityDetail detail = CityDetail.builder()
-                        .id(detailId)
-                        .cityId(cityId)
-                        .cityName(cityName)
-                        .isDeleted(false)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                cities.add(city);
-                cityDetails.add(detail);
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                int shown = Math.min(errorMsgs.size(), MAX_ERROR_DISPLAY);
+                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误（仅展示前"
+                        + shown + "条）：" + String.join("；", errorMsgs.subList(0, shown)));
             }
 
-            // 批量插入
-            if (!cities.isEmpty()) {
-                cityMapper.batchInsert(cities);
-                cityDetailMapper.batchInsert(cityDetails);
-                log.info("导入城市主表成功，数量={}", cities.size());
+            // 批量落库
+            if (!citiesToInsert.isEmpty()) {
+                cityMapper.batchInsert(citiesToInsert);
             }
+            if (!detailsToInsert.isEmpty()) {
+                cityDetailMapper.batchInsert(detailsToInsert);
+            }
+            for (City c : citiesToUpdate) {
+                cityMapper.updateByIdCustom(c);
+            }
+
+            log.info("导入城市主表成功：新增{}条，补齐{}条", insertCount, updateCount);
 
         } catch (BusinessException e) {
             throw e;
@@ -796,66 +837,100 @@ public class CityServiceImpl implements CityService {
                 pctError = validatePercentageRange(data.getMigrantPopRatio(), "外来人口比例", rowNum);
                 if (pctError != null) { errorMsgs.add(pctError); continue; }
 
-                // 查询城市ID
-                Long cityId = cityIdCache.get(cityName);
-                if (cityId == null) {
-                    LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
-                    wrapper.eq(City::getCityName, cityName)
-                           .eq(City::getIsDeleted, false);
-                    City city = cityMapper.selectOne(wrapper);
-                    if (city == null) {
-                        errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称'" + cityName + "'不存在");
+                // 本行DB操作整体包try-catch：异常转成"第N行"行级错误，否则丢失行号
+                try {
+                    Long cityId = cityIdCache.get(cityName);
+                    if (cityId == null) {
+                        LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<>();
+                        wrapper.eq(City::getCityName, cityName)
+                               .eq(City::getIsDeleted, false);
+                        City city = cityMapper.selectOne(wrapper);
+                        if (city == null) {
+                            errorMsgs.add("详情基础字段第" + rowNum + "行：城市名称'" + cityName + "'不存在");
+                            continue;
+                        }
+                        cityId = city.getId();
+                        cityIdCache.put(cityName, cityId);
+                    }
+
+                    // 查询详情记录
+                    CityDetail detail = cityDetailMapper.findByCityId(cityId);
+                    if (detail == null) {
+                        errorMsgs.add("详情基础字段第" + rowNum + "行：城市'" + cityName + "'的详情记录不存在");
                         continue;
                     }
-                    cityId = city.getId();
-                    cityIdCache.put(cityName, cityId);
+
+                    // 补齐标量字段：DB为空(NULL/空串)才填，已有数据一律不覆盖
+                    if (!StringUtils.hasText(detail.getSubtitle()) && StringUtils.hasText(data.getSubtitle())) {
+                        detail.setSubtitle(data.getSubtitle());
+                    }
+                    if (!StringUtils.hasText(detail.getCityLevel()) && StringUtils.hasText(data.getCityLevel())) {
+                        detail.setCityLevel(data.getCityLevel());
+                    }
+                    if (!StringUtils.hasText(detail.getAdminCode()) && StringUtils.hasText(data.getAdminCode())) {
+                        detail.setAdminCode(data.getAdminCode());
+                    }
+                    if (detail.getArea() == null && data.getArea() != null) {
+                        detail.setArea(data.getArea());
+                    }
+                    if (detail.getPerCapitaGdp() == null && data.getPerCapitaGdp() != null) {
+                        detail.setPerCapitaGdp(data.getPerCapitaGdp());
+                    }
+                    if (detail.getUrbanizationRate() == null && data.getUrbanizationRate() != null) {
+                        detail.setUrbanizationRate(data.getUrbanizationRate());
+                    }
+                    if (detail.getRuralPopRatio() == null && data.getRuralPopRatio() != null) {
+                        detail.setRuralPopRatio(data.getRuralPopRatio());
+                    }
+                    if (detail.getAgingRate() == null && data.getAgingRate() != null) {
+                        detail.setAgingRate(data.getAgingRate());
+                    }
+                    if (detail.getMigrantPopRatio() == null && data.getMigrantPopRatio() != null) {
+                        detail.setMigrantPopRatio(data.getMigrantPopRatio());
+                    }
+                    if (detail.getGdpGrowthRate() == null && data.getGdpGrowthRate() != null) {
+                        detail.setGdpGrowthRate(data.getGdpGrowthRate());
+                    }
+                    if (detail.getFortune500Count() == null && data.getFortune500Count() != null) {
+                        detail.setFortune500Count(data.getFortune500Count());
+                    }
+                    if (!StringUtils.hasText(detail.getIndustryDescription()) && StringUtils.hasText(data.getIndustryDescription())) {
+                        detail.setIndustryDescription(data.getIndustryDescription());
+                    }
+                    if (isBlankList(detail.getMainIndustries()) && data.getMainIndustries() != null && !data.getMainIndustries().isEmpty()) {
+                        detail.setMainIndustries(data.getMainIndustries());
+                    }
+                    if (isBlankList(detail.getEmergingIndustries()) && data.getEmergingIndustries() != null && !data.getEmergingIndustries().isEmpty()) {
+                        detail.setEmergingIndustries(data.getEmergingIndustries());
+                    }
+
+                    // 补齐JSONB字段：DB为空对象/空也视为空（建表DEFAULT '{}'），已有真实数据才不覆盖
+                    fillJsonbIfBlank(detail::setIndustryStructure, detail::getIndustryStructure, industryStructureMap.get(cityName));
+                    fillJsonbIfBlank(detail::setHousingPriceLevel, detail::getHousingPriceLevel, housingPriceMap.get(cityName));
+                    fillJsonbIfBlank(detail::setHighEducation, detail::getHighEducation, highEducationMap.get(cityName));
+                    fillJsonbIfBlank(detail::setBasicEducation, detail::getBasicEducation, basicEducationMap.get(cityName));
+                    fillJsonbIfBlank(detail::setTransportation, detail::getTransportation, transportationMap.get(cityName));
+                    fillJsonbIfBlank(detail::setEmployment, detail::getEmployment, employmentMap.get(cityName));
+                    fillJsonbIfBlank(detail::setEnterpriseStats, detail::getEnterpriseStats, enterpriseStatsMap.get(cityName));
+                    fillJsonbIfBlank(detail::setFuturePlan, detail::getFuturePlan, futurePlanMap.get(cityName));
+                    fillJsonbIfBlank(detail::setCulture, detail::getCulture, cultureMap.get(cityName));
+                    fillJsonbIfBlank(detail::setConsumption, detail::getConsumption, consumptionMap.get(cityName));
+                    fillJsonbIfBlank(detail::setMedical, detail::getMedical, medicalMap.get(cityName));
+                    fillJsonbIfBlank(detail::setHousingPolicy, detail::getHousingPolicy, housingPolicyMap.get(cityName));
+                    fillJsonbIfBlank(detail::setRentalCost, detail::getRentalCost, rentalCostMap.get(cityName));
+
+                    detail.setUpdatedAt(OffsetDateTime.now());
+                    cityDetailMapper.updateById(detail);
+                    updatedCount++;
+                } catch (Exception e) {
+                    errorMsgs.add("详情基础字段第" + rowNum + "行：数据库操作失败[" + cityName + "]：" + e.getMessage());
                 }
-
-                // 查询详情记录
-                CityDetail detail = cityDetailMapper.findByCityId(cityId);
-                if (detail == null) {
-                    errorMsgs.add("详情基础字段第" + rowNum + "行：城市'" + cityName + "'的详情记录不存在");
-                    continue;
-                }
-
-                // 更新详情基础字段
-                detail.setArea(data.getArea());
-                detail.setSubtitle(data.getSubtitle());
-                detail.setCityLevel(data.getCityLevel());
-                detail.setAdminCode(data.getAdminCode());
-                detail.setPerCapitaGdp(data.getPerCapitaGdp());
-                detail.setUrbanizationRate(data.getUrbanizationRate());
-                detail.setRuralPopRatio(data.getRuralPopRatio());
-                detail.setAgingRate(data.getAgingRate());
-                detail.setMigrantPopRatio(data.getMigrantPopRatio());
-                detail.setGdpGrowthRate(data.getGdpGrowthRate());
-                detail.setFortune500Count(data.getFortune500Count());
-                detail.setIndustryDescription(data.getIndustryDescription());
-                detail.setMainIndustries(data.getMainIndustries());
-                detail.setEmergingIndustries(data.getEmergingIndustries());
-
-                // 设置JSONB字段
-                detail.setIndustryStructure(industryStructureMap.get(cityName));
-                detail.setHousingPriceLevel(housingPriceMap.get(cityName));
-                detail.setHighEducation(highEducationMap.get(cityName));
-                detail.setBasicEducation(basicEducationMap.get(cityName));
-                detail.setTransportation(transportationMap.get(cityName));
-                detail.setEmployment(employmentMap.get(cityName));
-                detail.setEnterpriseStats(enterpriseStatsMap.get(cityName));
-                detail.setFuturePlan(futurePlanMap.get(cityName));
-                detail.setCulture(cultureMap.get(cityName));
-                detail.setConsumption(consumptionMap.get(cityName));
-                detail.setMedical(medicalMap.get(cityName));
-                detail.setHousingPolicy(housingPolicyMap.get(cityName));
-                detail.setRentalCost(rentalCostMap.get(cityName));
-
-                detail.setUpdatedAt(OffsetDateTime.now());
-                cityDetailMapper.updateById(detail);
-                updatedCount++;
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                int shown = Math.min(errorMsgs.size(), MAX_ERROR_DISPLAY);
+                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误（仅展示前"
+                        + shown + "条）：" + String.join("；", errorMsgs.subList(0, shown)));
             }
 
             log.info("导入城市详情成功，更新数量={}", updatedCount);
@@ -916,5 +991,60 @@ public class CityServiceImpl implements CityService {
                 errorMsgs.add(sheetName + "第" + (i + 2) + "行：城市名称'" + cityName + "'在详情基础字段Sheet中不存在");
             }
         }
+    }
+
+    /**
+     * 城市主表"补空"合并：仅当库中该列为 NULL/空 且导入有值时才填入，已有数据一律不覆盖。
+     * 返回是否有字段被实际补齐。
+     */
+    private boolean mergeCityIfBlank(City existing, CityExcelDTO data) {
+        boolean changed = false;
+        String region = data.getRegion() == null ? null : data.getRegion().trim();
+        if (!StringUtils.hasText(existing.getRegion()) && StringUtils.hasText(region)) {
+            existing.setRegion(region);
+            changed = true;
+        }
+        if (!StringUtils.hasText(existing.getCityIntro()) && StringUtils.hasText(data.getCityIntro())) {
+            existing.setCityIntro(data.getCityIntro());
+            changed = true;
+        }
+        if (existing.getCollegeCount() == null && data.getCollegeCount() != null) {
+            existing.setCollegeCount(data.getCollegeCount());
+            changed = true;
+        }
+        if (existing.getKeyCollegeCount() == null && data.getKeyCollegeCount() != null) {
+            existing.setKeyCollegeCount(data.getKeyCollegeCount());
+            changed = true;
+        }
+        if (existing.getResidentPopulation() == null && data.getResidentPopulation() != null) {
+            existing.setResidentPopulation(data.getResidentPopulation());
+            changed = true;
+        }
+        if (existing.getGdp() == null && data.getGdp() != null) {
+            existing.setGdp(data.getGdp());
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
+     * 城市详情JSONB字段"补空"合并：仅当导入有数据且库中为空(NULL或空对象)才填入，已有真实数据不覆盖。
+     */
+    private void fillJsonbIfBlank(java.util.function.Consumer<Map<String, Object>> setter,
+                                  java.util.function.Supplier<Map<String, Object>> getter,
+                                  Map<String, Object> importValue) {
+        if (importValue == null || importValue.isEmpty()) {
+            return;
+        }
+        Map<String, Object> current = getter.get();
+        // DB 列 DEFAULT '{}'，加载后是空对象而非 NULL，必须把 empty 也视为"空"才允许补齐
+        if (current != null && !current.isEmpty()) {
+            return;
+        }
+        setter.accept(new LinkedHashMap<>(importValue));
+    }
+
+    private boolean isBlankList(List<?> list) {
+        return list == null || list.isEmpty();
     }
 }

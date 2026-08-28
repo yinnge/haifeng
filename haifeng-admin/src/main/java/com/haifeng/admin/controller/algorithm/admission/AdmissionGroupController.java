@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupQueryDTO;
 import com.haifeng.admin.service.algorithm.admission.AdmissionGroupService;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -80,9 +81,8 @@ public class AdmissionGroupController {
 
     @PostMapping("/import")
     @OperationLog(module = "专业组管理", action = "导入专业组数据")
-    public R<Void> importData(@RequestParam("file") MultipartFile file) {
-        admissionGroupService.importData(file);
-        return R.ok();
+    public R<ImportResultVO> importData(@RequestParam("file") MultipartFile file) {
+        return R.ok(admissionGroupService.importData(file));
     }
 
     @PostMapping("/recalc-all")

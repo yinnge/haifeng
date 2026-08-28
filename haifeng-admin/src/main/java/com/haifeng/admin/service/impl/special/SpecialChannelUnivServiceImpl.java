@@ -162,7 +162,7 @@ public class SpecialChannelUnivServiceImpl implements SpecialChannelUnivService 
         if (records.size() != ids.size()) {
             throw new BusinessException(ResultCode.NOT_FOUND, "部分通道-大学关联不存在");
         }
-        specialChannelUniversityMapper.deleteBatchIds(ids);
+        specialChannelUniversityMapper.deleteByIds(ids);
         log.info("批量删除通道-大学关联: count={}", ids.size());
     }
 }

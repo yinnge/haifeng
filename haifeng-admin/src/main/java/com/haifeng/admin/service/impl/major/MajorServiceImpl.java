@@ -22,7 +22,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,6 +32,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,7 +48,9 @@ public class MajorServiceImpl implements MajorService {
     private final MajorMapper majorMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final MajorDetailMapper majorDetailMapper;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public IPage<MajorListVO> list(MajorQueryDTO queryDTO) {
@@ -300,7 +305,7 @@ public class MajorServiceImpl implements MajorService {
         majorDetailMapper.delete(detailWrapper);
 
         // 批量删除主表
-        int deleted = majorMapper.deleteBatchIds(ids);
+        int deleted = majorMapper.deleteByIds(ids);
 
         log.info("批量硬删除专业完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
@@ -384,7 +389,6 @@ public class MajorServiceImpl implements MajorService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importMajor(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
@@ -411,98 +415,188 @@ public class MajorServiceImpl implements MajorService {
 
         List<String> errors = new ArrayList<>();
         Set<String> majorCodesInFile = new HashSet<>();
+        int[] updatedCount = {0};
         OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
 
-        for (int i = 0; i < dataList.size(); i++) {
-            int rowNum = i + 2; // Excel行号（从2开始，1是表头）
-            MajorImportDTO dto = dataList.get(i);
+        new TransactionTemplate(transactionManager).execute(status -> {
+            for (int i = 0; i < dataList.size(); i++) {
+                int rowNum = i + 2; // Excel行号（从2开始，1是表头）
+                MajorImportDTO dto = dataList.get(i);
 
-            // 校验必填字段
-            if (!StringUtils.hasText(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码不能为空");
-                continue;
-            }
-            if (!StringUtils.hasText(dto.getMajorName())) {
-                errors.add("第" + rowNum + "行: 专业名称不能为空");
-                continue;
-            }
-            if (!StringUtils.hasText(dto.getMajorType())) {
-                errors.add("第" + rowNum + "行: 专业类型不能为空");
-                continue;
-            }
-
-            // 检查文件内重复
-            if (majorCodesInFile.contains(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在文件中重复");
-                continue;
-            }
-            majorCodesInFile.add(dto.getMajorCode());
-
-            // 检查数据库中是否已存在
-            if (majorMapper.existsByMajorCode(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]已存在");
-                continue;
-            }
-
-            // 校验就业率范围
-            if (dto.getEmploymentRate() != null) {
-                BigDecimal rate = dto.getEmploymentRate();
-                if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(new BigDecimal("100")) > 0) {
-                    errors.add("第" + rowNum + "行: 就业率必须在0-100之间");
+                // 校验必填字段（专业代码用于匹配，必须存在）
+                if (!StringUtils.hasText(dto.getMajorCode())) {
+                    errors.add("第" + rowNum + "行: 专业代码不能为空");
                     continue;
+                }
+
+                // 检查文件内重复
+                if (majorCodesInFile.contains(dto.getMajorCode())) {
+                    errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在文件中重复");
+                    continue;
+                }
+                majorCodesInFile.add(dto.getMajorCode());
+
+                Major existing = majorMapper.selectByMajorCode(dto.getMajorCode());
+
+                if (existing == null) {
+                    // ===== 数据库不存在：新增 =====
+                    if (!StringUtils.hasText(dto.getMajorName())) {
+                        errors.add("第" + rowNum + "行: 专业名称不能为空");
+                        continue;
+                    }
+                    if (!StringUtils.hasText(dto.getMajorType())) {
+                        errors.add("第" + rowNum + "行: 专业类型不能为空");
+                        continue;
+                    }
+                    // 校验就业率范围
+                    if (dto.getEmploymentRate() != null) {
+                        BigDecimal rate = dto.getEmploymentRate();
+                        if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(new BigDecimal("100")) > 0) {
+                            errors.add("第" + rowNum + "行: 就业率必须在0-100之间");
+                            continue;
+                        }
+                    }
+                    // 校验薪资范围
+                    if (dto.getSalaryMin() != null && dto.getSalaryMax() != null
+                            && dto.getSalaryMin() > dto.getSalaryMax()) {
+                        errors.add("第" + rowNum + "行: 薪资下限不能大于薪资上限");
+                        continue;
+                    }
+
+                    // 构建实体并插入
+                    Long id = SnowflakeIdGenerator.nextId();
+                    Major major = Major.builder()
+                            .id(id)
+                            .majorCode(dto.getMajorCode())
+                            .majorName(dto.getMajorName())
+                            .disciplineName(dto.getDisciplineName())
+                            .majorType(dto.getMajorType())
+                            .majorCategory(dto.getMajorCategory())
+                            .parentCategory(dto.getParentCategory())
+                            .majorTags(dto.getMajorTags())
+                            .degreeAwarded(dto.getDegreeAwarded())
+                            .studyDuration(dto.getStudyDuration())
+                            .employmentRate(dto.getEmploymentRate())
+                            .salaryMin(dto.getSalaryMin())
+                            .salaryMax(dto.getSalaryMax())
+                            .description(dto.getDescription())
+                            .status((short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+
+                    try {
+                        majorMapper.insert(major);
+                    } catch (Exception e) {
+                        status.setRollbackOnly();
+                        errors.add("第" + rowNum + "行: 专业保存失败[" + dto.getMajorCode() + "]: " + e.getMessage());
+                    }
+                } else {
+                    // ===== 数据库已存在：仅补齐为空的列，已有数据的列绝不覆盖 =====
+                    boolean changed = mergeMajorIfBlank(existing, dto);
+                    // 合并后校验薪资范围（仅当两列都非空）
+                    if (existing.getSalaryMin() != null && existing.getSalaryMax() != null
+                            && existing.getSalaryMin() > existing.getSalaryMax()) {
+                        errors.add("第" + rowNum + "行: 薪资下限不能大于薪资上限");
+                        continue;
+                    }
+                    // 合并后校验就业率（仅当本次上传填补了该列）
+                    if (dto.getEmploymentRate() != null && existing.getEmploymentRate() != null
+                            && (existing.getEmploymentRate().compareTo(BigDecimal.ZERO) < 0
+                            || existing.getEmploymentRate().compareTo(new BigDecimal("100")) > 0)) {
+                        errors.add("第" + rowNum + "行: 就业率必须在0-100之间");
+                        continue;
+                    }
+                    if (changed) {
+                        try {
+                            existing.setUpdatedAt(now);
+                            majorMapper.updateById(existing);
+                            updatedCount[0]++;
+                        } catch (Exception e) {
+                            status.setRollbackOnly();
+                            errors.add("第" + rowNum + "行: 专业更新失败[" + dto.getMajorCode() + "]: " + e.getMessage());
+                        }
+                    }
                 }
             }
 
-            // 校验薪资范围
-            if (dto.getSalaryMin() != null && dto.getSalaryMax() != null
-                    && dto.getSalaryMin() > dto.getSalaryMax()) {
-                errors.add("第" + rowNum + "行: 薪资下限不能大于薪资上限");
-                continue;
+            if (!errors.isEmpty()) {
+                throw new BusinessException(400, "数据校验失败：" + joinErrors(errors));
             }
+            return null;
+        });
 
-            // 构建实体并插入
-            Long id = SnowflakeIdGenerator.nextId();
-            Major major = Major.builder()
-                    .id(id)
-                    .majorCode(dto.getMajorCode())
-                    .majorName(dto.getMajorName())
-                    .disciplineName(dto.getDisciplineName())
-                    .majorType(dto.getMajorType())
-                    .majorCategory(dto.getMajorCategory())
-                    .parentCategory(dto.getParentCategory())
-                    .majorTags(dto.getMajorTags())
-                .degreeAwarded(dto.getDegreeAwarded())
-                .studyDuration(dto.getStudyDuration())
-                .employmentRate(dto.getEmploymentRate())
-                    .salaryMin(dto.getSalaryMin())
-                    .salaryMax(dto.getSalaryMax())
-                    .description(dto.getDescription())
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            majorMapper.insert(major);
-            successCount++;
-        }
-
-        if (!errors.isEmpty()) {
-            log.warn("导入专业数据部分失败: 成功{}条, 失败{}条", successCount, errors.size());
-        } else {
-            log.info("导入专业数据成功: 共{}条", successCount);
-        }
-
+        int total = dataList.size();
+        log.info("导入专业数据完成: 总行数={}, 补空更新={}", total, updatedCount[0]);
         return ImportResultVO.builder()
-                .total(dataList.size())
-                .success(successCount)
-                .failed(errors.size())
-                .errors(errors.isEmpty() ? null : errors)
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(updatedCount[0])
+                .errors(Collections.emptyList())
                 .build();
     }
 
+    /**
+     * 合并策略：仅当数据库字段为 null 且上传数据有值时，才用上传值填补；
+     * 数据库已有数据的列（无论上传是否有值）一律保留，不覆盖。
+     *
+     * @return 是否有任意列被填补（用于判定是否需要 UPDATE）
+     */
+    private boolean mergeMajorIfBlank(Major existing, MajorImportDTO dto) {
+        boolean changed = false;
+        if (existing.getMajorName() == null && StringUtils.hasText(dto.getMajorName())) {
+            existing.setMajorName(dto.getMajorName());
+            changed = true;
+        }
+        if (existing.getDisciplineName() == null && StringUtils.hasText(dto.getDisciplineName())) {
+            existing.setDisciplineName(dto.getDisciplineName());
+            changed = true;
+        }
+        if (existing.getMajorType() == null && StringUtils.hasText(dto.getMajorType())) {
+            existing.setMajorType(dto.getMajorType());
+            changed = true;
+        }
+        if (existing.getMajorCategory() == null && StringUtils.hasText(dto.getMajorCategory())) {
+            existing.setMajorCategory(dto.getMajorCategory());
+            changed = true;
+        }
+        if (existing.getParentCategory() == null && StringUtils.hasText(dto.getParentCategory())) {
+            existing.setParentCategory(dto.getParentCategory());
+            changed = true;
+        }
+        if (existing.getMajorTags() == null && StringUtils.hasText(dto.getMajorTags())) {
+            existing.setMajorTags(dto.getMajorTags());
+            changed = true;
+        }
+        if (existing.getDegreeAwarded() == null && StringUtils.hasText(dto.getDegreeAwarded())) {
+            existing.setDegreeAwarded(dto.getDegreeAwarded());
+            changed = true;
+        }
+        if (existing.getStudyDuration() == null && StringUtils.hasText(dto.getStudyDuration())) {
+            existing.setStudyDuration(dto.getStudyDuration());
+            changed = true;
+        }
+        if (existing.getEmploymentRate() == null && dto.getEmploymentRate() != null) {
+            existing.setEmploymentRate(dto.getEmploymentRate());
+            changed = true;
+        }
+        if (existing.getSalaryMin() == null && dto.getSalaryMin() != null) {
+            existing.setSalaryMin(dto.getSalaryMin());
+            changed = true;
+        }
+        if (existing.getSalaryMax() == null && dto.getSalaryMax() != null) {
+            existing.setSalaryMax(dto.getSalaryMax());
+            changed = true;
+        }
+        if (existing.getDescription() == null && StringUtils.hasText(dto.getDescription())) {
+            existing.setDescription(dto.getDescription());
+            changed = true;
+        }
+        return changed;
+    }
+
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importMajorDetail(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
@@ -529,76 +623,152 @@ public class MajorServiceImpl implements MajorService {
 
         List<String> errors = new ArrayList<>();
         Set<Long> majorIdsInFile = new HashSet<>();
+        int[] updatedCount = {0};
         OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
 
-        for (int i = 0; i < dataList.size(); i++) {
-            int rowNum = i + 2;
-            MajorDetailImportDTO dto = dataList.get(i);
+        new TransactionTemplate(transactionManager).execute(status -> {
+            for (int i = 0; i < dataList.size(); i++) {
+                int rowNum = i + 2;
+                MajorDetailImportDTO dto = dataList.get(i);
 
-            // 校验必填字段
-            if (!StringUtils.hasText(dto.getMajorCode())) {
-                errors.add("第" + rowNum + "行: 专业代码不能为空");
-                continue;
+                // 校验必填字段（专业代码用于匹配，必须存在）
+                if (!StringUtils.hasText(dto.getMajorCode())) {
+                    errors.add("第" + rowNum + "行: 专业代码不能为空");
+                    continue;
+                }
+
+                // 根据专业代码查找专业ID
+                Long majorId = majorMapper.selectIdByMajorCode(dto.getMajorCode());
+                if (majorId == null) {
+                    errors.add("第" + rowNum + "行: 专业[" + dto.getMajorCode() + "]不存在");
+                    continue;
+                }
+
+                // 检查文件内majorId是否重复（1:1关系）
+                if (majorIdsInFile.contains(majorId)) {
+                    errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在文件中重复");
+                    continue;
+                }
+                majorIdsInFile.add(majorId);
+
+                // 查询是否已存在详情（忽略状态，保证 1:1）
+                MajorDetail existing = majorDetailMapper.selectOne(
+                        new LambdaQueryWrapper<MajorDetail>().eq(MajorDetail::getMajorId, majorId));
+
+                if (existing == null) {
+                    // ===== 数据库不存在：新增详情 =====
+                    Long detailId = SnowflakeIdGenerator.nextId();
+                    MajorDetail detail = MajorDetail.builder()
+                            .id(detailId)
+                            .majorId(majorId)
+                            .courseCount(dto.getCourseCount())
+                            .graduateScale(dto.getGraduateScale())
+                            .maleRatio(dto.getMaleRatio())
+                            .femaleRatio(dto.getFemaleRatio())
+                            .majorDescription(dto.getMajorDescription())
+                            .trainingObjective(dto.getTrainingObjective())
+                            .trainingRequirement(dto.getTrainingRequirement())
+                            .subjectRequirement(dto.getSubjectRequirement())
+                            .careerProspect(dto.getCareerProspect())
+                            .mainCourses(dto.getMainCourses())
+                            .knowledgeSkills(dto.getKnowledgeSkills())
+                            .status((short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+
+                    try {
+                        majorDetailMapper.insert(detail);
+                    } catch (Exception e) {
+                        status.setRollbackOnly();
+                        errors.add("第" + rowNum + "行: 专业详情保存失败[" + dto.getMajorCode() + "]: " + e.getMessage());
+                    }
+                } else {
+                    // ===== 数据库已存在：仅补齐为空的列，已有数据的列绝不覆盖 =====
+                    boolean changed = mergeMajorDetailIfBlank(existing, dto);
+                    if (changed) {
+                        try {
+                            existing.setUpdatedAt(now);
+                            majorDetailMapper.updateById(existing);
+                            updatedCount[0]++;
+                        } catch (Exception e) {
+                            status.setRollbackOnly();
+                            errors.add("第" + rowNum + "行: 专业详情更新失败[" + dto.getMajorCode() + "]: " + e.getMessage());
+                        }
+                    }
+                }
             }
 
-            // 根据专业代码查找专业ID
-            Long majorId = majorMapper.selectIdByMajorCode(dto.getMajorCode());
-            if (majorId == null) {
-                errors.add("第" + rowNum + "行: 专业[" + dto.getMajorCode() + "]不存在");
-                continue;
+            if (!errors.isEmpty()) {
+                throw new BusinessException(400, "数据校验失败：" + joinErrors(errors));
             }
+            return null;
+        });
 
-            // 检查文件内majorId是否重复（1:1关系）
-            if (majorIdsInFile.contains(majorId)) {
-                errors.add("第" + rowNum + "行: 专业代码[" + dto.getMajorCode() + "]在文件中重复");
-                continue;
-            }
-            majorIdsInFile.add(majorId);
-
-            // 检查数据库中是否已存在详情
-            if (majorDetailMapper.existsByMajorId(majorId)) {
-                errors.add("第" + rowNum + "行: 专业[" + dto.getMajorCode() + "]已有详情记录");
-                continue;
-            }
-
-            // 构建实体并插入
-            Long detailId = SnowflakeIdGenerator.nextId();
-            MajorDetail detail = MajorDetail.builder()
-                    .id(detailId)
-                    .majorId(majorId)
-                    .courseCount(dto.getCourseCount())
-                    .graduateScale(dto.getGraduateScale())
-                    .maleRatio(dto.getMaleRatio())
-                    .femaleRatio(dto.getFemaleRatio())
-                    .majorDescription(dto.getMajorDescription())
-                    .trainingObjective(dto.getTrainingObjective())
-                    .trainingRequirement(dto.getTrainingRequirement())
-                    .subjectRequirement(dto.getSubjectRequirement())
-                    .careerProspect(dto.getCareerProspect())
-                    .mainCourses(dto.getMainCourses())
-                    .knowledgeSkills(dto.getKnowledgeSkills())
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            majorDetailMapper.insert(detail);
-            successCount++;
-        }
-
-        if (!errors.isEmpty()) {
-            log.warn("导入专业详情数据部分失败: 成功{}条, 失败{}条", successCount, errors.size());
-        } else {
-            log.info("导入专业详情数据成功: 共{}条", successCount);
-        }
-
+        int total = dataList.size();
+        log.info("导入专业详情数据完成: 总行数={}, 补空更新={}", total, updatedCount[0]);
         return ImportResultVO.builder()
-                .total(dataList.size())
-                .success(successCount)
-                .failed(errors.size())
-                .errors(errors.isEmpty() ? null : errors)
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(updatedCount[0])
+                .errors(Collections.emptyList())
                 .build();
+    }
+
+    /**
+     * 详情表合并策略：仅当数据库字段为 null 且上传数据有值时，才用上传值填补；
+     * 数据库已有数据的列（无论上传是否有值）一律保留，不覆盖。
+     *
+     * @return 是否有任意列被填补（用于判定是否需要 UPDATE）
+     */
+    private boolean mergeMajorDetailIfBlank(MajorDetail existing, MajorDetailImportDTO dto) {
+        boolean changed = false;
+        if (existing.getCourseCount() == null && dto.getCourseCount() != null) {
+            existing.setCourseCount(dto.getCourseCount());
+            changed = true;
+        }
+        if (existing.getGraduateScale() == null && StringUtils.hasText(dto.getGraduateScale())) {
+            existing.setGraduateScale(dto.getGraduateScale());
+            changed = true;
+        }
+        if (existing.getMaleRatio() == null && dto.getMaleRatio() != null) {
+            existing.setMaleRatio(dto.getMaleRatio());
+            changed = true;
+        }
+        if (existing.getFemaleRatio() == null && dto.getFemaleRatio() != null) {
+            existing.setFemaleRatio(dto.getFemaleRatio());
+            changed = true;
+        }
+        if (existing.getMajorDescription() == null && StringUtils.hasText(dto.getMajorDescription())) {
+            existing.setMajorDescription(dto.getMajorDescription());
+            changed = true;
+        }
+        if (existing.getTrainingObjective() == null && StringUtils.hasText(dto.getTrainingObjective())) {
+            existing.setTrainingObjective(dto.getTrainingObjective());
+            changed = true;
+        }
+        if (existing.getTrainingRequirement() == null && StringUtils.hasText(dto.getTrainingRequirement())) {
+            existing.setTrainingRequirement(dto.getTrainingRequirement());
+            changed = true;
+        }
+        if (existing.getSubjectRequirement() == null && StringUtils.hasText(dto.getSubjectRequirement())) {
+            existing.setSubjectRequirement(dto.getSubjectRequirement());
+            changed = true;
+        }
+        if (existing.getCareerProspect() == null && StringUtils.hasText(dto.getCareerProspect())) {
+            existing.setCareerProspect(dto.getCareerProspect());
+            changed = true;
+        }
+        if (existing.getMainCourses() == null && dto.getMainCourses() != null) {
+            existing.setMainCourses(dto.getMainCourses());
+            changed = true;
+        }
+        if (existing.getKnowledgeSkills() == null && dto.getKnowledgeSkills() != null) {
+            existing.setKnowledgeSkills(dto.getKnowledgeSkills());
+            changed = true;
+        }
+        return changed;
     }
 
     @Override
@@ -606,5 +776,20 @@ public class MajorServiceImpl implements MajorService {
     public void restore(Long id) {
         updateStatus(id, (short) 1);
         log.info("恢复专业成功: id={}", id);
+    }
+
+    /**
+     * 将错误列表拼接为单行文本，超过 MAX_ERROR_DISPLAY 条时截断并提示总数。
+     */
+    private String joinErrors(List<String> errs) {
+        if (errs == null || errs.isEmpty()) {
+            return null;
+        }
+        int shown = Math.min(errs.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errs.subList(0, shown));
+        if (errs.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errs.size() + "行存在错误";
+        }
+        return joined;
     }
 }

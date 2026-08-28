@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.algorithm.config.ScoreRankQueryDTO;
 import com.haifeng.admin.service.algorithm.config.ScoreRankService;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankDetailVO;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -74,7 +75,7 @@ public class ScoreRankController {
 
     @PostMapping("/import")
     @OperationLog(module = "一分一段管理", action = "导入一分一段数据")
-    public R<Integer> importData(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importData(@RequestParam("file") MultipartFile file) {
         return R.ok(scoreRankService.importData(file));
     }
 }

@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.algorithm.config.BatchScoreLineQueryDTO;
 import com.haifeng.admin.service.algorithm.config.BatchScoreLineService;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineDetailVO;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -88,7 +89,7 @@ public class BatchScoreLineController {
 
     @PostMapping("/import")
     @OperationLog(module = "批次分数线管理", action = "导入批次分数线数据")
-    public R<Void> importData(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importData(@RequestParam("file") MultipartFile file) {
         batchScoreLineService.importData(file);
         return R.ok();
     }

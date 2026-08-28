@@ -11,6 +11,7 @@ import com.haifeng.admin.excel.employment.civilService.CivilPositionExcelDTO;
 import com.haifeng.admin.service.employment.civilService.CivilPositionService;
 import com.haifeng.admin.vo.employment.civilService.CivilPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.CivilPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.employment.civilService.CivilPosition;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.employment.civilService.CivilPositionMapper;
@@ -36,6 +37,7 @@ public class CivilPositionServiceImpl implements CivilPositionService {
     private final CivilPositionMapper civilPositionMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<CivilPositionListVO> page(CivilPositionQueryDTO dto) {
@@ -225,7 +227,7 @@ public class CivilPositionServiceImpl implements CivilPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<CivilPositionExcelDTO> list = readExcel(file);
         StringBuilder errorMsg = validateExcelRows(list);
         if (errorMsg.length() > 0) {
@@ -233,57 +235,136 @@ public class CivilPositionServiceImpl implements CivilPositionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        int imported = 0;
+        List<String> rowErrors = new ArrayList<>();
+        int rowNum = 1;
+        int updatedCount = 0;
+        int insertCount = 0;
+
         for (CivilPositionExcelDTO dto : list) {
-            if (StringUtils.hasText(dto.getDeptCode()) && StringUtils.hasText(dto.getPositionCode())) {
-                long count = civilPositionMapper.selectCount(
-                        Wrappers.lambdaQuery(CivilPosition.class)
-                                .eq(CivilPosition::getExamType, dto.getExamType())
-                                .eq(CivilPosition::getDeptCode, dto.getDeptCode())
-                                .eq(CivilPosition::getPositionCode, dto.getPositionCode()));
-                if (count > 0) {
-                    continue;
+            rowNum++;
+            try {
+                if (StringUtils.hasText(dto.getDeptCode()) && StringUtils.hasText(dto.getPositionCode())) {
+                    List<CivilPosition> existingList = civilPositionMapper.selectList(
+                            Wrappers.lambdaQuery(CivilPosition.class)
+                                    .eq(CivilPosition::getExamType, dto.getExamType())
+                                    .eq(CivilPosition::getDeptCode, dto.getDeptCode())
+                                    .eq(CivilPosition::getPositionCode, dto.getPositionCode())
+                                    .eq(CivilPosition::getIsDeleted, false)
+                                    .last("LIMIT 1"));
+                    if (!existingList.isEmpty()) {
+                        // 已存在：仅补空不覆盖（业务键 examType/deptCode/positionCode 不变）
+                        boolean changed = fillCivilGaps(existingList.get(0), dto, now);
+                        if (changed) {
+                            civilPositionMapper.updateById(existingList.get(0));
+                            updatedCount++;
+                        }
+                        continue;
+                    }
                 }
+                CivilPosition entity = CivilPosition.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .positionName(dto.getPositionName())
+                        .examType(dto.getExamType())
+                        .recruitingDept(dto.getRecruitingDept())
+                        .deptCode(dto.getDeptCode())
+                        .positionCode(dto.getPositionCode())
+                        .affiliatedBureau(dto.getAffiliatedBureau())
+                        .majorRequirement(dto.getMajorRequirement())
+                        .minEducation(dto.getMinEducation())
+                        .degreeRequirement(dto.getDegreeRequirement())
+                        .politicalStatus(dto.getPoliticalStatus())
+                        .workExperience(dto.getWorkExperience())
+                        .grassrootsExperience(dto.getGrassrootsExperience())
+                        .examCategory(dto.getExamCategory())
+                        .interviewRatio(dto.getInterviewRatio())
+                        .recruitmentCount(dto.getRecruitmentCount())
+                        .hasProfessionalTest(dto.getHasProfessionalTest())
+                        .workLocation(dto.getWorkLocation())
+                        .workLocationDetail(dto.getWorkLocationDetail())
+                        .householdRequirement(dto.getHouseholdRequirement())
+                        .householdLocation(dto.getHouseholdLocation())
+                        .positionIntro(dto.getPositionIntro())
+                        .remark(dto.getRemark())
+                        .officialWebsite(dto.getOfficialWebsite())
+                        .contactPhone(dto.getContactPhone())
+                        .regStartDate(dto.getRegStartDate())
+                        .regEndDate(dto.getRegEndDate())
+                        .regStatus(dto.getRegStatus())
+                        .applicantCount(dto.getApplicantCount())
+                        .sortOrder(dto.getSortOrder())
+                        .isDeleted(false)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                civilPositionMapper.insert(entity);
+                insertCount++;
+            } catch (Exception e) {
+                rowErrors.add("第" + rowNum + "行: 保存失败[" + dto.getPositionName() + "]: " + e.getMessage());
             }
-            CivilPosition entity = CivilPosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .positionName(dto.getPositionName())
-                    .examType(dto.getExamType())
-                    .recruitingDept(dto.getRecruitingDept())
-                    .deptCode(dto.getDeptCode())
-                    .positionCode(dto.getPositionCode())
-                    .affiliatedBureau(dto.getAffiliatedBureau())
-                    .majorRequirement(dto.getMajorRequirement())
-                    .minEducation(dto.getMinEducation())
-                    .degreeRequirement(dto.getDegreeRequirement())
-                    .politicalStatus(dto.getPoliticalStatus())
-                    .workExperience(dto.getWorkExperience())
-                    .grassrootsExperience(dto.getGrassrootsExperience())
-                    .examCategory(dto.getExamCategory())
-                    .interviewRatio(dto.getInterviewRatio())
-                    .recruitmentCount(dto.getRecruitmentCount())
-                    .hasProfessionalTest(dto.getHasProfessionalTest())
-                    .workLocation(dto.getWorkLocation())
-                    .workLocationDetail(dto.getWorkLocationDetail())
-                    .householdRequirement(dto.getHouseholdRequirement())
-                    .householdLocation(dto.getHouseholdLocation())
-                    .positionIntro(dto.getPositionIntro())
-                    .remark(dto.getRemark())
-                    .officialWebsite(dto.getOfficialWebsite())
-                    .contactPhone(dto.getContactPhone())
-                    .regStartDate(dto.getRegStartDate())
-                    .regEndDate(dto.getRegEndDate())
-                    .regStatus(dto.getRegStatus())
-                    .applicantCount(dto.getApplicantCount())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            civilPositionMapper.insert(entity);
-            imported++;
         }
-        log.info("导入公务员职位成功: total={}, imported={}", list.size(), imported);
+
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+
+        log.info("导入公务员职位成功: 新增={}, 补空更新={}", insertCount, updatedCount);
+        int total = list.size();
+        int failed = 0; // 整批回滚，无部分成功
+        int success = total - failed;
+        return ImportResultVO.builder()
+                .total(total)
+                .success(success)
+                .failed(failed)
+                .updated(updatedCount)
+                .errors(rowErrors)
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空字符串 且 导入有值时才写入，已有真实数据保留。
+     * 业务键(examType/deptCode/positionCode)不参与，避免覆盖匹配依据。
+     * 返回是否真的补到了空列（用于 updated 计数）。
+     */
+    private boolean fillCivilGaps(CivilPosition e, CivilPositionExcelDTO dto, OffsetDateTime now) {
+        boolean changed = false;
+        if (!StringUtils.hasText(e.getPositionName()) && StringUtils.hasText(dto.getPositionName())) { e.setPositionName(dto.getPositionName()); changed = true; }
+        if (!StringUtils.hasText(e.getRecruitingDept()) && StringUtils.hasText(dto.getRecruitingDept())) { e.setRecruitingDept(dto.getRecruitingDept()); changed = true; }
+        if (!StringUtils.hasText(e.getAffiliatedBureau()) && StringUtils.hasText(dto.getAffiliatedBureau())) { e.setAffiliatedBureau(dto.getAffiliatedBureau()); changed = true; }
+        if (!StringUtils.hasText(e.getMajorRequirement()) && StringUtils.hasText(dto.getMajorRequirement())) { e.setMajorRequirement(dto.getMajorRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getMinEducation()) && StringUtils.hasText(dto.getMinEducation())) { e.setMinEducation(dto.getMinEducation()); changed = true; }
+        if (!StringUtils.hasText(e.getDegreeRequirement()) && StringUtils.hasText(dto.getDegreeRequirement())) { e.setDegreeRequirement(dto.getDegreeRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getPoliticalStatus()) && StringUtils.hasText(dto.getPoliticalStatus())) { e.setPoliticalStatus(dto.getPoliticalStatus()); changed = true; }
+        if (!StringUtils.hasText(e.getWorkExperience()) && StringUtils.hasText(dto.getWorkExperience())) { e.setWorkExperience(dto.getWorkExperience()); changed = true; }
+        if (!StringUtils.hasText(e.getGrassrootsExperience()) && StringUtils.hasText(dto.getGrassrootsExperience())) { e.setGrassrootsExperience(dto.getGrassrootsExperience()); changed = true; }
+        if (!StringUtils.hasText(e.getExamCategory()) && StringUtils.hasText(dto.getExamCategory())) { e.setExamCategory(dto.getExamCategory()); changed = true; }
+        if (e.getInterviewRatio() == null && dto.getInterviewRatio() != null) { e.setInterviewRatio(dto.getInterviewRatio()); changed = true; }
+        if (e.getRecruitmentCount() == null && dto.getRecruitmentCount() != null) { e.setRecruitmentCount(dto.getRecruitmentCount()); changed = true; }
+        if (e.getHasProfessionalTest() == null && dto.getHasProfessionalTest() != null) { e.setHasProfessionalTest(dto.getHasProfessionalTest()); changed = true; }
+        if (!StringUtils.hasText(e.getWorkLocation()) && StringUtils.hasText(dto.getWorkLocation())) { e.setWorkLocation(dto.getWorkLocation()); changed = true; }
+        if (!StringUtils.hasText(e.getWorkLocationDetail()) && StringUtils.hasText(dto.getWorkLocationDetail())) { e.setWorkLocationDetail(dto.getWorkLocationDetail()); changed = true; }
+        if (!StringUtils.hasText(e.getHouseholdRequirement()) && StringUtils.hasText(dto.getHouseholdRequirement())) { e.setHouseholdRequirement(dto.getHouseholdRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getHouseholdLocation()) && StringUtils.hasText(dto.getHouseholdLocation())) { e.setHouseholdLocation(dto.getHouseholdLocation()); changed = true; }
+        if (!StringUtils.hasText(e.getPositionIntro()) && StringUtils.hasText(dto.getPositionIntro())) { e.setPositionIntro(dto.getPositionIntro()); changed = true; }
+        if (!StringUtils.hasText(e.getRemark()) && StringUtils.hasText(dto.getRemark())) { e.setRemark(dto.getRemark()); changed = true; }
+        if (!StringUtils.hasText(e.getOfficialWebsite()) && StringUtils.hasText(dto.getOfficialWebsite())) { e.setOfficialWebsite(dto.getOfficialWebsite()); changed = true; }
+        if (!StringUtils.hasText(e.getContactPhone()) && StringUtils.hasText(dto.getContactPhone())) { e.setContactPhone(dto.getContactPhone()); changed = true; }
+        if (e.getRegStartDate() == null && dto.getRegStartDate() != null) { e.setRegStartDate(dto.getRegStartDate()); changed = true; }
+        if (e.getRegEndDate() == null && dto.getRegEndDate() != null) { e.setRegEndDate(dto.getRegEndDate()); changed = true; }
+        if (!StringUtils.hasText(e.getRegStatus()) && StringUtils.hasText(dto.getRegStatus())) { e.setRegStatus(dto.getRegStatus()); changed = true; }
+        if (e.getApplicantCount() == null && dto.getApplicantCount() != null) { e.setApplicantCount(dto.getApplicantCount()); changed = true; }
+        if (e.getSortOrder() == null && dto.getSortOrder() != null) { e.setSortOrder(dto.getSortOrder()); changed = true; }
+        if (changed) e.setUpdatedAt(now);
+        return changed;
+    }
+
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
     }
 
     private StringBuilder validateExcelRows(List<CivilPositionExcelDTO> list) {

@@ -11,6 +11,7 @@ import com.haifeng.admin.dto.university.SubjectEvaluationQueryDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationUpdateDTO;
 import com.haifeng.admin.excel.university.SubjectEvaluationExcelDTO;
 import com.haifeng.admin.service.university.SubjectEvaluationService;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationDetailVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationListVO;
 import com.haifeng.common.entity.university.SubjectEvaluation;
@@ -39,6 +40,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
     private final SubjectEvaluationMapper subjectEvaluationMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final UniversityMapper universityMapper;
 
     private static final Set<String> VALID_GRADES = Set.of("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-");
@@ -223,13 +225,13 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
         if (records.size() != ids.size()) {
             throw new BusinessException(400, "部分记录不存在");
         }
-        subjectEvaluationMapper.deleteBatchIds(ids);
+        subjectEvaluationMapper.deleteByIds(ids);
         log.info("批量硬删除学科评估，ids={}", ids);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importSubjectEvaluations(MultipartFile file) {
+    public ImportResultVO importSubjectEvaluations(MultipartFile file) {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
@@ -251,7 +253,9 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
 
             Map<String, Long> universityIdCache = new HashMap<>();
             Map<String, String> universityNameCache = new HashMap<>();
-            List<SubjectEvaluation> evaluations = new ArrayList<>();
+            int addedCount = 0;
+            int updatedCount = 0;
+            OffsetDateTime now = OffsetDateTime.now();
 
             for (int i = 0; i < dataList.size(); i++) {
                 int rowNum = i + 2;
@@ -293,41 +297,86 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
                 }
 
                 String round = data.getEvaluationRound() != null ? data.getEvaluationRound() : "第四轮";
-                if (subjectEvaluationMapper.existsByUniversityAndDiscipline(universityId, data.getDisciplineCode(), round)) {
-                    errorMsgs.add("第" + rowNum + "行：该院校在此轮次下的学科'" + data.getDisciplineCode() + "'评估记录已存在");
-                    continue;
+
+                // 同院校+同学科代码+同轮次：已存在则只补空，不再报"已存在"
+                List<SubjectEvaluation> existingList = subjectEvaluationMapper.selectList(
+                        new LambdaQueryWrapper<SubjectEvaluation>()
+                                .eq(SubjectEvaluation::getUniversityId, universityId)
+                                .eq(SubjectEvaluation::getDisciplineCode, data.getDisciplineCode())
+                                .eq(SubjectEvaluation::getEvaluationRound, round)
+                                .eq(SubjectEvaluation::getStatus, (short) 1));
+                SubjectEvaluation existing = existingList.isEmpty() ? null : existingList.get(0);
+
+                try {
+                    if (existing != null) {
+                        fillEvaluationGaps(existing, data, round, universityNameCache.get(data.getUniversityName()), now);
+                        subjectEvaluationMapper.updateById(existing);
+                        updatedCount++;
+                    } else {
+                        SubjectEvaluation eval = SubjectEvaluation.builder()
+                                .id(SnowflakeIdGenerator.nextId())
+                                .universityId(universityId)
+                                .universityName(universityNameCache.get(data.getUniversityName()))
+                                .disciplineCode(data.getDisciplineCode())
+                                .disciplineName(data.getDisciplineName())
+                                .evaluationRound(round)
+                                .evaluationGrade(data.getEvaluationGrade())
+                                .sortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0)
+                                .status(data.getStatus() != null ? data.getStatus().shortValue() : (short) 1)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        subjectEvaluationMapper.insert(eval);
+                        addedCount++;
+                    }
+                } catch (Exception e) {
+                    errorMsgs.add("第" + rowNum + "行：保存失败[院校=" + data.getUniversityName()
+                            + ", 学科代码=" + data.getDisciplineCode() + "]：" + e.getMessage());
                 }
-
-                OffsetDateTime now = OffsetDateTime.now();
-                SubjectEvaluation eval = SubjectEvaluation.builder()
-                        .id(SnowflakeIdGenerator.nextId())
-                        .universityId(universityId)
-                        .universityName(universityNameCache.get(data.getUniversityName()))
-                        .disciplineCode(data.getDisciplineCode())
-                        .disciplineName(data.getDisciplineName())
-                        .evaluationRound(round)
-                        .evaluationGrade(data.getEvaluationGrade())
-                        .sortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0)
-                        .status(data.getStatus() != null ? data.getStatus().shortValue() : (short) 1)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                evaluations.add(eval);
             }
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行数据存在错误，已全部回滚。错误信息：" + String.join("；", errorMsgs));
+                String detail = errorMsgs.size() > MAX_ERROR_DISPLAY
+                        ? String.join("；", errorMsgs.subList(0, MAX_ERROR_DISPLAY)) + " 等共" + errorMsgs.size() + "条错误"
+                        : String.join("；", errorMsgs);
+                throw new BusinessException(400, "导入失败，已全部回滚。" + detail);
             }
 
-            if (!evaluations.isEmpty()) {
-                saveBatch(evaluations);
-                log.info("导入学科评估成功，数量={}", evaluations.size());
-            }
+            log.info("导入学科评估成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
+            return ImportResultVO.builder()
+                    .total(dataList.size())
+                    .success(dataList.size())
+                    .failed(0)
+                    .updated(updatedCount)
+                    .errors(Collections.emptyList())
+                    .build();
 
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
             throw new BusinessException(500, "读取Excel文件失败");
         }
+    }
+
+    /**
+     * 已有学科评估记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+    private void fillEvaluationGaps(SubjectEvaluation db, SubjectEvaluationExcelDTO data,
+                                    String round, String universityName, OffsetDateTime now) {
+        if (db.getUniversityName() == null) {
+            db.setUniversityName(universityName);
+        }
+        if (db.getDisciplineName() == null) {
+            db.setDisciplineName(data.getDisciplineName());
+        }
+        if (db.getEvaluationRound() == null) {
+            db.setEvaluationRound(round);
+        }
+        if (db.getEvaluationGrade() == null) {
+            db.setEvaluationGrade(data.getEvaluationGrade());
+        }
+        if (db.getSortOrder() == null) {
+            db.setSortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0);
+        }
+        db.setUpdatedAt(now);
     }
 }

@@ -6,11 +6,18 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
 @Mapper
 public interface EnterprisePositionMapper extends BaseMapper<EnterprisePosition> {
+
+    @Select("SELECT EXISTS(SELECT 1 FROM t_enterprise_position WHERE enterprise_id = #{enterpriseId} AND position_name = #{positionName} AND is_deleted = FALSE)")
+    boolean existsByEnterpriseIdAndPositionName(@Param("enterpriseId") Long enterpriseId, @Param("positionName") String positionName);
+
+    @Select("SELECT * FROM t_enterprise_position WHERE enterprise_id = #{enterpriseId} AND position_name = #{positionName} AND is_deleted = FALSE")
+    EnterprisePosition selectByEnterpriseIdAndPositionName(@Param("enterpriseId") Long enterpriseId, @Param("positionName") String positionName);
 
     @Delete("DELETE FROM t_enterprise_position WHERE enterprise_id = #{enterpriseId}")
     int deleteByEnterpriseId(@Param("enterpriseId") Long enterpriseId);

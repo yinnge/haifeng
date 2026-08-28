@@ -12,6 +12,7 @@ import com.haifeng.admin.excel.employment.industryPosition.HealthcarePositionExc
 import com.haifeng.admin.service.employment.industryPosition.HealthcarePositionService;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.HealthcarePositionDetailVO;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.HealthcarePositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.employment.industryPosition.HealthcarePosition;
 import com.haifeng.common.enums.ProvinceEnum;
 import com.haifeng.common.exception.BusinessException;
@@ -27,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -55,7 +57,7 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
             "不限", "大专", "本科", "硕士", "博士");
     private static final Set<String> VALID_TITLE_REQUIREMENTS = Set.of(
             "不限", "初级", "中级", "副高级", "正高级");
-    private static final int MAX_ERROR_DISPLAY = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<HealthcarePositionListVO> page(HealthcarePositionQueryDTO dto) {
@@ -294,61 +296,142 @@ public class HealthcarePositionServiceImpl implements HealthcarePositionService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<HealthcarePositionExcelDTO> list = readExcel(file);
-        String errors = validateExcelRows(list);
-        if (errors != null) {
-            throw new BusinessException(400, errors);
+        String preErrors = validateExcelRows(list);
+        if (preErrors != null) {
+            throw new BusinessException(400, preErrors);
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        List<HealthcarePosition> entities = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int success = 0;
+        int updated = 0;
+        int row = 1;
         for (HealthcarePositionExcelDTO dto : list) {
-            HealthcarePosition entity = HealthcarePosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .institutionName(dto.getInstitutionName())
-                    .institutionType(dto.getInstitutionType())
-                    .institutionLevel(dto.getInstitutionLevel())
-                    .institutionNature(dto.getInstitutionNature())
-                    .positionName(dto.getPositionName())
-                    .department(dto.getDepartment())
-                    .positionCategory(dto.getPositionCategory())
-                    .recruitmentType(dto.getRecruitmentType())
-                    .province(dto.getProvince())
-                    .city(dto.getCity())
-                    .district(dto.getDistrict())
-                    .educationRequirement(dto.getEducationRequirement())
-                    .degreeRequirement(dto.getDegreeRequirement())
-                    .majorRequirement(dto.getMajorRequirement())
-                    .ageLimit(dto.getAgeLimit())
-                    .recruitmentCount(dto.getRecruitmentCount())
-                    .workExperience(dto.getWorkExperience())
-                    .licenseRequirement(dto.getLicenseRequirement())
-                    .titleRequirement(dto.getTitleRequirement())
-                    .internshipRequirement(dto.getInternshipRequirement())
-                    .researchRequirement(dto.getResearchRequirement())
-                    .salaryRange(dto.getSalaryRange())
-                    .benefits(dto.getBenefits())
-                    .housingSubsidy(dto.getHousingSubsidy())
-                    .regStartDate(dto.getRegStartDate())
-                    .regEndDate(dto.getRegEndDate())
-                    .examTime(dto.getExamTime())
-                    .examContent(dto.getExamContent())
-                    .applyLink(dto.getApplyLink())
-                    .positionStatus(dto.getPositionStatus())
-                    .contactPhone(dto.getContactPhone())
-                    .contactPerson(dto.getContactPerson())
-                    .remark(dto.getRemark())
-                    .content(dto.getContent())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            entities.add(entity);
+            row++;
+            String org = StringUtils.hasText(dto.getInstitutionName()) ? dto.getInstitutionName() : "(机构名称空)";
+            String pos = StringUtils.hasText(dto.getPositionName()) ? dto.getPositionName() : "(岗位名称空)";
+            try {
+                LambdaQueryWrapper<HealthcarePosition> wrapper = Wrappers.<HealthcarePosition>lambdaQuery()
+                        .eq(HealthcarePosition::getInstitutionName, dto.getInstitutionName())
+                        .eq(HealthcarePosition::getPositionName, dto.getPositionName())
+                        .eq(HealthcarePosition::getIsDeleted, false);
+                HealthcarePosition existing = healthcarePositionMapper.selectOne(wrapper);
+                if (existing != null) {
+                    boolean changed = mergeHealthcareIfBlank(existing, dto);
+                    if (changed) {
+                        existing.setUpdatedAt(now);
+                        healthcarePositionMapper.updateById(existing);
+                        updated++;
+                    }
+                    success++;
+                } else {
+                    HealthcarePosition entity = HealthcarePosition.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .institutionName(dto.getInstitutionName())
+                            .institutionType(dto.getInstitutionType())
+                            .institutionLevel(dto.getInstitutionLevel())
+                            .institutionNature(dto.getInstitutionNature())
+                            .positionName(dto.getPositionName())
+                            .department(dto.getDepartment())
+                            .positionCategory(dto.getPositionCategory())
+                            .recruitmentType(dto.getRecruitmentType())
+                            .province(dto.getProvince())
+                            .city(dto.getCity())
+                            .district(dto.getDistrict())
+                            .educationRequirement(dto.getEducationRequirement())
+                            .degreeRequirement(dto.getDegreeRequirement())
+                            .majorRequirement(dto.getMajorRequirement())
+                            .ageLimit(dto.getAgeLimit())
+                            .recruitmentCount(dto.getRecruitmentCount())
+                            .workExperience(dto.getWorkExperience())
+                            .licenseRequirement(dto.getLicenseRequirement())
+                            .titleRequirement(dto.getTitleRequirement())
+                            .internshipRequirement(dto.getInternshipRequirement())
+                            .researchRequirement(dto.getResearchRequirement())
+                            .salaryRange(dto.getSalaryRange())
+                            .benefits(dto.getBenefits())
+                            .housingSubsidy(dto.getHousingSubsidy())
+                            .regStartDate(dto.getRegStartDate())
+                            .regEndDate(dto.getRegEndDate())
+                            .examTime(dto.getExamTime())
+                            .examContent(dto.getExamContent())
+                            .applyLink(dto.getApplyLink())
+                            .positionStatus(dto.getPositionStatus())
+                            .contactPhone(dto.getContactPhone())
+                            .contactPerson(dto.getContactPerson())
+                            .remark(dto.getRemark())
+                            .content(dto.getContent())
+                            .sortOrder(dto.getSortOrder())
+                            .isDeleted(false)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    healthcarePositionMapper.insert(entity);
+                    success++;
+                }
+            } catch (Exception e) {
+                errors.add("第" + row + "行: 数据库操作失败[" + org + " / " + pos + "]: " + e.getMessage());
+            }
         }
-        Db.saveBatch(entities);
-        log.info("导入医疗卫生岗位成功: count={}", list.size());
+
+        if (!errors.isEmpty()) {
+            int show = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+            StringBuilder msg = new StringBuilder(String.join("\n", errors.subList(0, show)));
+            if (errors.size() > MAX_ERROR_DISPLAY) {
+                msg.append("\n...共").append(errors.size()).append("条错误，仅显示前")
+                        .append(MAX_ERROR_DISPLAY).append("条，详见后端日志");
+            }
+            throw new BusinessException(400, msg.toString());
+        }
+        return ImportResultVO.builder()
+                .total(list.size())
+                .success(success)
+                .failed(0)
+                .updated(updated)
+                .errors(Collections.emptyList())
+                .build();
+    }
+
+    private boolean mergeHealthcareIfBlank(HealthcarePosition existing, HealthcarePositionExcelDTO dto) {
+        boolean changed = false;
+        if (existing.getInstitutionName() == null && StringUtils.hasText(dto.getInstitutionName())) { existing.setInstitutionName(dto.getInstitutionName()); changed = true; }
+        if (existing.getInstitutionType() == null && StringUtils.hasText(dto.getInstitutionType())) { existing.setInstitutionType(dto.getInstitutionType()); changed = true; }
+        if (existing.getInstitutionLevel() == null && StringUtils.hasText(dto.getInstitutionLevel())) { existing.setInstitutionLevel(dto.getInstitutionLevel()); changed = true; }
+        if (existing.getInstitutionNature() == null && StringUtils.hasText(dto.getInstitutionNature())) { existing.setInstitutionNature(dto.getInstitutionNature()); changed = true; }
+        if (existing.getPositionName() == null && StringUtils.hasText(dto.getPositionName())) { existing.setPositionName(dto.getPositionName()); changed = true; }
+        if (existing.getDepartment() == null && StringUtils.hasText(dto.getDepartment())) { existing.setDepartment(dto.getDepartment()); changed = true; }
+        if (existing.getPositionCategory() == null && StringUtils.hasText(dto.getPositionCategory())) { existing.setPositionCategory(dto.getPositionCategory()); changed = true; }
+        if (existing.getRecruitmentType() == null && StringUtils.hasText(dto.getRecruitmentType())) { existing.setRecruitmentType(dto.getRecruitmentType()); changed = true; }
+        if (existing.getProvince() == null && StringUtils.hasText(dto.getProvince())) { existing.setProvince(dto.getProvince()); changed = true; }
+        if (existing.getCity() == null && StringUtils.hasText(dto.getCity())) { existing.setCity(dto.getCity()); changed = true; }
+        if (existing.getDistrict() == null && StringUtils.hasText(dto.getDistrict())) { existing.setDistrict(dto.getDistrict()); changed = true; }
+        if (existing.getEducationRequirement() == null && StringUtils.hasText(dto.getEducationRequirement())) { existing.setEducationRequirement(dto.getEducationRequirement()); changed = true; }
+        if (existing.getDegreeRequirement() == null && StringUtils.hasText(dto.getDegreeRequirement())) { existing.setDegreeRequirement(dto.getDegreeRequirement()); changed = true; }
+        if (existing.getMajorRequirement() == null && StringUtils.hasText(dto.getMajorRequirement())) { existing.setMajorRequirement(dto.getMajorRequirement()); changed = true; }
+        if (existing.getAgeLimit() == null && dto.getAgeLimit() != null) { existing.setAgeLimit(dto.getAgeLimit()); changed = true; }
+        if (existing.getRecruitmentCount() == null && dto.getRecruitmentCount() != null) { existing.setRecruitmentCount(dto.getRecruitmentCount()); changed = true; }
+        if (existing.getWorkExperience() == null && StringUtils.hasText(dto.getWorkExperience())) { existing.setWorkExperience(dto.getWorkExperience()); changed = true; }
+        if (existing.getLicenseRequirement() == null && StringUtils.hasText(dto.getLicenseRequirement())) { existing.setLicenseRequirement(dto.getLicenseRequirement()); changed = true; }
+        if (existing.getTitleRequirement() == null && StringUtils.hasText(dto.getTitleRequirement())) { existing.setTitleRequirement(dto.getTitleRequirement()); changed = true; }
+        if (existing.getInternshipRequirement() == null && StringUtils.hasText(dto.getInternshipRequirement())) { existing.setInternshipRequirement(dto.getInternshipRequirement()); changed = true; }
+        if (existing.getResearchRequirement() == null && StringUtils.hasText(dto.getResearchRequirement())) { existing.setResearchRequirement(dto.getResearchRequirement()); changed = true; }
+        if (existing.getSalaryRange() == null && StringUtils.hasText(dto.getSalaryRange())) { existing.setSalaryRange(dto.getSalaryRange()); changed = true; }
+        if (existing.getBenefits() == null && StringUtils.hasText(dto.getBenefits())) { existing.setBenefits(dto.getBenefits()); changed = true; }
+        if (existing.getHousingSubsidy() == null && StringUtils.hasText(dto.getHousingSubsidy())) { existing.setHousingSubsidy(dto.getHousingSubsidy()); changed = true; }
+        if (existing.getRegStartDate() == null && dto.getRegStartDate() != null) { existing.setRegStartDate(dto.getRegStartDate()); changed = true; }
+        if (existing.getRegEndDate() == null && dto.getRegEndDate() != null) { existing.setRegEndDate(dto.getRegEndDate()); changed = true; }
+        if (existing.getExamTime() == null && dto.getExamTime() != null) { existing.setExamTime(dto.getExamTime()); changed = true; }
+        if (existing.getExamContent() == null && StringUtils.hasText(dto.getExamContent())) { existing.setExamContent(dto.getExamContent()); changed = true; }
+        if (existing.getApplyLink() == null && StringUtils.hasText(dto.getApplyLink())) { existing.setApplyLink(dto.getApplyLink()); changed = true; }
+        if (existing.getPositionStatus() == null && StringUtils.hasText(dto.getPositionStatus())) { existing.setPositionStatus(dto.getPositionStatus()); changed = true; }
+        if (existing.getContactPhone() == null && StringUtils.hasText(dto.getContactPhone())) { existing.setContactPhone(dto.getContactPhone()); changed = true; }
+        if (existing.getContactPerson() == null && StringUtils.hasText(dto.getContactPerson())) { existing.setContactPerson(dto.getContactPerson()); changed = true; }
+        if (existing.getRemark() == null && StringUtils.hasText(dto.getRemark())) { existing.setRemark(dto.getRemark()); changed = true; }
+        if (existing.getContent() == null && StringUtils.hasText(dto.getContent())) { existing.setContent(dto.getContent()); changed = true; }
+        if (existing.getSortOrder() == null && dto.getSortOrder() != null) { existing.setSortOrder(dto.getSortOrder()); changed = true; }
+        return changed;
     }
 
     private String validateExcelRows(List<HealthcarePositionExcelDTO> list) {

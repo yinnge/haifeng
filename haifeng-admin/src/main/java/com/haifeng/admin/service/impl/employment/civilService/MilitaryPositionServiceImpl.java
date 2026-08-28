@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.MilitaryPositionUpdateDTO;
@@ -12,6 +11,7 @@ import com.haifeng.admin.excel.employment.civilService.MilitaryPositionExcelDTO;
 import com.haifeng.admin.service.employment.civilService.MilitaryPositionService;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.MilitaryPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.employment.civilService.MilitaryPosition;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.employment.civilService.MilitaryPositionMapper;
@@ -40,7 +40,7 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
 
     private static final Set<String> VALID_EDUCATION_REQUIREMENTS = Set.of("本科及以上", "硕士及以上", "博士");
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("进行中", "已结束");
-    private static final int MAX_ERROR_DISPLAY = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<MilitaryPositionListVO> page(MilitaryPositionQueryDTO dto) {
@@ -204,7 +204,7 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<MilitaryPositionExcelDTO> list = readExcel(file);
         String errors = validateExcelRows(list);
         if (errors != null) {
@@ -212,32 +212,111 @@ public class MilitaryPositionServiceImpl implements MilitaryPositionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        List<MilitaryPosition> entities = new ArrayList<>();
+        List<String> rowErrors = new ArrayList<>();
+        int rowNum = 1;
+        int updatedCount = 0;
+        int insertCount = 0;
+
         for (MilitaryPositionExcelDTO dto : list) {
-            MilitaryPosition entity = MilitaryPosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .positionName(dto.getPositionName())
-                    .employerUnit(dto.getEmployerUnit())
-                    .department(dto.getDepartment())
-                    .positionType(dto.getPositionType())
-                    .workLocation(dto.getWorkLocation())
-                    .salaryRange(dto.getSalaryRange())
-                    .majorRequirement(dto.getMajorRequirement())
-                    .educationRequirement(dto.getEducationRequirement())
-                    .regDeadline(dto.getRegDeadline())
-                    .positionStatus(dto.getPositionStatus())
-                    .positionDescription(dto.getPositionDescription())
-                    .responsibilities(dto.getResponsibilities())
-                    .qualifications(dto.getQualifications())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            entities.add(entity);
+            rowNum++;
+            try {
+                LambdaQueryWrapper<MilitaryPosition> q = Wrappers.lambdaQuery(MilitaryPosition.class)
+                        .eq(MilitaryPosition::getPositionName, dto.getPositionName())
+                        .eq(MilitaryPosition::getIsDeleted, false);
+                if (StringUtils.hasText(dto.getEmployerUnit())) {
+                    q.eq(MilitaryPosition::getEmployerUnit, dto.getEmployerUnit());
+                }
+                if (StringUtils.hasText(dto.getDepartment())) {
+                    q.eq(MilitaryPosition::getDepartment, dto.getDepartment());
+                }
+                q.last("LIMIT 1");
+                List<MilitaryPosition> existingList = militaryPositionMapper.selectList(q);
+                if (!existingList.isEmpty()) {
+                    // 已存在：仅补空不覆盖（业务键 positionName 不参与）
+                    boolean changed = fillMilitaryGaps(existingList.get(0), dto, now);
+                    if (changed) {
+                        militaryPositionMapper.updateById(existingList.get(0));
+                        updatedCount++;
+                    }
+                    continue;
+                }
+                MilitaryPosition entity = MilitaryPosition.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .positionName(dto.getPositionName())
+                        .employerUnit(dto.getEmployerUnit())
+                        .department(dto.getDepartment())
+                        .positionType(dto.getPositionType())
+                        .workLocation(dto.getWorkLocation())
+                        .salaryRange(dto.getSalaryRange())
+                        .majorRequirement(dto.getMajorRequirement())
+                        .educationRequirement(dto.getEducationRequirement())
+                        .regDeadline(dto.getRegDeadline())
+                        .positionStatus(dto.getPositionStatus())
+                        .positionDescription(dto.getPositionDescription())
+                        .responsibilities(dto.getResponsibilities())
+                        .qualifications(dto.getQualifications())
+                        .sortOrder(dto.getSortOrder())
+                        .isDeleted(false)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                militaryPositionMapper.insert(entity);
+                insertCount++;
+            } catch (Exception e) {
+                rowErrors.add("第" + rowNum + "行: 数据库操作失败[" + dto.getPositionName() + "]: " + e.getMessage());
+            }
         }
-        Db.saveBatch(entities);
-        log.info("导入部队文职岗位成功: count={}", list.size());
+
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+
+        log.info("导入部队文职岗位成功: 新增={}, 补空更新={}", insertCount, updatedCount);
+        int total = list.size();
+        int failed = 0; // 整批回滚，无部分成功
+        int success = total - failed;
+        return ImportResultVO.builder()
+                .total(total)
+                .success(success)
+                .failed(failed)
+                .updated(updatedCount)
+                .errors(rowErrors)
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空串 且 导入有值时才写入，业务键(positionName)不参与。
+     * 返回是否真的补到了空列（用于 updated 计数）。
+     */
+    private boolean fillMilitaryGaps(MilitaryPosition e, MilitaryPositionExcelDTO dto, OffsetDateTime now) {
+        boolean changed = false;
+        if (!StringUtils.hasText(e.getEmployerUnit()) && StringUtils.hasText(dto.getEmployerUnit())) { e.setEmployerUnit(dto.getEmployerUnit()); changed = true; }
+        if (!StringUtils.hasText(e.getDepartment()) && StringUtils.hasText(dto.getDepartment())) { e.setDepartment(dto.getDepartment()); changed = true; }
+        if (!StringUtils.hasText(e.getPositionType()) && StringUtils.hasText(dto.getPositionType())) { e.setPositionType(dto.getPositionType()); changed = true; }
+        if (!StringUtils.hasText(e.getWorkLocation()) && StringUtils.hasText(dto.getWorkLocation())) { e.setWorkLocation(dto.getWorkLocation()); changed = true; }
+        if (!StringUtils.hasText(e.getSalaryRange()) && StringUtils.hasText(dto.getSalaryRange())) { e.setSalaryRange(dto.getSalaryRange()); changed = true; }
+        if (!StringUtils.hasText(e.getMajorRequirement()) && StringUtils.hasText(dto.getMajorRequirement())) { e.setMajorRequirement(dto.getMajorRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getEducationRequirement()) && StringUtils.hasText(dto.getEducationRequirement())) { e.setEducationRequirement(dto.getEducationRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getRegDeadline()) && StringUtils.hasText(dto.getRegDeadline())) { e.setRegDeadline(dto.getRegDeadline()); changed = true; }
+        if (!StringUtils.hasText(e.getPositionStatus()) && StringUtils.hasText(dto.getPositionStatus())) { e.setPositionStatus(dto.getPositionStatus()); changed = true; }
+        if (!StringUtils.hasText(e.getPositionDescription()) && StringUtils.hasText(dto.getPositionDescription())) { e.setPositionDescription(dto.getPositionDescription()); changed = true; }
+        if (e.getResponsibilities() == null && dto.getResponsibilities() != null && dto.getResponsibilities().length > 0) { e.setResponsibilities(dto.getResponsibilities()); changed = true; }
+        if (e.getQualifications() == null && dto.getQualifications() != null && dto.getQualifications().length > 0) { e.setQualifications(dto.getQualifications()); changed = true; }
+        if (e.getSortOrder() == null && dto.getSortOrder() != null) { e.setSortOrder(dto.getSortOrder()); changed = true; }
+        if (changed) e.setUpdatedAt(now);
+        return changed;
+    }
+
+    private String joinErrors(List<String> errors) {
+        int display = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < display; i++) {
+            sb.append(errors.get(i)).append("\n");
+        }
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            sb.append("...共").append(errors.size()).append("条错误，仅显示前").append(MAX_ERROR_DISPLAY).append("条，详见后端日志");
+        }
+        return sb.toString();
     }
 
     private String validateExcelRows(List<MilitaryPositionExcelDTO> list) {

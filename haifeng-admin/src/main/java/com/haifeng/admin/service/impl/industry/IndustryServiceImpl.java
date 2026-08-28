@@ -13,6 +13,7 @@ import com.haifeng.admin.excel.industry.*;
 import com.haifeng.admin.service.industry.IndustryService;
 import com.haifeng.admin.vo.industry.IndustryDetailVO;
 import com.haifeng.admin.vo.industry.IndustryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.industry.Industry;
 import com.haifeng.common.entity.industry.IndustryDetail;
 import com.haifeng.common.exception.BusinessException;
@@ -31,6 +32,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Slf4j
 @Service
@@ -45,6 +48,7 @@ public class IndustryServiceImpl implements IndustryService {
     private static final BigDecimal NEGATIVE_HUNDRED = new BigDecimal("-100");
     private static final BigDecimal THOUSAND = new BigDecimal("1000");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
+    private static final int MAX_ERROR_SHOWN = 50;
 
     @Override
     public IPage<IndustryListVO> page(IndustryQueryDTO dto) {
@@ -288,170 +292,186 @@ public class IndustryServiceImpl implements IndustryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importIndustries(MultipartFile file) {
-        List<String> errorMsgs = new ArrayList<>();
+    public ImportResultVO importIndustries(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请上传Excel文件");
+        }
 
+        List<IndustryExcelDTO> mainData;
         try {
-            // 读取主表数据
-            List<IndustryExcelDTO> mainData = EasyExcel.read(file.getInputStream())
+            mainData = EasyExcel.read(file.getInputStream())
                     .head(IndustryExcelDTO.class)
                     .sheet("行业主表导入")
                     .doReadSync();
-
-            if (mainData == null || mainData.isEmpty()) {
-                throw new BusinessException(400, "导入失败：Excel文件为空");
-            }
-
-            if (mainData.size() > MAX_IMPORT_ROWS) {
-                throw new BusinessException(400, "导入失败：单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
-            }
-
-            List<Industry> industries = new ArrayList<>();
-            List<IndustryDetail> industryDetails = new ArrayList<>();
-            Set<String> industryNamesInFile = new HashSet<>();
-
-            for (int i = 0; i < mainData.size(); i++) {
-                int rowNum = i + 2;
-                IndustryExcelDTO data = mainData.get(i);
-
-                String industryName = data.getIndustryName() == null ? null : data.getIndustryName().trim();
-
-                // 校验必填字段
-                if (!StringUtils.hasText(industryName)) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
-                    continue;
-                }
-
-                // 检查文件内重复
-                if (industryNamesInFile.contains(industryName)) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'在文件中重复");
-                    continue;
-                }
-                industryNamesInFile.add(industryName);
-
-                // 检查数据库中是否已存在
-                if (industryMapper.existsByIndustryName(industryName)) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'已存在");
-                    continue;
-                }
-
-                // 校验字段长度
-                if (industryName.length() > 100) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getCategory()) && data.getCategory().length() > 50) {
-                    errorMsgs.add("第" + rowNum + "行：行业分类长度不能超过50个字符");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getIconClass()) && data.getIconClass().length() > 100) {
-                    errorMsgs.add("第" + rowNum + "行：图标类名长度不能超过100个字符");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getMarketScale()) && data.getMarketScale().length() > 50) {
-                    errorMsgs.add("第" + rowNum + "行：市场规模长度不能超过50个字符");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getTalentGap()) && data.getTalentGap().length() > 50) {
-                    errorMsgs.add("第" + rowNum + "行：人才缺口长度不能超过50个字符");
-                    continue;
-                }
-
-                // 校验枚举值
-                if (StringUtils.hasText(data.getGrowthTrend()) && !VALID_TRENDS.contains(data.getGrowthTrend())) {
-                    errorMsgs.add("第" + rowNum + "行：增长趋势'" + data.getGrowthTrend() + "'不合法，必须是：上升、稳定、下降");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getMarketTrend()) && !VALID_TRENDS.contains(data.getMarketTrend())) {
-                    errorMsgs.add("第" + rowNum + "行：市场趋势'" + data.getMarketTrend() + "'不合法，必须是：上升、稳定、下降");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getTalentTrend()) && !VALID_TRENDS.contains(data.getTalentTrend())) {
-                    errorMsgs.add("第" + rowNum + "行：人才趋势'" + data.getTalentTrend() + "'不合法，必须是：上升、稳定、下降");
-                    continue;
-                }
-                if (StringUtils.hasText(data.getInvestmentTrend()) && !VALID_TRENDS.contains(data.getInvestmentTrend())) {
-                    errorMsgs.add("第" + rowNum + "行：投资趋势'" + data.getInvestmentTrend() + "'不合法，必须是：上升、稳定、下降");
-                    continue;
-                }
-
-                // 校验数值范围
-                if (data.getAnnualGrowthRate() != null) {
-                    BigDecimal rate = data.getAnnualGrowthRate();
-                    if (rate.compareTo(NEGATIVE_HUNDRED) < 0 || rate.compareTo(THOUSAND) > 0) {
-                        errorMsgs.add("第" + rowNum + "行：年增长率必须在-100到1000之间");
-                        continue;
-                    }
-                }
-                if (data.getInvestmentHeat() != null) {
-                    BigDecimal heat = data.getInvestmentHeat();
-                    if (heat.compareTo(BigDecimal.ZERO) < 0 || heat.compareTo(HUNDRED) > 0) {
-                        errorMsgs.add("第" + rowNum + "行：投资热度必须在0-100之间");
-                        continue;
-                    }
-                }
-
-                OffsetDateTime now = OffsetDateTime.now();
-                Long industryId = SnowflakeIdGenerator.nextId();
-                Long detailId = SnowflakeIdGenerator.nextId();
-
-                Industry industry = Industry.builder()
-                        .id(industryId)
-                        .industryName(industryName)
-                        .category(data.getCategory())
-                        .iconClass(data.getIconClass())
-                        .description(data.getDescription())
-                        .annualGrowthRate(data.getAnnualGrowthRate())
-                        .marketScale(data.getMarketScale())
-                        .talentGap(data.getTalentGap())
-                        .investmentHeat(data.getInvestmentHeat())
-                        .growthTrend(data.getGrowthTrend())
-                        .marketTrend(data.getMarketTrend())
-                        .talentTrend(data.getTalentTrend())
-                        .investmentTrend(data.getInvestmentTrend())
-                        .isDeleted(false)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                IndustryDetail detail = IndustryDetail.builder()
-                        .id(detailId)
-                        .industryId(industryId)
-                        .industryName(industryName)
-                        .isDeleted(false)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-
-                industries.add(industry);
-                industryDetails.add(detail);
-            }
-
-            if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
-            }
-
-            // 批量插入
-            if (!industries.isEmpty()) {
-                industryMapper.insertBatch(industries);
-                industryDetailMapper.insertBatch(industryDetails);
-                log.info("导入行业主表成功，数量={}", industries.size());
-            }
-
-        } catch (BusinessException e) {
-            throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(500, "读取Excel文件失败");
-        } catch (Exception e) {
-            log.error("导入行业数据失败", e);
-            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
+            throw new BusinessException(400, "读取Excel文件失败: " + e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("读取Excel主表sheet失败", e);
+            throw new BusinessException(400, "读取Excel主表数据失败，请确认sheet名称为「行业主表导入」且表头与模板一致: " + e.getMessage());
         }
+
+        if (mainData == null || mainData.isEmpty()) {
+            throw new BusinessException(400, "Excel文件中没有数据");
+        }
+        if (mainData.size() > MAX_IMPORT_ROWS) {
+            throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "行");
+        }
+
+        List<String> errorMsgs = new ArrayList<>();
+        OffsetDateTime now = OffsetDateTime.now();
+        int insertCount = 0;
+        int updateCount = 0;
+        Set<String> industryNamesInFile = new HashSet<>();
+
+        for (int i = 0; i < mainData.size(); i++) {
+            int rowNum = i + 2; // Excel行号（从2开始，1是表头）
+            IndustryExcelDTO data = mainData.get(i);
+
+            String industryName = data.getIndustryName() == null ? null : data.getIndustryName().trim();
+
+            // 校验必填字段
+            if (!StringUtils.hasText(industryName)) {
+                errorMsgs.add("第" + rowNum + "行: 行业名称不能为空");
+                continue;
+            }
+
+            // 检查文件内重复
+            if (industryNamesInFile.contains(industryName)) {
+                errorMsgs.add("第" + rowNum + "行: 行业名称'" + industryName + "'在文件中重复");
+                continue;
+            }
+            industryNamesInFile.add(industryName);
+
+            // 校验字段长度（对应 t_industry 列定义，避免 varchar 超长）
+            int errBefore = errorMsgs.size();
+            checkLength(industryName, "行业名称", 100, rowNum, errorMsgs);
+            checkLength(data.getCategory(), "行业分类", 50, rowNum, errorMsgs);
+            checkLength(data.getIconClass(), "图标类名", 100, rowNum, errorMsgs);
+            checkLength(data.getMarketScale(), "市场规模", 50, rowNum, errorMsgs);
+            checkLength(data.getTalentGap(), "人才缺口", 50, rowNum, errorMsgs);
+            if (errorMsgs.size() > errBefore) {
+                continue;
+            }
+
+            // 校验枚举值
+            if (StringUtils.hasText(data.getGrowthTrend()) && !VALID_TRENDS.contains(data.getGrowthTrend())) {
+                errorMsgs.add("第" + rowNum + "行: 增长趋势'" + data.getGrowthTrend() + "'不合法，必须是：上升、稳定、下降");
+                continue;
+            }
+            if (StringUtils.hasText(data.getMarketTrend()) && !VALID_TRENDS.contains(data.getMarketTrend())) {
+                errorMsgs.add("第" + rowNum + "行: 市场趋势'" + data.getMarketTrend() + "'不合法，必须是：上升、稳定、下降");
+                continue;
+            }
+            if (StringUtils.hasText(data.getTalentTrend()) && !VALID_TRENDS.contains(data.getTalentTrend())) {
+                errorMsgs.add("第" + rowNum + "行: 人才趋势'" + data.getTalentTrend() + "'不合法，必须是：上升、稳定、下降");
+                continue;
+            }
+            if (StringUtils.hasText(data.getInvestmentTrend()) && !VALID_TRENDS.contains(data.getInvestmentTrend())) {
+                errorMsgs.add("第" + rowNum + "行: 投资趋势'" + data.getInvestmentTrend() + "'不合法，必须是：上升、稳定、下降");
+                continue;
+            }
+
+            // 校验数值范围
+            if (data.getAnnualGrowthRate() != null) {
+                BigDecimal rate = data.getAnnualGrowthRate();
+                if (rate.compareTo(NEGATIVE_HUNDRED) < 0 || rate.compareTo(THOUSAND) > 0) {
+                    errorMsgs.add("第" + rowNum + "行: 年增长率必须在-100到1000之间");
+                    continue;
+                }
+            }
+            if (data.getInvestmentHeat() != null) {
+                BigDecimal heat = data.getInvestmentHeat();
+                if (heat.compareTo(BigDecimal.ZERO) < 0 || heat.compareTo(HUNDRED) > 0) {
+                    errorMsgs.add("第" + rowNum + "行: 投资热度必须在0-100之间");
+                    continue;
+                }
+            }
+
+            // 查找是否已存在（按名称，排除已下架）
+            LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Industry::getIndustryName, industryName).eq(Industry::getIsDeleted, false);
+            Industry existing = industryMapper.selectOne(wrapper);
+
+            try {
+                if (existing != null) {
+                    // 已存在：仅补齐数据库中为 NULL/空的字段，已有数据一律不覆盖
+                    fillIndustryGaps(existing, data, now);
+                    industryMapper.updateByIdIgnoreLogicDelete(existing);
+
+                    // 同步确保详情表存在（主表导入不携带详情内容，仅补骨架）
+                    IndustryDetail detail = industryDetailMapper.findByIndustryIdIgnoreLogicDelete(existing.getId());
+                    if (detail == null) {
+                        IndustryDetail newDetail = IndustryDetail.builder()
+                                .id(SnowflakeIdGenerator.nextId())
+                                .industryId(existing.getId())
+                                .industryName(industryName)
+                                .isDeleted(false)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        industryDetailMapper.insert(newDetail);
+                    }
+                    updateCount++;
+                } else {
+                    // 新增行业主表 + 详情表骨架
+                    Long industryId = SnowflakeIdGenerator.nextId();
+                    Long detailId = SnowflakeIdGenerator.nextId();
+                    Industry industry = Industry.builder()
+                            .id(industryId)
+                            .industryName(industryName)
+                            .category(data.getCategory())
+                            .iconClass(data.getIconClass())
+                            .description(data.getDescription())
+                            .annualGrowthRate(data.getAnnualGrowthRate())
+                            .marketScale(data.getMarketScale())
+                            .talentGap(data.getTalentGap())
+                            .investmentHeat(data.getInvestmentHeat())
+                            .growthTrend(data.getGrowthTrend())
+                            .marketTrend(data.getMarketTrend())
+                            .talentTrend(data.getTalentTrend())
+                            .investmentTrend(data.getInvestmentTrend())
+                            .isDeleted(false)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    industryMapper.insert(industry);
+
+                    IndustryDetail detail = IndustryDetail.builder()
+                            .id(detailId)
+                            .industryId(industryId)
+                            .industryName(industryName)
+                            .isDeleted(false)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    industryDetailMapper.insert(detail);
+                    insertCount++;
+                }
+            } catch (Exception e) {
+                log.error("第{}行导入行业主表失败", rowNum, e);
+                errorMsgs.add("第" + rowNum + "行: 保存失败(" + e.getMessage() + ")");
+            }
+        }
+
+        if (!errorMsgs.isEmpty()) {
+            throw new BusinessException(400, String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
+                    errorMsgs.size(), joinErrors(errorMsgs)));
+        }
+
+        log.info("导入行业主表数据成功: 新增{}条, 补齐{}条", insertCount, updateCount);
+        return ImportResultVO.builder()
+                .total(mainData.size())
+                .success(mainData.size())
+                .failed(0)
+                .updated(updateCount)
+                .errors(null)
+                .build();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importIndustryDetails(MultipartFile file) {
+    public ImportResultVO importIndustryDetails(MultipartFile file) {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
@@ -639,8 +659,9 @@ public class IndustryServiceImpl implements IndustryService {
             // 文件内去重检查
             Set<String> detailNamesInFile = new HashSet<>();
 
-            // 处理详情基础字段
+            // 处理详情基础字段（补空不覆盖）
             int updatedCount = 0;
+            OffsetDateTime now = OffsetDateTime.now();
             for (int i = 0; i < detailData.size(); i++) {
                 int rowNum = i + 2;
                 IndustryDetailExcelDTO data = detailData.get(i);
@@ -648,20 +669,20 @@ public class IndustryServiceImpl implements IndustryService {
                 String industryName = data.getIndustryName() == null ? null : data.getIndustryName().trim();
 
                 if (!StringUtils.hasText(industryName)) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：行业名称不能为空");
+                    errorMsgs.add("Sheet0(详情基础字段)第" + rowNum + "行: 行业名称不能为空");
                     continue;
                 }
 
                 // 检查文件内重复
                 if (detailNamesInFile.contains(industryName)) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + industryName + "'在文件中重复");
+                    errorMsgs.add("Sheet0(详情基础字段)第" + rowNum + "行: 行业名称'" + industryName + "'在文件中重复");
                     continue;
                 }
                 detailNamesInFile.add(industryName);
 
                 // 校验字段长度
                 if (StringUtils.hasText(data.getShortDescription()) && data.getShortDescription().length() > 500) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：简短描述长度不能超过500个字符");
+                    errorMsgs.add("Sheet0(详情基础字段)第" + rowNum + "行: 简短描述长度不能超过500个字符");
                     continue;
                 }
 
@@ -673,37 +694,56 @@ public class IndustryServiceImpl implements IndustryService {
                            .eq(Industry::getIsDeleted, false);
                     Industry industry = industryMapper.selectOne(wrapper);
                     if (industry == null) {
-                        errorMsgs.add("Sheet0第" + rowNum + "行：行业名称'" + industryName + "'不存在");
+                        errorMsgs.add("Sheet0(详情基础字段)第" + rowNum + "行: 行业名称'" + industryName + "'不存在");
                         continue;
                     }
                     industryId = industry.getId();
                     industryIdCache.put(industryName, industryId);
                 }
 
-                // 查询详情记录
-                IndustryDetail detail = industryDetailMapper.findByIndustryId(industryId);
-                if (detail == null) {
-                    errorMsgs.add("Sheet0第" + rowNum + "行：行业'" + industryName + "'的详情记录不存在");
-                    continue;
+                try {
+                    // 查询/创建详情记录
+                    IndustryDetail detail = industryDetailMapper.findByIndustryIdIgnoreLogicDelete(industryId);
+                    if (detail == null) {
+                        detail = IndustryDetail.builder()
+                                .id(SnowflakeIdGenerator.nextId())
+                                .industryId(industryId)
+                                .industryName(industryName)
+                                .isDeleted(false)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        industryDetailMapper.insert(detail);
+                    }
+
+                    // 补空不覆盖：仅当数据库字段为 NULL/空时，用导入数据补齐
+                    boolean changed = false;
+                    if (!StringUtils.hasText(detail.getShortDescription()) && StringUtils.hasText(data.getShortDescription())) {
+                        detail.setShortDescription(data.getShortDescription());
+                        changed = true;
+                    }
+                    if (!StringUtils.hasText(detail.getDetailedDescription()) && StringUtils.hasText(data.getDetailedDescription())) {
+                        detail.setDetailedDescription(data.getDetailedDescription());
+                        changed = true;
+                    }
+                    changed |= applyJsonbIfBlank(detail::setIndustryScale, detail::getIndustryScale, scaleMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setIndustryTalentDemand, detail::getIndustryTalentDemand, talentDemandMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setIndustrySalary, detail::getIndustrySalary, salaryMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setPolicyInfo, detail::getPolicyInfo, policyInfoMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setDevelopmentSupportInfo, detail::getDevelopmentSupportInfo, developmentSupportMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setTalentAnalysis, detail::getTalentAnalysis, talentAnalysisMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setTalentPolicy, detail::getTalentPolicy, talentPolicyMap.get(industryName));
+                    changed |= applyJsonbIfBlank(detail::setSalaryData, detail::getSalaryData, salaryDataMap.get(industryName));
+
+                    if (changed) {
+                        detail.setUpdatedAt(now);
+                        industryDetailMapper.updateByIdIgnoreLogicDelete(detail);
+                        updatedCount++;
+                    }
+                } catch (Exception e) {
+                    log.error("Sheet0(详情基础字段)第{}行导入行业详情失败", rowNum, e);
+                    errorMsgs.add("Sheet0(详情基础字段)第" + rowNum + "行: 保存失败(" + e.getMessage() + ")");
                 }
-
-                // 更新详情基础字段
-                detail.setShortDescription(data.getShortDescription());
-                detail.setDetailedDescription(data.getDetailedDescription());
-
-                // 设置JSONB字段
-                detail.setIndustryScale(scaleMap.get(industryName));
-                detail.setIndustryTalentDemand(talentDemandMap.get(industryName));
-                detail.setIndustrySalary(salaryMap.get(industryName));
-                detail.setPolicyInfo(policyInfoMap.get(industryName));
-                detail.setDevelopmentSupportInfo(developmentSupportMap.get(industryName));
-                detail.setTalentAnalysis(talentAnalysisMap.get(industryName));
-                detail.setTalentPolicy(talentPolicyMap.get(industryName));
-                detail.setSalaryData(salaryDataMap.get(industryName));
-
-                detail.setUpdatedAt(OffsetDateTime.now());
-                industryDetailMapper.updateById(detail);
-                updatedCount++;
             }
 
             // Sheet1~Sheet8 孤儿数据校验
@@ -717,10 +757,18 @@ public class IndustryServiceImpl implements IndustryService {
             validateSheetOrphan(salaryDataExcelList, "薪资数据", errorMsgs, SalaryDataExcelDTO::getIndustryName, detailNamesInFile);
 
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                throw new BusinessException(400, String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
+                        errorMsgs.size(), joinErrors(errorMsgs)));
             }
 
             log.info("导入行业详情成功，更新数量={}", updatedCount);
+            return ImportResultVO.builder()
+                    .total(detailData.size())
+                    .success(detailData.size())
+                    .failed(0)
+                    .updated(updatedCount)
+                    .errors(null)
+                    .build();
 
         } catch (BusinessException e) {
             throw e;
@@ -784,5 +832,83 @@ public class IndustryServiceImpl implements IndustryService {
             }
         }
         return result;
+    }
+
+    /**
+     * 汇总错误信息（限制展示条数，避免一次性返回过长文本）。
+     */
+    private String joinErrors(List<String> errors) {
+        if (errors.size() <= MAX_ERROR_SHOWN) {
+            return String.join("; ", errors);
+        }
+        return String.join("; ", errors.subList(0, MAX_ERROR_SHOWN))
+                + "; ...(仅显示前" + MAX_ERROR_SHOWN + "条，共" + errors.size() + "行存在错误)";
+    }
+
+    /**
+     * 校验导入字段长度是否超过数据库列定义，超出则收集错误信息（指明行号/字段/实际长度）。
+     */
+    private void checkLength(String value, String fieldLabel, int max, int rowNum, List<String> errors) {
+        if (value != null && value.length() > max) {
+            errors.add(String.format("第%d行: %s超过%d个字符限制(实际%d个字符)",
+                    rowNum, fieldLabel, max, value.length()));
+        }
+    }
+
+    /**
+     * 已存在的行业主表记录：仅补齐数据库中为 NULL/空的字段，已有数据一律不覆盖。
+     */
+    private void fillIndustryGaps(Industry db, IndustryExcelDTO dto, OffsetDateTime now) {
+        if (!StringUtils.hasText(db.getCategory()) && StringUtils.hasText(dto.getCategory())) {
+            db.setCategory(dto.getCategory());
+        }
+        if (!StringUtils.hasText(db.getIconClass()) && StringUtils.hasText(dto.getIconClass())) {
+            db.setIconClass(dto.getIconClass());
+        }
+        if (!StringUtils.hasText(db.getDescription()) && StringUtils.hasText(dto.getDescription())) {
+            db.setDescription(dto.getDescription());
+        }
+        if (db.getAnnualGrowthRate() == null && dto.getAnnualGrowthRate() != null) {
+            db.setAnnualGrowthRate(dto.getAnnualGrowthRate());
+        }
+        if (!StringUtils.hasText(db.getMarketScale()) && StringUtils.hasText(dto.getMarketScale())) {
+            db.setMarketScale(dto.getMarketScale());
+        }
+        if (!StringUtils.hasText(db.getTalentGap()) && StringUtils.hasText(dto.getTalentGap())) {
+            db.setTalentGap(dto.getTalentGap());
+        }
+        if (db.getInvestmentHeat() == null && dto.getInvestmentHeat() != null) {
+            db.setInvestmentHeat(dto.getInvestmentHeat());
+        }
+        if (!StringUtils.hasText(db.getGrowthTrend()) && StringUtils.hasText(dto.getGrowthTrend())) {
+            db.setGrowthTrend(dto.getGrowthTrend());
+        }
+        if (!StringUtils.hasText(db.getMarketTrend()) && StringUtils.hasText(dto.getMarketTrend())) {
+            db.setMarketTrend(dto.getMarketTrend());
+        }
+        if (!StringUtils.hasText(db.getTalentTrend()) && StringUtils.hasText(dto.getTalentTrend())) {
+            db.setTalentTrend(dto.getTalentTrend());
+        }
+        if (!StringUtils.hasText(db.getInvestmentTrend()) && StringUtils.hasText(dto.getInvestmentTrend())) {
+            db.setInvestmentTrend(dto.getInvestmentTrend());
+        }
+        db.setUpdatedAt(now);
+    }
+
+    /**
+     * JSONB 字段补空不覆盖：仅当数据库当前值为 NULL/空时才用导入值覆盖。
+     */
+    private boolean applyJsonbIfBlank(Consumer<Map<String, Object>> setter,
+                                       Supplier<Map<String, Object>> getter,
+                                       Map<String, Object> value) {
+        if (value == null) {
+            return false;
+        }
+        Map<String, Object> cur = getter.get();
+        if (cur == null || cur.isEmpty()) {
+            setter.accept(value);
+            return true;
+        }
+        return false;
     }
 }

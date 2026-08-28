@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.CampusGalleryService;
 import com.haifeng.admin.vo.university.CampusGalleryDetailVO;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -117,7 +118,7 @@ public class CampusGalleryController {
      */
     @PostMapping("/import")
     @OperationLog(module = "院校管理", action = "导入校园图册数据")
-    public R<Void> importGallery(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importGallery(@RequestParam("file") MultipartFile file) {
         campusGalleryService.importGallery(file);
         return R.ok();
     }

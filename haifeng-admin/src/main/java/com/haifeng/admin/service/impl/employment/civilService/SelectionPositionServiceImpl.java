@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionAddDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionQueryDTO;
 import com.haifeng.admin.dto.employment.civilService.SelectionPositionUpdateDTO;
@@ -12,6 +11,7 @@ import com.haifeng.admin.excel.employment.civilService.SelectionPositionExcelDTO
 import com.haifeng.admin.service.employment.civilService.SelectionPositionService;
 import com.haifeng.admin.vo.employment.civilService.SelectionPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.SelectionPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.employment.civilService.SelectionPosition;
 import com.haifeng.common.enums.ProvinceEnum;
 import com.haifeng.common.exception.BusinessException;
@@ -43,7 +43,7 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
     private static final Set<String> VALID_EDUCATION_REQUIREMENTS = Set.of("本科", "硕士", "博士", "本科及以上", "硕士及以上");
     private static final Set<String> VALID_POLITICAL_STATUSES = Set.of("中共党员", "中共预备党员", "共青团员", "不限");
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("报名中", "笔试阶段", "面试阶段", "已结束", "即将开始");
-    private static final int MAX_ERROR_DISPLAY = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<SelectionPositionListVO> page(SelectionPositionQueryDTO dto) {
@@ -276,7 +276,7 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<SelectionPositionExcelDTO> list = readExcel(file);
         String errors = validateExcelRows(list);
         if (errors != null) {
@@ -284,51 +284,140 @@ public class SelectionPositionServiceImpl implements SelectionPositionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        List<SelectionPosition> entities = new ArrayList<>();
+        List<String> rowErrors = new ArrayList<>();
+        int success = 0;
+        int updated = 0;
+        int rowNum = 1;
+
         for (SelectionPositionExcelDTO dto : list) {
-            SelectionPosition entity = SelectionPosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .positionName(dto.getPositionName())
-                    .selectionType(dto.getSelectionType())
-                    .year(dto.getYear())
-                    .province(dto.getProvince())
-                    .organizingDept(dto.getOrganizingDept())
-                    .targetUnit(dto.getTargetUnit())
-                    .workLocation(dto.getWorkLocation())
-                    .trainingDirection(dto.getTrainingDirection())
-                    .grassrootsServiceYears(dto.getGrassrootsServiceYears())
-                    .trainingPlan(dto.getTrainingPlan())
-                    .educationRequirement(dto.getEducationRequirement())
-                    .degreeRequirement(dto.getDegreeRequirement())
-                    .majorRequirement(dto.getMajorRequirement())
-                    .majorCategories(dto.getMajorCategories())
-                    .universityRequirement(dto.getUniversityRequirement())
-                    .targetUniversities(dto.getTargetUniversities())
-                    .politicalStatus(dto.getPoliticalStatus())
-                    .studentCadreRequirement(dto.getStudentCadreRequirement())
-                    .awardsRequirement(dto.getAwardsRequirement())
-                    .ageLimit(dto.getAgeLimit())
-                    .recruitmentCount(dto.getRecruitmentCount())
-                    .examSubjects(dto.getExamSubjects())
-                    .interviewForm(dto.getInterviewForm())
-                    .regStartDate(dto.getRegStartDate())
-                    .regEndDate(dto.getRegEndDate())
-                    .examTime(dto.getExamTime())
-                    .applyLink(dto.getApplyLink())
-                    .positionStatus(dto.getPositionStatus())
-                    .remark(dto.getRemark())
-                    .contactPhone(dto.getContactPhone())
-                    .officialLink(dto.getOfficialLink())
-                    .content(dto.getContent())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            entities.add(entity);
+            rowNum++;
+            try {
+                List<SelectionPosition> existingList = selectionPositionMapper.selectList(
+                        Wrappers.lambdaQuery(SelectionPosition.class)
+                                .eq(SelectionPosition::getPositionName, dto.getPositionName())
+                                .eq(SelectionPosition::getProvince, dto.getProvince())
+                                .eq(SelectionPosition::getYear, dto.getYear())
+                                .eq(SelectionPosition::getSelectionType, dto.getSelectionType())
+                                .eq(SelectionPosition::getIsDeleted, false)
+                                .last("LIMIT 1"));
+                if (!existingList.isEmpty()) {
+                    // 已存在：仅补空不覆盖（业务键 positionName/province/year/selectionType 不变）
+                    SelectionPosition existing = existingList.get(0);
+                    if (fillSelectionGaps(existing, dto, now)) {
+                        updated++;
+                    }
+                    selectionPositionMapper.updateById(existing);
+                    success++;
+                    continue;
+                }
+                SelectionPosition entity = SelectionPosition.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .positionName(dto.getPositionName())
+                        .selectionType(dto.getSelectionType())
+                        .year(dto.getYear())
+                        .province(dto.getProvince())
+                        .organizingDept(dto.getOrganizingDept())
+                        .targetUnit(dto.getTargetUnit())
+                        .workLocation(dto.getWorkLocation())
+                        .trainingDirection(dto.getTrainingDirection())
+                        .grassrootsServiceYears(dto.getGrassrootsServiceYears())
+                        .trainingPlan(dto.getTrainingPlan())
+                        .educationRequirement(dto.getEducationRequirement())
+                        .degreeRequirement(dto.getDegreeRequirement())
+                        .majorRequirement(dto.getMajorRequirement())
+                        .majorCategories(dto.getMajorCategories())
+                        .universityRequirement(dto.getUniversityRequirement())
+                        .targetUniversities(dto.getTargetUniversities())
+                        .politicalStatus(dto.getPoliticalStatus())
+                        .studentCadreRequirement(dto.getStudentCadreRequirement())
+                        .awardsRequirement(dto.getAwardsRequirement())
+                        .ageLimit(dto.getAgeLimit())
+                        .recruitmentCount(dto.getRecruitmentCount())
+                        .examSubjects(dto.getExamSubjects())
+                        .interviewForm(dto.getInterviewForm())
+                        .regStartDate(dto.getRegStartDate())
+                        .regEndDate(dto.getRegEndDate())
+                        .examTime(dto.getExamTime())
+                        .applyLink(dto.getApplyLink())
+                        .positionStatus(dto.getPositionStatus())
+                        .remark(dto.getRemark())
+                        .contactPhone(dto.getContactPhone())
+                        .officialLink(dto.getOfficialLink())
+                        .content(dto.getContent())
+                        .sortOrder(dto.getSortOrder())
+                        .isDeleted(false)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                selectionPositionMapper.insert(entity);
+                success++;
+            } catch (Exception e) {
+                rowErrors.add("第" + rowNum + "行: 数据库操作失败[" + dto.getPositionName() + "]: " + e.getMessage());
+            }
         }
-        Db.saveBatch(entities);
-        log.info("导入选调生岗位成功: count={}", list.size());
+
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+
+        log.info("导入选调生岗位成功: 新增={}, 补空更新={}", success - updated, updated);
+        return ImportResultVO.builder()
+                .total(list.size())
+                .success(success)
+                .failed(rowErrors.size())
+                .updated(updated)
+                .errors(rowErrors)
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空字符串(数组为 null) 且 导入有值时才写入，已有真实数据保留。
+     * 业务键(positionName/province/year/selectionType)不参与，避免覆盖匹配依据。
+     * @return 是否实际补齐了至少一个空列
+     */
+    private boolean fillSelectionGaps(SelectionPosition e, SelectionPositionExcelDTO dto, OffsetDateTime now) {
+        boolean changed = false;
+        if (!StringUtils.hasText(e.getOrganizingDept()) && StringUtils.hasText(dto.getOrganizingDept())) { e.setOrganizingDept(dto.getOrganizingDept()); changed = true; }
+        if (!StringUtils.hasText(e.getTargetUnit()) && StringUtils.hasText(dto.getTargetUnit())) { e.setTargetUnit(dto.getTargetUnit()); changed = true; }
+        if (!StringUtils.hasText(e.getWorkLocation()) && StringUtils.hasText(dto.getWorkLocation())) { e.setWorkLocation(dto.getWorkLocation()); changed = true; }
+        if (!StringUtils.hasText(e.getTrainingDirection()) && StringUtils.hasText(dto.getTrainingDirection())) { e.setTrainingDirection(dto.getTrainingDirection()); changed = true; }
+        if (!StringUtils.hasText(e.getGrassrootsServiceYears()) && StringUtils.hasText(dto.getGrassrootsServiceYears())) { e.setGrassrootsServiceYears(dto.getGrassrootsServiceYears()); changed = true; }
+        if (!StringUtils.hasText(e.getTrainingPlan()) && StringUtils.hasText(dto.getTrainingPlan())) { e.setTrainingPlan(dto.getTrainingPlan()); changed = true; }
+        if (!StringUtils.hasText(e.getEducationRequirement()) && StringUtils.hasText(dto.getEducationRequirement())) { e.setEducationRequirement(dto.getEducationRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getDegreeRequirement()) && StringUtils.hasText(dto.getDegreeRequirement())) { e.setDegreeRequirement(dto.getDegreeRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getMajorRequirement()) && StringUtils.hasText(dto.getMajorRequirement())) { e.setMajorRequirement(dto.getMajorRequirement()); changed = true; }
+        if (e.getMajorCategories() == null && dto.getMajorCategories() != null && dto.getMajorCategories().length > 0) { e.setMajorCategories(dto.getMajorCategories()); changed = true; }
+        if (!StringUtils.hasText(e.getUniversityRequirement()) && StringUtils.hasText(dto.getUniversityRequirement())) { e.setUniversityRequirement(dto.getUniversityRequirement()); changed = true; }
+        if (e.getTargetUniversities() == null && dto.getTargetUniversities() != null && dto.getTargetUniversities().length > 0) { e.setTargetUniversities(dto.getTargetUniversities()); changed = true; }
+        if (!StringUtils.hasText(e.getPoliticalStatus()) && StringUtils.hasText(dto.getPoliticalStatus())) { e.setPoliticalStatus(dto.getPoliticalStatus()); changed = true; }
+        if (!StringUtils.hasText(e.getStudentCadreRequirement()) && StringUtils.hasText(dto.getStudentCadreRequirement())) { e.setStudentCadreRequirement(dto.getStudentCadreRequirement()); changed = true; }
+        if (!StringUtils.hasText(e.getAwardsRequirement()) && StringUtils.hasText(dto.getAwardsRequirement())) { e.setAwardsRequirement(dto.getAwardsRequirement()); changed = true; }
+        if (e.getAgeLimit() == null && dto.getAgeLimit() != null) { e.setAgeLimit(dto.getAgeLimit()); changed = true; }
+        if (e.getRecruitmentCount() == null && dto.getRecruitmentCount() != null) { e.setRecruitmentCount(dto.getRecruitmentCount()); changed = true; }
+        if (!StringUtils.hasText(e.getExamSubjects()) && StringUtils.hasText(dto.getExamSubjects())) { e.setExamSubjects(dto.getExamSubjects()); changed = true; }
+        if (!StringUtils.hasText(e.getInterviewForm()) && StringUtils.hasText(dto.getInterviewForm())) { e.setInterviewForm(dto.getInterviewForm()); changed = true; }
+        if (e.getRegStartDate() == null && dto.getRegStartDate() != null) { e.setRegStartDate(dto.getRegStartDate()); changed = true; }
+        if (e.getRegEndDate() == null && dto.getRegEndDate() != null) { e.setRegEndDate(dto.getRegEndDate()); changed = true; }
+        if (e.getExamTime() == null && dto.getExamTime() != null) { e.setExamTime(dto.getExamTime()); changed = true; }
+        if (!StringUtils.hasText(e.getApplyLink()) && StringUtils.hasText(dto.getApplyLink())) { e.setApplyLink(dto.getApplyLink()); changed = true; }
+        if (!StringUtils.hasText(e.getPositionStatus()) && StringUtils.hasText(dto.getPositionStatus())) { e.setPositionStatus(dto.getPositionStatus()); changed = true; }
+        if (!StringUtils.hasText(e.getRemark()) && StringUtils.hasText(dto.getRemark())) { e.setRemark(dto.getRemark()); changed = true; }
+        if (!StringUtils.hasText(e.getContactPhone()) && StringUtils.hasText(dto.getContactPhone())) { e.setContactPhone(dto.getContactPhone()); changed = true; }
+        if (!StringUtils.hasText(e.getOfficialLink()) && StringUtils.hasText(dto.getOfficialLink())) { e.setOfficialLink(dto.getOfficialLink()); changed = true; }
+        if (!StringUtils.hasText(e.getContent()) && StringUtils.hasText(dto.getContent())) { e.setContent(dto.getContent()); changed = true; }
+        if (e.getSortOrder() == null && dto.getSortOrder() != null) { e.setSortOrder(dto.getSortOrder()); changed = true; }
+        if (changed) e.setUpdatedAt(now);
+        return changed;
+    }
+
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
     }
 
     private String validateExcelRows(List<SelectionPositionExcelDTO> list) {

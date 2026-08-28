@@ -21,10 +21,10 @@ public class UniversityDetailExcelDTO {
     private String website;
 
     @ExcelProperty("本科批历史组")
-    private Integer historyGroupScore;
+    private String historyGroupScore;
 
     @ExcelProperty("本科批物理组")
-    private Integer scienceGroupScore;
+    private String scienceGroupScore;
 
     @ExcelProperty(value = "轮播图片URL", converter = StringArrayConverter.class)
     private List<String> carouselImages;
@@ -33,19 +33,19 @@ public class UniversityDetailExcelDTO {
     private String introduction;
 
     @ExcelProperty("软科排名")
-    private Integer ruanke;
+    private String ruanke;
 
     @ExcelProperty("校友会排名")
-    private Integer xiaoyouhui;
+    private String xiaoyouhui;
 
     @ExcelProperty("武书连排名")
-    private Integer wushulian;
+    private String wushulian;
 
     @ExcelProperty("QS排名")
-    private Integer qs;
+    private String qs;
 
     @ExcelProperty("U.S.NEWS排名")
-    private Integer usnews;
+    private String usnews;
 
     @ExcelProperty("出国比例")
     private String abroadRate;

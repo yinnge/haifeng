@@ -12,6 +12,7 @@ import com.haifeng.admin.excel.employment.industryPosition.TeacherPositionExcelD
 import com.haifeng.admin.service.employment.industryPosition.TeacherPositionService;
 import com.haifeng.admin.vo.employment.industryPosition.teacher.TeacherPositionDetailVO;
 import com.haifeng.admin.vo.employment.industryPosition.teacher.TeacherPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.employment.industryPosition.TeacherPosition;
 import com.haifeng.common.enums.ProvinceEnum;
 import com.haifeng.common.exception.BusinessException;
@@ -27,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -55,7 +57,7 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
     private static final Set<String> VALID_PUTONGHUA_LEVELS = Set.of(
             "不限", "二级乙等", "二级甲等", "一级乙等", "一级甲等");
     private static final Set<String> VALID_NORMAL_MAJOR = Set.of("要求", "优先", "不限");
-    private static final int MAX_ERROR_DISPLAY = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<TeacherPositionListVO> page(TeacherPositionQueryDTO dto) {
@@ -295,60 +297,140 @@ public class TeacherPositionServiceImpl implements TeacherPositionService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<TeacherPositionExcelDTO> list = readExcel(file);
-        String errors = validateExcelRows(list);
-        if (errors != null) {
-            throw new BusinessException(400, errors);
+        String preErrors = validateExcelRows(list);
+        if (preErrors != null) {
+            throw new BusinessException(400, preErrors);
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        List<TeacherPosition> entities = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int success = 0;
+        int updated = 0;
+        int row = 1;
         for (TeacherPositionExcelDTO dto : list) {
-            TeacherPosition entity = TeacherPosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .schoolName(dto.getSchoolName())
-                    .schoolType(dto.getSchoolType())
-                    .schoolNature(dto.getSchoolNature())
-                    .supervisingDept(dto.getSupervisingDept())
-                    .positionName(dto.getPositionName())
-                    .subject(dto.getSubject())
-                    .recruitmentType(dto.getRecruitmentType())
-                    .province(dto.getProvince())
-                    .city(dto.getCity())
-                    .district(dto.getDistrict())
-                    .educationRequirement(dto.getEducationRequirement())
-                    .degreeRequirement(dto.getDegreeRequirement())
-                    .majorRequirement(dto.getMajorRequirement())
-                    .ageLimit(dto.getAgeLimit())
-                    .recruitmentCount(dto.getRecruitmentCount())
-                    .teacherCertRequirement(dto.getTeacherCertRequirement())
-                    .teacherCertSubject(dto.getTeacherCertSubject())
-                    .putonghuaLevel(dto.getPutonghuaLevel())
-                    .otherCertRequirement(dto.getOtherCertRequirement())
-                    .workExperience(dto.getWorkExperience())
-                    .isNormalMajor(dto.getIsNormalMajor())
-                    .salaryRange(dto.getSalaryRange())
-                    .benefits(dto.getBenefits())
-                    .examContent(dto.getExamContent())
-                    .interviewForm(dto.getInterviewForm())
-                    .regStartDate(dto.getRegStartDate())
-                    .regEndDate(dto.getRegEndDate())
-                    .examTime(dto.getExamTime())
-                    .positionStatus(dto.getPositionStatus())
-                    .applyLink(dto.getApplyLink())
-                    .contactPhone(dto.getContactPhone())
-                    .remark(dto.getRemark())
-                    .content(dto.getContent())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-            entities.add(entity);
+            row++;
+            String school = StringUtils.hasText(dto.getSchoolName()) ? dto.getSchoolName() : "(学校名称空)";
+            String pos = StringUtils.hasText(dto.getPositionName()) ? dto.getPositionName() : "(岗位名称空)";
+            try {
+                LambdaQueryWrapper<TeacherPosition> wrapper = Wrappers.<TeacherPosition>lambdaQuery()
+                        .eq(TeacherPosition::getSchoolName, dto.getSchoolName())
+                        .eq(TeacherPosition::getPositionName, dto.getPositionName())
+                        .eq(TeacherPosition::getIsDeleted, false);
+                TeacherPosition existing = teacherPositionMapper.selectOne(wrapper);
+                if (existing != null) {
+                    boolean changed = mergeTeacherIfBlank(existing, dto);
+                    if (changed) {
+                        existing.setUpdatedAt(now);
+                        teacherPositionMapper.updateById(existing);
+                        updated++;
+                    }
+                    success++;
+                } else {
+                    TeacherPosition entity = TeacherPosition.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .schoolName(dto.getSchoolName())
+                            .schoolType(dto.getSchoolType())
+                            .schoolNature(dto.getSchoolNature())
+                            .supervisingDept(dto.getSupervisingDept())
+                            .positionName(dto.getPositionName())
+                            .subject(dto.getSubject())
+                            .recruitmentType(dto.getRecruitmentType())
+                            .province(dto.getProvince())
+                            .city(dto.getCity())
+                            .district(dto.getDistrict())
+                            .educationRequirement(dto.getEducationRequirement())
+                            .degreeRequirement(dto.getDegreeRequirement())
+                            .majorRequirement(dto.getMajorRequirement())
+                            .ageLimit(dto.getAgeLimit())
+                            .recruitmentCount(dto.getRecruitmentCount())
+                            .teacherCertRequirement(dto.getTeacherCertRequirement())
+                            .teacherCertSubject(dto.getTeacherCertSubject())
+                            .putonghuaLevel(dto.getPutonghuaLevel())
+                            .otherCertRequirement(dto.getOtherCertRequirement())
+                            .workExperience(dto.getWorkExperience())
+                            .isNormalMajor(dto.getIsNormalMajor())
+                            .salaryRange(dto.getSalaryRange())
+                            .benefits(dto.getBenefits())
+                            .examContent(dto.getExamContent())
+                            .interviewForm(dto.getInterviewForm())
+                            .regStartDate(dto.getRegStartDate())
+                            .regEndDate(dto.getRegEndDate())
+                            .examTime(dto.getExamTime())
+                            .positionStatus(dto.getPositionStatus())
+                            .applyLink(dto.getApplyLink())
+                            .contactPhone(dto.getContactPhone())
+                            .remark(dto.getRemark())
+                            .content(dto.getContent())
+                            .sortOrder(dto.getSortOrder())
+                            .isDeleted(false)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    teacherPositionMapper.insert(entity);
+                    success++;
+                }
+            } catch (Exception e) {
+                errors.add("第" + row + "行: 数据库操作失败[" + school + " / " + pos + "]: " + e.getMessage());
+            }
         }
-        Db.saveBatch(entities);
-        log.info("导入教师招聘岗位成功: count={}", list.size());
+
+        if (!errors.isEmpty()) {
+            int show = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+            StringBuilder msg = new StringBuilder(String.join("\n", errors.subList(0, show)));
+            if (errors.size() > MAX_ERROR_DISPLAY) {
+                msg.append("\n...共").append(errors.size()).append("条错误，仅显示前")
+                        .append(MAX_ERROR_DISPLAY).append("条，详见后端日志");
+            }
+            throw new BusinessException(400, msg.toString());
+        }
+        return ImportResultVO.builder()
+                .total(list.size())
+                .success(success)
+                .failed(0)
+                .updated(updated)
+                .errors(Collections.emptyList())
+                .build();
+    }
+
+    private boolean mergeTeacherIfBlank(TeacherPosition existing, TeacherPositionExcelDTO dto) {
+        boolean changed = false;
+        if (existing.getSchoolName() == null && StringUtils.hasText(dto.getSchoolName())) { existing.setSchoolName(dto.getSchoolName()); changed = true; }
+        if (existing.getSchoolType() == null && StringUtils.hasText(dto.getSchoolType())) { existing.setSchoolType(dto.getSchoolType()); changed = true; }
+        if (existing.getSchoolNature() == null && StringUtils.hasText(dto.getSchoolNature())) { existing.setSchoolNature(dto.getSchoolNature()); changed = true; }
+        if (existing.getSupervisingDept() == null && StringUtils.hasText(dto.getSupervisingDept())) { existing.setSupervisingDept(dto.getSupervisingDept()); changed = true; }
+        if (existing.getPositionName() == null && StringUtils.hasText(dto.getPositionName())) { existing.setPositionName(dto.getPositionName()); changed = true; }
+        if (existing.getSubject() == null && StringUtils.hasText(dto.getSubject())) { existing.setSubject(dto.getSubject()); changed = true; }
+        if (existing.getRecruitmentType() == null && StringUtils.hasText(dto.getRecruitmentType())) { existing.setRecruitmentType(dto.getRecruitmentType()); changed = true; }
+        if (existing.getProvince() == null && StringUtils.hasText(dto.getProvince())) { existing.setProvince(dto.getProvince()); changed = true; }
+        if (existing.getCity() == null && StringUtils.hasText(dto.getCity())) { existing.setCity(dto.getCity()); changed = true; }
+        if (existing.getDistrict() == null && StringUtils.hasText(dto.getDistrict())) { existing.setDistrict(dto.getDistrict()); changed = true; }
+        if (existing.getEducationRequirement() == null && StringUtils.hasText(dto.getEducationRequirement())) { existing.setEducationRequirement(dto.getEducationRequirement()); changed = true; }
+        if (existing.getDegreeRequirement() == null && StringUtils.hasText(dto.getDegreeRequirement())) { existing.setDegreeRequirement(dto.getDegreeRequirement()); changed = true; }
+        if (existing.getMajorRequirement() == null && StringUtils.hasText(dto.getMajorRequirement())) { existing.setMajorRequirement(dto.getMajorRequirement()); changed = true; }
+        if (existing.getAgeLimit() == null && dto.getAgeLimit() != null) { existing.setAgeLimit(dto.getAgeLimit()); changed = true; }
+        if (existing.getRecruitmentCount() == null && dto.getRecruitmentCount() != null) { existing.setRecruitmentCount(dto.getRecruitmentCount()); changed = true; }
+        if (existing.getTeacherCertRequirement() == null && StringUtils.hasText(dto.getTeacherCertRequirement())) { existing.setTeacherCertRequirement(dto.getTeacherCertRequirement()); changed = true; }
+        if (existing.getTeacherCertSubject() == null && StringUtils.hasText(dto.getTeacherCertSubject())) { existing.setTeacherCertSubject(dto.getTeacherCertSubject()); changed = true; }
+        if (existing.getPutonghuaLevel() == null && StringUtils.hasText(dto.getPutonghuaLevel())) { existing.setPutonghuaLevel(dto.getPutonghuaLevel()); changed = true; }
+        if (existing.getOtherCertRequirement() == null && StringUtils.hasText(dto.getOtherCertRequirement())) { existing.setOtherCertRequirement(dto.getOtherCertRequirement()); changed = true; }
+        if (existing.getWorkExperience() == null && StringUtils.hasText(dto.getWorkExperience())) { existing.setWorkExperience(dto.getWorkExperience()); changed = true; }
+        if (existing.getIsNormalMajor() == null && StringUtils.hasText(dto.getIsNormalMajor())) { existing.setIsNormalMajor(dto.getIsNormalMajor()); changed = true; }
+        if (existing.getSalaryRange() == null && StringUtils.hasText(dto.getSalaryRange())) { existing.setSalaryRange(dto.getSalaryRange()); changed = true; }
+        if (existing.getBenefits() == null && StringUtils.hasText(dto.getBenefits())) { existing.setBenefits(dto.getBenefits()); changed = true; }
+        if (existing.getExamContent() == null && StringUtils.hasText(dto.getExamContent())) { existing.setExamContent(dto.getExamContent()); changed = true; }
+        if (existing.getInterviewForm() == null && StringUtils.hasText(dto.getInterviewForm())) { existing.setInterviewForm(dto.getInterviewForm()); changed = true; }
+        if (existing.getRegStartDate() == null && dto.getRegStartDate() != null) { existing.setRegStartDate(dto.getRegStartDate()); changed = true; }
+        if (existing.getRegEndDate() == null && dto.getRegEndDate() != null) { existing.setRegEndDate(dto.getRegEndDate()); changed = true; }
+        if (existing.getExamTime() == null && dto.getExamTime() != null) { existing.setExamTime(dto.getExamTime()); changed = true; }
+        if (existing.getPositionStatus() == null && StringUtils.hasText(dto.getPositionStatus())) { existing.setPositionStatus(dto.getPositionStatus()); changed = true; }
+        if (existing.getApplyLink() == null && StringUtils.hasText(dto.getApplyLink())) { existing.setApplyLink(dto.getApplyLink()); changed = true; }
+        if (existing.getContactPhone() == null && StringUtils.hasText(dto.getContactPhone())) { existing.setContactPhone(dto.getContactPhone()); changed = true; }
+        if (existing.getRemark() == null && StringUtils.hasText(dto.getRemark())) { existing.setRemark(dto.getRemark()); changed = true; }
+        if (existing.getContent() == null && StringUtils.hasText(dto.getContent())) { existing.setContent(dto.getContent()); changed = true; }
+        if (existing.getSortOrder() == null && dto.getSortOrder() != null) { existing.setSortOrder(dto.getSortOrder()); changed = true; }
+        return changed;
     }
 
     private String validateExcelRows(List<TeacherPositionExcelDTO> list) {

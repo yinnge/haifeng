@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePosition
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionUpdateDTO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.PublicWelfarePositionDetailVO;
 import com.haifeng.admin.vo.employment.grassrootsPosition.PublicWelfarePositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -19,5 +20,5 @@ public interface PublicWelfarePositionService {
     void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
     String preValidate(MultipartFile file);
-    void importExcel(MultipartFile file);
+    ImportResultVO importExcel(MultipartFile file);
 }
