@@ -10,6 +10,7 @@ import com.haifeng.admin.dto.university.CampusGalleryUpdateDTO;
 import com.haifeng.admin.service.university.CampusGalleryService;
 import com.haifeng.admin.vo.university.CampusGalleryDetailVO;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.university.CampusGallery;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
@@ -44,6 +45,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     private final CampusGalleryMapper campusGalleryMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final UniversityMapper universityMapper;
 
     @Override
@@ -237,14 +239,14 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     public void batchHardDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
 
-        int affected = campusGalleryMapper.deleteBatchIds(ids);
+        int affected = campusGalleryMapper.deleteByIds(ids);
 
         log.info("批量硬删除校园图册成功，数量={}", affected);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importGallery(MultipartFile file) {
+    public ImportResultVO importGallery(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -273,7 +275,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
         List<CampusGallery> validList = new ArrayList<>();
         Map<String, University> universityCache = new HashMap<>();
         OffsetDateTime now = OffsetDateTime.now();
-        int maxErrors = 50;
+        int updateCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -304,38 +306,94 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
                 continue;
             }
 
-            CampusGallery gallery = CampusGallery.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .universityId(university.getId())
-                    .universityName(university.getName())
-                    .imageType(dto.getImageType())
-                    .imageUrl(dto.getImageUrl())
-                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
+            // 同院校+同一图片URL：已存在则只补空，不再重复插入
+            List<CampusGallery> existingList = campusGalleryMapper.selectList(
+                    new LambdaQueryWrapper<CampusGallery>()
+                            .eq(CampusGallery::getUniversityId, university.getId())
+                            .eq(CampusGallery::getImageUrl, dto.getImageUrl())
+                            .eq(CampusGallery::getStatus, (short) 1));
+            CampusGallery existing = existingList.isEmpty() ? null : existingList.get(0);
 
-            validList.add(gallery);
+            if (existing != null) {
+                try {
+                    fillGalleryGaps(existing, dto, now);
+                    campusGalleryMapper.updateById(existing);
+                    updateCount++;
+                } catch (Exception e) {
+                    log.error("第{}行导入校园图册失败", rowNum, e);
+                    errors.add("第" + rowNum + "行: 保存失败[院校=" + dto.getUniversityName() + "]: " + e.getMessage());
+                }
+            } else {
+                if (!StringUtils.hasText(dto.getImageType())) {
+                    errors.add("第" + rowNum + "行: 图片类型不能为空");
+                    continue;
+                }
+                CampusGallery gallery = CampusGallery.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .universityId(university.getId())
+                        .universityName(university.getName())
+                        .imageType(dto.getImageType())
+                        .imageUrl(dto.getImageUrl())
+                        .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                        .status((short) 1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                validList.add(gallery);
+            }
         }
 
         // 校验失败 = 全部不插入
         if (!errors.isEmpty()) {
             String errorSummary;
-            if (errors.size() <= maxErrors) {
+            if (errors.size() <= MAX_ERROR_DISPLAY) {
                 errorSummary = String.join("; ", errors);
             } else {
-                errorSummary = String.join("; ", errors.subList(0, maxErrors))
+                errorSummary = String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY))
                         + String.format("...等共%d条错误", errors.size());
             }
             throw new BusinessException(400, "导入校验失败，共" + errors.size() + "条错误：" + errorSummary);
         }
 
-        // 第二轮：全部校验通过，批量插入
-        for (CampusGallery gallery : validList) {
-            campusGalleryMapper.insert(gallery);
+        // 第二轮：全部校验通过，逐行插入（行级 try-catch，避免无行号裸异常）
+        for (int i = 0; i < validList.size(); i++) {
+            CampusGallery gallery = validList.get(i);
+            try {
+                campusGalleryMapper.insert(gallery);
+            } catch (Exception e) {
+                log.error("第{}行导入校园图册失败", i + 2, e);
+                errors.add("第" + (i + 2) + "行: 保存失败[院校=" + gallery.getUniversityName() + "]: " + e.getMessage());
+            }
         }
 
-        log.info("导入校园图册数据成功: 共{}条", validList.size());
+        // 第二轮任意行保存失败 → 整体回滚
+        if (!errors.isEmpty()) {
+            String errorSummary = errors.size() <= MAX_ERROR_DISPLAY
+                    ? String.join("; ", errors)
+                    : String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY))
+                        + String.format("...等共%d条错误", errors.size());
+            throw new BusinessException(400, "导入失败，已全部回滚。共" + errors.size() + "条错误：" + errorSummary);
+        }
+
+        return ImportResultVO.builder()
+                .total(dataList.size())
+                .success(dataList.size())
+                .failed(0)
+                .updated(updateCount)
+                .errors(null)
+                .build();
+    }
+
+    /**
+     * 已有校园图册记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+    private void fillGalleryGaps(CampusGallery db, CampusGalleryExcelDTO dto, OffsetDateTime now) {
+        if (db.getImageType() == null) {
+            db.setImageType(dto.getImageType());
+        }
+        if (db.getSortOrder() == null) {
+            db.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+        }
+        db.setUpdatedAt(now);
     }
 }

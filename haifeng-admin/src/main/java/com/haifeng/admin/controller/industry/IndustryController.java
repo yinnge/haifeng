@@ -10,6 +10,7 @@ import com.haifeng.admin.dto.industry.IndustryUpdateDTO;
 import com.haifeng.admin.service.industry.IndustryService;
 import com.haifeng.admin.vo.industry.IndustryDetailVO;
 import com.haifeng.admin.vo.industry.IndustryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -112,7 +113,7 @@ public class IndustryController {
      */
     @PostMapping("/import")
     @OperationLog(module = "行业管理", action = "导入行业主表")
-    public R<Void> importIndustries(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importIndustries(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return R.fail(400, "请上传文件");
         }
@@ -129,7 +130,7 @@ public class IndustryController {
      */
     @PostMapping("/import-detail")
     @OperationLog(module = "行业管理", action = "导入行业详情")
-    public R<Void> importIndustryDetails(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importIndustryDetails(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return R.fail(400, "请上传文件");
         }

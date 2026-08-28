@@ -9,6 +9,7 @@ import com.haifeng.admin.dto.university.DepartmentAddDTO;
 import com.haifeng.admin.dto.university.DepartmentQueryDTO;
 import com.haifeng.admin.dto.university.DepartmentUpdateDTO;
 import com.haifeng.admin.service.university.DepartmentService;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.DepartmentDetailVO;
 import com.haifeng.admin.vo.university.DepartmentListVO;
 import com.haifeng.common.entity.university.Department;
@@ -35,6 +36,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,6 +48,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     private final DepartmentMapper departmentMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final DepartmentReportMapper departmentReportMapper;
     private final UniversityMapper universityMapper;
 
@@ -62,6 +66,42 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         SHEET_TO_FIELD.put("专业详情", "subjectsDetail");
         SHEET_TO_FIELD.put("专业薪资", "salary");
         SHEET_TO_FIELD.put("学科组成", "majorCompose");
+    }
+
+    /**
+     * department_reports 各 JSONB 字段的写入器（键名与 Excel 解析出的 reportData key 一致）。
+     * 值与 DepartmentReport 实体字段类型对应，类型转换在 lambda 内完成。
+     */
+    private static final Map<String, BiConsumer<DepartmentReport, Object>> REPORT_JSONB_SETTERERS = new LinkedHashMap<>();
+    /**
+     * 与 REPORT_JSONB_SETTERERS 一一对应的取值器，用于读取库中该 JSONB 字段当前值（仅补齐模式判断"已有数据"用）。
+     */
+    private static final Map<String, Function<DepartmentReport, Object>> REPORT_JSONB_GETTERERS = new LinkedHashMap<>();
+
+    static {
+        REPORT_JSONB_SETTERERS.put("subtitle", (r, v) -> r.setSubtitle((String) v));
+        REPORT_JSONB_SETTERERS.put("citySalary", (r, v) -> r.setCitySalary((List<Map<String, Object>>) v));
+        REPORT_JSONB_SETTERERS.put("postgraduate", (r, v) -> r.setPostgraduate((Map<String, Object>) v));
+        REPORT_JSONB_SETTERERS.put("disclaimer", (r, v) -> r.setDisclaimer((Map<String, Object>) v));
+        REPORT_JSONB_SETTERERS.put("prospects", (r, v) -> r.setProspects((Map<String, Object>) v));
+        REPORT_JSONB_SETTERERS.put("trends", (r, v) -> r.setTrends((Map<String, Object>) v));
+        REPORT_JSONB_SETTERERS.put("overview", (r, v) -> r.setOverview((Map<String, Object>) v));
+        REPORT_JSONB_SETTERERS.put("career", (r, v) -> r.setCareer((List<Map<String, Object>>) v));
+        REPORT_JSONB_SETTERERS.put("subjectsDetail", (r, v) -> r.setSubjectsDetail((List<Map<String, Object>>) v));
+        REPORT_JSONB_SETTERERS.put("salary", (r, v) -> r.setSalary((List<Map<String, Object>>) v));
+        REPORT_JSONB_SETTERERS.put("majorCompose", (r, v) -> r.setMajorCompose((List<Map<String, Object>>) v));
+
+        REPORT_JSONB_GETTERERS.put("subtitle", DepartmentReport::getSubtitle);
+        REPORT_JSONB_GETTERERS.put("citySalary", DepartmentReport::getCitySalary);
+        REPORT_JSONB_GETTERERS.put("postgraduate", DepartmentReport::getPostgraduate);
+        REPORT_JSONB_GETTERERS.put("disclaimer", DepartmentReport::getDisclaimer);
+        REPORT_JSONB_GETTERERS.put("prospects", DepartmentReport::getProspects);
+        REPORT_JSONB_GETTERERS.put("trends", DepartmentReport::getTrends);
+        REPORT_JSONB_GETTERERS.put("overview", DepartmentReport::getOverview);
+        REPORT_JSONB_GETTERERS.put("career", DepartmentReport::getCareer);
+        REPORT_JSONB_GETTERERS.put("subjectsDetail", DepartmentReport::getSubjectsDetail);
+        REPORT_JSONB_GETTERERS.put("salary", DepartmentReport::getSalary);
+        REPORT_JSONB_GETTERERS.put("majorCompose", DepartmentReport::getMajorCompose);
     }
 
     @Override
@@ -365,13 +405,13 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         reportWrapper.in(DepartmentReport::getDepartmentId, ids);
         departmentReportMapper.delete(reportWrapper);
 
-        departmentMapper.deleteBatchIds(ids);
+        departmentMapper.deleteByIds(ids);
         log.info("批量硬删除院系，数量={}", ids.size());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importDepartments(MultipartFile file) {
+    public ImportResultVO importDepartments(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -397,9 +437,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
         List<String> errors = new ArrayList<>();
         List<String> mainDeptNames = new ArrayList<>();
-        List<Department> validList = new ArrayList<>();
         Map<String, University> universityCache = new HashMap<>();
         OffsetDateTime now = OffsetDateTime.now();
+        int addedCount = 0;
+        int updatedCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -434,45 +475,78 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 continue;
             }
 
-            if (departmentMapper.existsByUniversityIdAndName(university.getId(), dto.getDepartmentName())) {
-                errors.add("第" + rowNum + "行: 该院校下院系名称[" + dto.getDepartmentName() + "]已存在");
-                continue;
+            // 同院校+同院系名称：已存在则只补空，不再报"已存在"
+            List<Department> existingList = departmentMapper.selectList(
+                    new LambdaQueryWrapper<Department>()
+                            .eq(Department::getUniversityId, university.getId())
+                            .eq(Department::getDepartmentName, dto.getDepartmentName())
+                            .eq(Department::getStatus, (short) 1));
+            Department existing = existingList.isEmpty() ? null : existingList.get(0);
+
+            try {
+                if (existing != null) {
+                    fillDeptGaps(existing, dto, now);
+                    departmentMapper.updateById(existing);
+                    updatedCount++;
+                } else {
+                    Department dept = Department.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .universityId(university.getId())
+                            .universityName(university.getName())
+                            .departmentName(dto.getDepartmentName())
+                            .departmentType(dto.getDepartmentType())
+                            .pageTitle(dto.getPageTitle())
+                            .tags(dto.getTags())
+                            .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
+                            .status((short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    departmentMapper.insert(dept);
+                    addedCount++;
+                }
+            } catch (Exception e) {
+                errors.add("第" + rowNum + "行: 保存失败[院校=" + dto.getUniversityName()
+                        + ", 院系=" + dto.getDepartmentName() + "]：" + e.getMessage());
             }
-
-            Department dept = Department.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .universityId(university.getId())
-                    .universityName(university.getName())
-                    .departmentName(dto.getDepartmentName())
-                    .departmentType(dto.getDepartmentType())
-                    .pageTitle(dto.getPageTitle())
-                    .tags(dto.getTags())
-                    .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            validList.add(dept);
         }
 
         if (!errors.isEmpty()) {
-            String errorSummary = errors.size() <= 50
-                    ? String.join("; ", errors)
-                    : String.join("; ", errors.subList(0, 50)) + "...等共" + errors.size() + "条错误";
-            throw new BusinessException(400, "导入校验失败，共" + errors.size() + "条错误：" + errorSummary);
+            String errorSummary = errors.size() > MAX_ERROR_DISPLAY
+                    ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + "...等共" + errors.size() + "条错误"
+                    : String.join("; ", errors);
+            throw new BusinessException(400, "导入校验失败，已全部回滚。共" + errors.size() + "条错误：" + errorSummary);
         }
 
-        for (Department dept : validList) {
-            departmentMapper.insert(dept);
-        }
+        log.info("导入院系主表数据成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
+        return ImportResultVO.builder()
+                .total(dataList.size())
+                .success(dataList.size())
+                .failed(0)
+                .updated(updatedCount)
+                .errors(Collections.emptyList())
+                .build();
+    }
 
-        log.info("导入院系主表数据成功: 共{}条", validList.size());
+    /**
+     * 已有院系记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+    private void fillDeptGaps(Department db, DepartmentExcelDTO dto, OffsetDateTime now) {
+        if (db.getPageTitle() == null) {
+            db.setPageTitle(dto.getPageTitle());
+        }
+        if ((db.getTags() == null || db.getTags().isEmpty()) && dto.getTags() != null && !dto.getTags().isEmpty()) {
+            db.setTags(dto.getTags());
+        }
+        if (db.getSortOrder() == null) {
+            db.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+        }
+        db.setUpdatedAt(now);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importDepartmentReports(MultipartFile file) {
+    public ImportResultVO importDepartmentReports(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -500,7 +574,8 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
             List<String> errors = new ArrayList<>();
             OffsetDateTime now = OffsetDateTime.now();
-            int successCount = 0;
+            int addedCount = 0;
+            int updatedCount = 0;
             List<String> mainDeptNames = new ArrayList<>();
 
             for (int i = 0; i < mainDataList.size(); i++) {
@@ -515,6 +590,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                     errors.add("第" + rowNum + "行: 院系名称不能为空");
                     continue;
                 }
+                mainDeptNames.add(dto.getDepartmentName().trim());
 
                 University university = universityMapper.selectOne(
                         new LambdaQueryWrapper<University>()
@@ -538,24 +614,30 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 DepartmentReport existingReport = departmentReportMapper.selectByDepartmentId(dept.getId());
                 Map<String, Object> reportData = reportDataMap.get(dto.getDepartmentName().trim());
 
-                if (existingReport != null) {
-                    applyReportData(existingReport, reportData);
-                    existingReport.setUpdatedAt(now);
-                    departmentReportMapper.updateById(existingReport);
-                } else {
-                    Long reportId = SnowflakeIdGenerator.nextId();
-                    DepartmentReport report = DepartmentReport.builder()
-                            .id(reportId)
-                            .departmentId(dept.getId())
-                            .sortOrder(0)
-                            .status((short) 1)
-                            .createdAt(now)
-                            .updatedAt(now)
-                            .build();
-                    applyReportData(report, reportData);
-                    departmentReportMapper.insert(report);
+                try {
+                    if (existingReport != null) {
+                        // 已存在：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖
+                        applyReportData(existingReport, reportData, true);
+                        existingReport.setUpdatedAt(now);
+                        departmentReportMapper.updateById(existingReport);
+                        updatedCount++;
+                    } else {
+                        Long reportId = SnowflakeIdGenerator.nextId();
+                        DepartmentReport report = DepartmentReport.builder()
+                                .id(reportId)
+                                .departmentId(dept.getId())
+                                .sortOrder(0)
+                                .status((short) 1)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        applyReportData(report, reportData, false);
+                        departmentReportMapper.insert(report);
+                        addedCount++;
+                    }
+                } catch (Exception e) {
+                    errors.add("第" + rowNum + "行: 保存失败[院系=" + dto.getDepartmentName() + "]：" + e.getMessage());
                 }
-                successCount++;
             }
 
             for (String reportDept : reportDataMap.keySet()) {
@@ -565,12 +647,20 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             }
 
             if (!errors.isEmpty()) {
-                String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
-                        errors.size(), String.join("; ", errors));
-                throw new BusinessException(400, errorMsg);
+                String errorMsg = errors.size() > MAX_ERROR_DISPLAY
+                        ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + " 等共" + errors.size() + "条错误"
+                        : String.join("; ", errors);
+                throw new BusinessException(400, "导入失败，已全部回滚。" + errorMsg);
             }
 
-            log.info("导入院系报告数据成功: 共{}条", successCount);
+            log.info("导入院系报告数据成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
+            return ImportResultVO.builder()
+                    .total(mainDataList.size())
+                    .success(mainDataList.size())
+                    .failed(0)
+                    .updated(updatedCount)
+                    .errors(Collections.emptyList())
+                    .build();
 
         } catch (Exception e) {
             log.error("读取院系报告Excel失败", e);
@@ -773,42 +863,46 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         }
     }
 
-    private void applyReportData(DepartmentReport report, Map<String, Object> reportData) {
+    /**
+     * 将导入的报告数据写入报告实体。
+     *
+     * @param onlyFillNull true=仅补齐实体中为 NULL（或空集合）的字段，已有数据一律不覆盖；
+     *                     false=导入数据中存在该字段就写入（新增记录时使用）
+     */
+    /**
+     * 将导入的报告数据写入报告实体（映射表模式，与 UniversityGuideServiceImpl 一致）。
+     *
+     * @param onlyFillNull true=仅补齐实体中为 NULL（或空集合/空串）的字段，已有数据一律不覆盖；
+     *                     false=导入数据中存在该字段就写入（新增记录时使用）
+     */
+    private void applyReportData(DepartmentReport report, Map<String, Object> reportData, boolean onlyFillNull) {
         if (reportData == null || reportData.isEmpty()) return;
 
-        if (reportData.containsKey("subtitle")) {
-            report.setSubtitle((String) reportData.get("subtitle"));
+        for (Map.Entry<String, Object> entry : reportData.entrySet()) {
+            String fieldName = entry.getKey();
+            Object value = entry.getValue();
+            BiConsumer<DepartmentReport, Object> setter = REPORT_JSONB_SETTERERS.get(fieldName);
+            if (setter == null) continue; // reportData 中未登记的键（如 baseInfo 基础信息）忽略
+            if (onlyFillNull) {
+                // 仅补齐模式：库中该字段已有值（非空集合/非空串）则跳过，不覆盖
+                Function<DepartmentReport, Object> getter = REPORT_JSONB_GETTERERS.get(fieldName);
+                Object current = getter != null ? getter.apply(report) : null;
+                if (!isBlankJsonb(current)) continue;
+            }
+            setter.accept(report, value);
         }
-        if (reportData.containsKey("citySalary")) {
-            report.setCitySalary((List<Map<String, Object>>) reportData.get("citySalary"));
-        }
-        if (reportData.containsKey("postgraduate")) {
-            report.setPostgraduate((Map<String, Object>) reportData.get("postgraduate"));
-        }
-        if (reportData.containsKey("disclaimer")) {
-            report.setDisclaimer((Map<String, Object>) reportData.get("disclaimer"));
-        }
-        if (reportData.containsKey("prospects")) {
-            report.setProspects((Map<String, Object>) reportData.get("prospects"));
-        }
-        if (reportData.containsKey("trends")) {
-            report.setTrends((Map<String, Object>) reportData.get("trends"));
-        }
-        if (reportData.containsKey("overview")) {
-            report.setOverview((Map<String, Object>) reportData.get("overview"));
-        }
-        if (reportData.containsKey("career")) {
-            report.setCareer((List<Map<String, Object>>) reportData.get("career"));
-        }
-        if (reportData.containsKey("subjectsDetail")) {
-            report.setSubjectsDetail((List<Map<String, Object>>) reportData.get("subjectsDetail"));
-        }
-        if (reportData.containsKey("salary")) {
-            report.setSalary((List<Map<String, Object>>) reportData.get("salary"));
-        }
-        if (reportData.containsKey("majorCompose")) {
-            report.setMajorCompose((List<Map<String, Object>>) reportData.get("majorCompose"));
-        }
+    }
+
+    /**
+     * 通用判空：null / 空 Map / 空 List / 空 String 均视为"空"，需要补齐。
+     * 用于绕开 JSONB 建表 DEFAULT '{}'/'[]' → MP 插入省略 null → 库里落空集合的坑。
+     */
+    private boolean isBlankJsonb(Object v) {
+        if (v == null) return true;
+        if (v instanceof Map) return ((Map<?, ?>) v).isEmpty();
+        if (v instanceof Collection) return ((Collection<?>) v).isEmpty();
+        if (v instanceof String) return ((String) v).isEmpty();
+        return false;
     }
 
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {

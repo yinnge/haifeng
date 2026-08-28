@@ -9,6 +9,7 @@ import com.haifeng.admin.excel.algorithm.config.BatchScoreLineImportDTO;
 import com.haifeng.admin.service.algorithm.config.BatchScoreLineService;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineDetailVO;
 import com.haifeng.admin.vo.algorithm.config.BatchScoreLineListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.algorithm.BatchScoreLine;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.BatchScoreLineMapper;
@@ -27,7 +28,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class BatchScoreLineServiceImpl implements BatchScoreLineService {
 
-    private static final int MAX_ERROR_ROWS = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     private final BatchScoreLineMapper batchScoreLineMapper;
 
@@ -192,7 +193,7 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importData(MultipartFile file) {
+    public ImportResultVO importData(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -242,52 +243,7 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
         );
         Set<String> excelKeys = new HashSet<>();
 
-        // 构建批量查询参数（直接用原始字段，避免 split 解析 bug）
-        Map<String, Object[]> businessKeyFields = new LinkedHashMap<>();
-        for (BatchScoreLineImportDTO dto : dataList) {
-            if (dto.getProvince() != null && dto.getYear() != null
-                    && dto.getSubjectType() != null && dto.getBatch() != null) {
-                String key = String.format("%s_%d_%s_%s",
-                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch());
-                businessKeyFields.put(key, new Object[]{dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch()});
-            }
-        }
-
-        // 批量查询数据库中已存在的业务键（未删除）
-        Set<String> dbExistingKeys = new HashSet<>();
-        // P5: 批量查询数据库中软删除的业务键（可恢复）
-        Set<String> dbDeletedKeys = new HashSet<>();
-        // P5: 软删除记录的 id 映射，用于恢复
-        Map<String, Long> deletedKeyToId = new HashMap<>();
-
-        if (!businessKeyFields.isEmpty()) {
-            List<Map<String, Object>> queryKeys = new ArrayList<>();
-            for (Object[] fields : businessKeyFields.values()) {
-                Map<String, Object> m = new HashMap<>();
-                m.put("province", fields[0]);
-                m.put("year", fields[1]);
-                m.put("subjectType", fields[2]);
-                m.put("batch", fields[3]);
-                queryKeys.add(m);
-            }
-            if (!queryKeys.isEmpty()) {
-                List<BatchScoreLine> existing = batchScoreLineMapper.selectExistingByKeys(queryKeys);
-                for (BatchScoreLine line : existing) {
-                    String key = String.format("%s_%d_%s_%s",
-                            line.getProvince(), line.getYear(), line.getSubjectType(), line.getBatch());
-                    dbExistingKeys.add(key);
-                }
-
-                // P5: 查询软删除记录
-                List<BatchScoreLine> deleted = batchScoreLineMapper.selectDeletedByKeys(queryKeys);
-                for (BatchScoreLine line : deleted) {
-                    String key = String.format("%s_%d_%s_%s",
-                            line.getProvince(), line.getYear(), line.getSubjectType(), line.getBatch());
-                    dbDeletedKeys.add(key);
-                    deletedKeyToId.put(key, line.getId());
-                }
-            }
-        }
+        // 注：已存在/软删除记录的判定与处理移至导入阶段逐行进行（补空不覆盖）
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -296,47 +252,47 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
             // ---- 必填 + 长度校验（长度对应 DB 列定义） ----
             if (!StringUtils.hasText(dto.getProvince())) {
                 errors.add("第" + rowNum + "行: 省份不能为空");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getProvince().length() > 20) {
                 errors.add("第" + rowNum + "行: 省份长度不能超过20");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getYear() == null) {
                 errors.add("第" + rowNum + "行: 年份不能为空");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (!StringUtils.hasText(dto.getSubjectType())) {
                 errors.add("第" + rowNum + "行: 科类不能为空");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getSubjectType().length() > 20) {
                 errors.add("第" + rowNum + "行: 科类长度不能超过20");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (!StringUtils.hasText(dto.getBatch())) {
                 errors.add("第" + rowNum + "行: 批次不能为空");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getBatch().length() > 50) {
                 errors.add("第" + rowNum + "行: 批次长度不能超过50");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getScoreLine() == null) {
                 errors.add("第" + rowNum + "行: 分数线不能为空");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (dto.getRemark() != null && dto.getRemark().length() > 200) {
                 errors.add("第" + rowNum + "行: 备注长度不能超过200");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
 
@@ -344,30 +300,30 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
             // P6: 年份范围校验
             if (dto.getYear() < 2000 || dto.getYear() > 2100) {
                 errors.add("第" + rowNum + "行: 年份[" + dto.getYear() + "]不合法，只允许2000-2100");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             // P3: 省份枚举校验
             if (!validProvinces.contains(dto.getProvince())) {
                 errors.add("第" + rowNum + "行: 省份[" + dto.getProvince() + "]不合法");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             if (!validSubjectTypes.contains(dto.getSubjectType())) {
                 errors.add("第" + rowNum + "行: 科类[" + dto.getSubjectType() + "]不合法，只允许：理科/物理类/文科/历史类/不分文理");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             // P4: 分数线范围校验（0-900）
             if (dto.getScoreLine() < 0 || dto.getScoreLine() > 900) {
                 errors.add("第" + rowNum + "行: 分数线[" + dto.getScoreLine() + "]不合法，只允许0-900");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             // P4: 位次线范围校验（0-9999999，可选字段）
             if (dto.getRankLine() != null && (dto.getRankLine() < 0 || dto.getRankLine() > 9999999)) {
                 errors.add("第" + rowNum + "行: 位次线[" + dto.getRankLine() + "]不合法，只允许0-9999999");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
 
@@ -376,68 +332,108 @@ public class BatchScoreLineServiceImpl implements BatchScoreLineService {
                     dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch());
             if (excelKeys.contains(businessKey)) {
                 errors.add("第" + rowNum + "行: Excel内存在重复记录（相同省份、年份、科类、批次）");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
+                if (errors.size() >= MAX_ERROR_DISPLAY) break;
                 continue;
             }
             excelKeys.add(businessKey);
 
-            if (dbExistingKeys.contains(businessKey)) {
-                errors.add("第" + rowNum + "行: 数据库已存在该记录（省份=" + dto.getProvince() +
-                        ", 年份=" + dto.getYear() + ", 科类=" + dto.getSubjectType() +
-                        ", 批次=" + dto.getBatch() + "）");
-                if (errors.size() >= MAX_ERROR_ROWS) break;
-                continue;
-            }
-
-            // P5: 软删除记录不报错，标记为可恢复，在插入阶段处理
+            // 数据库已存在/软删除记录不再在此阶段拒绝，导入阶段按"补空不覆盖"处理
         }
 
-        // P7: 错误信息显示总数
-        if (!errors.isEmpty()) {
-            String detail = errors.size() > MAX_ERROR_ROWS
-                    ? String.join("; ", errors.subList(0, MAX_ERROR_ROWS)) + " 等" + errors.size() + "条错误"
-                    : String.join("; ", errors);
-            throw new BusinessException(400, "数据校验失败：" + detail);
-        }
-
-        // ==================== 插入阶段（校验全过后才执行） ====================
+        // ==================== 导入阶段（补空不覆盖 + 软删除恢复；整批成功，任意行失败整批回滚） ====================
+        List<String> rowErrors = new ArrayList<>();
         int insertCount = 0;
-        int restoreCount = 0;
+        int updatedCount = 0;   // 已存在记录补空 + 软删除记录恢复
+        int rowNum = 1;
         for (BatchScoreLineImportDTO dto : dataList) {
+            rowNum++;
             String businessKey = String.format("%s_%d_%s_%s",
                     dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch());
-
-            // P5: 若存在软删除记录，恢复并更新
-            if (dbDeletedKeys.contains(businessKey)) {
-                Long deletedId = deletedKeyToId.get(businessKey);
-                BatchScoreLine deleted = batchScoreLineMapper.selectByIdIgnoreDeleted(deletedId);
-                if (deleted != null) {
-                    deleted.setIsDeleted(false);
-                    deleted.setScoreLine(dto.getScoreLine());
-                    deleted.setRankLine(dto.getRankLine());
-                    deleted.setRemark(dto.getRemark());
-                    batchScoreLineMapper.updateById(deleted);
-                    restoreCount++;
-                    continue;
+            try {
+                // 1) 软删除记录：恢复并补空
+                Long deletedId = batchScoreLineMapper.selectDeletedIdByBusinessKey(
+                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch());
+                if (deletedId != null) {
+                    BatchScoreLine deleted = batchScoreLineMapper.selectByIdIgnoreDeleted(deletedId);
+                    if (deleted != null) {
+                        deleted.setIsDeleted(false);
+                        fillBatchScoreLineGaps(deleted, dto);
+                        batchScoreLineMapper.updateById(deleted);
+                        updatedCount++;
+                        continue;
+                    }
                 }
-            }
 
-            BatchScoreLine entity = BatchScoreLine.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .province(dto.getProvince())
-                    .year(dto.getYear())
-                    .subjectType(dto.getSubjectType())
-                    .batch(dto.getBatch())
-                    .scoreLine(dto.getScoreLine())
-                    .rankLine(dto.getRankLine())
-                    .remark(dto.getRemark())
-                    .isDeleted(false)
-                    .build();
-            batchScoreLineMapper.insert(entity);
-            insertCount++;
+                // 2) 已存在（未删除）记录：仅补空不覆盖
+                Long existingId = batchScoreLineMapper.selectIdByBusinessKey(
+                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getBatch());
+                if (existingId != null) {
+                    BatchScoreLine existing = batchScoreLineMapper.selectByIdCustom(existingId);
+                    if (existing != null) {
+                        boolean changed = fillBatchScoreLineGaps(existing, dto);
+                        if (changed) {
+                            batchScoreLineMapper.updateById(existing);
+                        }
+                        updatedCount++;
+                        continue;
+                    }
+                }
+
+                // 3) 新增
+                BatchScoreLine entity = BatchScoreLine.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .province(dto.getProvince())
+                        .year(dto.getYear())
+                        .subjectType(dto.getSubjectType())
+                        .batch(dto.getBatch())
+                        .scoreLine(dto.getScoreLine())
+                        .rankLine(dto.getRankLine())
+                        .remark(dto.getRemark())
+                        .isDeleted(false)
+                        .build();
+                batchScoreLineMapper.insert(entity);
+                insertCount++;
+            } catch (Exception e) {
+                rowErrors.add("第" + rowNum + "行: 保存失败[" + dto.getProvince() + "/" + dto.getYear() + "]: " + e.getMessage());
+            }
         }
 
-        log.info("导入批次分数线数据成功: 新增={}条, 恢复={}条", insertCount, restoreCount);
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+
+        log.info("导入批次分数线数据完成: 新增={}条, 补空/恢复={}条", insertCount, updatedCount);
+        int total = dataList.size();
+        int failed = 0; // 整批回滚，无部分成功
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total - failed)
+                .failed(failed)
+                .updated(updatedCount)
+                .errors(rowErrors)
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空字符串 且 导入有值时才写入，已有真实数据保留。
+     * 业务键(province/year/subjectType/batch)不参与，避免覆盖匹配依据。
+     */
+    private boolean fillBatchScoreLineGaps(BatchScoreLine e, BatchScoreLineImportDTO dto) {
+        boolean changed = false;
+        if (e.getScoreLine() == null && dto.getScoreLine() != null) { e.setScoreLine(dto.getScoreLine()); changed = true; }
+        if (e.getRankLine() == null && dto.getRankLine() != null) { e.setRankLine(dto.getRankLine()); changed = true; }
+        if (!StringUtils.hasText(e.getRemark()) && StringUtils.hasText(dto.getRemark())) { e.setRemark(dto.getRemark()); changed = true; }
+        return changed;
+    }
+
+    private String joinErrors(List<String> errList) {
+        if (errList == null || errList.isEmpty()) return null;
+        int shown = Math.min(errList.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errList.subList(0, shown));
+        if (errList.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errList.size() + "行错误，详见后端日志";
+        }
+        return joined;
     }
 
     private BatchScoreLineListVO convertToListVO(BatchScoreLine entity) {

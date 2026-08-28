@@ -8,6 +8,7 @@ import com.haifeng.admin.dto.employment.grassrootsPosition.StatusDTO;
 import com.haifeng.admin.service.employment.civilService.CivilPositionService;
 import com.haifeng.admin.vo.employment.civilService.CivilPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.CivilPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -90,8 +91,7 @@ public class CivilPositionController {
 
     @PostMapping("/import")
     @OperationLog(module = "体制内招录", action = "导入公务员职位")
-    public R<Void> importExcel(@RequestParam("file") MultipartFile file) {
-        civilPositionService.importExcel(file);
-        return R.ok();
+    public R<ImportResultVO> importExcel(@RequestParam("file") MultipartFile file) {
+        return R.ok(civilPositionService.importExcel(file));
     }
 }

@@ -10,6 +10,7 @@ import com.haifeng.admin.excel.algorithm.config.ScoreRankImportDTO;
 import com.haifeng.admin.service.algorithm.config.ScoreRankService;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankDetailVO;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.algorithm.ScoreRank;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.ScoreRankMapper;
@@ -28,7 +29,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ScoreRankServiceImpl implements ScoreRankService {
 
-    private static final int MAX_ERROR_ROWS = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final ScoreRankMapper scoreRankMapper;
 
     @Override
@@ -164,7 +165,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Integer importData(MultipartFile file) {
+    public ImportResultVO importData(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -213,48 +214,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         );
         Set<String> excelKeys = new HashSet<>();
 
-        // 构建批量查询参数（直接用原始字段，避免 split 解析 bug）
-        Map<String, Object[]> businessKeyFields = new LinkedHashMap<>();
-        for (ScoreRankImportDTO dto : dataList) {
-            if (dto.getProvince() != null && dto.getYear() != null
-                    && dto.getSubjectType() != null && dto.getScore() != null) {
-                String key = String.format("%s_%d_%s_%d",
-                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getScore());
-                businessKeyFields.put(key, new Object[]{dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getScore()});
-            }
-        }
-
-        // 批量查询数据库中已存在的业务键（未删除）
-        Set<String> dbExistingKeys = new HashSet<>();
-        // P8: 批量查询数据库中软删除的业务键（可恢复）
-        Set<String> dbDeletedKeys = new HashSet<>();
-        // P8: 软删除记录的 id 映射，用于恢复（消除 N+1 查询）
-        Map<String, Long> deletedKeyToId = new HashMap<>();
-
-        if (!businessKeyFields.isEmpty()) {
-            List<Map<String, Object>> queryKeys = new ArrayList<>();
-            for (Object[] fields : businessKeyFields.values()) {
-                Map<String, Object> m = new HashMap<>();
-                m.put("province", fields[0]);
-                m.put("year", fields[1]);
-                m.put("subjectType", fields[2]);
-                m.put("score", fields[3]);
-                queryKeys.add(m);
-            }
-            if (!queryKeys.isEmpty()) {
-                List<String> existingActiveKeys = scoreRankMapper.selectExistingKeys(queryKeys);
-                dbExistingKeys.addAll(existingActiveKeys);
-
-                // P8: 批量查询软删除记录（含 ID），消除 N+1 查询
-                List<ScoreRank> deleted = scoreRankMapper.selectDeletedByKeys(queryKeys);
-                for (ScoreRank rank : deleted) {
-                    String key = String.format("%s_%d_%s_%d",
-                            rank.getProvince(), rank.getYear(), rank.getSubjectType(), rank.getScore());
-                    dbDeletedKeys.add(key);
-                    deletedKeyToId.put(key, rank.getId());
-                }
-            }
-        }
+        // 注：已存在/软删除记录的判定与处理移至导入阶段逐行进行（补空不覆盖）
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -320,67 +280,103 @@ public class ScoreRankServiceImpl implements ScoreRankService {
             }
             excelKeys.add(businessKey);
 
-            if (dbExistingKeys.contains(businessKey)) {
-                errors.add("第" + rowNum + "行: 数据库已存在该记录（省份=" + dto.getProvince() +
-                        ", 年份=" + dto.getYear() + ", 科类=" + dto.getSubjectType() +
-                        ", 分数=" + dto.getScore() + "）");
-                continue;
-            }
-
-            // 软删除记录不报错，标记为可恢复，在插入阶段处理
-
-            if (errors.size() >= MAX_ERROR_ROWS) {
-                break;
-            }
+            // 数据库已存在/软删除记录不再在此阶段拒绝，导入阶段按"补空不覆盖"处理
         }
 
-        // P6: 错误信息显示总数
-        if (!errors.isEmpty()) {
-            String detail = errors.size() > MAX_ERROR_ROWS
-                    ? String.join("; ", errors.subList(0, MAX_ERROR_ROWS)) + " 等" + errors.size() + "条错误"
-                    : String.join("; ", errors);
-            throw new BusinessException(400, "数据校验失败：" + detail);
-        }
-
-        // ==================== 插入阶段 ====================
+        // ==================== 导入阶段（补空不覆盖 + 软删除恢复；整批成功，任意行失败整批回滚） ====================
+        List<String> rowErrors = new ArrayList<>();
         int insertCount = 0;
-        int restoreCount = 0;
+        int updatedCount = 0;   // 已存在记录补空 + 软删除记录恢复
+        int rowNum = 1;
         for (ScoreRankImportDTO dto : dataList) {
+            rowNum++;
             String businessKey = String.format("%s_%d_%s_%d",
                     dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getScore());
-
-            // P8: 若存在软删除记录，恢复并更新（从 Map 取 ID，无需逐条查询）
-            if (dbDeletedKeys.contains(businessKey)) {
-                Long deletedId = deletedKeyToId.get(businessKey);
-                ScoreRank deleted = scoreRankMapper.selectByIdIgnoreDeleted(deletedId);
-                if (deleted != null) {
-                    deleted.setIsDeleted(false);
-                    deleted.setRank(dto.getRank());
-                    deleted.setSameScoreCount(dto.getSameScoreCount());
-                    deleted.setCumulativeCount(dto.getCumulativeCount());
-                    scoreRankMapper.updateById(deleted);
-                    restoreCount++;
-                    continue;
+            try {
+                // 1) 软删除记录：恢复并补空
+                Long deletedId = scoreRankMapper.selectDeletedIdByBusinessKey(
+                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getScore());
+                if (deletedId != null) {
+                    ScoreRank deleted = scoreRankMapper.selectByIdIgnoreDeleted(deletedId);
+                    if (deleted != null) {
+                        deleted.setIsDeleted(false);
+                        fillScoreRankGaps(deleted, dto);
+                        scoreRankMapper.updateById(deleted);
+                        updatedCount++;
+                        continue;
+                    }
                 }
-            }
 
-            ScoreRank entity = ScoreRank.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .province(dto.getProvince())
-                    .year(dto.getYear())
-                    .subjectType(dto.getSubjectType())
-                    .score(dto.getScore())
-                    .rank(dto.getRank())
-                    .sameScoreCount(dto.getSameScoreCount())
-                    .cumulativeCount(dto.getCumulativeCount())
-                    .isDeleted(false)
-                    .build();
-            scoreRankMapper.insert(entity);
-            insertCount++;
+                // 2) 已存在（未删除）记录：仅补空不覆盖
+                Long existingId = scoreRankMapper.selectIdByBusinessKey(
+                        dto.getProvince(), dto.getYear(), dto.getSubjectType(), dto.getScore());
+                if (existingId != null) {
+                    ScoreRank existing = scoreRankMapper.selectByIdCustom(existingId);
+                    if (existing != null) {
+                        boolean changed = fillScoreRankGaps(existing, dto);
+                        if (changed) {
+                            scoreRankMapper.updateById(existing);
+                        }
+                        updatedCount++;
+                        continue;
+                    }
+                }
+
+                // 3) 新增
+                ScoreRank entity = ScoreRank.builder()
+                        .id(SnowflakeIdGenerator.nextId())
+                        .province(dto.getProvince())
+                        .year(dto.getYear())
+                        .subjectType(dto.getSubjectType())
+                        .score(dto.getScore())
+                        .rank(dto.getRank())
+                        .sameScoreCount(dto.getSameScoreCount())
+                        .cumulativeCount(dto.getCumulativeCount())
+                        .isDeleted(false)
+                        .build();
+                scoreRankMapper.insert(entity);
+                insertCount++;
+            } catch (Exception e) {
+                rowErrors.add("第" + rowNum + "行: 保存失败[" + dto.getProvince() + "/" + dto.getYear() + "]: " + e.getMessage());
+            }
         }
 
-        log.info("导入一分一段数据成功: 恢复记录={}条, 新增记录={}条", restoreCount, insertCount);
-        return restoreCount + insertCount;
+        if (!rowErrors.isEmpty()) {
+            throw new BusinessException(400, joinErrors(rowErrors));
+        }
+
+        log.info("导入一分一段数据完成: 新增={}条, 补空/恢复={}条", insertCount, updatedCount);
+        int total = dataList.size();
+        int failed = 0; // 整批回滚，无部分成功
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total - failed)
+                .failed(failed)
+                .updated(updatedCount)
+                .errors(rowErrors)
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空字符串 且 导入有值时才写入，已有真实数据保留。
+     * 业务键(province/year/subjectType/score)不参与，避免覆盖匹配依据。
+     */
+    private boolean fillScoreRankGaps(ScoreRank e, ScoreRankImportDTO dto) {
+        boolean changed = false;
+        if (e.getRank() == null && dto.getRank() != null) { e.setRank(dto.getRank()); changed = true; }
+        if (e.getSameScoreCount() == null && dto.getSameScoreCount() != null) { e.setSameScoreCount(dto.getSameScoreCount()); changed = true; }
+        if (e.getCumulativeCount() == null && dto.getCumulativeCount() != null) { e.setCumulativeCount(dto.getCumulativeCount()); changed = true; }
+        return changed;
+    }
+
+    private String joinErrors(List<String> errList) {
+        if (errList == null || errList.isEmpty()) return null;
+        int shown = Math.min(errList.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errList.subList(0, shown));
+        if (errList.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errList.size() + "行错误，详见后端日志";
+        }
+        return joined;
     }
 
     private ScoreRankListVO convertToListVO(ScoreRank entity) {

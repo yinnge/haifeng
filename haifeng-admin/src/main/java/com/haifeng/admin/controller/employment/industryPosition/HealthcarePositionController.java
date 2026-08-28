@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.employment.industryPosition.PositionStatusUpdateDTO
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.*;
 import com.haifeng.admin.service.employment.industryPosition.HealthcarePositionService;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.*;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -87,8 +88,7 @@ public class HealthcarePositionController {
 
     @PostMapping("/import")
     @OperationLog(module = "行业专项招聘", action = "导入医疗卫生岗位")
-    public R<Void> importExcel(@RequestParam("file") MultipartFile file) {
-        healthcarePositionService.importExcel(file);
-        return R.ok();
+    public R<ImportResultVO> importExcel(@RequestParam("file") MultipartFile file) {
+        return R.ok(healthcarePositionService.importExcel(file));
     }
 }

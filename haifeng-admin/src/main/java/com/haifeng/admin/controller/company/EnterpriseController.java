@@ -9,6 +9,7 @@ import com.haifeng.admin.dto.company.EnterpriseUpdateDTO;
 import com.haifeng.admin.service.company.EnterpriseService;
 import com.haifeng.admin.vo.company.EnterpriseDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -102,7 +103,7 @@ public class EnterpriseController {
      */
     @PostMapping("/import")
     @OperationLog(module = "企业管理", action = "导入企业")
-    public R<Void> importEnterprises(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importEnterprises(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return R.fail(400, "请上传文件");
         }
@@ -110,7 +111,7 @@ public class EnterpriseController {
         if (fileName == null || !fileName.endsWith(".xlsx")) {
             return R.fail(400, "仅支持 .xlsx 格式文件");
         }
-        enterpriseService.importEnterprises(file);
-        return R.ok();
+        ImportResultVO result = enterpriseService.importEnterprises(file);
+        return R.ok(result);
     }
 }

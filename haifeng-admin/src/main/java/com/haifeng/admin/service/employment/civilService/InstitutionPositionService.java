@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.employment.civilService.InstitutionPositionQueryDTO
 import com.haifeng.admin.dto.employment.civilService.InstitutionPositionUpdateDTO;
 import com.haifeng.admin.vo.employment.civilService.InstitutionPositionDetailVO;
 import com.haifeng.admin.vo.employment.civilService.InstitutionPositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -19,5 +20,5 @@ public interface InstitutionPositionService {
     void updateStatus(Long id, Integer status);
     void batchDelete(List<Long> ids);
     String preValidate(MultipartFile file);
-    void importExcel(MultipartFile file);
+    ImportResultVO importExcel(MultipartFile file);
 }

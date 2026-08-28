@@ -9,6 +9,7 @@ import com.haifeng.admin.dto.university.UniversityGuideUpdateDTO;
 import com.haifeng.admin.service.university.UniversityGuideService;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
 import com.haifeng.admin.vo.university.UniversityGuideListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.entity.university.UniversityGuide;
 import com.haifeng.common.exception.BusinessException;
@@ -31,6 +32,7 @@ import java.io.InputStream;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -44,10 +46,18 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     private final UniversityGuideMapper universityGuideMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    /** 导入报错信息最多展示条数，避免单条 msg 过长（完整错误见后端日志） */
+    private static final int MAX_ERROR_DISPLAY = 50;
     private final UniversityMapper universityMapper;
 
     private static final Map<String, String> SHEET_TO_FIELD = new LinkedHashMap<>();
     private static final Map<String, BiConsumer<UniversityGuide, Map<String, Object>>> JSONB_SETTERERS = new HashMap<>();
+
+    /**
+     * 与 JSONB_SETTERERS 一一对应的取值器，用于读取库中该 JSONB 字段的当前值。
+     * 仅补空模式下需要先取值判断该字段是否为空，为空才写入。
+     */
+    private static final Map<String, Function<UniversityGuide, Map<String, Object>>> JSONB_GETTERS = new HashMap<>();
 
     static {
         SHEET_TO_FIELD.put("班级与宿舍社交", "classDormSocial");
@@ -79,6 +89,21 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         JSONB_SETTERERS.put("academicGuidance", UniversityGuide::setAcademicGuidance);
         JSONB_SETTERERS.put("majorTransferConstriction", UniversityGuide::setMajorTransferConstriction);
         JSONB_SETTERERS.put("majorTransferGuidelines", UniversityGuide::setMajorTransferGuidelines);
+
+        JSONB_GETTERS.put("classDormSocial", UniversityGuide::getClassDormSocial);
+        JSONB_GETTERS.put("financialAid", UniversityGuide::getFinancialAid);
+        JSONB_GETTERS.put("lifeServices", UniversityGuide::getLifeServices);
+        JSONB_GETTERS.put("dormitoryServices", UniversityGuide::getDormitoryServices);
+        JSONB_GETTERS.put("campusSecurity", UniversityGuide::getCampusSecurity);
+        JSONB_GETTERS.put("campusEvents", UniversityGuide::getCampusEvents);
+        JSONB_GETTERS.put("campusFacilities", UniversityGuide::getCampusFacilities);
+        JSONB_GETTERS.put("campusTransportation", UniversityGuide::getCampusTransportation);
+        JSONB_GETTERS.put("studentOrganizations", UniversityGuide::getStudentOrganizations);
+        JSONB_GETTERS.put("academicSupportResources", UniversityGuide::getAcademicSupportResources);
+        JSONB_GETTERS.put("healthServices", UniversityGuide::getHealthServices);
+        JSONB_GETTERS.put("academicGuidance", UniversityGuide::getAcademicGuidance);
+        JSONB_GETTERS.put("majorTransferConstriction", UniversityGuide::getMajorTransferConstriction);
+        JSONB_GETTERS.put("majorTransferGuidelines", UniversityGuide::getMajorTransferGuidelines);
     }
 
     @Override
@@ -355,7 +380,7 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importGuide(MultipartFile file) {
+    public ImportResultVO importGuide(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -389,7 +414,8 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
 
             // Step 3: Process each row from Sheet0
             OffsetDateTime now = OffsetDateTime.now();
-            int successCount = 0;
+            int insertCount = 0;
+            int updateCount = 0;
 
             for (int i = 0; i < mainDataList.size(); i++) {
                 int rowNum = i + 2;
@@ -403,60 +429,84 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
                 // 与 JSONB 分类 Sheet 的第一列院校名称做精确匹配（统一 trim，避免前后空格导致匹配不上）
                 String univName = dto.getUniversityName().trim();
 
-                University university = universityMapper.selectOne(
-                        new LambdaQueryWrapper<University>()
-                                .eq(University::getName, univName)
-                                .ne(University::getStatus, (short) 0));
+                // 该行涉及的数据库操作整体包 try-catch：一旦失败即可带上行号转成行级错误，
+                // 否则异常向上抛出后丢失行号，前端/管理员无法定位是哪一行出错。
+                try {
+                    University university = universityMapper.selectOne(
+                            new LambdaQueryWrapper<University>()
+                                    .eq(University::getName, univName)
+                                    .ne(University::getStatus, (short) 0));
 
-                if (university == null) {
-                    errors.add("第" + rowNum + "行: 院校[" + univName + "]不存在");
-                    continue;
-                }
-
-                UniversityGuide existingGuide = universityGuideMapper.selectOne(
-                        new LambdaQueryWrapper<UniversityGuide>()
-                                .eq(UniversityGuide::getUniversityId, university.getId())
-                                .ne(UniversityGuide::getStatus, (short) 0));
-
-                Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(univName);
-                if (univJsonb == null || univJsonb.isEmpty()) {
-                    errors.add("第" + rowNum + "行: 院校[" + univName + "]在14个分类Sheet中均未匹配到数据，请检查该院校在分类Sheet中的名称是否一致");
-                    continue;
-                }
-
-                if (existingGuide != null) {
-                    existingGuide.setCustomTags(dto.getCustomTags());
-                    existingGuide.setRemark(dto.getRemark());
-                    if (dto.getStatus() != null) {
-                        existingGuide.setStatus(dto.getStatus().shortValue());
+                    if (university == null) {
+                        errors.add("第" + rowNum + "行: 院校[" + univName + "]不存在");
+                        continue;
                     }
-                    setJsonbFields(existingGuide, univJsonb);
-                    existingGuide.setUpdatedAt(now);
-                    universityGuideMapper.updateById(existingGuide);
-                } else {
-                    Long id = SnowflakeIdGenerator.nextId();
-                    UniversityGuide guide = UniversityGuide.builder()
-                            .id(id)
-                            .universityId(university.getId())
-                            .customTags(dto.getCustomTags())
-                            .remark(dto.getRemark())
-                            .status(dto.getStatus() != null ? dto.getStatus().shortValue() : (short) 1)
-                            .createdAt(now)
-                            .updatedAt(now)
-                            .build();
-                    setJsonbFields(guide, univJsonb);
-                    universityGuideMapper.insert(guide);
+
+                    UniversityGuide existingGuide = universityGuideMapper.selectOne(
+                            new LambdaQueryWrapper<UniversityGuide>()
+                                    .eq(UniversityGuide::getUniversityId, university.getId())
+                                    .ne(UniversityGuide::getStatus, (short) 0));
+
+                    Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(univName);
+                    if (univJsonb == null || univJsonb.isEmpty()) {
+                        errors.add("第" + rowNum + "行: 院校[" + univName + "]在14个分类Sheet中均未匹配到数据，请检查该院校在分类Sheet中的名称是否一致");
+                        continue;
+                    }
+
+                    if (existingGuide != null) {
+                        // 已存在：仅补齐数据库中为 NULL / 空 的字段，已有数据一律不覆盖
+                        // （status 为控制字段且必有值，按"已有数据不覆盖"规则不再随导入变更）
+                        if (isBlankList(existingGuide.getCustomTags())
+                                && dto.getCustomTags() != null && !dto.getCustomTags().isEmpty()) {
+                            existingGuide.setCustomTags(dto.getCustomTags());
+                        }
+                        if (existingGuide.getRemark() == null && StringUtils.hasText(dto.getRemark())) {
+                            existingGuide.setRemark(dto.getRemark());
+                        }
+                        setJsonbFields(existingGuide, univJsonb, true);
+                        existingGuide.setUpdatedAt(now);
+                        universityGuideMapper.updateById(existingGuide);
+                        updateCount++;
+                    } else {
+                        Long id = SnowflakeIdGenerator.nextId();
+                        UniversityGuide guide = UniversityGuide.builder()
+                                .id(id)
+                                .universityId(university.getId())
+                                .customTags(dto.getCustomTags())
+                                .remark(dto.getRemark())
+                                .status(dto.getStatus() != null ? dto.getStatus().shortValue() : (short) 1)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        setJsonbFields(guide, univJsonb, false);
+                        universityGuideMapper.insert(guide);
+                        insertCount++;
+                    }
+                } catch (Exception e) {
+                    // 数据库操作异常（唯一约束冲突、字段超长、连接异常等）转为行级错误，保留行号
+                    errors.add("第" + rowNum + "行: 数据库操作失败[" + univName + "]: " + e.getMessage());
                 }
-                successCount++;
             }
 
             if (!errors.isEmpty()) {
-                String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
-                        errors.size(), String.join("; ", errors));
+                int shownCount = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+                String errorMsg = String.format(
+                        "导入失败，共%d行数据存在错误（仅展示前%d条，完整错误请查看后端日志），已全部回滚。错误信息：%s",
+                        errors.size(), shownCount,
+                        String.join("; ", errors.subList(0, shownCount)));
                 throw new BusinessException(400, errorMsg);
             }
 
-            log.info("导入院校适应指南数据成功: 共{}条", successCount);
+            log.info("导入院校适应指南数据成功: 新增{}条, 补齐{}条", insertCount, updateCount);
+            int total = mainDataList.size();
+            int failed = 0; // 整批回滚，无部分成功
+            return ImportResultVO.builder()
+                    .total(total)
+                    .success(total - failed)
+                    .failed(failed)
+                    .updated(updateCount)
+                    .errors(errors)
+                    .build();
 
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
@@ -531,7 +581,14 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         return result;
     }
 
-    private void setJsonbFields(UniversityGuide guide, Map<String, Map<String, List<String>>> jsonbData) {
+    /**
+     * 将分类 Sheet 采集到的 JSONB 数据写入指南实体。
+     *
+     * @param onlyFillNull true=仅在该字段当前为空时才写入，已有数据一律不覆盖；
+     *                     false=采集到数据就写入（新增记录时使用）
+     */
+    private void setJsonbFields(UniversityGuide guide, Map<String, Map<String, List<String>>> jsonbData,
+                                boolean onlyFillNull) {
         if (jsonbData == null || jsonbData.isEmpty()) return;
 
         for (Map.Entry<String, Map<String, List<String>>> entry : jsonbData.entrySet()) {
@@ -540,13 +597,27 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             if (fieldData == null || fieldData.isEmpty()) continue;
 
             BiConsumer<UniversityGuide, Map<String, Object>> setter = JSONB_SETTERERS.get(fieldName);
-            if (setter != null) {
-                setter.accept(guide, new LinkedHashMap<>(fieldData));
+            if (setter == null) {
+                continue;
             }
+            if (onlyFillNull) {
+                Function<UniversityGuide, Map<String, Object>> getter = JSONB_GETTERS.get(fieldName);
+                Map<String, Object> current = getter != null ? getter.apply(guide) : null;
+                // 注意：这些 JSONB 列建表带 DEFAULT '{}'，MP 插入时省略 null 列，
+                // 库中实际存的是空对象而非 NULL，因此必须把 empty 也视为"空"
+                if (current != null && !current.isEmpty()) {
+                    continue;
+                }
+            }
+            setter.accept(guide, new LinkedHashMap<>(fieldData));
         }
     }
 
     private static String safeStr(Object obj) {
         return obj != null ? obj.toString().trim() : "";
+    }
+
+    private boolean isBlankList(List<?> list) {
+        return list == null || list.isEmpty();
     }
 }

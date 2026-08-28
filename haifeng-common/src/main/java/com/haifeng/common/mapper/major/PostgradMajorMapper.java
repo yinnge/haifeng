@@ -20,6 +20,9 @@ public interface PostgradMajorMapper extends BaseMapper<PostgradMajor> {
     @Select("SELECT COUNT(*) > 0 FROM t_postgrad_major WHERE major_code = #{majorCode}")
     boolean existsByMajorCode(@Param("majorCode") String majorCode);
 
+    @Select("SELECT * FROM t_postgrad_major WHERE major_code = #{majorCode} LIMIT 1")
+    PostgradMajor selectByMajorCode(@Param("majorCode") String majorCode);
+
     @Select("SELECT id FROM t_postgrad_major WHERE major_name = #{majorName} AND status = 1 LIMIT 1")
     Long selectIdByName(@Param("majorName") String majorName);
 

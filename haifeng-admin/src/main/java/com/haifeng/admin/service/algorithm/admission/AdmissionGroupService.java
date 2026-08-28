@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupAddDTO;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupQueryDTO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -19,6 +20,6 @@ public interface AdmissionGroupService {
     void delete(Integer id);
     void batchDelete(List<Integer> ids);
     void batchHardDelete(List<Integer> ids);
-    void importData(MultipartFile file);
+    ImportResultVO importData(MultipartFile file);
     Integer recalcAll();
 }

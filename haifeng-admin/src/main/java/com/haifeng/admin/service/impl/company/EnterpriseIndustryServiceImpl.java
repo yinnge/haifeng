@@ -10,6 +10,7 @@ import com.haifeng.admin.excel.company.EnterpriseIndustryExcelDTO;
 import com.haifeng.admin.service.company.EnterpriseIndustryService;
 import com.haifeng.admin.vo.company.EnterpriseIndustryDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseIndustryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.company.Enterprise;
 import com.haifeng.common.entity.company.EnterpriseIndustry;
 import com.haifeng.common.entity.industry.Industry;
@@ -40,6 +41,7 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
     private final IndustryMapper industryMapper;
 
     private static final int MAX_IMPORT_ROWS = 500;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<EnterpriseIndustryListVO> page(EnterpriseIndustryQueryDTO dto) {
@@ -152,14 +154,14 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             throw new BusinessException(400, "请选择要删除的记录");
         }
 
-        int deleted = enterpriseIndustryMapper.deleteBatchIds(ids);
+        int deleted = enterpriseIndustryMapper.deleteByIds(ids);
 
         log.info("批量硬删除企业行业关联成功: 删除数量={}, ids={}", deleted, ids);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importEnterpriseIndustries(MultipartFile file) {
+    public ImportResultVO importEnterpriseIndustries(MultipartFile file) {
         List<String> errorMsgs = new ArrayList<>();
 
         try {
@@ -181,97 +183,115 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             Set<String> pairsInFile = new HashSet<>();
             // 待插入的记录列表
             List<EnterpriseIndustry> records = new ArrayList<>();
+            int insertCount = 0;
+            int updatedCount = 0;
 
             OffsetDateTime now = OffsetDateTime.now();
 
             for (int i = 0; i < excelData.size(); i++) {
                 int rowNum = i + 2;
                 EnterpriseIndustryExcelDTO dto = excelData.get(i);
-                String enterpriseName = dto.getEnterpriseName().trim();
-                String industryName = dto.getIndustryName().trim();
+                String enterpriseName = null;
+                String industryName = null;
+                try {
+                    enterpriseName = dto.getEnterpriseName() == null ? null : dto.getEnterpriseName().trim();
+                    industryName = dto.getIndustryName() == null ? null : dto.getIndustryName().trim();
 
-                // 校验企业名称必填
-                if (!StringUtils.hasText(enterpriseName)) {
-                    errorMsgs.add("第" + rowNum + "行：企业名称不能为空");
-                    continue;
-                }
+                    // 校验企业名称必填
+                    if (!StringUtils.hasText(enterpriseName)) {
+                        errorMsgs.add("第" + rowNum + "行：企业名称不能为空");
+                        continue;
+                    }
 
-                // 校验行业名称必填
-                if (!StringUtils.hasText(industryName)) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
-                    continue;
-                }
+                    // 校验行业名称必填
+                    if (!StringUtils.hasText(industryName)) {
+                        errorMsgs.add("第" + rowNum + "行：行业名称不能为空");
+                        continue;
+                    }
 
-                // 校验字段长度
-                if (enterpriseName.length() > 200) {
-                    errorMsgs.add("第" + rowNum + "行：企业名称长度不能超过200个字符");
-                    continue;
-                }
-                if (industryName.length() > 100) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
-                    continue;
-                }
+                    // 校验字段长度
+                    if (enterpriseName.length() > 200) {
+                        errorMsgs.add("第" + rowNum + "行：企业名称长度不能超过200个字符");
+                        continue;
+                    }
+                    if (industryName.length() > 100) {
+                        errorMsgs.add("第" + rowNum + "行：行业名称长度不能超过100个字符");
+                        continue;
+                    }
 
-                // 校验企业名称存在于t_enterprise
-                Long enterpriseId = enterpriseMapper.findIdByEnterpriseName(enterpriseName);
-                if (enterpriseId == null) {
-                    errorMsgs.add("第" + rowNum + "行：企业名称'" + enterpriseName + "'不存在");
-                    continue;
-                }
+                    // 校验企业名称存在于t_enterprise
+                    Long enterpriseId = enterpriseMapper.findIdByEnterpriseName(enterpriseName);
+                    if (enterpriseId == null) {
+                        errorMsgs.add("第" + rowNum + "行：企业名称'" + enterpriseName + "'不存在");
+                        continue;
+                    }
 
-                // 校验行业名称存在于t_industry
-                LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(Industry::getIndustryName, industryName)
-                       .eq(Industry::getIsDeleted, false);
-                Industry industry = industryMapper.selectOne(wrapper);
-                if (industry == null) {
-                    errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'不存在");
-                    continue;
-                }
-                Long industryId = industry.getId();
+                    // 校验行业名称存在于t_industry
+                    LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<>();
+                    wrapper.eq(Industry::getIndustryName, industryName)
+                           .eq(Industry::getIsDeleted, false);
+                    Industry industry = industryMapper.selectOne(wrapper);
+                    if (industry == null) {
+                        errorMsgs.add("第" + rowNum + "行：行业名称'" + industryName + "'不存在");
+                        continue;
+                    }
+                    Long industryId = industry.getId();
 
-                // 检查文件内(enterpriseId, industryId)重复
-                String pairKey = enterpriseId + "_" + industryId;
-                if (pairsInFile.contains(pairKey)) {
-                    errorMsgs.add("第" + rowNum + "行：企业'" + enterpriseName
-                            + "'与行业'" + industryName + "'的关联在文件中重复");
-                    continue;
-                }
-                pairsInFile.add(pairKey);
-
-                // 检查数据库中(enterpriseId, industryId)是否已存在
-                if (enterpriseIndustryMapper.existsByEnterpriseIdAndIndustryId(enterpriseId, industryId)) {
+                    // 检查文件内(enterpriseId, industryId)重复
+                    String pairKey = enterpriseId + "_" + industryId;
+                    if (pairsInFile.contains(pairKey)) {
                         errorMsgs.add("第" + rowNum + "行：企业'" + enterpriseName
-                                + "'与行业'" + industryName + "'的关联已存在于数据库中");
-                    continue;
+                                + "'与行业'" + industryName + "'的关联在文件中重复");
+                        continue;
+                    }
+                    pairsInFile.add(pairKey);
+
+                    // 检查数据库中(enterpriseId, industryId)是否已存在
+                    if (enterpriseIndustryMapper.existsByEnterpriseIdAndIndustryId(enterpriseId, industryId)) {
+                        // 已存在：关联由企业名+行业名唯一确定，无额外可补列，跳过不覆盖
+                        updatedCount++;
+                        continue;
+                    }
+
+                    Long id = SnowflakeIdGenerator.nextId();
+
+                    EnterpriseIndustry entity = EnterpriseIndustry.builder()
+                            .id(id)
+                            .enterpriseId(enterpriseId)
+                            .enterpriseName(enterpriseName)
+                            .industryId(industryId)
+                            .industryName(industryName)
+                            .isPrimary(false)
+                            .sortOrder((short) 0)
+                            .createdAt(now)
+                            .build();
+
+                    records.add(entity);
+                    insertCount++;
+                } catch (Exception e) {
+                    errorMsgs.add("第" + rowNum + "行：数据库操作失败[" + enterpriseName + "]：" + e.getMessage());
                 }
-
-                Long id = SnowflakeIdGenerator.nextId();
-
-                EnterpriseIndustry entity = EnterpriseIndustry.builder()
-                        .id(id)
-                        .enterpriseId(enterpriseId)
-                        .enterpriseName(enterpriseName)
-                        .industryId(industryId)
-                        .industryName(industryName)
-                        .isPrimary(false)
-                        .sortOrder((short) 0)
-                        .createdAt(now)
-                        .build();
-
-                records.add(entity);
             }
 
-            // 如果有错误，抛出异常
+            // 如果有错误，抛出异常（限制展示条数）
             if (!errorMsgs.isEmpty()) {
-                throw new BusinessException(400, "导入失败：" + String.join("；", errorMsgs));
+                throw buildImportException(errorMsgs);
             }
 
             // 批量插入
             if (!records.isEmpty()) {
                 enterpriseIndustryMapper.insertBatch(records);
             }
-            log.info("导入企业行业关联成功，数量={}", records.size());
+            int success = insertCount + updatedCount;
+            log.info("导入企业行业关联成功：共{}行，新增{}，已存在跳过{}", excelData.size(), insertCount, updatedCount);
+
+            return ImportResultVO.builder()
+                    .total(excelData.size())
+                    .success(success)
+                    .failed(0)
+                    .updated(updatedCount)
+                    .errors(null)
+                    .build();
 
         } catch (BusinessException e) {
             throw e;
@@ -282,5 +302,17 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
             log.error("导入企业行业关联数据失败", e);
             throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
         }
+    }
+
+    /**
+     * 将错误列表转为抛出异常，限制展示条数避免 msg 过长。
+     */
+    private BusinessException buildImportException(List<String> errorMsgs) {
+        int display = Math.min(errorMsgs.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("；", errorMsgs.subList(0, display));
+        String tail = errorMsgs.size() > MAX_ERROR_DISPLAY
+                ? "（仅展示前" + MAX_ERROR_DISPLAY + "条，完整错误请查看后端日志）"
+                : "";
+        return new BusinessException(400, "导入失败，共" + errorMsgs.size() + "行存在错误，已全部回滚。错误信息：" + joined + tail);
     }
 }

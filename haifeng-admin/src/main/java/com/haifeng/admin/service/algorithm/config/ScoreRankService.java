@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.algorithm.config.ScoreRankAddDTO;
 import com.haifeng.admin.dto.algorithm.config.ScoreRankQueryDTO;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankDetailVO;
 import com.haifeng.admin.vo.algorithm.config.ScoreRankListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
@@ -16,5 +17,5 @@ public interface ScoreRankService {
     void delete(Long id);
     void updateStatus(Long id, Boolean isDeleted);
     void batchDelete(List<Long> ids);
-    Integer importData(MultipartFile file);
+    ImportResultVO importData(MultipartFile file);
 }

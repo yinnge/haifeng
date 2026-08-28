@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.university.SubjectEvaluationAddDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationQueryDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationUpdateDTO;
 import com.haifeng.admin.service.university.SubjectEvaluationService;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationDetailVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationListVO;
 import com.haifeng.common.annotation.OperationLog;
@@ -120,8 +121,7 @@ public class SubjectEvaluationController {
      */
     @PostMapping("/import")
     @OperationLog(module = "学科评估管理", action = "导入学科评估数据")
-    public R<Void> importSubjectEvaluations(@RequestParam("file") MultipartFile file) {
-        subjectEvaluationService.importSubjectEvaluations(file);
-        return R.ok();
+    public R<ImportResultVO> importSubjectEvaluations(@RequestParam("file") MultipartFile file) {
+        return R.ok(subjectEvaluationService.importSubjectEvaluations(file));
     }
 }

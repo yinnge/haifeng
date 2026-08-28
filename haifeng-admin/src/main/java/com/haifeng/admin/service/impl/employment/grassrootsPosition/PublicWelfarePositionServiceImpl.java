@@ -4,7 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.haifeng.admin.vo.major.ImportResultVO;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.Collections;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionAddDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionQueryDTO;
 import com.haifeng.admin.dto.employment.grassrootsPosition.PublicWelfarePositionUpdateDTO;
@@ -36,13 +40,14 @@ import java.util.Set;
 public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionService {
 
     private final PublicWelfarePositionMapper publicWelfarePositionMapper;
+    private final PlatformTransactionManager transactionManager;
 
     private static final int MAX_IMPORT_ROWS = 1000;
 
     private static final Set<String> VALID_POSITION_STATUSES = Set.of("招聘中", "已结束", "即将开始");
     private static final Set<String> VALID_POSITION_CATEGORIES = Set.of("公共管理类", "公共服务类", "公共环境类", "公共安全类", "设施维护类", "其他");
     private static final Set<String> VALID_EDUCATION_REQUIREMENTS = Set.of("不限", "初中", "高中", "大专", "本科");
-    private static final int MAX_ERROR_DISPLAY = 20;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override
     public IPage<PublicWelfarePositionListVO> page(PublicWelfarePositionQueryDTO dto) {
@@ -312,76 +317,154 @@ public class PublicWelfarePositionServiceImpl implements PublicWelfarePositionSe
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void importExcel(MultipartFile file) {
+    public ImportResultVO importExcel(MultipartFile file) {
         List<PublicWelfarePositionExcelDTO> list = readExcel(file);
         String errors = validateExcelRows(list);
         if (errors != null) {
             throw new BusinessException(400, errors);
         }
 
-        List<PublicWelfarePosition> entities = new ArrayList<>();
-        List<String> duplicateWarnings = new ArrayList<>();
-        for (PublicWelfarePositionExcelDTO dto : list) {
-            boolean exists = publicWelfarePositionMapper.selectCount(
-                    Wrappers.lambdaQuery(PublicWelfarePosition.class)
-                            .eq(PublicWelfarePosition::getPositionName, dto.getPositionName())
-                            .eq(PublicWelfarePosition::getProvince, dto.getProvince())
-                            .eq(PublicWelfarePosition::getCity, dto.getCity())
-                            .eq(PublicWelfarePosition::getIsDeleted, false)) > 0;
-            if (exists) {
-                duplicateWarnings.add(dto.getPositionName() + "(" + dto.getProvince() + "/" + dto.getCity() + ")");
-                continue;
+        int[] counters = new TransactionTemplate(transactionManager).execute(status -> {
+            List<String> rowErrors = new ArrayList<>();
+            int created = 0;
+            int updated = 0;
+            int rowNum = 1;
+
+            for (PublicWelfarePositionExcelDTO dto : list) {
+                rowNum++;
+                try {
+                    List<PublicWelfarePosition> existingList = publicWelfarePositionMapper.selectList(
+                            Wrappers.lambdaQuery(PublicWelfarePosition.class)
+                                    .eq(PublicWelfarePosition::getPositionName, dto.getPositionName())
+                                    .eq(PublicWelfarePosition::getProvince, dto.getProvince())
+                                    .eq(PublicWelfarePosition::getCity, dto.getCity())
+                                    .eq(PublicWelfarePosition::getIsDeleted, false)
+                                    .last("LIMIT 1"));
+                    if (!existingList.isEmpty()) {
+                        // 已存在：仅补空不覆盖（业务键不变）
+                        fillWelfareGaps(existingList.get(0), dto);
+                        publicWelfarePositionMapper.updateById(existingList.get(0));
+                        updated++;
+                    } else {
+                        PublicWelfarePosition entity = PublicWelfarePosition.builder()
+                                .id(SnowflakeIdGenerator.nextId())
+                                .developingUnit(dto.getDevelopingUnit())
+                                .employingUnit(dto.getEmployingUnit())
+                                .positionName(dto.getPositionName())
+                                .positionCategory(dto.getPositionCategory())
+                                .workContent(dto.getWorkContent())
+                                .province(dto.getProvince())
+                                .city(dto.getCity())
+                                .district(dto.getDistrict())
+                                .workLocation(dto.getWorkLocation())
+                                .targetGroup(dto.getTargetGroup())
+                                .educationRequirement(dto.getEducationRequirement())
+                                .ageRange(dto.getAgeRange())
+                                .healthRequirement(dto.getHealthRequirement())
+                                .recruitmentCount(dto.getRecruitmentCount())
+                                .householdRequirement(dto.getHouseholdRequirement())
+                                .employmentDifficultyCert(dto.getEmploymentDifficultyCert())
+                                .otherRequirement(dto.getOtherRequirement())
+                                .contractPeriod(dto.getContractPeriod())
+                                .isRenewable(dto.getIsRenewable())
+                                .maxServiceYears(dto.getMaxServiceYears())
+                                .monthlySalary(dto.getMonthlySalary())
+                                .salarySource(dto.getSalarySource())
+                                .subsidyStandard(dto.getSubsidyStandard())
+                                .socialInsuranceInfo(dto.getSocialInsuranceInfo())
+                                .otherBenefits(dto.getOtherBenefits())
+                                .workSchedule(dto.getWorkSchedule())
+                                .isShiftWork(dto.getIsShiftWork())
+                                .regStartDate(dto.getRegStartDate())
+                                .regEndDate(dto.getRegEndDate())
+                                .applyMethod(dto.getApplyMethod())
+                                .applyAddress(dto.getApplyAddress())
+                                .requiredDocuments(dto.getRequiredDocuments())
+                                .positionStatus(dto.getPositionStatus())
+                                .contactPhone(dto.getContactPhone())
+                                .contactPerson(dto.getContactPerson())
+                                .remark(dto.getRemark())
+                                .content(dto.getContent())
+                                .sortOrder(dto.getSortOrder())
+                                .isDeleted(false)
+                                .build();
+                        publicWelfarePositionMapper.insert(entity);
+                        created++;
+                    }
+                } catch (Exception e) {
+                    status.setRollbackOnly();
+                    rowErrors.add("第" + rowNum + "行: 保存失败[" + dto.getPositionName() + "]: " + e.getMessage());
+                }
             }
-            PublicWelfarePosition entity = PublicWelfarePosition.builder()
-                    .id(SnowflakeIdGenerator.nextId())
-                    .developingUnit(dto.getDevelopingUnit())
-                    .employingUnit(dto.getEmployingUnit())
-                    .positionName(dto.getPositionName())
-                    .positionCategory(dto.getPositionCategory())
-                    .workContent(dto.getWorkContent())
-                    .province(dto.getProvince())
-                    .city(dto.getCity())
-                    .district(dto.getDistrict())
-                    .workLocation(dto.getWorkLocation())
-                    .targetGroup(dto.getTargetGroup())
-                    .educationRequirement(dto.getEducationRequirement())
-                    .ageRange(dto.getAgeRange())
-                    .healthRequirement(dto.getHealthRequirement())
-                    .recruitmentCount(dto.getRecruitmentCount())
-                    .householdRequirement(dto.getHouseholdRequirement())
-                    .employmentDifficultyCert(dto.getEmploymentDifficultyCert())
-                    .otherRequirement(dto.getOtherRequirement())
-                    .contractPeriod(dto.getContractPeriod())
-                    .isRenewable(dto.getIsRenewable())
-                    .maxServiceYears(dto.getMaxServiceYears())
-                    .monthlySalary(dto.getMonthlySalary())
-                    .salarySource(dto.getSalarySource())
-                    .subsidyStandard(dto.getSubsidyStandard())
-                    .socialInsuranceInfo(dto.getSocialInsuranceInfo())
-                    .otherBenefits(dto.getOtherBenefits())
-                    .workSchedule(dto.getWorkSchedule())
-                    .isShiftWork(dto.getIsShiftWork())
-                    .regStartDate(dto.getRegStartDate())
-                    .regEndDate(dto.getRegEndDate())
-                    .applyMethod(dto.getApplyMethod())
-                    .applyAddress(dto.getApplyAddress())
-                    .requiredDocuments(dto.getRequiredDocuments())
-                    .positionStatus(dto.getPositionStatus())
-                    .contactPhone(dto.getContactPhone())
-                    .contactPerson(dto.getContactPerson())
-                    .remark(dto.getRemark())
-                    .content(dto.getContent())
-                    .sortOrder(dto.getSortOrder())
-                    .isDeleted(false)
-                    .build();
-            entities.add(entity);
+
+            if (!rowErrors.isEmpty()) {
+                throw new BusinessException(400, joinErrors(rowErrors));
+            }
+            return new int[]{created, updated};
+        });
+
+        int total = list.size();
+        log.info("导入公益性岗位成功: 新增={}, 补空更新={}", counters[0], counters[1]);
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total)
+                .failed(0)
+                .updated(counters[1])
+                .errors(Collections.emptyList())
+                .build();
+    }
+
+    /**
+     * 已存在记录补空不覆盖：仅当 DB 列为 null/空字符串 且 导入有值时才写入，已有真实数据保留。
+     * 业务键(positionName/province/city)不参与，避免覆盖匹配依据。
+     */
+    private void fillWelfareGaps(PublicWelfarePosition e, PublicWelfarePositionExcelDTO dto) {
+        if (!StringUtils.hasText(e.getDevelopingUnit()) && StringUtils.hasText(dto.getDevelopingUnit())) e.setDevelopingUnit(dto.getDevelopingUnit());
+        if (!StringUtils.hasText(e.getEmployingUnit()) && StringUtils.hasText(dto.getEmployingUnit())) e.setEmployingUnit(dto.getEmployingUnit());
+        if (!StringUtils.hasText(e.getPositionCategory()) && StringUtils.hasText(dto.getPositionCategory())) e.setPositionCategory(dto.getPositionCategory());
+        if (!StringUtils.hasText(e.getWorkContent()) && StringUtils.hasText(dto.getWorkContent())) e.setWorkContent(dto.getWorkContent());
+        if (!StringUtils.hasText(e.getDistrict()) && StringUtils.hasText(dto.getDistrict())) e.setDistrict(dto.getDistrict());
+        if (!StringUtils.hasText(e.getWorkLocation()) && StringUtils.hasText(dto.getWorkLocation())) e.setWorkLocation(dto.getWorkLocation());
+        if ((e.getTargetGroup() == null || e.getTargetGroup().length == 0)
+                && dto.getTargetGroup() != null && dto.getTargetGroup().length > 0) e.setTargetGroup(dto.getTargetGroup());
+        if (!StringUtils.hasText(e.getEducationRequirement()) && StringUtils.hasText(dto.getEducationRequirement())) e.setEducationRequirement(dto.getEducationRequirement());
+        if (!StringUtils.hasText(e.getAgeRange()) && StringUtils.hasText(dto.getAgeRange())) e.setAgeRange(dto.getAgeRange());
+        if (!StringUtils.hasText(e.getHealthRequirement()) && StringUtils.hasText(dto.getHealthRequirement())) e.setHealthRequirement(dto.getHealthRequirement());
+        if (e.getRecruitmentCount() == null && dto.getRecruitmentCount() != null) e.setRecruitmentCount(dto.getRecruitmentCount());
+        if (!StringUtils.hasText(e.getHouseholdRequirement()) && StringUtils.hasText(dto.getHouseholdRequirement())) e.setHouseholdRequirement(dto.getHouseholdRequirement());
+        if (e.getEmploymentDifficultyCert() == null && dto.getEmploymentDifficultyCert() != null) e.setEmploymentDifficultyCert(dto.getEmploymentDifficultyCert());
+        if (!StringUtils.hasText(e.getOtherRequirement()) && StringUtils.hasText(dto.getOtherRequirement())) e.setOtherRequirement(dto.getOtherRequirement());
+        if (!StringUtils.hasText(e.getContractPeriod()) && StringUtils.hasText(dto.getContractPeriod())) e.setContractPeriod(dto.getContractPeriod());
+        if (e.getIsRenewable() == null && dto.getIsRenewable() != null) e.setIsRenewable(dto.getIsRenewable());
+        if (e.getMaxServiceYears() == null && dto.getMaxServiceYears() != null) e.setMaxServiceYears(dto.getMaxServiceYears());
+        if (!StringUtils.hasText(e.getMonthlySalary()) && StringUtils.hasText(dto.getMonthlySalary())) e.setMonthlySalary(dto.getMonthlySalary());
+        if (!StringUtils.hasText(e.getSalarySource()) && StringUtils.hasText(dto.getSalarySource())) e.setSalarySource(dto.getSalarySource());
+        if (!StringUtils.hasText(e.getSubsidyStandard()) && StringUtils.hasText(dto.getSubsidyStandard())) e.setSubsidyStandard(dto.getSubsidyStandard());
+        if (!StringUtils.hasText(e.getSocialInsuranceInfo()) && StringUtils.hasText(dto.getSocialInsuranceInfo())) e.setSocialInsuranceInfo(dto.getSocialInsuranceInfo());
+        if (!StringUtils.hasText(e.getOtherBenefits()) && StringUtils.hasText(dto.getOtherBenefits())) e.setOtherBenefits(dto.getOtherBenefits());
+        if (!StringUtils.hasText(e.getWorkSchedule()) && StringUtils.hasText(dto.getWorkSchedule())) e.setWorkSchedule(dto.getWorkSchedule());
+        if (e.getIsShiftWork() == null && dto.getIsShiftWork() != null) e.setIsShiftWork(dto.getIsShiftWork());
+        if (e.getRegStartDate() == null && dto.getRegStartDate() != null) e.setRegStartDate(dto.getRegStartDate());
+        if (e.getRegEndDate() == null && dto.getRegEndDate() != null) e.setRegEndDate(dto.getRegEndDate());
+        if (!StringUtils.hasText(e.getApplyMethod()) && StringUtils.hasText(dto.getApplyMethod())) e.setApplyMethod(dto.getApplyMethod());
+        if (!StringUtils.hasText(e.getApplyAddress()) && StringUtils.hasText(dto.getApplyAddress())) e.setApplyAddress(dto.getApplyAddress());
+        if (!StringUtils.hasText(e.getRequiredDocuments()) && StringUtils.hasText(dto.getRequiredDocuments())) e.setRequiredDocuments(dto.getRequiredDocuments());
+        if (!StringUtils.hasText(e.getPositionStatus()) && StringUtils.hasText(dto.getPositionStatus())) e.setPositionStatus(dto.getPositionStatus());
+        if (!StringUtils.hasText(e.getContactPhone()) && StringUtils.hasText(dto.getContactPhone())) e.setContactPhone(dto.getContactPhone());
+        if (!StringUtils.hasText(e.getContactPerson()) && StringUtils.hasText(dto.getContactPerson())) e.setContactPerson(dto.getContactPerson());
+        if (!StringUtils.hasText(e.getRemark()) && StringUtils.hasText(dto.getRemark())) e.setRemark(dto.getRemark());
+        if (!StringUtils.hasText(e.getContent()) && StringUtils.hasText(dto.getContent())) e.setContent(dto.getContent());
+        if (e.getSortOrder() == null && dto.getSortOrder() != null) e.setSortOrder(dto.getSortOrder());
+    }
+
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
         }
-        Db.saveBatch(entities);
-        if (!duplicateWarnings.isEmpty()) {
-            log.info("导入公益性岗位: 跳过{}条重复记录: {}", duplicateWarnings.size(), String.join(", ", duplicateWarnings));
-        }
-        log.info("导入公益性岗位成功: count={}", entities.size());
+        return joined;
     }
 
     private String validateExcelRows(List<PublicWelfarePositionExcelDTO> list) {

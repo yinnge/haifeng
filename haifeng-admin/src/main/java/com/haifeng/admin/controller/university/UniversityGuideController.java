@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.UniversityGuideService;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
 import com.haifeng.admin.vo.university.UniversityGuideListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -117,7 +118,7 @@ public class UniversityGuideController {
      */
     @PostMapping("/import")
     @OperationLog(module = "院校管理", action = "导入院校适应指南数据")
-    public R<Void> importGuide(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importGuide(@RequestParam("file") MultipartFile file) {
         universityGuideService.importGuide(file);
         return R.ok();
     }

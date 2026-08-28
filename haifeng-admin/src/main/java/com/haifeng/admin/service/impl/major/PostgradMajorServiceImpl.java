@@ -38,6 +38,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
     private final PostgradMajorMapper postgradMajorMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_ERROR_DISPLAY = 50;
 
     /**
      * 有效的学位类型
@@ -308,7 +309,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             throw new BusinessException(400, "ID列表不能为空");
         }
 
-        int deleted = postgradMajorMapper.deleteBatchIds(ids);
+        int deleted = postgradMajorMapper.deleteByIds(ids);
 
         log.info("批量硬删除考研专业完成: 请求数量={}, 实际删除={}", ids.size(), deleted);
     }
@@ -343,6 +344,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
         Set<String> majorCodesInFile = new HashSet<>();
         OffsetDateTime now = OffsetDateTime.now();
         int successCount = 0;
+        int updatedCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2; // Excel行号（从2开始，1是表头）
@@ -360,38 +362,6 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                 errors.add("第" + rowNum + "行: 专业代码不能为空");
                 continue;
             }
-            if (!StringUtils.hasText(dto.getDegreeType())) {
-                errors.add("第" + rowNum + "行: 学位类型不能为空");
-                continue;
-            }
-            if (!StringUtils.hasText(dto.getDisciplineCategory())) {
-                errors.add("第" + rowNum + "行: 学科门类不能为空");
-                continue;
-            }
-
-            // 校验学位类型枚举
-            if (!VALID_DEGREE_TYPES.contains(dto.getDegreeType())) {
-                errors.add("第" + rowNum + "行: 学位类型必须为学术学位或专业学位");
-                continue;
-            }
-
-            // 校验热门程度枚举（可为空）
-            if (StringUtils.hasText(dto.getPopularity()) && !VALID_POPULARITY.contains(dto.getPopularity())) {
-                errors.add("第" + rowNum + "行: 热门程度必须为热门、一般或冷门");
-                continue;
-            }
-
-            // 校验难度等级枚举（可为空）
-            if (StringUtils.hasText(dto.getDifficulty()) && !VALID_DIFFICULTY.contains(dto.getDifficulty())) {
-                errors.add("第" + rowNum + "行: 难度等级必须为高、中或低");
-                continue;
-            }
-
-            // 校验跨考难度枚举（可为空）
-            if (StringUtils.hasText(dto.getCrossExamDifficulty()) && !VALID_CROSS_EXAM_DIFFICULTY.contains(dto.getCrossExamDifficulty())) {
-                errors.add("第" + rowNum + "行: 跨考难度必须为较易、中等或较难");
-                continue;
-            }
 
             // 检查文件内重复
             if (majorCodesInFile.contains(majorCode)) {
@@ -400,55 +370,175 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
             }
             majorCodesInFile.add(majorCode);
 
-            // 检查数据库中是否已存在
-            if (postgradMajorMapper.existsByMajorCode(majorCode)) {
-                errors.add("第" + rowNum + "行: 专业代码[" + majorCode + "]已存在");
-                continue;
+            PostgradMajor existing = postgradMajorMapper.selectByMajorCode(majorCode);
+
+            if (existing == null) {
+                // ===== 数据库不存在：新增（保留全部必填/枚举校验） =====
+                if (!StringUtils.hasText(dto.getDegreeType())) {
+                    errors.add("第" + rowNum + "行: 学位类型不能为空");
+                    continue;
+                }
+                if (!StringUtils.hasText(dto.getDisciplineCategory())) {
+                    errors.add("第" + rowNum + "行: 学科门类不能为空");
+                    continue;
+                }
+                if (!VALID_DEGREE_TYPES.contains(dto.getDegreeType())) {
+                    errors.add("第" + rowNum + "行: 学位类型必须为学术学位或专业学位");
+                    continue;
+                }
+                if (StringUtils.hasText(dto.getPopularity()) && !VALID_POPULARITY.contains(dto.getPopularity())) {
+                    errors.add("第" + rowNum + "行: 热门程度必须为热门、一般或冷门");
+                    continue;
+                }
+                if (StringUtils.hasText(dto.getDifficulty()) && !VALID_DIFFICULTY.contains(dto.getDifficulty())) {
+                    errors.add("第" + rowNum + "行: 难度等级必须为高、中或低");
+                    continue;
+                }
+                if (StringUtils.hasText(dto.getCrossExamDifficulty()) && !VALID_CROSS_EXAM_DIFFICULTY.contains(dto.getCrossExamDifficulty())) {
+                    errors.add("第" + rowNum + "行: 跨考难度必须为较易、中等或较难");
+                    continue;
+                }
+
+                // 解析数组字段（以逗号分隔）
+                String[] examSubjects = parseArrayField(dto.getExamSubjects());
+                String[] admissionRequirements = parseArrayField(dto.getAdmissionRequirements());
+                String[] crossExamFactors = parseArrayField(dto.getCrossExamFactors());
+
+                Long id = SnowflakeIdGenerator.nextId();
+                PostgradMajor major = PostgradMajor.builder()
+                        .id(id)
+                        .majorName(majorName)
+                        .majorCode(majorCode)
+                        .degreeType(dto.getDegreeType())
+                        .disciplineCategory(dto.getDisciplineCategory())
+                        .popularity(dto.getPopularity())
+                        .difficulty(dto.getDifficulty())
+                        .brief(dto.getBrief())
+                        .introduction(dto.getIntroduction())
+                        .examSubjects(examSubjects)
+                        .admissionRequirements(admissionRequirements)
+                        .crossExamFactors(crossExamFactors)
+                        .crossExamDifficulty(dto.getCrossExamDifficulty())
+                        .crossExamDescription(dto.getCrossExamDescription())
+                        .status((short) 1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+
+                try {
+                    postgradMajorMapper.insert(major);
+                    successCount++;
+                } catch (Exception e) {
+                    errors.add("第" + rowNum + "行: 保存失败[专业代码=" + majorCode + "]: " + e.getMessage());
+                }
+            } else {
+                // ===== 数据库已存在：仅补齐为空的列，已有数据的列绝不覆盖 =====
+                boolean changed = mergePostgradMajorIfBlank(existing, dto);
+                // 合并后校验枚举字段（仅当非空；仅在本次上传填补时可能命中非法值）
+                if (existing.getDegreeType() != null && !VALID_DEGREE_TYPES.contains(existing.getDegreeType())) {
+                    errors.add("第" + rowNum + "行: 学位类型必须为学术学位或专业学位");
+                    continue;
+                }
+                if (existing.getPopularity() != null && !VALID_POPULARITY.contains(existing.getPopularity())) {
+                    errors.add("第" + rowNum + "行: 热门程度必须为热门、一般或冷门");
+                    continue;
+                }
+                if (existing.getDifficulty() != null && !VALID_DIFFICULTY.contains(existing.getDifficulty())) {
+                    errors.add("第" + rowNum + "行: 难度等级必须为高、中或低");
+                    continue;
+                }
+                if (existing.getCrossExamDifficulty() != null && !VALID_CROSS_EXAM_DIFFICULTY.contains(existing.getCrossExamDifficulty())) {
+                    errors.add("第" + rowNum + "行: 跨考难度必须为较易、中等或较难");
+                    continue;
+                }
+                if (changed) {
+                    existing.setUpdatedAt(now);
+                    try {
+                        postgradMajorMapper.updateById(existing);
+                        updatedCount++;
+                    } catch (Exception e) {
+                        errors.add("第" + rowNum + "行: 保存失败[专业代码=" + majorCode + "]: " + e.getMessage());
+                    }
+                }
+                successCount++;
             }
-
-            // 解析数组字段（以逗号分隔）
-            String[] examSubjects = parseArrayField(dto.getExamSubjects());
-            String[] admissionRequirements = parseArrayField(dto.getAdmissionRequirements());
-            String[] crossExamFactors = parseArrayField(dto.getCrossExamFactors());
-
-            // 构建实体并插入
-            Long id = SnowflakeIdGenerator.nextId();
-            PostgradMajor major = PostgradMajor.builder()
-                    .id(id)
-                    .majorName(majorName)
-                    .majorCode(majorCode)
-                    .degreeType(dto.getDegreeType())
-                    .disciplineCategory(dto.getDisciplineCategory())
-                    .popularity(dto.getPopularity())
-                    .difficulty(dto.getDifficulty())
-                    .brief(dto.getBrief())
-                    .introduction(dto.getIntroduction())
-                    .examSubjects(examSubjects)
-                    .admissionRequirements(admissionRequirements)
-                    .crossExamFactors(crossExamFactors)
-                    .crossExamDifficulty(dto.getCrossExamDifficulty())
-                    .crossExamDescription(dto.getCrossExamDescription())
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            postgradMajorMapper.insert(major);
-            successCount++;
         }
 
         if (!errors.isEmpty()) {
-            log.warn("导入考研专业数据部分失败: 成功{}条, 失败{}条", successCount, errors.size());
-        } else {
-            log.info("导入考研专业数据成功: 共{}条", successCount);
+            String detail = errors.size() > MAX_ERROR_DISPLAY
+                    ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + " 等" + errors.size() + "条错误"
+                    : String.join("; ", errors);
+            throw new BusinessException(400, "导入失败，共" + errors.size() + "行数据存在错误，已全部回滚：" + detail);
         }
 
+        log.info("导入考研专业数据完成: 新增/补齐{}条, 其中补齐{}条", successCount, updatedCount);
         return ImportResultVO.builder()
                 .total(dataList.size())
                 .success(successCount)
-                .failed(errors.size())
-                .errors(errors.isEmpty() ? null : errors)
+                .failed(0)
+                .updated(updatedCount)
+                .errors(null)
                 .build();
+    }
+
+    /**
+     * 合并策略：仅当数据库字段为 null 且上传数据有值时，才用上传值填补；
+     * 数据库已有数据的列（无论上传是否有值）一律保留，不覆盖。
+     * 专业代码为匹配键、status 由新增分支写入，均不参与合并。
+     *
+     * @return 是否有任意列被填补（用于判定是否需要 UPDATE）
+     */
+    private boolean mergePostgradMajorIfBlank(PostgradMajor existing, PostgradMajorImportDTO dto) {
+        boolean changed = false;
+        if (existing.getMajorName() == null && StringUtils.hasText(dto.getMajorName())) {
+            existing.setMajorName(dto.getMajorName().trim());
+            changed = true;
+        }
+        if (existing.getDegreeType() == null && StringUtils.hasText(dto.getDegreeType())) {
+            existing.setDegreeType(dto.getDegreeType());
+            changed = true;
+        }
+        if (existing.getDisciplineCategory() == null && StringUtils.hasText(dto.getDisciplineCategory())) {
+            existing.setDisciplineCategory(dto.getDisciplineCategory());
+            changed = true;
+        }
+        if (existing.getPopularity() == null && StringUtils.hasText(dto.getPopularity())) {
+            existing.setPopularity(dto.getPopularity());
+            changed = true;
+        }
+        if (existing.getDifficulty() == null && StringUtils.hasText(dto.getDifficulty())) {
+            existing.setDifficulty(dto.getDifficulty());
+            changed = true;
+        }
+        if (existing.getBrief() == null && StringUtils.hasText(dto.getBrief())) {
+            existing.setBrief(dto.getBrief());
+            changed = true;
+        }
+        if (existing.getIntroduction() == null && StringUtils.hasText(dto.getIntroduction())) {
+            existing.setIntroduction(dto.getIntroduction());
+            changed = true;
+        }
+        if (existing.getExamSubjects() == null && StringUtils.hasText(dto.getExamSubjects())) {
+            existing.setExamSubjects(parseArrayField(dto.getExamSubjects()));
+            changed = true;
+        }
+        if (existing.getAdmissionRequirements() == null && StringUtils.hasText(dto.getAdmissionRequirements())) {
+            existing.setAdmissionRequirements(parseArrayField(dto.getAdmissionRequirements()));
+            changed = true;
+        }
+        if (existing.getCrossExamFactors() == null && StringUtils.hasText(dto.getCrossExamFactors())) {
+            existing.setCrossExamFactors(parseArrayField(dto.getCrossExamFactors()));
+            changed = true;
+        }
+        if (existing.getCrossExamDifficulty() == null && StringUtils.hasText(dto.getCrossExamDifficulty())) {
+            existing.setCrossExamDifficulty(dto.getCrossExamDifficulty());
+            changed = true;
+        }
+        if (existing.getCrossExamDescription() == null && StringUtils.hasText(dto.getCrossExamDescription())) {
+            existing.setCrossExamDescription(dto.getCrossExamDescription());
+            changed = true;
+        }
+        return changed;
     }
 
     @Override

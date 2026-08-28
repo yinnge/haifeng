@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.company.EnterpriseIndustryQueryDTO;
 import com.haifeng.admin.service.company.EnterpriseIndustryService;
 import com.haifeng.admin.vo.company.EnterpriseIndustryDetailVO;
 import com.haifeng.admin.vo.company.EnterpriseIndustryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -79,7 +80,7 @@ public class EnterpriseIndustryController {
      */
     @PostMapping("/import")
     @OperationLog(module = "企业-行业关联", action = "导入关联")
-    public R<Void> importEnterpriseIndustries(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importEnterpriseIndustries(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return R.fail(400, "请上传文件");
         }
@@ -87,7 +88,7 @@ public class EnterpriseIndustryController {
         if (fileName == null || !fileName.endsWith(".xlsx")) {
             return R.fail(400, "仅支持 .xlsx 格式文件");
         }
-        enterpriseIndustryService.importEnterpriseIndustries(file);
-        return R.ok();
+        ImportResultVO result = enterpriseIndustryService.importEnterpriseIndustries(file);
+        return R.ok(result);
     }
 }

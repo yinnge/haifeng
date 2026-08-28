@@ -5,6 +5,7 @@ import com.haifeng.admin.dto.employment.industryPosition.PositionStatusUpdateDTO
 import com.haifeng.admin.dto.employment.industryPosition.finance.*;
 import com.haifeng.admin.service.employment.industryPosition.FinancePositionService;
 import com.haifeng.admin.vo.employment.industryPosition.finance.*;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -87,8 +88,7 @@ public class FinancePositionController {
 
     @PostMapping("/import")
     @OperationLog(module = "行业专项招聘", action = "导入银行/金融招聘岗位")
-    public R<Void> importExcel(@RequestParam("file") MultipartFile file) {
-        financePositionService.importExcel(file);
-        return R.ok();
+    public R<ImportResultVO> importExcel(@RequestParam("file") MultipartFile file) {
+        return R.ok(financePositionService.importExcel(file));
     }
 }

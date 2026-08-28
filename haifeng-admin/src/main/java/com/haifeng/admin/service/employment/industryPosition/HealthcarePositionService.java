@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePo
 import com.haifeng.admin.dto.employment.industryPosition.healthcare.HealthcarePositionUpdateDTO;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.HealthcarePositionDetailVO;
 import com.haifeng.admin.vo.employment.industryPosition.healthcare.HealthcarePositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -18,6 +19,6 @@ public interface HealthcarePositionService {
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
-    void importExcel(MultipartFile file);
+    ImportResultVO importExcel(MultipartFile file);
     String preValidate(MultipartFile file);
 }

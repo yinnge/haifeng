@@ -192,7 +192,7 @@ public class StrongBaseScoreServiceImpl implements StrongBaseScoreService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        strongBaseScoreMapper.deleteBatchIds(ids);
+        strongBaseScoreMapper.deleteByIds(ids);
         log.info("批量删除强基计划数据: count={}", ids.size());
     }
 }

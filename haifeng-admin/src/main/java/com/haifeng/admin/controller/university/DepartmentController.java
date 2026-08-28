@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.university.DepartmentAddDTO;
 import com.haifeng.admin.dto.university.DepartmentQueryDTO;
 import com.haifeng.admin.dto.university.DepartmentUpdateDTO;
 import com.haifeng.admin.service.university.DepartmentService;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.DepartmentDetailVO;
 import com.haifeng.admin.vo.university.DepartmentListVO;
 import com.haifeng.common.annotation.OperationLog;
@@ -120,7 +121,7 @@ public class DepartmentController {
      */
     @PostMapping("/import")
     @OperationLog(module = "院系管理", action = "导入院系数据")
-    public R<Void> importDepartments(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importDepartments(@RequestParam("file") MultipartFile file) {
         departmentService.importDepartments(file);
         return R.ok();
     }
@@ -130,7 +131,7 @@ public class DepartmentController {
      */
     @PostMapping("/import-report")
     @OperationLog(module = "院系管理", action = "导入院系报告数据")
-    public R<Void> importDepartmentReports(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importDepartmentReports(@RequestParam("file") MultipartFile file) {
         departmentService.importDepartmentReports(file);
         return R.ok();
     }

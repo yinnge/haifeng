@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.UniversityService;
 import com.haifeng.admin.vo.university.UniversityDetailVO;
 import com.haifeng.admin.vo.university.UniversityListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -127,7 +128,7 @@ public class UniversityController {
      */
     @PostMapping("/import")
     @OperationLog(module = "院校管理", action = "导入院校主表数据")
-    public R<Void> importUniversities(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importUniversities(@RequestParam("file") MultipartFile file) {
         universityService.importUniversities(file);
         return R.ok();
     }
@@ -137,7 +138,7 @@ public class UniversityController {
      */
     @PostMapping("/import-detail")
     @OperationLog(module = "院校管理", action = "导入院校详情数据")
-    public R<Void> importUniversityDetails(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultVO> importUniversityDetails(@RequestParam("file") MultipartFile file) {
         universityService.importUniversityDetails(file);
         return R.ok();
     }

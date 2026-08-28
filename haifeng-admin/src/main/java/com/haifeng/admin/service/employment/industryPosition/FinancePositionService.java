@@ -6,6 +6,7 @@ import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePosition
 import com.haifeng.admin.dto.employment.industryPosition.finance.FinancePositionUpdateDTO;
 import com.haifeng.admin.vo.employment.industryPosition.finance.FinancePositionDetailVO;
 import com.haifeng.admin.vo.employment.industryPosition.finance.FinancePositionListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -18,6 +19,6 @@ public interface FinancePositionService {
     void delete(Long id);
     void updateStatus(Long id, String positionStatus);
     void batchDelete(List<Long> ids);
-    void importExcel(MultipartFile file);
+    ImportResultVO importExcel(MultipartFile file);
     String preValidate(MultipartFile file);
 }

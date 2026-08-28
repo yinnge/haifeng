@@ -19,5 +19,10 @@ public class ImportResultVO {
 
     private Integer failed;
 
+    /**
+     * 已存在记录中被"补齐空列"的条数（新增条数 = success - updated）
+     */
+    private Integer updated;
+
     private List<String> errors;
 }

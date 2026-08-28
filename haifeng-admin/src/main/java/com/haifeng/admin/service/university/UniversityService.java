@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.vo.university.UniversityDetailVO;
 import com.haifeng.admin.vo.university.UniversityListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -94,12 +95,12 @@ public interface UniversityService {
      *
      * @param file Excel文件
      */
-    void importUniversities(MultipartFile file);
+    ImportResultVO importUniversities(MultipartFile file);
 
     /**
      * Excel导入院校详情表数据
      *
      * @param file Excel文件
      */
-    void importUniversityDetails(MultipartFile file);
+    ImportResultVO importUniversityDetails(MultipartFile file);
 }

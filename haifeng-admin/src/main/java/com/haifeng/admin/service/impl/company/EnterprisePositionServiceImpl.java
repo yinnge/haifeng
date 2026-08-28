@@ -197,7 +197,7 @@ public class EnterprisePositionServiceImpl implements EnterprisePositionService 
             throw new BusinessException(400, "请选择要删除的岗位");
         }
 
-        enterprisePositionMapper.deleteBatchIds(ids);
+        enterprisePositionMapper.deleteByIds(ids);
 
         log.info("批量硬删除企业岗位成功: 删除数量={}, ids={}", ids.size(), ids);
     }

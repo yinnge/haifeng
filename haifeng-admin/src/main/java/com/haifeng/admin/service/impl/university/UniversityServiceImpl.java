@@ -8,6 +8,7 @@ import com.haifeng.admin.service.university.UniversityService;
 import com.haifeng.admin.vo.university.RankingsVO;
 import com.haifeng.admin.vo.university.UniversityDetailVO;
 import com.haifeng.admin.vo.university.UniversityListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.entity.university.University;
 import com.haifeng.common.entity.university.UniversityDetail;
 import com.haifeng.common.entity.university.UniversityGuide;
@@ -45,6 +46,9 @@ public class UniversityServiceImpl implements UniversityService {
     private final UniversityMapper universityMapper;
 
     private static final int MAX_IMPORT_ROWS = 1000;
+
+    /** 导入错误信息最多展示条数，超出部分只提示总数，避免 msg 过长 */
+    private static final int MAX_ERROR_SHOWN = 50;
     private final UniversityDetailMapper universityDetailMapper;
     private final UniversityGuideMapper universityGuideMapper;
 
@@ -427,7 +431,7 @@ public class UniversityServiceImpl implements UniversityService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importUniversities(MultipartFile file) {
+    public ImportResultVO importUniversities(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -453,7 +457,8 @@ public class UniversityServiceImpl implements UniversityService {
 
         List<String> errors = new ArrayList<>();
         OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
+        int insertCount = 0;
+        int updateCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2; // Excel行号（从2开始，1是表头）
@@ -465,58 +470,195 @@ public class UniversityServiceImpl implements UniversityService {
                 continue;
             }
 
-            // 检查名称是否重复
-            LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(University::getName, dto.getName())
-                   .ne(University::getStatus, (short) 0);
-            if (universityMapper.selectCount(wrapper) > 0) {
-                errors.add("第" + rowNum + "行: 院校名称[" + dto.getName() + "]已存在");
+            // 字段长度校验（对应 t_universities 列定义，避免保存时触发 varchar 超长）
+            int errBefore = errors.size();
+            checkLength(dto.getName(), "院校名称", 50, rowNum, errors);
+            checkLength(dto.getNameEn(), "院校名称英文", 100, rowNum, errors);
+            checkLength(dto.getProvinceName(), "省份", 50, rowNum, errors);
+            checkLength(dto.getCityName(), "城市", 50, rowNum, errors);
+            checkLength(dto.getRegion(), "所属地区", 50, rowNum, errors);
+            checkLength(dto.getCategory(), "院校类别", 50, rowNum, errors);
+            checkLength(dto.getEducationLevel(), "办学层次", 50, rowNum, errors);
+            checkLength(dto.getNature(), "院校性质", 50, rowNum, errors);
+            checkLength(dto.getDepartment(), "隶属部门", 100, rowNum, errors);
+            checkLength(dto.getFamousUnion(), "知名联盟", 50, rowNum, errors);
+            checkLength(dto.getImageUrl(), "院校图片URL", 500, rowNum, errors);
+            if (errors.size() > errBefore) {
                 continue;
             }
 
-            Long id = SnowflakeIdGenerator.nextId();
-            University university = University.builder()
-                    .id(id)
-                    .name(dto.getName())
-                    .nameEn(dto.getNameEn())
-                    .provinceName(dto.getProvinceName())
-                    .cityName(dto.getCityName())
-                    .region(dto.getRegion())
-                    .category(dto.getCategory())
-                    .majorCount(dto.getMajorCount() != null ? dto.getMajorCount() : 0)
-                    .educationLevel(dto.getEducationLevel())
-                    .nature(dto.getNature())
-                    .recommendationRate(dto.getRecommendationRate())
-                    .recommendationYear(dto.getRecommendationYear())
-                    .hasDoctorate(dto.getHasDoctorate() != null ? dto.getHasDoctorate() : false)
-                    .hasMaster(dto.getHasMaster() != null ? dto.getHasMaster() : false)
-                    .department(dto.getDepartment())
-                    .tags(dto.getTags())
-                    .famousUnion(dto.getFamousUnion())
-                    .imageUrl(dto.getImageUrl())
-                    .introduction(dto.getIntroduction())
-                    .sortOrder(0)
-                    .status((short) 1)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
+            // 查找是否已存在同一院校（按名称，排除已下架）
+            LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(University::getName, dto.getName())
+                   .ne(University::getStatus, (short) 0);
+            List<University> existingList = universityMapper.selectList(wrapper);
+            University existing = existingList.isEmpty() ? null : existingList.get(0);
 
-            universityMapper.insert(university);
-            successCount++;
+            try {
+                if (existing != null) {
+                    // 已存在：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖
+                    fillUniversityGaps(existing, dto, now);
+                    universityMapper.updateById(existing);
+                    updateCount++;
+                } else {
+                    // 新增：数据库 NOT NULL 列必须齐全
+                    int reqBefore = errors.size();
+                    requireText(dto.getNameEn(), "院校名称英文", rowNum, errors);
+                    requireText(dto.getProvinceName(), "省份", rowNum, errors);
+                    requireText(dto.getCityName(), "城市", rowNum, errors);
+                    requireText(dto.getRegion(), "所属地区", rowNum, errors);
+                    requireText(dto.getCategory(), "院校类别", rowNum, errors);
+                    if (errors.size() > reqBefore) {
+                        continue;
+                    }
+
+                    University university = University.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .name(dto.getName())
+                            .nameEn(dto.getNameEn())
+                            .provinceName(dto.getProvinceName())
+                            .cityName(dto.getCityName())
+                            .region(dto.getRegion())
+                            .category(dto.getCategory())
+                            .majorCount(dto.getMajorCount() != null ? dto.getMajorCount() : 0)
+                            .educationLevel(dto.getEducationLevel())
+                            .nature(dto.getNature())
+                            .recommendationRate(dto.getRecommendationRate())
+                            .recommendationYear(dto.getRecommendationYear())
+                            .hasDoctorate(dto.getHasDoctorate() != null ? dto.getHasDoctorate() : false)
+                            .hasMaster(dto.getHasMaster() != null ? dto.getHasMaster() : false)
+                            .department(dto.getDepartment())
+                            .tags(dto.getTags())
+                            .famousUnion(dto.getFamousUnion())
+                            .imageUrl(dto.getImageUrl())
+                            .introduction(dto.getIntroduction())
+                            .sortOrder(0)
+                            .status((short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    universityMapper.insert(university);
+                    insertCount++;
+                }
+            } catch (Exception e) {
+                log.error("第{}行导入院校主表失败", rowNum, e);
+                errors.add("第" + rowNum + "行: 保存失败(" + e.getMessage() + ")");
+            }
         }
 
         if (!errors.isEmpty()) {
             String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
-                    errors.size(), String.join("; ", errors));
+                    errors.size(), joinErrors(errors));
             throw new BusinessException(400, errorMsg);
         }
 
-        log.info("导入院校主表数据成功: 共{}条", successCount);
+        log.info("导入院校主表数据成功: 新增{}条, 补齐{}条", insertCount, updateCount);
+        int total = dataList.size();
+        int failed = 0; // 整批回滚，无部分成功
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total - failed)
+                .failed(failed)
+                .updated(updateCount)
+                .errors(errors)
+                .build();
+    }
+
+    /**
+     * 校验导入字段长度是否超过数据库列定义，超出则收集错误信息（指明行号/字段/实际长度）。
+     */
+    private void checkLength(String value, String fieldLabel, int max, int rowNum, List<String> errors) {
+        if (value != null && value.length() > max) {
+            errors.add(String.format("第%d行: %s超过%d个字符限制(实际%d个字符)",
+                    rowNum, fieldLabel, max, value.length()));
+        }
+    }
+
+    /**
+     * 新增记录时校验数据库 NOT NULL 列是否有值。
+     */
+    private void requireText(String value, String fieldLabel, int rowNum, List<String> errors) {
+        if (!StringUtils.hasText(value)) {
+            errors.add("第" + rowNum + "行: 新增记录时" + fieldLabel + "不能为空");
+        }
+    }
+
+    /**
+     * 已存在的院校记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     */
+    private void fillUniversityGaps(University db, UniversityExcelDTO dto, OffsetDateTime now) {
+        if (db.getNameEn() == null) {
+            db.setNameEn(dto.getNameEn());
+        }
+        if (db.getProvinceName() == null) {
+            db.setProvinceName(dto.getProvinceName());
+        }
+        if (db.getCityName() == null) {
+            db.setCityName(dto.getCityName());
+        }
+        if (db.getRegion() == null) {
+            db.setRegion(dto.getRegion());
+        }
+        if (db.getCategory() == null) {
+            db.setCategory(dto.getCategory());
+        }
+        if (db.getMajorCount() == null) {
+            db.setMajorCount(dto.getMajorCount() != null ? dto.getMajorCount() : 0);
+        }
+        if (db.getEducationLevel() == null) {
+            db.setEducationLevel(dto.getEducationLevel());
+        }
+        if (db.getNature() == null) {
+            db.setNature(dto.getNature());
+        }
+        if (db.getRecommendationRate() == null) {
+            db.setRecommendationRate(dto.getRecommendationRate());
+        }
+        if (db.getRecommendationYear() == null) {
+            db.setRecommendationYear(dto.getRecommendationYear());
+        }
+        if (db.getHasDoctorate() == null) {
+            db.setHasDoctorate(dto.getHasDoctorate() != null ? dto.getHasDoctorate() : false);
+        }
+        if (db.getHasMaster() == null) {
+            db.setHasMaster(dto.getHasMaster() != null ? dto.getHasMaster() : false);
+        }
+        if (db.getDepartment() == null) {
+            db.setDepartment(dto.getDepartment());
+        }
+        if (isBlankList(db.getTags()) && !isBlankList(dto.getTags())) {
+            db.setTags(dto.getTags());
+        }
+        if (db.getFamousUnion() == null) {
+            db.setFamousUnion(dto.getFamousUnion());
+        }
+        if (db.getImageUrl() == null) {
+            db.setImageUrl(dto.getImageUrl());
+        }
+        if (db.getIntroduction() == null) {
+            db.setIntroduction(dto.getIntroduction());
+        }
+        db.setUpdatedAt(now);
+    }
+
+    private boolean isBlankList(List<String> list) {
+        return list == null || list.isEmpty();
+    }
+
+    /**
+     * 汇总错误信息（限制展示条数，避免一次性返回过长文本）。
+     */
+    private String joinErrors(List<String> errors) {
+        if (errors.size() <= MAX_ERROR_SHOWN) {
+            return String.join("; ", errors);
+        }
+        return String.join("; ", errors.subList(0, MAX_ERROR_SHOWN))
+                + "; ...(仅显示前" + MAX_ERROR_SHOWN + "条，共" + errors.size() + "行存在错误)";
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void importUniversityDetails(MultipartFile file) {
+    public ImportResultVO importUniversityDetails(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(400, "请上传Excel文件");
         }
@@ -546,7 +688,8 @@ public class UniversityServiceImpl implements UniversityService {
 
         List<String> errors = new ArrayList<>();
         OffsetDateTime now = OffsetDateTime.now();
-        int successCount = 0;
+        int insertCount = 0;
+        int updateCount = 0;
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -562,65 +705,98 @@ public class UniversityServiceImpl implements UniversityService {
             LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
             univWrapper.eq(University::getName, dto.getUniversityName())
                        .ne(University::getStatus, (short) 0);
-            University university = universityMapper.selectOne(univWrapper);
+            List<University> univList = universityMapper.selectList(univWrapper);
+            University university = univList.isEmpty() ? null : univList.get(0);
 
             if (university == null) {
                 errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
                 continue;
             }
 
+            // 字段长度校验（对应 t_universities_detail 列定义）
+            int errBefore = errors.size();
+            checkLength(dto.getAddress(), "学校地址", 200, rowNum, errors);
+            checkLength(dto.getAdmissionPhone(), "招生电话", 200, rowNum, errors);
+            checkLength(dto.getWebsite(), "官方网站", 500, rowNum, errors);
+            checkLength(dto.getAbroadRate(), "出国比例", 10, rowNum, errors);
+            checkLength(dto.getGenderRatio(), "男女比例", 10, rowNum, errors);
+            if (errors.size() > errBefore) {
+                continue;
+            }
+
             // 检查是否已有详情记录
             LambdaQueryWrapper<UniversityDetail> detailWrapper = new LambdaQueryWrapper<>();
             detailWrapper.eq(UniversityDetail::getUniversityId, university.getId());
-            UniversityDetail existingDetail = universityDetailMapper.selectOne(detailWrapper);
+            List<UniversityDetail> detailList = universityDetailMapper.selectList(detailWrapper);
+            UniversityDetail existingDetail = detailList.isEmpty() ? null : detailList.get(0);
 
-            if (existingDetail != null) {
-                // 更新现有记录
-                existingDetail.setAddress(dto.getAddress());
-                existingDetail.setAdmissionPhone(dto.getAdmissionPhone());
-                existingDetail.setWebsite(dto.getWebsite());
-                existingDetail.setHistoryGroupScore(dto.getHistoryGroupScore());
-                existingDetail.setScienceGroupScore(dto.getScienceGroupScore());
-                existingDetail.setCarouselImages(dto.getCarouselImages());
-                existingDetail.setIntroduction(dto.getIntroduction());
-                existingDetail.setRankings(buildRankings(dto));
-                existingDetail.setAbroadRate(dto.getAbroadRate());
-                existingDetail.setGenderRatio(dto.getGenderRatio());
-                existingDetail.setUpdatedAt(now);
-                universityDetailMapper.updateById(existingDetail);
-            } else {
-                // 新建详情记录
-                Long detailId = SnowflakeIdGenerator.nextId();
-                UniversityDetail detail = UniversityDetail.builder()
-                        .id(detailId)
-                        .universityId(university.getId())
-                        .address(dto.getAddress())
-                        .admissionPhone(dto.getAdmissionPhone())
-                        .website(dto.getWebsite())
-                        .historyGroupScore(dto.getHistoryGroupScore())
-                        .scienceGroupScore(dto.getScienceGroupScore())
-                        .carouselImages(dto.getCarouselImages())
-                        .introduction(dto.getIntroduction())
-                        .rankings(buildRankings(dto))
-                        .abroadRate(dto.getAbroadRate())
-                        .genderRatio(dto.getGenderRatio())
-                        .sortOrder(0)
-                        .status((short) 1)
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-                universityDetailMapper.insert(detail);
+            try {
+                if (existingDetail != null) {
+                    // 已存在：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖
+                    fillDetailGaps(existingDetail, dto, now);
+                    universityDetailMapper.updateById(existingDetail);
+                    updateCount++;
+                } else {
+                    // 新建详情记录
+                    UniversityDetail detail = UniversityDetail.builder()
+                            .id(SnowflakeIdGenerator.nextId())
+                            .universityId(university.getId())
+                            .address(dto.getAddress())
+                            .admissionPhone(dto.getAdmissionPhone())
+                            .website(dto.getWebsite())
+                            .historyGroupScore(parseIntOrNull(dto.getHistoryGroupScore()))
+                            .scienceGroupScore(parseIntOrNull(dto.getScienceGroupScore()))
+                            .carouselImages(dto.getCarouselImages())
+                            .introduction(dto.getIntroduction())
+                            .rankings(buildRankings(dto))
+                            .abroadRate(dto.getAbroadRate())
+                            .genderRatio(dto.getGenderRatio())
+                            .sortOrder(0)
+                            .status((short) 1)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
+                    universityDetailMapper.insert(detail);
+                    insertCount++;
+                }
+            } catch (Exception e) {
+                log.error("第{}行导入院校详情失败", rowNum, e);
+                errors.add("第" + rowNum + "行: 保存失败(" + e.getMessage() + ")");
             }
-            successCount++;
         }
 
         if (!errors.isEmpty()) {
             String errorMsg = String.format("导入失败，共%d行数据存在错误，已全部回滚。错误信息：%s",
-                    errors.size(), String.join("; ", errors));
+                    errors.size(), joinErrors(errors));
             throw new BusinessException(400, errorMsg);
         }
 
-        log.info("导入院校详情数据成功: 共{}条", successCount);
+        log.info("导入院校详情数据成功: 新增{}条, 补齐{}条", insertCount, updateCount);
+        int total = dataList.size();
+        int failed = 0; // 整批回滚，无部分成功
+        return ImportResultVO.builder()
+                .total(total)
+                .success(total - failed)
+                .failed(failed)
+                .updated(updateCount)
+                .errors(errors)
+                .build();
+    }
+
+    /**
+     * 安全解析字符串为 Integer，空串/非数字返回 null
+     */
+    private Integer parseIntOrNull(String val) {
+        if (val == null || val.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // 处理 "450.0" 这类带小数的数值，去掉小数部分
+            return (int) Double.parseDouble(val.trim());
+        } catch (NumberFormatException e) {
+            log.debug("无法解析为整数: {}", val);
+            return null;
+        }
     }
 
     /**
@@ -628,21 +804,74 @@ public class UniversityServiceImpl implements UniversityService {
      */
     private Map<String, Integer> buildRankings(UniversityDetailExcelDTO dto) {
         Map<String, Integer> rankings = new HashMap<>();
-        if (dto.getRuanke() != null) {
-            rankings.put("ruanke", dto.getRuanke());
+        Integer ruanke = parseIntOrNull(dto.getRuanke());
+        Integer xiaoyouhui = parseIntOrNull(dto.getXiaoyouhui());
+        Integer wushulian = parseIntOrNull(dto.getWushulian());
+        Integer qs = parseIntOrNull(dto.getQs());
+        Integer usnews = parseIntOrNull(dto.getUsnews());
+        if (ruanke != null) {
+            rankings.put("ruanke", ruanke);
         }
-        if (dto.getXiaoyouhui() != null) {
-            rankings.put("xiaoyouhui", dto.getXiaoyouhui());
+        if (xiaoyouhui != null) {
+            rankings.put("xiaoyouhui", xiaoyouhui);
         }
-        if (dto.getWushulian() != null) {
-            rankings.put("wushulian", dto.getWushulian());
+        if (wushulian != null) {
+            rankings.put("wushulian", wushulian);
         }
-        if (dto.getQs() != null) {
-            rankings.put("qs", dto.getQs());
+        if (qs != null) {
+            rankings.put("qs", qs);
         }
-        if (dto.getUsnews() != null) {
-            rankings.put("usnews", dto.getUsnews());
+        if (usnews != null) {
+            rankings.put("usnews", usnews);
         }
         return rankings.isEmpty() ? null : rankings;
+    }
+
+    /**
+     * 已存在的详情记录：仅补齐数据库中为 NULL 的字段，已有数据一律不覆盖。
+     * rankings 为 JSONB，按排名项逐项补齐（已有排名项不覆盖，只补缺失项）。
+     */
+    private void fillDetailGaps(UniversityDetail db, UniversityDetailExcelDTO dto, OffsetDateTime now) {
+        Map<String, Integer> importedRankings = buildRankings(dto);
+        if (db.getAddress() == null) {
+            db.setAddress(dto.getAddress());
+        }
+        if (db.getAdmissionPhone() == null) {
+            db.setAdmissionPhone(dto.getAdmissionPhone());
+        }
+        if (db.getWebsite() == null) {
+            db.setWebsite(dto.getWebsite());
+        }
+        if (db.getHistoryGroupScore() == null) {
+            db.setHistoryGroupScore(parseIntOrNull(dto.getHistoryGroupScore()));
+        }
+        if (db.getScienceGroupScore() == null) {
+            db.setScienceGroupScore(parseIntOrNull(dto.getScienceGroupScore()));
+        }
+        if (isBlankList(db.getCarouselImages()) && !isBlankList(dto.getCarouselImages())) {
+            db.setCarouselImages(dto.getCarouselImages());
+        }
+        if (db.getIntroduction() == null) {
+            db.setIntroduction(dto.getIntroduction());
+        }
+        if (db.getRankings() == null) {
+            db.setRankings(importedRankings);
+        } else if (importedRankings != null) {
+            // 排名按项补齐：已有排名项不覆盖
+            Map<String, Integer> merged = new HashMap<>(db.getRankings());
+            importedRankings.forEach((key, value) -> {
+                if (merged.get(key) == null) {
+                    merged.put(key, value);
+                }
+            });
+            db.setRankings(merged);
+        }
+        if (db.getAbroadRate() == null) {
+            db.setAbroadRate(dto.getAbroadRate());
+        }
+        if (db.getGenderRatio() == null) {
+            db.setGenderRatio(dto.getGenderRatio());
+        }
+        db.setUpdatedAt(now);
     }
 }

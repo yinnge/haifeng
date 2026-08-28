@@ -8,6 +8,7 @@ import com.haifeng.admin.dto.industry.IndustryStatusDTO;
 import com.haifeng.admin.dto.industry.IndustryUpdateDTO;
 import com.haifeng.admin.vo.industry.IndustryDetailVO;
 import com.haifeng.admin.vo.industry.IndustryListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -58,10 +59,10 @@ public interface IndustryService {
     /**
      * 导入行业主表xlsx
      */
-    void importIndustries(MultipartFile file);
+    ImportResultVO importIndustries(MultipartFile file);
 
     /**
      * 导入行业详情xlsx（9个Sheet）
      */
-    void importIndustryDetails(MultipartFile file);
+    ImportResultVO importIndustryDetails(MultipartFile file);
 }
