@@ -47,9 +47,6 @@ public class AdmissionGroup {
 
     private String description;
 
-    @TableField(typeHandler = StringListTypeHandler.class)
-    private List<String> constraints;
-
     private Integer majorCount;
 
     private Integer categoryCount;

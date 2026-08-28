@@ -31,7 +31,6 @@ public class AdmissionGroupPageVO {
     private String description;
     private Integer majorCount;
     private Integer categoryCount;
-    private List<String> constraints;
 
     private Boolean subjectMatch;
     private String subjectMatchReason;

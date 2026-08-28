@@ -75,8 +75,8 @@ public class ConstraintServiceImpl implements ConstraintService {
         List<String> userConstraints = constraintMatcherService.matchConstraints(memberId);
         Set<String> userConstraintSet = new HashSet<>(userConstraints);
 
-        // 获取专业组的约束
-        List<String> groupConstraints = group.getConstraints();
+        // 获取专业组的约束（字段已下线，专业组不再承载约束，恒为空 → 直接通过）
+        List<String> groupConstraints = Collections.emptyList();
         if (groupConstraints == null || groupConstraints.isEmpty()) {
             // 专业组无约束限制，直接通过
             return CheckGroupResultVO.builder()

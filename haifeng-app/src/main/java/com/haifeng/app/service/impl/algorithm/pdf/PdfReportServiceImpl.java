@@ -43,6 +43,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -264,13 +265,35 @@ public class PdfReportServiceImpl implements PdfReportService {
         String reduceJson = null;
         try {
             String reduceInput = buildReduceInput(mapResults, groups, memberProfile);
-            List<ChatMessage> reduceMessages = List.of(
-                    new ChatMessage("system", buildReduceSystemPrompt()),
-                    new ChatMessage("user", reduceInput)
-            );
-            String reduceResponse = aiChatService.chatSync(userId, reduceMessages);
+            // 拆成 core（画像/赛道/政策/SWOT/推荐）与 bulk（综合评判/就业/专项拆解）两次并行调用：
+            // 单次调用输出超长会被 max_tokens 截断，导致输出顺序靠后的章节整体缺失
+            CompletableFuture<String> coreFuture = CompletableFuture.supplyAsync(
+                    () -> aiChatService.chatSync(userId, List.of(
+                            new ChatMessage("system", buildReduceCorePrompt()),
+                            new ChatMessage("user", reduceInput))),
+                    pdfMapExecutor);
+            CompletableFuture<String> bulkFuture = CompletableFuture.supplyAsync(
+                    () -> aiChatService.chatSync(userId, List.of(
+                            new ChatMessage("system", buildReduceBulkPrompt()),
+                            new ChatMessage("user", reduceInput))),
+                    pdfMapExecutor);
 
-            ReduceResult reduceResult = parseReduceResult(reduceResponse);
+            String coreResponse = joinUnwrapped(coreFuture);
+            String bulkResponse = joinUnwrapped(bulkFuture);
+
+            ReduceResult reduceResult = mergeReduce(parseCoreResult(coreResponse), parseBulkResult(bulkResponse));
+
+            // 关键内容缺失告警：疑似AI响应格式不符或被截断（不带敏感信息）
+            boolean trackEmpty = reduceResult.getMacroAnalysis() == null
+                    || reduceResult.getMacroAnalysis().getTrackAnalysis() == null
+                    || reduceResult.getMacroAnalysis().getTrackAnalysis().isBlank();
+            boolean swotEmpty = reduceResult.getSwot() == null || reduceResult.getSwot().isBlank();
+            boolean recommendationEmpty = reduceResult.getRecommendation() == null
+                    || reduceResult.getRecommendation().isBlank();
+            if (trackEmpty || swotEmpty || recommendationEmpty) {
+                log.warn("Reduce解析后关键内容为空，疑似AI响应格式不符或被截断: trackEmpty={}, swotEmpty={}, recommendationEmpty={}",
+                        trackEmpty, swotEmpty, recommendationEmpty);
+            }
 
             // 生成优先级图表
             if (reduceResult.getMacroAnalysis() != null
@@ -808,20 +831,25 @@ public class PdfReportServiceImpl implements PdfReportService {
         }
     }
 
+    /** Reduce 输入 JSON 的数据结构说明（core/bulk 两个 prompt 共用） */
+    private static final String REDUCE_DATA_STRUCTURE_DOC = """
+        数据结构说明：
+        - 「院校维度」：各专业组对应的大学信息 + Map阶段AI简评 + 院校详细属性（985/211/硕士点/博士点/保研率等）
+        - 「专业维度」：去重后的专业详情（就业率、薪资、课程、培养目标、就业前景等）
+        - 「城市维度」：去重后的城市详情（GDP、产业、薪资等）
+        - 「专业明细」：每个专业组-专业的完整信息（用于综合排名）
+        - 「考生画像」：考生个人条件（可选）
+        """;
+
     /**
-     * 构建 Reduce 阶段 System Prompt
-     * <p>新结构：学生画像 + 赛道分类 + 政策红利 + SWOT + 推荐梯队 + 大学/专业/城市专项拆解 + 综合评判
+     * 构建 Reduce 阶段 System Prompt（core 调用：学生画像/赛道/政策/SWOT/推荐梯队）。
+     * <p>内容短小关键（约2500 tokens 输出），确保永不因 max_tokens 截断而缺失。
      */
-    private String buildReduceSystemPrompt() {
+    private String buildReduceCorePrompt() {
         return """
             你是海枫未来规划院的首席志愿规划专家。请根据提供的院校、专业、城市数据，进行全面分析。
 
-            数据结构说明：
-            - 「院校维度」：各专业组对应的大学信息 + Map阶段AI简评 + 院校详细属性（985/211/硕士点/博士点/保研率等）
-            - 「专业维度」：去重后的专业详情（就业率、薪资、课程、培养目标、就业前景等）
-            - 「城市维度」：去重后的城市详情（GDP、产业、薪资等）
-            - 「专业明细」：每个专业组-专业的完整信息（用于综合排名）
-            - 「考生画像」：考生个人条件（可选）
+            """ + REDUCE_DATA_STRUCTURE_DOC + """
 
             ## 输出要求
 
@@ -848,8 +876,103 @@ public class PdfReportServiceImpl implements PdfReportService {
             ## 政策红利分析
             国家政策对目标专业的影响：双碳、国产替代、军工、养老医疗、新型电力系统等。对每个相关专业说明机遇或风险。
 
+            ## SWOT象限分析
+            基于以上所有分析，输出全局SWOT综合象限分析。每个象限恰好3条，最后附博弈辩证结论。
+            **必须使用以下HTML格式输出（带CSS class）**：
+
+            <h3 class="swot-strength">S 优势</h3>
+            - [优势1：城市产业红利、院校层次、学科实力等]
+            - [优势2：实验室平台、保研考研资源、本地就业认可度等]
+            - [优势3：专项计划红利、录取概率优势等]
+
+            <h3 class="swot-weakness">W 劣势（建设性看，全部可补强）</h3>
+            - [劣势1：专项计划转专业限制]
+            - [劣势2：院校全国知名度不足、城市实习资源薄弱]
+            - [劣势3：物价高、岗位内卷]
+
+            <h3 class="swot-opportunity">O 机会</h3>
+            - [机会1：国家产业政策扩张、读研深造通道]
+            - [机会2：跨城市就业机会、体制内岗位供给]
+            - [机会3：专升本通道（专科）]
+
+            <h3 class="swot-threat">T 威胁</h3>
+            - [威胁1：行业周期下行、本科学历贬值]
+            - [威胁2：AI技术替代、同赛道高分考生竞争]
+            - [威胁3：专项计划转专业壁垒]
+
+            <div class="swot-conclusion">
+            **博弈辩证结论**：用300-500字说明：
+            1. 该套志愿组合属于什么赛道（放大镜赛道/稳定器赛道/保险箱赛道）
+            2. 适合什么类型考生，不适合什么类型考生
+            3. 核心冲突分析（如院校名气溢价 VS 产业实战能力，城市平台 VS 生活成本）
+            </div>
+
+            ## 海枫强烈推荐填报梯队顺序
+            基于以上所有分析，输出推荐的填报梯队顺序（搏/冲/稳/保/垫），用3-5句话说明推荐逻辑。
+
+            ## 要求
+            1. 使用Markdown格式输出（**加粗**、- 列表等）
+            2. 若某维度数据为空，基于常识判断并说明
+            3. SWOT部分必须使用指定的HTML class格式，确保样式正确渲染
+            """;
+    }
+
+    /**
+     * 构建 Reduce 阶段 System Prompt（bulk 调用：综合评判/就业展望在前，专项拆解在后）。
+     * <p>综合评判、就业前景排在输出前部：即使超长截断，牺牲的也只是拆解列表尾部
+     * （部分大学/专业/城市），八九十三节不受影响。
+     */
+    private String buildReduceBulkPrompt() {
+        return """
+            你是海枫未来规划院的首席志愿规划专家。请根据提供的院校、专业、城市数据，进行全面分析。
+
+            """ + REDUCE_DATA_STRUCTURE_DOC + """
+
+            ## 输出要求
+
+            请严格按以下格式输出，每部分用 Markdown ## 标题分隔：
+
+            ## 综合评判
+            对「专业明细」中的每个专业进行综合排名，输出以下内容：
+
+            ### 排名表
+            用Markdown表格输出排名，格式：
+            | 排名 | 专业组 | 大学 | 城市 | 专业 | 综合得分 | 档位 |
+            |------|--------|------|------|------|----------|------|
+
+            ### 排序理由
+            用300-500字说明排序逻辑，包括：
+            1. 核心排序依据（录取概率、就业率、薪资、城市GDP等）
+            2. 考生画像匹配度如何影响排名
+            3. 哪些是高风险高收益，哪些是稳妥选择
+            4. 给出明确的填报建议
+
+            ## 就业前景与展望
+            基于志愿表中各专业的就业方向，输出以下3个子节：
+
+            ### 央国企对口方向
+            针对「专业维度」中的各专业，逐一分析其对口央企/国企方向（如电气工程->国家电网/南方电网、土木->中铁/中建等），200-400字。
+
+            ### 体制内适配分析
+            分析各专业报考体制内（事业单位/公务员/选调生）的机会：
+            - 岗位类型：省考/国考/事业单位联考/单招/选调生
+            - 报考限制：专业目录限制、学历要求、政治面貌、应届身份
+            - 适合条件：哪些专业适合走体制内，哪些受限
+            本子节末尾**必须**输出一个打分表格（Markdown格式），为每个志愿专业评估体制内适配度：
+            | 专业组 | 专业 | 体制内适配度 |
+            |--------|------|--------------|
+            | [大学名称] | [专业名称] | [0-100整数] |
+
+            ### 民营企业赛道
+            对「专业维度」中的每个专业，输出一个小模块：
+
+            #### {专业名称}
+            - 代表企业：该专业毕业生可去的头部/中腰部民营企业名称
+            - 典型岗位：可投递的代表性岗位清单
+            - 优缺点：民企就业的薪资、成长性、稳定性等利弊分析
+
             ## 大学专项拆解
-            对「院校维度」中的每个大学，输出详细分析（500-800字）：
+            对「院校维度」中的每个大学，输出详细分析（400-600字）：
 
             ### [大学名称]
             #### 6.1 大学基本面
@@ -892,7 +1015,7 @@ public class PdfReportServiceImpl implements PdfReportService {
             - 核心风险提示
 
             ## 专业专项拆解
-            对「专业维度」中的每个专业，输出详细分析（500-800字）：
+            对「专业维度」中的每个专业，输出详细分析（300-500字）：
 
             ### [专业名称]
             #### 7.1 专业基本面
@@ -932,7 +1055,7 @@ public class PdfReportServiceImpl implements PdfReportService {
             - 核心风险提示
 
             ## 城市专项拆解
-            对「城市维度」中的每个城市，输出详细分析（500-800字）：
+            对「城市维度」中的每个城市，输出详细分析（300-500字）：
 
             ### [城市名称]
             #### 8.1 城市基本面
@@ -961,94 +1084,19 @@ public class PdfReportServiceImpl implements PdfReportService {
             - 不适合哪类考生
             - 核心建议
 
-            ## 综合评判
-            对「专业明细」中的每个专业进行综合排名，输出以下内容：
-
-            ### 排名表
-            用Markdown表格输出排名，格式：
-            | 排名 | 专业组 | 大学 | 城市 | 专业 | 综合得分 | 档位 |
-            |------|--------|------|------|------|----------|------|
-
-            ### 排序理由
-            用300-500字说明排序逻辑，包括：
-            1. 核心排序依据（录取概率、就业率、薪资、城市GDP等）
-            2. 考生画像匹配度如何影响排名
-            3. 哪些是高风险高收益，哪些是稳妥选择
-            4. 给出明确的填报建议
-
-            ## 就业前景与展望
-            基于志愿表中各专业的就业方向，输出以下3个子节：
-
-            ### 央国企对口方向
-            针对「专业维度」中的各专业，逐一分析其对口央企/国企方向（如电气工程->国家电网/南方电网、土木->中铁/中建等），200-400字。
-
-            ### 体制内适配分析
-            分析各专业报考体制内（事业单位/公务员/选调生）的机会：
-            - 岗位类型：省考/国考/事业单位联考/单招/选调生
-            - 报考限制：专业目录限制、学历要求、政治面貌、应届身份
-            - 适合条件：哪些专业适合走体制内，哪些受限
-            本子节末尾**必须**输出一个打分表格（Markdown格式），为每个志愿专业评估体制内适配度：
-            | 专业组 | 专业 | 体制内适配度 |
-            |--------|------|--------------|
-            | [大学名称] | [专业名称] | [0-100整数] |
-
-            ### 民营企业赛道
-            对「专业维度」中的每个专业，输出一个小模块：
-
-            #### {专业名称}
-            - 代表企业：该专业毕业生可去的头部/中腰部民营企业名称
-            - 典型岗位：可投递的代表性岗位清单
-            - 优缺点：民企就业的薪资、成长性、稳定性等利弊分析
-
-            ## SWOT象限分析
-            基于以上所有分析，输出全局SWOT综合象限分析。每个象限恰好3条，最后附博弈辩证结论。
-            **必须使用以下HTML格式输出（带CSS class）**：
-
-            <h3 class="swot-strength">S 优势</h3>
-            - [优势1：城市产业红利、院校层次、学科实力等]
-            - [优势2：实验室平台、保研考研资源、本地就业认可度等]
-            - [优势3：专项计划红利、录取概率优势等]
-
-            <h3 class="swot-weakness">W 劣势（建设性看，全部可补强）</h3>
-            - [劣势1：专项计划转专业限制]
-            - [劣势2：院校全国知名度不足、城市实习资源薄弱]
-            - [劣势3：物价高、岗位内卷]
-
-            <h3 class="swot-opportunity">O 机会</h3>
-            - [机会1：国家产业政策扩张、读研深造通道]
-            - [机会2：跨城市就业机会、体制内岗位供给]
-            - [机会3：专升本通道（专科）]
-
-            <h3 class="swot-threat">T 威胁</h3>
-            - [威胁1：行业周期下行、本科学历贬值]
-            - [威胁2：AI技术替代、同赛道高分考生竞争]
-            - [威胁3：专项计划转专业壁垒]
-
-            <div class="swot-conclusion">
-            **博弈辩证结论**：用300-500字说明：
-            1. 该套志愿组合属于什么赛道（放大镜赛道/稳定器赛道/保险箱赛道）
-            2. 适合什么类型考生，不适合什么类型考生
-            3. 核心冲突分析（如院校名气溢价 VS 产业实战能力，城市平台 VS 生活成本）
-            </div>
-
-            ## 海枫强烈推荐填报梯队顺序
-            基于以上所有分析，输出推荐的填报梯队顺序（搏/冲/稳/保/垫），用3-5句话说明推荐逻辑。
-
             ## 要求
-            1. 大学/专业/城市专项拆解要详细，每个大学500-800字
+            1. 大学/专业/城市专项拆解要详细，大学拆解400-600字，专业/城市拆解300-500字
             2. 综合排名要给出具体分数（0-100分），分数差异要有区分度
             3. 使用Markdown格式输出（**加粗**、- 列表、表格等）
             4. 若某维度数据为空，基于常识判断并说明
-            5. SWOT部分必须使用指定的HTML class格式，确保样式正确渲染
             """;
     }
 
 
     /**
-     * 解析 Reduce 阶段 AI 响应
-     * <p>新结构：学生画像 + 外部宏观全景研判（院校/专业/城市/综合） + SWOT + 推荐梯队
+     * 解析 Reduce 阶段 core 调用响应（学生画像 / 赛道 / 政策 / SWOT / 推荐梯队）
      */
-    private ReduceResult parseReduceResult(String response) {
+    private ReduceResult parseCoreResult(String response) {
         if (response == null || response.isBlank()) {
             return ReduceResult.builder()
                     .studentProfile("")
@@ -1063,36 +1111,84 @@ public class PdfReportServiceImpl implements PdfReportService {
                 return parseReduceResultFromJson(response);
             }
         } catch (Exception e) {
-            log.debug("Response is not JSON, falling back to markdown parsing");
+            log.debug("Core response is not JSON, falling back to markdown parsing");
         }
 
         // 按 ## 标题分割（Markdown格式）
         if (response.contains("## ")) {
             String studentProfile = extractSection(response, "学生画像");
-            String macroAnalysisText = extractMacroAnalysisSection(response);
             String swot = extractSection(response, "SWOT象限分析");
             String recommendation = extractSection(response, "海枫强烈推荐填报梯队顺序");
 
-            // 解析宏观分析文本中的排名数据
-            MacroAnalysisVO macroAnalysis = parseMacroAnalysisFromText(macroAnalysisText);
+            MacroAnalysisVO macroAnalysis = MacroAnalysisVO.builder()
+                    .trackAnalysis(extractSection(response, "赛道分类研判"))
+                    .policyAnalysis(extractSection(response, "政策红利分析"))
+                    .build();
 
-            // 提取第六、七、八、九部分
+            return ReduceResult.builder()
+                    .studentProfile(studentProfile)
+                    .macroAnalysis(macroAnalysis)
+                    .swot(swot)
+                    .recommendation(recommendation)
+                    .build();
+        }
+
+        // fallback: 旧格式用 === 分割
+        String[] parts = response.split("={3,}", 3);
+        return ReduceResult.builder()
+                .studentProfile(parts.length > 0 ? parts[0].trim() : "")
+                .swot(parts.length > 1 ? parts[1].trim() : "")
+                .recommendation(parts.length > 2 ? parts[2].trim() : "")
+                .build();
+    }
+
+    /**
+     * 解析 Reduce 阶段 bulk 调用响应（综合评判 / 就业展望 / 大学·专业·城市专项拆解）
+     */
+    private ReduceResult parseBulkResult(String response) {
+        if (response == null || response.isBlank()) {
+            return ReduceResult.builder().build();
+        }
+
+        try {
+            // 尝试解析为JSON（AI可能返回JSON格式的排名数据）
+            if (response.trim().startsWith("{")) {
+                return parseReduceResultFromJson(response);
+            }
+        } catch (Exception e) {
+            log.debug("Bulk response is not JSON, falling back to markdown parsing");
+        }
+
+        // 按 ## 标题分割（Markdown格式）
+        if (response.contains("## ")) {
+            // 提取第六、七、八部分
             String sixthPartText = extractSection(response, "大学专项拆解");
             String seventhPartText = extractSection(response, "专业专项拆解");
             String eighthPartText = extractSection(response, "城市专项拆解");
-            String ninthPartText = extractSection(response, "综合评判");
 
             List<ReduceResult.HtmlPartResult> sixthPartResults = parseSubPartsFromText(sixthPartText, "大学");
             List<ReduceResult.HtmlPartResult> seventhPartResults = parseSubPartsFromText(seventhPartText, "专业");
             List<ReduceResult.HtmlPartResult> eighthPartResults = parseSubPartsFromText(eighthPartText, "城市");
+
+            // 第九部分：综合评判（排名表与排序理由单独解析渲染，剩余文本才放入 contentMd，避免重复）
+            String ninthPartText = extractSection(response, "综合评判");
+            List<MacroAnalysisVO.RankingItem> ranking = extractRankingFromText(ninthPartText);
+            String reasoning = extractSubSection(ninthPartText, "排序理由");
             ReduceResult.HtmlPartResult ninthPartResult = null;
             if (ninthPartText != null && !ninthPartText.isBlank()) {
                 ninthPartResult = ReduceResult.HtmlPartResult.builder()
                         .identifier("综合评判")
                         .title("综合评判")
-                        .contentMd(ninthPartText)
+                        .contentMd(removeSubSections(ninthPartText, "排名表", "排序理由"))
                         .build();
             }
+
+            MacroAnalysisVO macroAnalysis = MacroAnalysisVO.builder()
+                    .comprehensiveAnalysis(MacroAnalysisVO.ComprehensiveAnalysis.builder()
+                            .ranking(ranking)
+                            .reasoning(reasoning)
+                            .build())
+                    .build();
 
             // 提取第十部分：就业前景与展望
             String tenthPartText = extractSection(response, "就业前景与展望");
@@ -1125,10 +1221,7 @@ public class PdfReportServiceImpl implements PdfReportService {
             }
 
             return ReduceResult.builder()
-                    .studentProfile(studentProfile)
                     .macroAnalysis(macroAnalysis)
-                    .swot(swot)
-                    .recommendation(recommendation)
                     .sixthPartResults(sixthPartResults)
                     .seventhPartResults(seventhPartResults)
                     .eighthPartResults(eighthPartResults)
@@ -1140,12 +1233,41 @@ public class PdfReportServiceImpl implements PdfReportService {
                     .build();
         }
 
-        // fallback: 旧格式用 === 分割
-        String[] parts = response.split("={3,}", 3);
+        return ReduceResult.builder().build();
+    }
+
+    /**
+     * 合并 core 与 bulk 两次调用的解析结果：
+     * <p>core 提供 学生画像/赛道/政策/SWOT/推荐；bulk 提供 综合评判与大学·专业·城市拆解、就业展望。
+     */
+    private ReduceResult mergeReduce(ReduceResult core, ReduceResult bulk) {
+        ReduceResult coreResult = core != null ? core : ReduceResult.builder().build();
+        ReduceResult bulkResult = bulk != null ? bulk : ReduceResult.builder().build();
+
+        // macroAnalysis：track/policy 取 core，comprehensiveAnalysis 取 bulk
+        MacroAnalysisVO.MacroAnalysisVOBuilder macroBuilder = MacroAnalysisVO.builder();
+        if (coreResult.getMacroAnalysis() != null) {
+            macroBuilder.trackAnalysis(coreResult.getMacroAnalysis().getTrackAnalysis())
+                    .policyAnalysis(coreResult.getMacroAnalysis().getPolicyAnalysis());
+        }
+        if (bulkResult.getMacroAnalysis() != null
+                && bulkResult.getMacroAnalysis().getComprehensiveAnalysis() != null) {
+            macroBuilder.comprehensiveAnalysis(bulkResult.getMacroAnalysis().getComprehensiveAnalysis());
+        }
+
         return ReduceResult.builder()
-                .studentProfile(parts.length > 0 ? parts[0].trim() : "")
-                .swot(parts.length > 1 ? parts[1].trim() : "")
-                .recommendation(parts.length > 2 ? parts[2].trim() : "")
+                .studentProfile(coreResult.getStudentProfile())
+                .macroAnalysis(macroBuilder.build())
+                .swot(coreResult.getSwot())
+                .recommendation(coreResult.getRecommendation())
+                .sixthPartResults(bulkResult.getSixthPartResults())
+                .seventhPartResults(bulkResult.getSeventhPartResults())
+                .eighthPartResults(bulkResult.getEighthPartResults())
+                .ninthPartResult(bulkResult.getNinthPartResult())
+                .soeDirectionResult(bulkResult.getSoeDirectionResult())
+                .civilServiceResult(bulkResult.getCivilServiceResult())
+                .civilServiceScores(bulkResult.getCivilServiceScores())
+                .privateSectorResults(bulkResult.getPrivateSectorResults())
                 .build();
     }
 
@@ -1207,56 +1329,32 @@ public class PdfReportServiceImpl implements PdfReportService {
     }
 
     /**
-     * 提取宏观分析部分的完整文本（从"院校分析"或"赛道分类研判"到"SWOT"之前）
+     * 从大节文本中剔除指定的 ### 小节（标题行 + 内容，直到下一个 ### 或文本末尾）
      */
-    private String extractMacroAnalysisSection(String text) {
+    private String removeSubSections(String text, String... titles) {
+        if (text == null || text.isBlank()) return "";
         String[] lines = text.split("\n");
         StringBuilder content = new StringBuilder();
-        boolean inSection = false;
+        boolean skipping = false;
         for (String line : lines) {
-            if (line.trim().startsWith("## ")) {
-                if (inSection) {
-                    break; // 遇到下一个 ## 标题，结束
+            String trimmed = line.trim();
+            if (trimmed.startsWith("### ")) {
+                skipping = false;
+                for (String title : titles) {
+                    if (trimmed.contains(title)) {
+                        skipping = true;
+                        break;
+                    }
                 }
-                // 宏观分析从"赛道分类研判"或"院校分析"开始
-                if (line.contains("赛道分类研判") || line.contains("政策红利分析")
-                        || line.contains("院校分析") || line.contains("专业分析")
-                        || line.contains("城市分析") || line.contains("综合考虑")
-                        || line.contains("综合评判")) {
-                    inSection = true;
+                if (skipping) {
+                    continue;
                 }
-            } else if (inSection) {
+            }
+            if (!skipping) {
                 content.append(line).append("\n");
             }
         }
         return content.toString().trim();
-    }
-
-    /**
-     * 从宏观分析文本中解析出结构化数据
-     */
-    private MacroAnalysisVO parseMacroAnalysisFromText(String text) {
-        MacroAnalysisVO.MacroAnalysisVOBuilder builder = MacroAnalysisVO.builder();
-
-        // 解析赛道分类研判
-        String trackAnalysis = extractSection(text, "赛道分类研判");
-        builder.trackAnalysis(trackAnalysis);
-
-        // 解析政策红利分析
-        String policyAnalysis = extractSection(text, "政策红利分析");
-        builder.policyAnalysis(policyAnalysis);
-
-        // 解析排名表
-        List<MacroAnalysisVO.RankingItem> ranking = extractRankingFromText(text);
-        String reasoning = extractSection(text, "排序理由");
-
-        MacroAnalysisVO.ComprehensiveAnalysis comprehensive = MacroAnalysisVO.ComprehensiveAnalysis.builder()
-                .ranking(ranking)
-                .reasoning(reasoning)
-                .build();
-
-        builder.comprehensiveAnalysis(comprehensive);
-        return builder.build();
     }
 
     /**
@@ -1459,9 +1557,11 @@ public class PdfReportServiceImpl implements PdfReportService {
 
     /**
      * 从 Markdown 响应中提取指定 ## 标题下的内容（到下一个 ## 或文本末尾）
+     * <p>标题匹配忽略空白差异（兼容「## SWOT 象限分析」等带空格变体）
      */
     private String extractSection(String text, String sectionTitle) {
         // 匹配 ## {sectionTitle} 开始，到下一个 ## 或文本结束
+        String normalizedTitle = sectionTitle.replaceAll("\\s+", "");
         String[] lines = text.split("\n");
         StringBuilder content = new StringBuilder();
         boolean inSection = false;
@@ -1470,7 +1570,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                 if (inSection) {
                     break; // 遇到下一个 ## 标题，结束当前段
                 }
-                if (line.contains(sectionTitle)) {
+                if (line.replaceAll("\\s+", "").contains(normalizedTitle)) {
                     inSection = true;
                     continue; // 跳过标题行本身
                 }
@@ -1479,6 +1579,21 @@ public class PdfReportServiceImpl implements PdfReportService {
             }
         }
         return content.toString().trim();
+    }
+
+    /**
+     * join 并解包 CompletionException，抛出原始异常以便外层 catch 记录真实失败原因
+     */
+    private String joinUnwrapped(CompletableFuture<String> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw e;
+        }
     }
 
     private void updateReportFailed(Integer recordId, String reason) {

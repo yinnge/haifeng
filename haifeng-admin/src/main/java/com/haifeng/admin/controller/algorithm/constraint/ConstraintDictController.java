@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 约束字典管理
  * 定义高考录取中的各类约束项（视力/身高/色觉/单科成绩等），
- * 是约束体系的基础数据，被 MajorConstraintController 引用关联到专业
+ * 是约束体系的基础数据
  */
 @Validated
 @RestController

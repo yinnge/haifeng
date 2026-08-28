@@ -389,19 +389,30 @@ public class WishPlanExcelUtil {
 
     /**
      * 3.1/4.1 专业名称：【专业名】专业代码：【专业代码】 + 描述
-     * 专业名：加粗 + 大一号；专业代码后空一行再接描述
+     * 专业名：加粗 + 大一号；专业代码后空一行再接描述；
+     * 描述后空一行再换行展示专业限制（红色）：限制：val1，val2
      */
     private RichTextSpec buildMajorNameInfo(WishMajorSnapshot major) {
         RichTextBuilder b = new RichTextBuilder();
         // 3.1 专业名 加粗 + 大一号
         b.append(wrapBracket(major.getMajorName()), null, true, (short) 14);
         b.append("\n");
+        boolean hasContent = false;
         if (major.getMajorCode() != null) {
             b.append("专业代码：" + wrapBracket(major.getMajorCode()), null, false, (short) 0);
-            b.append("\n\n"); // 3.2 与描述之间空一行
+            b.append("\n\n"); // 3.2 与描述/限制之间空一行
+            hasContent = true;
         }
         if (major.getDescription() != null && !major.getDescription().isEmpty()) {
             b.append(major.getDescription(), null, false, (short) 0);
+            hasContent = true;
+        }
+        // 专业限制（红色）：描述后空一行再展示，格式 限制：val1，val2
+        if (major.getConstraints() != null && !major.getConstraints().isEmpty()) {
+            if (hasContent) {
+                b.append("\n\n"); // 与上文空一行
+            }
+            b.append("限制：" + String.join("，", major.getConstraints()), COLOR_RED, false, (short) 0);
         }
         return new RichTextSpec(b.text(), b.segments());
     }
@@ -509,15 +520,10 @@ public class WishPlanExcelUtil {
         String reqText = buildRequirementText(group.getRequirementType(), group.getSubjects());
         Short reqColor = requirementColor(group.getRequirementType());
         b.append("选科:" + reqText, reqColor, false, (short) 0);
-        b.append("\n\n"); // 2.8 与描述间空一行
+        b.append("\n\n"); // 与描述间空一行
         // 描述（不加【】）
         if (group.getDescription() != null && !group.getDescription().isEmpty()) {
             b.append(group.getDescription(), null, false, (short) 0);
-            b.append("\n\n"); // 2.9 与限制间空一行
-        }
-        // 2.1 限制：红色
-        if (group.getConstraintsDescription() != null && !group.getConstraintsDescription().isEmpty()) {
-            b.append("限制：" + String.join("，", group.getConstraintsDescription()), COLOR_RED, false, (short) 0);
         }
         return new RichTextSpec(b.text(), b.segments());
     }

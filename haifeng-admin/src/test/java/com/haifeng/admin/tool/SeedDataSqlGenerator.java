@@ -78,7 +78,6 @@ public class SeedDataSqlGenerator {
                 new ModuleDef("省份配置管理", "algo_config_prov", "algo_config", 3, "/algorithm/config/prov", 2),
                 new ModuleDef("约束管理", "algo_constraint", "algorithm", 2, "/algorithm/constraint", 4),
                 new ModuleDef("约束字典管理", "algo_constraint_dict", "algo_constraint", 3, "/algorithm/constraint/dict", 1),
-                new ModuleDef("约束专业关联管理", "algo_constraint_mjr", "algo_constraint", 3, "/algorithm/constraint/major", 2),
                 new ModuleDef("安全系数管理", "algo_safety", "algorithm", 2, "/algorithm/safety", 5),
                 new ModuleDef("安全系数管理", "algo_safety_level", "algo_safety", 3, "/algorithm/safety/level", 1),
 

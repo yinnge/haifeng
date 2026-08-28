@@ -120,6 +120,11 @@ public class AiChatServiceImpl implements AiChatService {
             if (content.isMissingNode() || content.isNull()) {
                 throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, "AI 响应缺少 choices[0].message.content");
             }
+            // finish_reason=length 说明输出被 max_tokens 截断，内容可能不完整
+            String finishReason = node.path("choices").path(0).path("finish_reason").asText("");
+            if ("length".equals(finishReason)) {
+                log.warn("AI响应达到max_tokens上限，疑似截断（内容长度={}）", content.asText("").length());
+            }
             return content.asText("");
         } catch (BusinessException e) {
             throw e;

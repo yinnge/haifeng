@@ -30,7 +30,6 @@ public class AdmissionGroupDetailVO implements Serializable {
     private List<String> subjects;
     private String requirementType;
     private String description;
-    private List<String> constraints;
     private Integer majorCount;
     private Integer categoryCount;
     private Integer admissionCount;
