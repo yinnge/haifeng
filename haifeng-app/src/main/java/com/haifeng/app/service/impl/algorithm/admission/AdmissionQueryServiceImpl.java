@@ -26,7 +26,6 @@ import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyBatchContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
-import com.haifeng.common.security.AuthUser;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -144,9 +143,6 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         // 批量预取计算上下文（密度/省配置/权重配置/severityMap，每次请求一次）
         SafetyBatchContext ctx = safetyLevelService.buildBatchContext(gaokao, userConstraints);
 
-        AuthUser authUser = SecurityUtil.getCurrentUser();
-        boolean isPremium = authUser != null && authUser.isProOrAbove();
-
         Map<Integer, SafetyCalcResult> precomputedMaxSafety = null;
         Map<Integer, List<AdmissionMajorScore>> majorsByGroupId;
 
@@ -182,11 +178,10 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
             groups = new ArrayList<>(filtered.subList(fromIndex, toIndex));
             precomputedMaxSafety = maxSafetyByGroupId;
         } else {
+            // 普通用户与 Pro 及以上均展示全部专业组明细（移除原先前 10 条限制）
             List<Integer> nonMaskedGroupIds = new ArrayList<>();
-            for (int i = 0; i < groups.size(); i++) {
-                if (isPremium || i < 10) {
-                    nonMaskedGroupIds.add(groups.get(i).getId());
-                }
+            for (AdmissionGroup group : groups) {
+                nonMaskedGroupIds.add(group.getId());
             }
             majorsByGroupId = nonMaskedGroupIds.isEmpty()
                     ? Collections.emptyMap()
@@ -196,7 +191,7 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
         List<AdmissionGroupPageVO> voList = new ArrayList<>();
         for (int i = 0; i < groups.size(); i++) {
             AdmissionGroup group = groups.get(i);
-            boolean shouldMask = !isPremium && i >= 10;
+            boolean shouldMask = false;
 
             if (shouldMask) {
                 voList.add(AdmissionGroupPageVO.builder()
@@ -459,24 +454,9 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .duration(major.getDuration())
                 .tuition(major.getTuition())
                 .description(major.getDescription())
-                .constraints(mergeDisplayConstraints(major.getConstraints(), group.getConstraints()))
+                .constraints(major.getConstraints() == null ? Collections.emptyList() : major.getConstraints())
                 .historyScores(historyScores)
                 .build();
-    }
-
-    /**
-     * 专业明细展示约束 = 明细自身约束 ∪ 专业组约束（组约束追加在后，按 code 去重）。
-     * 组约束不展示，但明细需继承组限制展示，与后端级联落库逻辑保持一致。
-     */
-    private List<String> mergeDisplayConstraints(List<String> majorConstraints, List<String> groupConstraints) {
-        LinkedHashSet<String> set = new LinkedHashSet<>();
-        if (majorConstraints != null) {
-            set.addAll(majorConstraints);
-        }
-        if (groupConstraints != null) {
-            set.addAll(groupConstraints);
-        }
-        return new ArrayList<>(set);
     }
 
     private AdmissionGroupPageVO buildGroupVO(AdmissionGroup group,
@@ -514,7 +494,6 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
                 .description(group.getDescription())
                 .majorCount(group.getMajorCount())
                 .categoryCount(group.getCategoryCount())
-                .constraints(group.getConstraints() == null ? Collections.emptyList() : group.getConstraints())
                 .subjectMatch(matchResult.isMatch())
                 .subjectMatchReason(matchResult.getReason())
                 .historyScores(historyScores)

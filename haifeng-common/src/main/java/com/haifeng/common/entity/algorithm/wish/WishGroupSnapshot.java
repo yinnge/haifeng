@@ -69,9 +69,6 @@ public class WishGroupSnapshot {
 
     private String description;
 
-    @TableField(typeHandler = StringListTypeHandler.class)
-    private List<String> constraintsDescription;
-
     private Integer recommendationYear;
 
     private BigDecimal recommendationRate;

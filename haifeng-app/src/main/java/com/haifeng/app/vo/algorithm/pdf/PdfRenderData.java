@@ -161,7 +161,6 @@ public class PdfRenderData {
         private String nature;
         private List<String> tags;
         private List<String> subjects;
-        private List<String> constraintsDescription;
         private Integer groupSortOrder;
 
         /** AI 评语 HTML（已从 Markdown 转换） */

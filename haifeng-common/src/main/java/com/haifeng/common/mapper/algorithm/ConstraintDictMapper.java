@@ -55,7 +55,6 @@ public interface ConstraintDictMapper extends BaseMapper<ConstraintDict> {
 
     /**
      * 物理删除（自定义SQL不被全局逻辑删除拦截器转换，可删除已禁用记录）。
-     * 调用方需先在业务层级联清理 t_major_constraint 中引用该 code 的关联。
      */
     @Delete("DELETE FROM t_constraint_dict WHERE code = #{code}")
     int physicalDeleteById(@Param("code") String code);

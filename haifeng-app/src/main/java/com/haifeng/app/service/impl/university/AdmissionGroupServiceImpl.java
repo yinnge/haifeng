@@ -126,7 +126,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 .subjects(e.getSubjects())
                 .requirementType(e.getRequirementType())
                 .description(e.getDescription())
-                .constraints(e.getConstraints())
                 .majorCount(e.getMajorCount())
                 .categoryCount(e.getCategoryCount())
                 .admissionCount(e.getAdmissionCount())

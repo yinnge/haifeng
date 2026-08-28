@@ -22,12 +22,11 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
     /**
      * 按ID查询（自定义SQL绕过全局逻辑删除，可查到已禁用记录）。
-     * subjects/constraints 是数组列，必须用 @Results 显式声明 StringListTypeHandler。
+     * subjects 是数组列，必须用 @Results 显式声明 StringListTypeHandler。
      */
     @Select("SELECT * FROM t_admission_group WHERE id = #{id} LIMIT 1")
     @Results({
             @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
-            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class),
             @Result(column = "history", property = "history", typeHandler = JsonbTypeHandler.class)
     })
     AdmissionGroup findByIdIgnoreLogicDelete(@Param("id") Integer id);
@@ -49,7 +48,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
 
     /**
      * 自定义全量更新（绕过 MP 的 @Version 拦截器和逻辑删除过滤器）。
-     * subjects/constraints 是 PostgreSQL text[] 数组列，通过 typeHandler 显式指定。
+     * subjects 是 PostgreSQL text[] 数组列，通过 typeHandler 显式指定。
      */
     @Update("UPDATE t_admission_group SET " +
             "university_id = #{universityId}, university_name = #{universityName}, city_name = #{cityName}, " +
@@ -57,7 +56,6 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "enrollment_code = #{enrollmentCode}, group_code = #{groupCode}, group_name = #{groupName}, " +
             "subjects = #{subjects,typeHandler=com.haifeng.common.config.StringListTypeHandler}, " +
             "requirement_type = #{requirementType}, description = #{description}, " +
-            "constraints = #{constraints,typeHandler=com.haifeng.common.config.StringListTypeHandler}, " +
             "updated_at = NOW() " +
             "WHERE id = #{id}")
     int updateByIdCustom(AdmissionGroup entity);
@@ -78,7 +76,7 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             @Param("groupCode") String groupCode);
 
     /**
-     * 分页查询（含已禁用）。subjects/constraints 是数组列，
+     * 分页查询（含已禁用）。subjects 是数组列，
      * 自定义 @Select 不套 typeHandler，必须用 @Results 显式声明 StringListTypeHandler。
      */
     @Select("<script>" +
@@ -101,7 +99,6 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</script>")
     @Results({
             @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
-            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class),
             @Result(column = "history", property = "history", typeHandler = JsonbTypeHandler.class)
     })
     IPage<AdmissionGroup> selectPageIgnoreLogicDelete(Page<AdmissionGroup> page,
@@ -153,7 +150,6 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</script>")
     @Results({
             @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
-            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class),
             @Result(column = "history", property = "history", typeHandler = JsonbTypeHandler.class)
     })
     List<AdmissionGroup> selectPageByCondition(
@@ -207,7 +203,6 @@ public interface AdmissionGroupMapper extends BaseMapper<AdmissionGroup> {
             "</script>")
     @Results({
             @Result(column = "subjects", property = "subjects", typeHandler = StringListTypeHandler.class),
-            @Result(column = "constraints", property = "constraints", typeHandler = StringListTypeHandler.class),
             @Result(column = "history", property = "history", typeHandler = JsonbTypeHandler.class)
     })
     List<AdmissionGroup> selectAllByCondition(

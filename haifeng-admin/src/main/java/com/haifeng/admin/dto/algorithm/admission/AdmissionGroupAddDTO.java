@@ -37,5 +37,4 @@ public class AdmissionGroupAddDTO {
     @Size(max = 10, message = "选科要求类型不能超过10个字符")
     private String requirementType;
     private String description;
-    private List<String> constraints;
 }

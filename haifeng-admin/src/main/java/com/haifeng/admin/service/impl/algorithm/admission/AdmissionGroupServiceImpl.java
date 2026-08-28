@@ -101,7 +101,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         entity.setSubjects(dto.getSubjects());
         entity.setRequirementType(dto.getRequirementType());
         entity.setDescription(dto.getDescription());
-        entity.setConstraints(dto.getConstraints());
         entity.setUniversityId(university.getId());
         entity.setUniversityName(university.getName());
         entity.setCityName(university.getCityName());
@@ -136,12 +135,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             throw new BusinessException(400, "该专业组已存在（相同大学、年份、省份、批次、组代码）");
         }
 
-        // 记录更新前的约束（用于判断级联）
-        List<String> oldConstraints = existing.getConstraints() == null
-                ? Collections.emptyList() : new ArrayList<>(existing.getConstraints());
-        List<String> newConstraints = dto.getConstraints() == null
-                ? Collections.emptyList() : new ArrayList<>(dto.getConstraints());
-
         existing.setYear(dto.getYear());
         existing.setProvince(dto.getProvince());
         existing.setBatch(dto.getBatch());
@@ -151,7 +144,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         existing.setSubjects(dto.getSubjects());
         existing.setRequirementType(dto.getRequirementType());
         existing.setDescription(dto.getDescription());
-        existing.setConstraints(dto.getConstraints());
         existing.setUniversityId(university.getId());
         existing.setUniversityName(university.getName());
         existing.setCityName(university.getCityName());
@@ -160,54 +152,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             throw new BusinessException(500, "更新专业组失败，记录可能已被修改或不存在，请刷新后重试");
         }
         log.info("更新专业组成功，id={}", id);
-
-        // 约束变化 → 级联同步到该组所有专业明细（追加缺失约束，按 code 去重）
-        boolean constraintsChanged = !new HashSet<>(newConstraints).equals(new HashSet<>(oldConstraints));
-        if (constraintsChanged) {
-            return cascadeConstraintsToMajors(id, newConstraints);
-        }
         return 0;
-    }
-
-    /**
-     * 专业组约束变化时，级联同步到该组所有未删除的专业明细：
-     * 明细约束 = 原明细约束 ∪ 组新约束（组约束追加在明细自身约束之后，按 code 去重）。
-     *
-     * @return 实际被更新的明细条数
-     */
-    private int cascadeConstraintsToMajors(Integer groupId, List<String> groupConstraints) {
-        List<AdmissionMajorScore> majors = admissionMajorScoreMapper.selectList(
-                new LambdaQueryWrapper<AdmissionMajorScore>()
-                        .eq(AdmissionMajorScore::getGroupId, groupId)
-                        .eq(AdmissionMajorScore::getIsDeleted, false));
-        if (majors.isEmpty()) {
-            return 0;
-        }
-        int updatedCount = 0;
-        for (AdmissionMajorScore major : majors) {
-            List<String> merged = mergeConstraints(major.getConstraints(), groupConstraints);
-            if (!merged.equals(major.getConstraints() == null ? Collections.emptyList() : major.getConstraints())) {
-                major.setConstraints(merged);
-                admissionMajorScoreMapper.updateByIdCustom(major);
-                updatedCount++;
-            }
-        }
-        if (updatedCount > 0) {
-            log.info("专业组约束级联同步完成，groupId={}，更新明细条数={}", groupId, updatedCount);
-        }
-        return updatedCount;
-    }
-
-    /** 合并约束：明细自身约束在前，组约束追加在后，按 code 去重保持顺序 */
-    private List<String> mergeConstraints(List<String> majorConstraints, List<String> groupConstraints) {
-        LinkedHashSet<String> set = new LinkedHashSet<>();
-        if (majorConstraints != null) {
-            set.addAll(majorConstraints);
-        }
-        if (groupConstraints != null) {
-            set.addAll(groupConstraints);
-        }
-        return new ArrayList<>(set);
     }
 
     @Override
@@ -831,7 +776,6 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         vo.setSubjects(entity.getSubjects());
         vo.setRequirementType(entity.getRequirementType());
         vo.setDescription(entity.getDescription());
-        vo.setConstraints(entity.getConstraints());
         vo.setMajorCount(entity.getMajorCount());
         vo.setCategoryCount(entity.getCategoryCount());
         vo.setAdmissionCount(entity.getAdmissionCount());

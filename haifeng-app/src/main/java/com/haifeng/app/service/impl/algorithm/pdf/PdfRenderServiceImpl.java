@@ -286,7 +286,6 @@ public class PdfRenderServiceImpl implements PdfRenderService {
                     .nature(gs.getNature())
                     .tags(gs.getTags())
                     .subjects(gs.getSubjects())
-                    .constraintsDescription(gs.getConstraintsDescription())
                     .groupSortOrder(gs.getGroupSortOrder())
                     .commentaryHtml(commentaryHtml)
                     .aiSuccess(aiSuccess)

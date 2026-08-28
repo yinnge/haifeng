@@ -84,7 +84,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         // 1. 约束权重计算
         ConstraintWeightResult weightResult = constraintWeightCalculator.calculate(
                 userConstraints,
-                group.getConstraints(),
+                null,
                 major.getConstraints()
         );
 
@@ -147,7 +147,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         // 1. 约束权重计算（使用 context 中预聚合的 severityMap，避免重复查询字典）
         ConstraintWeightResult weightResult = calculateWeightWithContext(
                 userConstraints,
-                group.getConstraints(),
+                null,
                 major.getConstraints(),
                 context != null ? context.getSeverityMap() : Collections.emptyMap()
         );
@@ -202,7 +202,7 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         // 1. 约束权重计算（纯内存，使用预取的 GaokaoConfig 与 severityMap）
         ConstraintWeightResult weightResult = constraintWeightCalculator.calculate(
                 userConstraints,
-                group.getConstraints(),
+                null,
                 major.getConstraints(),
                 ctx != null ? ctx.getGaokaoConfig() : null,
                 ctx != null ? ctx.getSeverityMap() : Collections.emptyMap()
