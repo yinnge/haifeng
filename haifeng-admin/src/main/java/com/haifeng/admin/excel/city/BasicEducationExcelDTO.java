@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 /**
@@ -12,13 +13,13 @@ public class BasicEducationExcelDTO {
     @ExcelProperty("城市名称")
     private String cityName;
 
-    @ExcelProperty("学校总数")
+    @ExcelProperty(value = "学校总数", converter = ExcelIntegerConverter.class)
     private Integer totalSchools;
 
-    @ExcelProperty("示范学校数量")
+    @ExcelProperty(value = "示范学校数量", converter = ExcelIntegerConverter.class)
     private Integer modelSchoolCount;
 
-    @ExcelProperty("重点学校数量")
+    @ExcelProperty(value = "重点学校数量", converter = ExcelIntegerConverter.class)
     private Integer keySchoolCount;
 
     @ExcelProperty("教育备注")

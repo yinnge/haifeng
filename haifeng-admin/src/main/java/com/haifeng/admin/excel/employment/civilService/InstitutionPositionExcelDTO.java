@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.employment.civilService;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.StringToArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -16,8 +17,8 @@ public class InstitutionPositionExcelDTO {
     @ExcelProperty("子分类") private String subCategory;
     @ExcelProperty("学历要求") private String educationRequirement;
     @ExcelProperty("学位要求") private String degreeRequirement;
-    @ExcelProperty("年龄上限") private Integer ageLimit;
-    @ExcelProperty("招聘人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "年龄上限", converter = ExcelIntegerConverter.class) private Integer ageLimit;
+    @ExcelProperty(value = "招聘人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty("薪资范围") private String salaryRange;
     @ExcelProperty("报名截止") private String regDeadline;
     @ExcelProperty(value = "专业要求", converter = StringToArrayConverter.class) private String[] majorRequirements;
@@ -31,5 +32,5 @@ public class InstitutionPositionExcelDTO {
     @ExcelProperty("状态") private String positionStatus;
     @ExcelProperty("标签") private String positionTag;
     @ExcelProperty("标签文字") private String tagText;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

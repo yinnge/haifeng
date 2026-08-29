@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -41,10 +42,10 @@ public class MajorImportDTO {
     @ExcelProperty("就业率")
     private BigDecimal employmentRate;
 
-    @ExcelProperty("薪资下限")
+    @ExcelProperty(value = "薪资下限", converter = ExcelIntegerConverter.class)
     private Integer salaryMin;
 
-    @ExcelProperty("薪资上限")
+    @ExcelProperty(value = "薪资上限", converter = ExcelIntegerConverter.class)
     private Integer salaryMax;
 
     @ExcelProperty("专业描述")

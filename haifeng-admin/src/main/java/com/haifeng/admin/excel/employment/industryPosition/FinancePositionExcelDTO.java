@@ -3,6 +3,7 @@ package com.haifeng.admin.excel.employment.industryPosition;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.excel.university.StringArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,15 +26,15 @@ public class FinancePositionExcelDTO {
     @ExcelProperty("学位要求") private String degreeRequirement;
     @ExcelProperty("专业要求") private String majorRequirement;
     @ExcelProperty(value = "优先专业", converter = StringArrayConverter.class) private List<String> majorPreference;
-    @ExcelProperty("年龄上限") private Integer ageLimit;
+    @ExcelProperty(value = "年龄上限", converter = ExcelIntegerConverter.class) private Integer ageLimit;
     @ExcelProperty("工作经验要求") private String workExperience;
-    @ExcelProperty("招聘人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "招聘人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty(value = "证书要求", converter = StringArrayConverter.class) private List<String> certRequirements;
     @ExcelProperty("语言要求") private String languageRequirement;
     @ExcelProperty("计算机要求") private String computerRequirement;
     @ExcelProperty("其他要求") private String otherRequirement;
-    @ExcelProperty("最低月薪") private Integer salaryMin;
-    @ExcelProperty("最高月薪") private Integer salaryMax;
+    @ExcelProperty(value = "最低月薪", converter = ExcelIntegerConverter.class) private Integer salaryMin;
+    @ExcelProperty(value = "最高月薪", converter = ExcelIntegerConverter.class) private Integer salaryMax;
     @ExcelProperty("薪资文本说明") private String salaryText;
     @ExcelProperty("福利待遇") private String benefits;
     @ExcelProperty("考试内容") private String examContent;
@@ -46,5 +47,5 @@ public class FinancePositionExcelDTO {
     @ExcelProperty("联系方式") private String contactInfo;
     @ExcelProperty("备注") private String remark;
     @ExcelProperty("详细说明") private String content;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

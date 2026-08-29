@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 /**
@@ -15,6 +16,6 @@ public class MajorPostgradDirectionImportDTO {
     @ExcelProperty("考研专业名称")
     private String postgradMajorName;
 
-    @ExcelProperty("排序权重")
+    @ExcelProperty(value = "排序权重", converter = ExcelIntegerConverter.class)
     private Integer sortOrder;
 }

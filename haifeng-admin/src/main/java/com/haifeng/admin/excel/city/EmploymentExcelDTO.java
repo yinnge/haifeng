@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -29,7 +30,7 @@ public class EmploymentExcelDTO {
     @ExcelProperty("平均工资(万元/年)")
     private BigDecimal avgSalary;
 
-    @ExcelProperty("工资排名(全国)")
+    @ExcelProperty(value = "工资排名(全国)", converter = ExcelIntegerConverter.class)
     private Integer salaryRank;
 
     @ExcelProperty("技能人才占比(%)")

@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.algorithm.admission;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -61,24 +62,24 @@ public class AdmissionImportDTO {
     @ExcelProperty("报考限制条件")
     private String constraintsStr;
 
-    @ExcelProperty("录取人数")
+    @ExcelProperty(value = "录取人数", converter = ExcelIntegerConverter.class)
     private Integer admissionCount;
 
-    @ExcelProperty("最低分")
+    @ExcelProperty(value = "最低分", converter = ExcelIntegerConverter.class)
     private Integer minScore;
 
     @ExcelProperty("中位分")
     private BigDecimal avgScore;
 
-    @ExcelProperty("最高分")
+    @ExcelProperty(value = "最高分", converter = ExcelIntegerConverter.class)
     private Integer maxScore;
 
-    @ExcelProperty("最低位次")
+    @ExcelProperty(value = "最低位次", converter = ExcelIntegerConverter.class)
     private Integer minRank;
 
-    @ExcelProperty("中位位次")
+    @ExcelProperty(value = "中位位次", converter = ExcelIntegerConverter.class)
     private Integer avgRank;
 
-    @ExcelProperty("最高位次")
+    @ExcelProperty(value = "最高位次", converter = ExcelIntegerConverter.class)
     private Integer maxRank;
 }

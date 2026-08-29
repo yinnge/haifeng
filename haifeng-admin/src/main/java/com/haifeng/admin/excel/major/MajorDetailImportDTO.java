@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.major;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.StringToArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -18,7 +19,7 @@ public class MajorDetailImportDTO {
     @ExcelProperty("专业代码")
     private String majorCode;
 
-    @ExcelProperty("课程数量")
+    @ExcelProperty(value = "课程数量", converter = ExcelIntegerConverter.class)
     private Integer courseCount;
 
     @ExcelProperty("毕业生规模")

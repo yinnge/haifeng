@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.university;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -15,6 +16,6 @@ public class CampusGalleryExcelDTO {
     @ExcelProperty("图片URL")
     private String imageUrl;
 
-    @ExcelProperty("排序权重")
+    @ExcelProperty(value = "排序权重", converter = ExcelIntegerConverter.class)
     private Integer sortOrder;
 }

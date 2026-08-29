@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.employment.civilService;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.StringToArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -19,5 +20,5 @@ public class MilitaryPositionExcelDTO {
     @ExcelProperty("岗位描述") private String positionDescription;
     @ExcelProperty(value = "工作职责", converter = StringToArrayConverter.class) private String[] responsibilities;
     @ExcelProperty(value = "任职资格", converter = StringToArrayConverter.class) private String[] qualifications;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

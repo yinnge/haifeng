@@ -94,10 +94,6 @@ public class SeedDataSqlGenerator {
                 new ModuleDef("竞赛管理", "certificate_comp", "certificate", 2, "/certificate/competition", 2),
                 new ModuleDef("竞赛专业关联管理", "cert_comp_major", "certificate", 2, "/certificate/competition/major", 3),
 
-                // === 资源管理 ===
-                new ModuleDef("资源管理", "resource", null, 1, "/resource", 11),
-                new ModuleDef("资源管理", "resource_info", "resource", 2, "/resource/info", 1),
-
                 // === 行业管理 ===
                 new ModuleDef("行业管理", "industry", null, 1, "/industry", 12),
                 new ModuleDef("行业管理", "industry_info", "industry", 2, "/industry/info", 1),

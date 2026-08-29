@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -23,10 +24,10 @@ public class CityExcelDTO {
     @ExcelProperty("城市简介")
     private String cityIntro;
 
-    @ExcelProperty("高校数量")
+    @ExcelProperty(value = "高校数量", converter = ExcelIntegerConverter.class)
     private Integer collegeCount;
 
-    @ExcelProperty("重点高校数量")
+    @ExcelProperty(value = "重点高校数量", converter = ExcelIntegerConverter.class)
     private Integer keyCollegeCount;
 
     @ExcelProperty("常住人口(万人)")
