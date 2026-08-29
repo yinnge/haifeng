@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -29,6 +30,6 @@ public class ConsumptionExcelDTO {
     @ExcelProperty("消费指数")
     private BigDecimal consumptionIndex;
 
-    @ExcelProperty("消费排名(全国)")
+    @ExcelProperty(value = "消费排名(全国)", converter = ExcelIntegerConverter.class)
     private Integer consumptionRank;
 }

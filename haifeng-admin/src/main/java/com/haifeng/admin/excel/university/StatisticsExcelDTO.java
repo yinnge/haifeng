@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.university;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -12,6 +13,6 @@ public class StatisticsExcelDTO {
     @ExcelProperty("统计标签")
     private String label;
 
-    @ExcelProperty("数量")
+    @ExcelProperty(value = "数量", converter = ExcelIntegerConverter.class)
     private Integer count;
 }

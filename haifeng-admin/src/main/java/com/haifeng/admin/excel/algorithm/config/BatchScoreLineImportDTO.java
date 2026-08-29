@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.algorithm.config;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -17,10 +18,10 @@ public class BatchScoreLineImportDTO {
     @ExcelProperty("批次")
     private String batch;
 
-    @ExcelProperty("分数线")
+    @ExcelProperty(value = "分数线", converter = ExcelIntegerConverter.class)
     private Integer scoreLine;
 
-    @ExcelProperty("位次线")
+    @ExcelProperty(value = "位次线", converter = ExcelIntegerConverter.class)
     private Integer rankLine;
 
     @ExcelProperty("备注")

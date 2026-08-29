@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.university;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.util.List;
@@ -17,6 +18,6 @@ public class UniversityGuideExcelDTO {
     @ExcelProperty("备注")
     private String remark;
 
-    @ExcelProperty("状态")
+    @ExcelProperty(value = "状态", converter = ExcelIntegerConverter.class)
     private Integer status;
 }

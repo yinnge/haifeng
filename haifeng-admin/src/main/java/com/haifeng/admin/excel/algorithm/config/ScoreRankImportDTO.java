@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.algorithm.config;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 @Data
@@ -17,12 +18,12 @@ public class ScoreRankImportDTO {
     @ExcelProperty("分数")
     private Short score;
 
-    @ExcelProperty("位次")
+    @ExcelProperty(value = "位次", converter = ExcelIntegerConverter.class)
     private Integer rank;
 
-    @ExcelProperty("同分人数")
+    @ExcelProperty(value = "同分人数", converter = ExcelIntegerConverter.class)
     private Integer sameScoreCount;
 
-    @ExcelProperty("累计人数")
+    @ExcelProperty(value = "累计人数", converter = ExcelIntegerConverter.class)
     private Integer cumulativeCount;
 }

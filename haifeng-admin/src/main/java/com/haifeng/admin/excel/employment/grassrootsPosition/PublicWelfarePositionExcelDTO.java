@@ -3,6 +3,7 @@ package com.haifeng.admin.excel.employment.grassrootsPosition;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.converter.StringToArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -21,13 +22,13 @@ public class PublicWelfarePositionExcelDTO {
     @ExcelProperty("学历要求") private String educationRequirement;
     @ExcelProperty("年龄范围") private String ageRange;
     @ExcelProperty("身体条件") private String healthRequirement;
-    @ExcelProperty("招聘人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "招聘人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty("户籍要求") private String householdRequirement;
     @ExcelProperty("困难认定") private Boolean employmentDifficultyCert;
     @ExcelProperty("其他要求") private String otherRequirement;
     @ExcelProperty("合同期限") private String contractPeriod;
     @ExcelProperty("可续签") private Boolean isRenewable;
-    @ExcelProperty("最长服务年限") private Integer maxServiceYears;
+    @ExcelProperty(value = "最长服务年限", converter = ExcelIntegerConverter.class) private Integer maxServiceYears;
     @ExcelProperty("月工资") private String monthlySalary;
     @ExcelProperty("工资来源") private String salarySource;
     @ExcelProperty("补贴标准") private String subsidyStandard;
@@ -45,5 +46,5 @@ public class PublicWelfarePositionExcelDTO {
     @ExcelProperty("联系人") private String contactPerson;
     @ExcelProperty("备注") private String remark;
     @ExcelProperty("详细说明") private String content;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

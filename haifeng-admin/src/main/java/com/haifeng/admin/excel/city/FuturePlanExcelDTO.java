@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.excel.university.StringArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.util.List;
@@ -15,7 +16,7 @@ public class FuturePlanExcelDTO {
     @ExcelProperty("城市名称")
     private String cityName;
 
-    @ExcelProperty("目标年份")
+    @ExcelProperty(value = "目标年份", converter = ExcelIntegerConverter.class)
     private Integer targetYear;
 
     @ExcelProperty("发展目标")

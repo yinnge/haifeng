@@ -3,6 +3,7 @@ package com.haifeng.admin.excel.company;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.excel.university.StringArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.time.OffsetDateTime;
@@ -47,10 +48,10 @@ public class EnterprisePositionExcelDTO {
     @ExcelProperty("工作经验")
     private String workExperience;
 
-    @ExcelProperty("最低薪资")
+    @ExcelProperty(value = "最低薪资", converter = ExcelIntegerConverter.class)
     private Integer salaryMin;
 
-    @ExcelProperty("最高薪资")
+    @ExcelProperty(value = "最高薪资", converter = ExcelIntegerConverter.class)
     private Integer salaryMax;
 
     @ExcelProperty("申请链接")

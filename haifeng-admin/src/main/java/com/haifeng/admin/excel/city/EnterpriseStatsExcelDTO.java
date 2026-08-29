@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 /**
@@ -12,12 +13,12 @@ public class EnterpriseStatsExcelDTO {
     @ExcelProperty("城市名称")
     private String cityName;
 
-    @ExcelProperty("企业类别数")
+    @ExcelProperty(value = "企业类别数", converter = ExcelIntegerConverter.class)
     private Integer enterpriseCategories;
 
-    @ExcelProperty("重点企业总数")
+    @ExcelProperty(value = "重点企业总数", converter = ExcelIntegerConverter.class)
     private Integer keyEnterpriseCount;
 
-    @ExcelProperty("世界500强企业数量")
+    @ExcelProperty(value = "世界500强企业数量", converter = ExcelIntegerConverter.class)
     private Integer fortune500Count;
 }

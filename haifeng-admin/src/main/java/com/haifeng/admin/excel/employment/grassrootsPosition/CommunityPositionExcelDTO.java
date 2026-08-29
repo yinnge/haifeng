@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.employment.grassrootsPosition;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -18,8 +19,8 @@ public class CommunityPositionExcelDTO {
     @ExcelProperty("城市") private String city;
     @ExcelProperty("工作地点") private String workLocation;
     @ExcelProperty("学历要求") private String educationRequirement;
-    @ExcelProperty("年龄上限") private Integer ageLimit;
-    @ExcelProperty("招聘人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "年龄上限", converter = ExcelIntegerConverter.class) private Integer ageLimit;
+    @ExcelProperty(value = "招聘人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty("专业要求") private String majorRequirement;
     @ExcelProperty("户籍要求") private String householdRequirement;
     @ExcelProperty("政治面貌") private String politicalStatus;
@@ -42,5 +43,5 @@ public class CommunityPositionExcelDTO {
     @ExcelProperty("报名地址") private String contactAddress;
     @ExcelProperty("备注") private String remark;
     @ExcelProperty("详细说明") private String content;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

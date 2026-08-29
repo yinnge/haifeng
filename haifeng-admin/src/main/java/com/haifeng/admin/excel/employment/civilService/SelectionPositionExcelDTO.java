@@ -3,6 +3,7 @@ package com.haifeng.admin.excel.employment.civilService;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
 import com.haifeng.admin.converter.StringToArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -27,8 +28,8 @@ public class SelectionPositionExcelDTO {
     @ExcelProperty("政治面貌") private String politicalStatus;
     @ExcelProperty("学生干部要求") private String studentCadreRequirement;
     @ExcelProperty("奖项要求") private String awardsRequirement;
-    @ExcelProperty("年龄上限") private Integer ageLimit;
-    @ExcelProperty("招录人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "年龄上限", converter = ExcelIntegerConverter.class) private Integer ageLimit;
+    @ExcelProperty(value = "招录人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty("考试科目") private String examSubjects;
     @ExcelProperty("面试形式") private String interviewForm;
     @ExcelProperty(value = "报名开始", converter = OffsetDateTimeConverter.class) private OffsetDateTime regStartDate;
@@ -40,5 +41,5 @@ public class SelectionPositionExcelDTO {
     @ExcelProperty("联系电话") private String contactPhone;
     @ExcelProperty("官方链接") private String officialLink;
     @ExcelProperty("详细说明") private String content;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }

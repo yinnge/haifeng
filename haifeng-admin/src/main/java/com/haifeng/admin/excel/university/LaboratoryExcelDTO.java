@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.university;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.util.List;
@@ -65,9 +66,9 @@ public class LaboratoryExcelDTO {
     @ExcelProperty(value = "主要设备(逗号分隔)", converter = StringArrayConverter.class)
     private List<String> majorEquipment;
 
-    @ExcelProperty("排序")
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class)
     private Integer sortOrder;
 
-    @ExcelProperty("状态")
+    @ExcelProperty(value = "状态", converter = ExcelIntegerConverter.class)
     private Integer status;
 }

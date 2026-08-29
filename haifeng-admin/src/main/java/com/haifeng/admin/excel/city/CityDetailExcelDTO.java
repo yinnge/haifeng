@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.city;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.excel.university.StringArrayConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -46,7 +47,7 @@ public class CityDetailExcelDTO {
     @ExcelProperty("GDP增长率(%)")
     private BigDecimal gdpGrowthRate;
 
-    @ExcelProperty("世界500强企业数量")
+    @ExcelProperty(value = "世界500强企业数量", converter = ExcelIntegerConverter.class)
     private Integer fortune500Count;
 
     @ExcelProperty("产业描述")

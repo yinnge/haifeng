@@ -1,6 +1,7 @@
 package com.haifeng.admin.excel.university;
 
 import com.alibaba.excel.annotation.ExcelProperty;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -27,7 +28,7 @@ public class UniversityExcelDTO {
     @ExcelProperty("院校类别")
     private String category;
 
-    @ExcelProperty("专业数量")
+    @ExcelProperty(value = "专业数量", converter = ExcelIntegerConverter.class)
     private Integer majorCount;
 
     @ExcelProperty("办学层次")
@@ -60,6 +61,6 @@ public class UniversityExcelDTO {
     @ExcelProperty("推免率")
     private BigDecimal recommendationRate;
 
-    @ExcelProperty("推免年份")
+    @ExcelProperty(value = "推免年份", converter = ExcelIntegerConverter.class)
     private Integer recommendationYear;
 }

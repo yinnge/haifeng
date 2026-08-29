@@ -2,6 +2,7 @@ package com.haifeng.admin.excel.employment.industryPosition;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.haifeng.admin.converter.OffsetDateTimeConverter;
+import com.haifeng.common.converter.ExcelIntegerConverter;
 import lombok.Data;
 import java.time.OffsetDateTime;
 
@@ -20,8 +21,8 @@ public class TeacherPositionExcelDTO {
     @ExcelProperty("学历要求") private String educationRequirement;
     @ExcelProperty("学位要求") private String degreeRequirement;
     @ExcelProperty("专业要求") private String majorRequirement;
-    @ExcelProperty("年龄上限") private Integer ageLimit;
-    @ExcelProperty("招聘人数") private Integer recruitmentCount;
+    @ExcelProperty(value = "年龄上限", converter = ExcelIntegerConverter.class) private Integer ageLimit;
+    @ExcelProperty(value = "招聘人数", converter = ExcelIntegerConverter.class) private Integer recruitmentCount;
     @ExcelProperty("教师资格证要求") private String teacherCertRequirement;
     @ExcelProperty("资格证学科要求") private String teacherCertSubject;
     @ExcelProperty("普通话等级要求") private String putonghuaLevel;
@@ -40,5 +41,5 @@ public class TeacherPositionExcelDTO {
     @ExcelProperty("联系电话") private String contactPhone;
     @ExcelProperty("备注") private String remark;
     @ExcelProperty("详细说明") private String content;
-    @ExcelProperty("排序") private Integer sortOrder;
+    @ExcelProperty(value = "排序", converter = ExcelIntegerConverter.class) private Integer sortOrder;
 }
