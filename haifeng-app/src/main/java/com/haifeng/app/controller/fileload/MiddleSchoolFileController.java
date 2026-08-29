@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.service.fileload.FileLoadService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
@@ -62,7 +63,7 @@ public class MiddleSchoolFileController {
     /**
      * 获取初中文件详情（仅VIP）
      */
-    @RequireVip
+    @RequireLogin
     @GetMapping("/{id}")
     public R<FileLoadDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.detail(id));
@@ -71,7 +72,7 @@ public class MiddleSchoolFileController {
     /**
      * 获取初中文件预览URL（仅VIP）
      */
-    @RequireVip
+    @RequireLogin
     @GetMapping("/{id}/preview")
     public R<String> preview(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getPreviewUrl(id));
