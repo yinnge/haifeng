@@ -69,4 +69,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d haifeng-admin haifeng-app
             docker compose -f docker-compose.prod.yml pull kkfileview
             docker compose -f docker-compose.prod.yml up -d kkfileview
+            # nginx 不在上面的显式列表里、也非 admin/app 的依赖，down 后不会被动拉起；
+            # 每次部署后必须显式起 nginx，否则站点 80 端口失联。
+            docker compose -f docker-compose.prod.yml up -d nginx
           timeout: 5m

@@ -512,10 +512,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         }
 
         if (!errors.isEmpty()) {
-            String errorSummary = errors.size() > MAX_ERROR_DISPLAY
-                    ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + "...等共" + errors.size() + "条错误"
-                    : String.join("; ", errors);
-            throw new BusinessException(400, "导入校验失败，已全部回滚。共" + errors.size() + "条错误：" + errorSummary);
+            throw new BusinessException(400, "导入院系主表校验失败，已全部回滚：" + joinErrors(errors));
         }
 
         log.info("导入院系主表数据成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
@@ -647,10 +644,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             }
 
             if (!errors.isEmpty()) {
-                String errorMsg = errors.size() > MAX_ERROR_DISPLAY
-                        ? String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY)) + " 等共" + errors.size() + "条错误"
-                        : String.join("; ", errors);
-                throw new BusinessException(400, "导入失败，已全部回滚。" + errorMsg);
+                throw new BusinessException(400, "导入院系报告失败，已全部回滚：" + joinErrors(errors));
             }
 
             log.info("导入院系报告数据成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
@@ -662,6 +656,9 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                     .errors(Collections.emptyList())
                     .build();
 
+        } catch (BusinessException be) {
+            // 保留清晰的分类Sheet读取失败等错误信息，不做二次包裹
+            throw be;
         } catch (Exception e) {
             log.error("读取院系报告Excel失败", e);
             throw new BusinessException(400, "读取院系报告Excel失败: " + e.getMessage());
@@ -864,6 +861,20 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
     }
 
     /**
+     * 错误列表统一截断：超过 MAX_ERROR_DISPLAY 条时提示总数，避免全局报错 msg 过长。
+     * 与项目导入模板（AdmissionGroupServiceImpl）保持一致。
+     */
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
+    }
+
+    /**
      * 将导入的报告数据写入报告实体。
      *
      * @param onlyFillNull true=仅补齐实体中为 NULL（或空集合）的字段，已有数据一律不覆盖；
@@ -907,16 +918,39 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {
         try {
-            List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
+            // headRowNumber(0)：把表头行也当数据读入（调用方用 rows.get(0) 作为表头）。
+            // 不加时 EasyExcel 默认 headRowNumber=1，第一行（表头）会被当作 head 消费掉，不出现在结果里。
+            // 另外：不指定 head class 时每行返回 LinkedHashMap<Integer,String>（列索引→单元格值），不是 List。
+            List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).headRowNumber(0).doReadSync();
             if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
             }
             List<List<String>> result = new ArrayList<>();
             for (Object rawRow : rawRows) {
                 if (rawRow instanceof List) {
+                    // 兜底分支：head(List.class) 等场景下返回 List 形态
                     List<String> row = new ArrayList<>();
                     for (Object cell : (List<?>) rawRow) {
                         row.add(cell != null ? cell.toString().trim() : "");
+                    }
+                    result.add(row);
+                } else if (rawRow instanceof Map) {
+                    // 无 head class 时 EasyExcel 默认返回 Map<列索引, 单元格值>
+                    Map<?, ?> map = (Map<?, ?>) rawRow;
+                    if (map.isEmpty()) continue;
+                    int maxIdx = -1;
+                    for (Object key : map.keySet()) {
+                        if (key instanceof Number) {
+                            maxIdx = Math.max(maxIdx, ((Number) key).intValue());
+                        }
+                    }
+                    if (maxIdx < 0) continue;
+                    List<String> row = new ArrayList<>(Collections.nCopies(maxIdx + 1, ""));
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        if (entry.getKey() instanceof Number) {
+                            int idx = ((Number) entry.getKey()).intValue();
+                            row.set(idx, entry.getValue() != null ? entry.getValue().toString().trim() : "");
+                        }
                     }
                     result.add(row);
                 }

@@ -241,6 +241,21 @@ public final class RedisKeyConstant {
     }
 
     /**
+     * 带水印PDF生成锁前缀（同一文件只允许一个线程生成，其余线程等待结果）
+     */
+    public static final String WATERMARK_GEN_LOCK_PREFIX = "haifeng:watermark:gen:";
+
+    /**
+     * 获取带水印PDF生成锁 Key
+     *
+     * @param fileId 文件ID
+     * @return Redis Key
+     */
+    public static String getWatermarkGenLockKey(Long fileId) {
+        return WATERMARK_GEN_LOCK_PREFIX + fileId;
+    }
+
+    /**
      * 首页模块缓存 TTL（分钟）
      */
     public static final long HOME_CACHE_TTL_MINUTES = 30L;

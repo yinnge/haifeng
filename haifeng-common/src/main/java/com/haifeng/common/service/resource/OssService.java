@@ -2,6 +2,7 @@ package com.haifeng.common.service.resource;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.aliyun.oss.model.PutObjectRequest;
 import com.aliyun.oss.model.ResponseHeaderOverrides;
@@ -11,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -57,6 +60,52 @@ public class OssService {
         }
 
         return objectKey;
+    }
+
+    /**
+     * 上传字节数组到OSS（服务端生成的文件，如加水印后的PDF）。
+     * 注意：整个文件会驻留内存，调用方需自行控制文件大小。
+     *
+     * @param data      文件内容
+     * @param objectKey 完整的OSS对象key（调用方自行拼装，便于按业务规划目录）
+     * @return objectKey
+     */
+    public String uploadBytes(byte[] data, String objectKey) {
+        OSS ossClient = createClient();
+        try (InputStream inputStream = new ByteArrayInputStream(data)) {
+            ossClient.putObject(ossProperties.getBucketName(), objectKey, inputStream);
+            log.info("字节流上传OSS成功: bucket={}, key={}, size={}",
+                    ossProperties.getBucketName(), objectKey, data.length);
+            return objectKey;
+        } catch (Exception e) {
+            log.error("字节流上传OSS失败: key={}, error={}", objectKey, e.getMessage(), e);
+            throw new RuntimeException("文件上传失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    /**
+     * 从OSS下载对象为字节数组（仅用于服务端加工，如加水印）。
+     * 注意：整个文件会驻留内存，大文件需谨慎（推荐配合大小上限校验使用）。
+     */
+    public byte[] downloadBytes(String objectKey) {
+        OSS ossClient = createClient();
+        try (OSSObject ossObject = ossClient.getObject(ossProperties.getBucketName(), objectKey);
+             InputStream in = ossObject.getObjectContent()) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = in.read(buffer)) != -1) {
+                out.write(buffer, 0, len);
+            }
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("OSS文件下载失败: key={}, error={}", objectKey, e.getMessage(), e);
+            throw new RuntimeException("文件下载失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
     }
 
     public String generatePresignedUrl(String objectKey) {

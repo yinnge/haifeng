@@ -756,6 +756,12 @@
             color: #c9a14a;
         }
     </style>
+
+    <!-- 水印背景：CSS 由 PdfRenderServiceImpl.buildWatermarkStyle() 注入。
+         走 @page 的 background-image，openhtmltopdf 会在每一页自动平铺。
+         放在此处（head 末尾）以确保晚于上面的 @page / @page :first 规则生效，
+         且只设置 background 相关属性，不会覆盖上面已定义的 margin。 -->
+    <style th:utext="${watermarkStyle}"></style>
 </head>
 <body>
 

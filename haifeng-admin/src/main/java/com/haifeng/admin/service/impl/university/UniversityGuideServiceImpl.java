@@ -18,6 +18,8 @@ import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import com.haifeng.admin.excel.university.UniversityGuideExcelDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,8 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     private static final int MAX_IMPORT_ROWS = 1000;
     /** 导入报错信息最多展示条数，避免单条 msg 过长（完整错误见后端日志） */
     private static final int MAX_ERROR_DISPLAY = 50;
+    /** 主表 Sheet 名称：文件缺少该 Sheet 时显式报错，避免静默 total=0 假成功 */
+    private static final String MAIN_SHEET_NAME = "适应指南-主表";
     private final UniversityMapper universityMapper;
 
     private static final Map<String, String> SHEET_TO_FIELD = new LinkedHashMap<>();
@@ -388,16 +392,26 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
         try {
             byte[] fileBytes = file.getBytes();
 
-            // Step 1: Read "院校介绍" sheet - main data
+            // 主表 Sheet 存在性校验：文件缺少该 Sheet 时显式报错（列出可用 Sheet），
+            // 避免 EasyExcel 按名字找不到 Sheet 时静默返回空列表、导致 total=0 假成功。
+            List<String> sheetNames = listSheetNames(fileBytes);
+            if (!sheetNames.isEmpty() && !sheetNames.contains(MAIN_SHEET_NAME)) {
+                throw new BusinessException(400, "未找到名为「" + MAIN_SHEET_NAME
+                        + "」的Sheet，请确认主表Sheet名称是否正确。当前文件包含的Sheet为："
+                        + String.join("、", sheetNames));
+            }
+
+            // Step 1: Read "适应指南-主表" sheet - main data
             List<UniversityGuideExcelDTO> mainDataList;
             try (InputStream is = new ByteArrayInputStream(fileBytes)) {
                 mainDataList = EasyExcel.read(is)
                         .head(UniversityGuideExcelDTO.class)
-                        .sheet("院校介绍")
+                        .sheet(MAIN_SHEET_NAME)
                         .doReadSync();
             } catch (RuntimeException e) {
-                log.error("读取「院校介绍」Sheet失败", e);
-                throw new BusinessException(400, "读取「院校介绍」Sheet失败，请确认sheet名称为「院校介绍」且表头为：院校名称/自定义标签/备注/状态。详细: " + e.getMessage());
+                log.error("读取「" + MAIN_SHEET_NAME + "」Sheet失败", e);
+                throw new BusinessException(400, "读取「" + MAIN_SHEET_NAME + "」Sheet失败，请确认sheet名称为「"
+                        + MAIN_SHEET_NAME + "」且表头为：院校名称/自定义标签/备注/状态。详细: " + e.getMessage());
             }
 
             if (mainDataList != null && mainDataList.size() > MAX_IMPORT_ROWS) {
@@ -405,7 +419,14 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             }
 
             if (mainDataList == null || mainDataList.isEmpty()) {
-                throw new BusinessException(400, "「院校介绍」Sheet中没有任何数据");
+                log.info("「" + MAIN_SHEET_NAME + "」Sheet 为空，无需导入，直接跳过");
+                return ImportResultVO.builder()
+                        .total(0)
+                        .success(0)
+                        .failed(0)
+                        .updated(0)
+                        .errors(new ArrayList<>())
+                        .build();
             }
 
             // Step 2: Read Sheet1-14 - JSONB data
@@ -447,11 +468,9 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
                                     .eq(UniversityGuide::getUniversityId, university.getId())
                                     .ne(UniversityGuide::getStatus, (short) 0));
 
+                    // 该院校在本批上传的分类 Sheet 中未匹配到数据：跳过 JSONB 补填，仅处理主表字段（customTags/remark）。
+                    // 增量导入策略下允许分批上传，分类 Sheet 留空不报错，用户后续补数据再传。
                     Map<String, Map<String, List<String>>> univJsonb = jsonbDataMap.get(univName);
-                    if (univJsonb == null || univJsonb.isEmpty()) {
-                        errors.add("第" + rowNum + "行: 院校[" + univName + "]在14个分类Sheet中均未匹配到数据，请检查该院校在分类Sheet中的名称是否一致");
-                        continue;
-                    }
 
                     if (existingGuide != null) {
                         // 已存在：仅补齐数据库中为 NULL / 空 的字段，已有数据一律不覆盖
@@ -527,12 +546,14 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
             } catch (BusinessException e) {
                 throw e;
             } catch (Exception e) {
-                errors.add("分类Sheet「" + sheetName + "」（" + fieldName + "）读取失败: " + e.getMessage());
+                // 分类 Sheet 缺失或无法读取：增量导入下允许留空，跳过不报错（仅记日志便于排查）
+                log.warn("分类Sheet「{}」读取失败，跳过: {}", sheetName, e.getMessage());
                 continue;
             }
 
             if (rows == null || rows.size() < 2) {
-                errors.add("分类Sheet「" + sheetName + "」（" + fieldName + "）没有数据行（至少需要表头+1行数据）");
+                // 该分类 Sheet 为空（或仅表头）：增量导入下允许留空，跳过不报错，用户后续补数据再传
+                log.debug("分类Sheet「{}」无数据行，跳过", sheetName);
                 continue;
             }
 
@@ -564,21 +585,61 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
     }
 
     private List<List<String>> readSheetRows(InputStream is, String sheetName) {
-        List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).doReadSync();
+        // headRowNumber(0)：把表头行也当数据读入（调用方用 rows.get(0) 作为表头）。
+        // 不加时 EasyExcel 默认 headRowNumber=1，第一行（表头）会被当作 head 消费掉，不出现在结果里。
+        // 另外：不指定 head class 时每行返回 LinkedHashMap<Integer,String>（列索引→单元格值），不是 List。
+        List<Object> rawRows = EasyExcel.read(is).sheet(sheetName).headRowNumber(0).doReadSync();
         if (rawRows != null && rawRows.size() > MAX_IMPORT_ROWS) {
             throw new BusinessException(400, "单次导入不能超过" + MAX_IMPORT_ROWS + "条记录");
         }
         List<List<String>> result = new ArrayList<>();
         for (Object rawRow : rawRows) {
             if (rawRow instanceof List) {
+                // 兜底分支：head(List.class) 等场景下返回 List 形态
                 List<String> row = new ArrayList<>();
                 for (Object cell : (List<?>) rawRow) {
                     row.add(cell != null ? cell.toString().trim() : "");
                 }
                 result.add(row);
+            } else if (rawRow instanceof Map) {
+                // 无 head class 时 EasyExcel 默认返回 Map<列索引, 单元格值>
+                Map<?, ?> map = (Map<?, ?>) rawRow;
+                if (map.isEmpty()) continue;
+                int maxIdx = -1;
+                for (Object key : map.keySet()) {
+                    if (key instanceof Number) {
+                        maxIdx = Math.max(maxIdx, ((Number) key).intValue());
+                    }
+                }
+                if (maxIdx < 0) continue;
+                List<String> row = new ArrayList<>(Collections.nCopies(maxIdx + 1, ""));
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    if (entry.getKey() instanceof Number) {
+                        int idx = ((Number) entry.getKey()).intValue();
+                        row.set(idx, entry.getValue() != null ? entry.getValue().toString().trim() : "");
+                    }
+                }
+                result.add(row);
             }
         }
         return result;
+    }
+
+    /**
+     * 枚举工作簿内所有 Sheet 名称，用于导入前校验主表 Sheet 是否存在。
+     * 无法读取（文件损坏/不支持格式）时返回空列表，调用方据此跳过校验而非阻断导入。
+     */
+    private List<String> listSheetNames(byte[] fileBytes) {
+        List<String> names = new ArrayList<>();
+        try (InputStream is = new ByteArrayInputStream(fileBytes);
+             Workbook workbook = WorkbookFactory.create(is)) {
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                names.add(workbook.getSheetName(i));
+            }
+        } catch (Exception e) {
+            log.warn("枚举Sheet名称失败，跳过主表存在性校验: {}", e.getMessage());
+        }
+        return names;
     }
 
     /**

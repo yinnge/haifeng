@@ -119,7 +119,6 @@ public class UniversityGuideController {
     @PostMapping("/import")
     @OperationLog(module = "院校管理", action = "导入院校适应指南数据")
     public R<ImportResultVO> importGuide(@RequestParam("file") MultipartFile file) {
-        universityGuideService.importGuide(file);
-        return R.ok();
+        return R.ok(universityGuideService.importGuide(file));
     }
 }

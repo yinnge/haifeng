@@ -336,10 +336,7 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
             }
 
             if (!errorMsgs.isEmpty()) {
-                String detail = errorMsgs.size() > MAX_ERROR_DISPLAY
-                        ? String.join("；", errorMsgs.subList(0, MAX_ERROR_DISPLAY)) + " 等共" + errorMsgs.size() + "条错误"
-                        : String.join("；", errorMsgs);
-                throw new BusinessException(400, "导入失败，已全部回滚。" + detail);
+                throw new BusinessException(400, "导入学科评估失败，已全部回滚：" + joinErrors(errorMsgs));
             }
 
             log.info("导入学科评估成功: 新增{}条, 补齐{}条", addedCount, updatedCount);
@@ -378,5 +375,15 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
             db.setSortOrder(data.getSortOrder() != null ? data.getSortOrder() : 0);
         }
         db.setUpdatedAt(now);
+    }
+
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
     }
 }
