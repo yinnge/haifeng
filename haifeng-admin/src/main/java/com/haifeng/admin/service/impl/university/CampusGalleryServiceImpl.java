@@ -345,14 +345,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
         // 校验失败 = 全部不插入
         if (!errors.isEmpty()) {
-            String errorSummary;
-            if (errors.size() <= MAX_ERROR_DISPLAY) {
-                errorSummary = String.join("; ", errors);
-            } else {
-                errorSummary = String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY))
-                        + String.format("...等共%d条错误", errors.size());
-            }
-            throw new BusinessException(400, "导入校验失败，共" + errors.size() + "条错误：" + errorSummary);
+            throw new BusinessException(400, "导入校园图册校验失败，已全部回滚：" + joinErrors(errors));
         }
 
         // 第二轮：全部校验通过，逐行插入（行级 try-catch，避免无行号裸异常）
@@ -368,11 +361,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
         // 第二轮任意行保存失败 → 整体回滚
         if (!errors.isEmpty()) {
-            String errorSummary = errors.size() <= MAX_ERROR_DISPLAY
-                    ? String.join("; ", errors)
-                    : String.join("; ", errors.subList(0, MAX_ERROR_DISPLAY))
-                        + String.format("...等共%d条错误", errors.size());
-            throw new BusinessException(400, "导入失败，已全部回滚。共" + errors.size() + "条错误：" + errorSummary);
+            throw new BusinessException(400, "导入校园图册失败，已全部回滚：" + joinErrors(errors));
         }
 
         return ImportResultVO.builder()
@@ -395,5 +384,15 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
             db.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         }
         db.setUpdatedAt(now);
+    }
+
+    private String joinErrors(List<String> errors) {
+        if (errors == null || errors.isEmpty()) return null;
+        int shown = Math.min(errors.size(), MAX_ERROR_DISPLAY);
+        String joined = String.join("; ", errors.subList(0, shown));
+        if (errors.size() > MAX_ERROR_DISPLAY) {
+            joined += "; ...仅显示前" + MAX_ERROR_DISPLAY + "条，共" + errors.size() + "行存在错误";
+        }
+        return joined;
     }
 }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.util.algorithm.pdf.EnrichmentLoader;
+import com.haifeng.app.util.watermark.WatermarkTileUtil;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.MacroAnalysisVO;
 import com.haifeng.app.vo.algorithm.pdf.MapResultItem;
@@ -601,6 +602,7 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         // 7. Thymeleaf 渲染
         Context context = new Context();
         context.setVariable("data", data);
+        context.setVariable("watermarkStyle", buildWatermarkStyle());
         String html = templateEngine.process("pdf-report", context);
 
         // 8. OpenHTMLtoPDF 渲染
@@ -619,6 +621,20 @@ public class PdfRenderServiceImpl implements PdfRenderService {
             log.error("PDF rendering failed, recordId={}", recordId, e);
             throw new BusinessException(ResultCode.INTERNAL_ERROR, "PDF渲染失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 生成水印背景 CSS：走 @page 的 background-image，由 openhtmltopdf 在每一页自动平铺。
+     *
+     * 为什么不用「渲染完再用 PDFBox 逐页画水印」：
+     * 报告 PDF 本来就是在内存里生成的，再叠加一次 PDFBox 全量加载渲染会额外吃掉一大块堆内存
+     * （app 容器上限 768m）。渲染期直接把水印铺进页面背景，几乎零额外开销。
+     */
+    private String buildWatermarkStyle() {
+        String dataUri = WatermarkTileUtil.buildTileDataUri();
+        String rule = "background-image: url(\"" + dataUri + "\"); background-repeat: repeat;";
+        // 模板里 @page :first 单独设过 margin，这里只补背景属性，不会覆盖已有 margin
+        return "@page { " + rule + " } @page :first { " + rule + " }";
     }
 
     private String markdownToHtml(String markdown) {

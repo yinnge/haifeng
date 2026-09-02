@@ -119,7 +119,6 @@ public class CampusGalleryController {
     @PostMapping("/import")
     @OperationLog(module = "院校管理", action = "导入校园图册数据")
     public R<ImportResultVO> importGallery(@RequestParam("file") MultipartFile file) {
-        campusGalleryService.importGallery(file);
-        return R.ok();
+        return R.ok(campusGalleryService.importGallery(file));
     }
 }

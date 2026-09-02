@@ -32,6 +32,15 @@ public class FileInfo {
 
     private String bucketName;
 
+    /** 带水印PDF的OSS对象key（生成成功后缓存复用；水印文本固定，故一个源文件只需生成一次） */
+    private String watermarkedFileUrl;
+
+    /** 水印PDF生成状态：NONE-未生成 PENDING-生成中 READY-已就绪 FAILED-生成失败（降级返回原文件） */
+    private String watermarkStatus;
+
+    /** 水印PDF生成失败原因（排查用，不对外暴露） */
+    private String watermarkFailReason;
+
     /** 面向人群（middle_school:初中生, high_school:高中生） */
     private String targetAudience;
 

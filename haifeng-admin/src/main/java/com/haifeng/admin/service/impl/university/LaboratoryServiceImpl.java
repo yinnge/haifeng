@@ -476,7 +476,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
 
             if (!errorMsgs.isEmpty()) {
                 status.setRollbackOnly();
-                throw new BusinessException(400, joinErrors(errorMsgs));
+                throw new BusinessException(400, "导入实验室校验失败，已全部回滚：" + joinErrors(errorMsgs));
             }
             return null;
         });

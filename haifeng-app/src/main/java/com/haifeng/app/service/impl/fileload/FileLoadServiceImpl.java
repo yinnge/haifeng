@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.service.fileload.FileLoadService;
+import com.haifeng.app.service.watermark.FileWatermarkService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
 import com.haifeng.common.config.OssProperties;
@@ -39,6 +40,7 @@ public class FileLoadServiceImpl implements FileLoadService {
     private final OssService ossService;
     private final OssProperties ossProperties;
     private final StringRedisTemplate redisTemplate;
+    private final FileWatermarkService fileWatermarkService;
 
     @Override
     public IPage<FileLoadListVO> page(BasePageQueryDTO dto, String targetAudience,
@@ -110,9 +112,9 @@ public class FileLoadServiceImpl implements FileLoadService {
         FileLoadDetailVO vo = new FileLoadDetailVO();
         BeanUtils.copyProperties(fileInfo, vo);
 
-        // 生成预签名下载URL（带源文件名，浏览器下载时同名自动加 (1)、(2)）
-        String downloadUrl = ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName());
-        vo.setDownloadUrl(downloadUrl);
+        // 下载统一走带水印 PDF（首次访问触发生成并缓存到 OSS，后续直接复用）；
+        // 不支持水印的格式、转换服务不可用、生成失败时自动降级为原文件
+        vo.setDownloadUrl(fileWatermarkService.getWatermarkedDownloadUrl(fileInfo));
 
         // 生成KKFileView预览URL（4.x 要求 url 参数为 Base64 编码）
         // 【关键1】预览必须用【干净】的 OSS 预签名 URL（不带 disposition），否则 URL 里 response-content-disposition
@@ -182,7 +184,8 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(429, "操作频繁，请稍后再试");
         }
 
-        return ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName());
+        // 下载统一输出带水印 PDF（生成结果按文件缓存复用，非每次下载都重算）
+        return fileWatermarkService.getWatermarkedDownloadUrl(fileInfo);
     }
 
     private boolean isPreviewable(String fileType) {

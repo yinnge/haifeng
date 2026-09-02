@@ -254,6 +254,11 @@ public class FileLoadServiceImpl implements FileLoadService {
         // 删除OSS文件
         ossService.deleteFile(fileInfo.getFileUrl());
 
+        // 同步清理已生成的带水印PDF，避免OSS残留孤儿对象
+        if (StringUtils.hasText(fileInfo.getWatermarkedFileUrl())) {
+            ossService.deleteFile(fileInfo.getWatermarkedFileUrl());
+        }
+
         // 软删除数据库记录：用 UpdateWrapper 显式 SET deleted=true，entity 传 null 绕开
         // @TableLogic 对 updateById 的拦截干扰（@TableLogic+@Version+updateById 会导致逻辑删除静默不生效）
         LambdaUpdateWrapper<FileInfo> uw = new LambdaUpdateWrapper<>();

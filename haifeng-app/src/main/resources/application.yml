@@ -22,3 +22,14 @@ submail:
   appid: ${SUBMAIL_APPID:10001}
   appkey: ${SUBMAIL_APPKEY:replace-with-real-key}
   sign: 【海峰规划】
+
+# 文件下载水印：下载统一输出「带水印 PDF」（水印文本固定，生成结果按文件缓存复用）
+# converter.enabled=false 时不会连接 LibreOffice，Office 文件下载自动降级为原文件
+watermark:
+  enabled: ${WM_ENABLED:true}
+  generate-lock-ttl-seconds: ${WM_GEN_LOCK_TTL:180}
+  converter:
+    enabled: ${WM_CONVERTER_ENABLED:false}
+    host: ${WM_CONVERTER_HOST:127.0.0.1}
+    port: ${WM_CONVERTER_PORT:8100}
+    timeout-millis: ${WM_CONVERTER_TIMEOUT:120000}

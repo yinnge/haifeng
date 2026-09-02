@@ -122,8 +122,7 @@ public class DepartmentController {
     @PostMapping("/import")
     @OperationLog(module = "院系管理", action = "导入院系数据")
     public R<ImportResultVO> importDepartments(@RequestParam("file") MultipartFile file) {
-        departmentService.importDepartments(file);
-        return R.ok();
+        return R.ok(departmentService.importDepartments(file));
     }
 
     /**
@@ -132,7 +131,6 @@ public class DepartmentController {
     @PostMapping("/import-report")
     @OperationLog(module = "院系管理", action = "导入院系报告数据")
     public R<ImportResultVO> importDepartmentReports(@RequestParam("file") MultipartFile file) {
-        departmentService.importDepartmentReports(file);
-        return R.ok();
+        return R.ok(departmentService.importDepartmentReports(file));
     }
 }
