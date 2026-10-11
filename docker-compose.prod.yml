@@ -133,8 +133,9 @@ services:
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
       OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
       KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
-      # PDF 报告预览：base-url 仅由 kkfileview 在 Docker 内网服务端拉取，故填内部服务名 haifeng-app:18080，
-      # 切勿填 127.0.0.1 / 公网 IP（前者是 kkfileview 自身回环抓不到 app，后者无意义）。
+      # PDF 报告预览：浏览器侧已改为【同源相对路径】，由 nginx 反代 /api/v1/public/pdf/ 与 /pdfjs/，
+      # 不再依赖此值；它现在只给 kkfileview 容器在 Docker 内网【服务端回源抓取】PDF 用，
+      # 故填内部服务名 haifeng-app:18080，切勿填 127.0.0.1 / 公网 IP（前者是 kkfileview 自身回环抓不到 app）。
       PDF_PREVIEW_BASE_URL: ${PDF_PREVIEW_BASE_URL}
       PDF_PREVIEW_SECRET: ${PDF_PREVIEW_SECRET}
       PDF_PREVIEW_EXPIRE_SECONDS: ${PDF_PREVIEW_EXPIRE_SECONDS:-300}

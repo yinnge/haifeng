@@ -14,6 +14,12 @@ public class FileLoadDetailVO {
 
     private String fileName;
 
+    /** 存储方式：OSS-对象存储 / BAIDU-百度网盘 */
+    private String storageType;
+
+    /** 封面图URL（BAIDU 网盘资源可空） */
+    private String coverUrl;
+
     private String fileType;
 
     private Long fileSize;

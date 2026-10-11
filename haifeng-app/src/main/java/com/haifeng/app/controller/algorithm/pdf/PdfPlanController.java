@@ -5,8 +5,8 @@ import com.haifeng.app.dto.algorithm.pdf.PdfRecordQueryDTO;
 import com.haifeng.app.service.algorithm.pdf.PdfReportService;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordDetailVO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordListVO;
+import com.haifeng.app.vo.algorithm.pdf.PdfSectionPageVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import com.haifeng.common.service.ai.AiQuotaService;
@@ -22,12 +22,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/app/algorithm/pdf")
 @RequiredArgsConstructor
 @RequireLogin
-@RequirePro
 public class PdfPlanController {
 
     private final PdfReportService pdfReportService;
@@ -59,6 +60,15 @@ public class PdfPlanController {
     public R<PdfRecordDetailVO> getRecordDetail(@PathVariable Integer recordId) {
         Long userId = SecurityUtil.getCurrentMemberId();
         return R.ok(pdfReportService.getRecordDetail(userId, recordId));
+    }
+
+    /**
+     * 报告章节目录（含各章节在 PDF 中的起始页码，前端目录栏点击跳页用）
+     */
+    @GetMapping("/records/{recordId}/section-pages")
+    public R<List<PdfSectionPageVO>> getSectionPages(@PathVariable Integer recordId) {
+        Long userId = SecurityUtil.getCurrentMemberId();
+        return R.ok(pdfReportService.getSectionPages(userId, recordId));
     }
 
     /**

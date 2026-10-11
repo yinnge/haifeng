@@ -1,7 +1,7 @@
 package com.haifeng.app.controller.company;
 
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -16,14 +16,14 @@ class EnterpriseControllerAnnotationTest {
         Method method = EnterpriseController.class.getMethod("positions", Long.class);
 
         assertThat(method.getAnnotation(RequireLogin.class)).isNotNull();
-        assertThat(method.getAnnotation(RequirePro.class)).isNull();
+        assertThat(method.getAnnotation(RequireVip.class)).isNull();
     }
 
     @Test
-    void industries_requiresOnlyPro() throws Exception {
+    void industries_requiresOnlyVip() throws Exception {
         Method method = EnterpriseController.class.getMethod("industries", List.class);
 
-        assertThat(method.getAnnotation(RequirePro.class)).isNotNull();
+        assertThat(method.getAnnotation(RequireVip.class)).isNotNull();
         assertThat(method.getAnnotation(RequireLogin.class)).isNull();
     }
 }

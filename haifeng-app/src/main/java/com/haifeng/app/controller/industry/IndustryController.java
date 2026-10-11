@@ -7,7 +7,7 @@ import com.haifeng.app.vo.company.IndustryEnterpriseGroupVO;
 import com.haifeng.app.vo.industry.IndustryDetailVO;
 import com.haifeng.app.vo.industry.IndustryListVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -52,8 +52,8 @@ public class IndustryController {
         return R.ok(industryService.detail(industryId));
     }
 
-    /** 任务 6 接口：按行业 ID 列表分组查询企业，需 Pro 权限 */
-    @RequirePro
+    /** 任务 6 接口：按行业 ID 列表分组查询企业 */
+    @RequireVip
     @GetMapping("/enterprises")
     public R<List<IndustryEnterpriseGroupVO>> enterprises(@RequestParam @NotEmpty(message = "行业ID列表不能为空") List<@Min(value = 1, message = "ID必须大于0") Long> industryIds) {
         return R.ok(industryService.enterprisesByIndustryIds(industryIds));

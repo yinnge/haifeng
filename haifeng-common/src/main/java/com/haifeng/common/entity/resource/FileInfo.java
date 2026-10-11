@@ -56,6 +56,18 @@ public class FileInfo {
     /** 标签（备考指南/就业辅导等，用于精准查询） */
     private String tag;
 
+    /** 存储方式：OSS-对象存储（上传文件） BAIDU-百度网盘（分享链接+提取码），默认 OSS */
+    private String storageType;
+
+    /** 百度网盘分享链接（storageType=BAIDU 时使用） */
+    private String netdiskUrl;
+
+    /** 百度网盘提取码（storageType=BAIDU 时使用，可空） */
+    private String accessCode;
+
+    /** 封面图URL（网盘资源可空，默认封面由前端渲染） */
+    private String coverUrl;
+
     @Version
     private Integer version;
 

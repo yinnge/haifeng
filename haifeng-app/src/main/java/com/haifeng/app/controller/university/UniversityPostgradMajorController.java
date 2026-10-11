@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.university.UniversityPostgradMajorQueryDTO;
 import com.haifeng.app.service.university.UniversityPostgradMajorService;
 import com.haifeng.app.vo.major.PostgradMajorBriefVO;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -28,7 +28,7 @@ public class UniversityPostgradMajorController {
     private final UniversityPostgradMajorService universityPostgradMajorService;
 
     /** 任务3接口1：大学 → 考研专业列表（Pro 及以上） */
-    @RequirePro
+    @RequireVip
     @GetMapping("/{universityId}/postgrad-majors")
     public R<IPage<PostgradMajorBriefVO>> list(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,

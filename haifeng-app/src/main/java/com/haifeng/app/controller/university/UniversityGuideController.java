@@ -3,7 +3,7 @@ package com.haifeng.app.controller.university;
 import com.haifeng.app.service.university.UniversityGuideService;
 import com.haifeng.app.vo.university.*;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +37,7 @@ public class UniversityGuideController {
         return R.ok(guideService.survival(universityId));
     }
 
-    @RequirePro
+    @RequireVip
     @GetMapping("/{universityId}/academic")
     public R<UniversityGuideAcademicVO> academic(@PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
         return R.ok(guideService.academic(universityId));

@@ -10,20 +10,28 @@
             @top-left {
                 content: element(pageHeader);
                 vertical-align: middle;
+                /* margin box 默认回退 Times-Roman（无中文字形），页眉文字会变成 #### */
+                font-family: "Noto Sans SC";
             }
             @bottom-right {
                 content: counter(page);
                 font-size: 10px;
                 color: #999;
+                font-family: "Noto Sans SC";
             }
             @bottom-center {
                 content: "海枫未来规划院 © 版权所有";
                 font-size: 10px;
                 color: #999;
+                font-family: "Noto Sans SC";
             }
         }
         @page :first {
-            margin: 0;
+            /* BUG 修复：openhtmltopdf（含社区 fork 1.1.85）在「:first 页边距与默认页不同 + @page 定义了 margin box」时，
+               行断宽度计算会用错误边距（整页宽 595pt 而非内容区 527pt），
+               导致 CJK 长行行尾 5~7 个字被画到页面物理边缘之外而“消失”。
+               故 :first 边距必须与默认页一致，封面全出血改由 .cover 负 margin 实现。 */
+            margin: 2cm 1.2cm 2.5cm 1.2cm;
             @top-left { content: none; }
             @bottom-right { content: ""; }
             @bottom-center { content: ""; }
@@ -61,10 +69,13 @@
         /* ===================== Cover Page ===================== */
         .cover {
             page-break-after: always;
-            height: 297mm;
+            /* 高度 = 页高 297mm - 上边距 20mm - 下边距 25mm；配合负 margin 反向铺满整页（全出血），
+               替代原先 @page :first { margin: 0 } 的写法（会触发上述 openhtmltopdf 行断 bug） */
+            height: 252mm;
             width: 210mm;
+            margin: -2cm -1.2cm -2.5cm -1.2cm;
             position: relative;
-            background: #ffffff;
+            background: linear-gradient(160deg, #ffffff 0%, #fdfbf4 55%, #f8f1de 100%);
             color: #0f172a;
             overflow: hidden;
         }
@@ -91,12 +102,40 @@
         .cover-content {
             position: relative;
             z-index: 1;
-            padding: 45mm 20mm 30mm 20mm;
+            padding: 38mm 22mm 26mm 22mm;
             height: 100%;
             box-sizing: border-box;
         }
+        /* 装饰：右上双重圆环 + 左下淡金圆（被 cover overflow:hidden 裁出弧形） */
+        .cover-ring {
+            position: absolute;
+            top: -34mm;
+            right: -34mm;
+            width: 100mm;
+            height: 100mm;
+            border: 3px solid rgba(201,149,42,0.35);
+            border-radius: 50%;
+        }
+        .cover-ring-inner {
+            position: absolute;
+            top: -16mm;
+            right: -16mm;
+            width: 56mm;
+            height: 56mm;
+            border: 2px solid rgba(201,149,42,0.45);
+            border-radius: 50%;
+        }
+        .cover-orb {
+            position: absolute;
+            bottom: 18mm;
+            left: -14mm;
+            width: 42mm;
+            height: 42mm;
+            background: linear-gradient(135deg, rgba(212,168,67,0.14) 0%, rgba(212,168,67,0.04) 100%);
+            border-radius: 50%;
+        }
         .cover-brand {
-            margin-bottom: 28mm;
+            margin-bottom: 14mm;
         }
         .cover-brand table {
             border-collapse: collapse;
@@ -116,15 +155,29 @@
             font-weight: 500;
         }
         .cover-title-block {
-            margin-bottom: 20mm;
+            margin-bottom: 12mm;
+        }
+        /* 金边徽章 */
+        .cover-badge {
+            display: inline-block;
+            border: 1px solid #c9952a;
+            background: rgba(212,168,67,0.08);
+            color: #8b6914;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            padding: 4px 14px;
+            border-radius: 12px;
+            margin-bottom: 9mm;
+            white-space: nowrap;
         }
         .cover-title {
-            font-size: 36px;
+            font-size: 40px;
             font-weight: 300;
             letter-spacing: 2px;
             line-height: 1.3;
             color: #0f172a;
-            margin: 0 0 8px 0;
+            margin: 0 0 10px 0;
         }
         .cover-title strong {
             font-weight: 700;
@@ -134,14 +187,24 @@
             font-size: 14px;
             font-weight: 400;
             color: rgba(15,23,42,0.5);
-            letter-spacing: 1px;
+            letter-spacing: 4px;
             margin: 0;
         }
         .cover-divider {
-            width: 48px;
-            height: 1px;
-            background: #c9952a;
-            margin: 0 0 20mm 0;
+            width: 56px;
+            height: 2px;
+            background: linear-gradient(90deg, #c9952a 0%, rgba(201,149,42,0.15) 100%);
+            margin: 0 0 12mm 0;
+        }
+        /* 信息卡片：浅底 + 金色左条 */
+        .cover-info-card {
+            background: #ffffff;
+            border: 1px solid rgba(201,149,42,0.35);
+            border-left: 4px solid #c9952a;
+            border-radius: 6px;
+            padding: 7mm 10mm;
+            width: 128mm;
+            box-sizing: border-box;
         }
         .cover-info {
             /* 块级容器，内含 table；靠 table 自身 margin auto 居中（OpenHTMLtoPDF 兼容） */
@@ -149,13 +212,13 @@
         .cover-info table {
             border-collapse: collapse;
             width: auto;
-            margin-left: auto;
+            margin-left: 0;
             margin-right: auto;
         }
         .cover-info-label {
-            padding: 5px 16px 5px 0;
+            padding: 5px 18px 5px 0;
             font-size: 10px;
-            color: rgba(15,23,42,0.5);
+            color: #8a7a55;
             letter-spacing: 1px;
             text-transform: uppercase;
             white-space: nowrap;
@@ -163,20 +226,23 @@
         }
         .cover-info-value {
             padding: 5px 0;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: #0f172a;
             vertical-align: middle;
         }
         .cover-info-divider td {
-            padding: 6px 0;
-            border-bottom: 1px solid rgba(15,23,42,0.08);
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(201,149,42,0.20);
         }
+        /* 底部收尾条：金色上边线 + 两端文字，位于内容区底缘 */
         .cover-footer {
             position: absolute;
-            bottom: 25mm;
-            left: 25mm;
-            right: 25mm;
+            bottom: 0;
+            left: 22mm;
+            right: 22mm;
+            border-top: 2px solid rgba(201,149,42,0.55);
+            padding-top: 4mm;
         }
         .cover-footer table {
             width: 100%;
@@ -184,8 +250,8 @@
         }
         .cover-footer-text {
             font-size: 9px;
-            color: rgba(15,23,42,0.35);
-            letter-spacing: 0.5px;
+            color: rgba(15,23,42,0.45);
+            letter-spacing: 1px;
         }
 
         /* ===================== Section Headers ===================== */
@@ -208,11 +274,12 @@
             page-break-before: auto;
         }
         .profile-group {
-            margin-bottom: 16px;
-            background: #fafbfc;
-            border: 1px solid #e8eef5;
-            border-radius: 6px;
-            padding: 12px 16px;
+            margin-bottom: 14px;
+            background: #ffffff;
+            border: 1px solid #eee3c8;
+            border-left: 3px solid #c9952a;
+            border-radius: 4px;
+            padding: 10px 14px;
         }
         .profile-group-title {
             font-size: 13px;
@@ -220,7 +287,7 @@
             color: #0f172a;
             margin-bottom: 10px;
             padding-bottom: 6px;
-            border-bottom: 1px solid #e8eef5;
+            border-bottom: 1px solid #f0e8d2;
         }
         .profile-grid {
             display: table;
@@ -305,7 +372,8 @@
         }
         .analysis-section .content ul,
         .analysis-section .content ol {
-            margin: 6px 0 6px 20px;
+            /* 左侧预留 list marker（圆点直径 8.5pt）空间，避免圆点被页边裁掉一角 */
+            margin: 6px 0 6px 26px;
         }
         .analysis-section .content li {
             margin-bottom: 3px;
@@ -330,9 +398,11 @@
             overflow-wrap: break-word;
         }
         .analysis-section .content th {
-            background: #f0f4f8;
+            background: #f9f3e1;
+            color: #7a5c12;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
+            border-bottom: 2px solid #e3d5ac;
         }
 
         /* ===================== Subsections (2.1-2.4) ===================== */
@@ -709,7 +779,7 @@
         }
         .commentary-section .content ul,
         .commentary-section .content ol {
-            margin: 4px 0 4px 18px;
+            margin: 4px 0 4px 26px;
         }
         .commentary-section .content strong {
             color: #0f172a;
@@ -757,11 +827,6 @@
         }
     </style>
 
-    <!-- 水印背景：CSS 由 PdfRenderServiceImpl.buildWatermarkStyle() 注入。
-         走 @page 的 background-image，openhtmltopdf 会在每一页自动平铺。
-         放在此处（head 末尾）以确保晚于上面的 @page / @page :first 规则生效，
-         且只设置 background 相关属性，不会覆盖上面已定义的 margin。 -->
-    <style th:utext="${watermarkStyle}"></style>
 </head>
 <body>
 
@@ -774,6 +839,10 @@
 
 <!-- ===================== Cover Page ===================== -->
 <div class="cover">
+    <div class="cover-ring"></div>
+    <div class="cover-ring-inner"></div>
+    <div class="cover-orb"></div>
+
     <div class="cover-content">
         <div class="cover-brand">
             <table>
@@ -790,12 +859,14 @@
         </div>
 
         <div class="cover-title-block">
+            <div class="cover-badge">AI 智能分析报告</div>
             <h1 class="cover-title"><strong>高考志愿</strong>填报方案</h1>
             <p class="cover-subtitle">深度分析报告</p>
         </div>
 
         <div class="cover-divider"></div>
 
+        <div class="cover-info-card">
         <div class="cover-info">
             <table>
                 <tr class="cover-info-row">
@@ -840,16 +911,17 @@
                 </tr>
             </table>
         </div>
+        </div>
     </div>
 
     <div class="cover-footer">
         <table>
             <tr>
                 <td style="text-align: left;">
-                    <span class="cover-footer-text">CONFIDENTIAL</span>
+                    <span class="cover-footer-text">海枫未来规划院 · 高考志愿填报研究组</span>
                 </td>
                 <td style="text-align: right;">
-                    <span class="cover-footer-text">海枫未来规划院 &#169; 版权所有</span>
+                    <span class="cover-footer-text">CONFIDENTIAL · 内部资料</span>
                 </td>
             </tr>
         </table>
@@ -979,7 +1051,10 @@
                     <span class="profile-label">性别：</span>
                     <span class="profile-value" th:text="${data.memberProfile?.gender != null ? data.memberProfile.gender : '-'}">-</span>
                 </div>
-                <div class="profile-cell">
+                <div class="profile-cell"></div>
+            </div>
+            <div class="profile-row">
+                <div class="profile-cell full-width">
                     <span class="profile-label">性格特质：</span>
                     <span class="profile-value" th:text="${data.memberProfile?.personalityTraits != null ? data.memberProfile.personalityTraits : '-'}">-</span>
                 </div>

@@ -7,7 +7,7 @@ import com.haifeng.app.vo.competition.CompetitionDetailVO;
 import com.haifeng.app.vo.competition.CompetitionListVO;
 import com.haifeng.app.vo.competition.CompetitionMajorBriefVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -44,8 +44,8 @@ public class CompetitionController {
         return R.ok(competitionService.detail(compId));
     }
 
-    /** 任务2接口3：分页查询某竞赛关联的专业（Pro） */
-    @RequirePro
+    /** 任务2接口3：分页查询某竞赛关联的专业 */
+    @RequireVip
     @GetMapping("/{compId}/majors")
     public R<IPage<CompetitionMajorBriefVO>> majors(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long compId,

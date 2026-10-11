@@ -46,29 +46,9 @@ public class MemberInfoServiceImpl implements MemberInfoService {
             throw new BusinessException(404, "用户不存在");
         }
 
-        // VIP过期后自动恢复挂起的Pro
-        if (member.needsSuspendedRestore()) {
-            restoreSuspendedPro(member);
-        }
-
-        // 根据有效会员类型返回到期时间
+        // Pro 已并入 VIP：挂起/恢复机制废弃，直接按当前类型返回
         String effectiveType = member.getEffectiveMemberType();
         OffsetDateTime effectiveExpireAt = member.getExpireAt();
-
-        // VIP活跃时，记录挂起的Pro信息（供前端展示"待恢复专业版"）
-        String suspendedMemberType = null;
-        OffsetDateTime suspendedExpireAt = null;
-
-        if ("pro".equals(effectiveType) && member.getSuspendedExpireAt() != null) {
-            // 恢复的Pro：到期时间 = VIP到期日 + 挂起剩余月数
-            effectiveExpireAt = member.getExpireAt() != null
-                    ? member.getExpireAt().plusMonths(member.getSuspendedRemainingMonths())
-                    : null;
-        } else if ("vip".equals(effectiveType) && member.getSuspendedMemberType() != null) {
-            // VIP活跃 + 有挂起的Pro，前端展示"待恢复"信息
-            suspendedMemberType = member.getSuspendedMemberType();
-            suspendedExpireAt = member.getExpireAt(); // VIP到期日 = Pro恢复日期
-        }
 
         return MemberInfoVO.builder()
                 .username(member.getUsername())
@@ -81,34 +61,7 @@ public class MemberInfoServiceImpl implements MemberInfoService {
                 .commissionTotalPaid(member.getCommissionTotalPaid())
                 .memberType(effectiveType)
                 .expireAt(effectiveExpireAt)
-                .suspendedMemberType(suspendedMemberType)
-                .suspendedExpireAt(suspendedExpireAt)
                 .build();
-    }
-
-    /**
-     * 恢复挂起的Pro会员
-     */
-    @Transactional
-    public void restoreSuspendedPro(Member member) {
-        String suspendedType = member.getSuspendedMemberType();
-        Integer remainingMonths = member.getSuspendedRemainingMonths();
-
-        // 计算新的Pro到期时间 = VIP到期日 + 挂起剩余月数
-        OffsetDateTime newProExpireAt = member.getExpireAt() != null
-                ? member.getExpireAt().plusMonths(remainingMonths)
-                : OffsetDateTime.now().plusMonths(remainingMonths);
-
-        member.setMemberType(suspendedType);
-        member.setExpireAt(newProExpireAt);
-        member.setSuspendedMemberType(null);
-        member.setSuspendedExpireAt(null);
-        member.setSuspendedRemainingMonths(null);
-        member.setUpdatedAt(OffsetDateTime.now());
-        memberMapper.updateById(member);
-
-        log.info("VIP过期，恢复挂起会员: memberId={}, restoredType={}, newExpireAt={}",
-                member.getId(), suspendedType, newProExpireAt);
     }
 
     @Override

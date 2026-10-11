@@ -23,9 +23,6 @@ public class SiteInfoVO {
 
     private BasicMessage basicMessage;
 
-    /** Pro 会员年价格（分/元） */
-    private Integer proPrice;
-
     /** VIP 会员年价格（分/元） */
     private Integer vipPrice;
 }

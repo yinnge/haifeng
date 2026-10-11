@@ -223,11 +223,6 @@ public class DashboardServiceImpl implements DashboardService {
         stats.setTotalMembers(memberMapper.selectCount(
             new LambdaQueryWrapper<Member>().eq(Member::getDeleted, false)));
 
-        stats.setProMembers(memberMapper.selectCount(
-            new LambdaQueryWrapper<Member>()
-                .eq(Member::getDeleted, false)
-                .eq(Member::getMemberType, "pro")));
-
         stats.setVipMembers(memberMapper.selectCount(
             new LambdaQueryWrapper<Member>()
                 .eq(Member::getDeleted, false)

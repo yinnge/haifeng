@@ -90,5 +90,7 @@ oss:
 pdf:
   preview:
     secret: ${PDF_PREVIEW_SECRET}
-    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:300}
+    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:1800}
+    # 该地址只给 kkfileview 容器【服务端回源抓取】PDF 用（填 Docker 内网服务名 haifeng-app:18080）；
+    # 浏览器侧已不再使用——directPdfUrl 返回同源相对路径，由 nginx 反代 /api/v1/public/pdf/ 与 /pdfjs/
     base-url: ${PDF_PREVIEW_BASE_URL}

@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.algorithm.pdf.PdfRecordQueryDTO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordDetailVO;
 import com.haifeng.app.vo.algorithm.pdf.PdfRecordListVO;
+import com.haifeng.app.vo.algorithm.pdf.PdfSectionPageVO;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 /**
  * PDF 报告生成与历史记录服务
@@ -76,7 +79,7 @@ public interface PdfReportService {
     void deleteRecord(Long userId, Integer recordId);
 
     /**
-     * 生成 PDF 预览签名 token（存 Redis，一次性使用）
+     * 生成 PDF 预览签名 token（无状态 HMAC 多用途，有效期内可重复使用）
      *
      * @param recordId 报告记录ID
      * @return 签名 token
@@ -90,4 +93,14 @@ public interface PdfReportService {
      * @return PDF 字节数组
      */
     byte[] renderPdf(Integer recordId);
+
+    /**
+     * 定位报告各章节在 PDF 中的起始页码（供前端目录栏点击跳页）。
+     * 通过 PDFBox 逐页提取文本匹配章节标题；章节顺序与报告 PDF 目录页一致。
+     *
+     * @param userId   用户ID（权限校验）
+     * @param recordId 报告记录ID
+     * @return 章节列表（含页码，未定位到的章节 page 为 null）
+     */
+    List<PdfSectionPageVO> getSectionPages(Long userId, Integer recordId);
 }

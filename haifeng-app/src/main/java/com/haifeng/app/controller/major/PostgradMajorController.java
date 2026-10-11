@@ -9,7 +9,7 @@ import com.haifeng.app.vo.major.PostgradMajorListVO;
 import com.haifeng.app.vo.major.UniversityBriefForPostgradVO;
 import com.haifeng.app.vo.major.UndergraduateMajorDirectionBriefVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -50,7 +50,7 @@ public class PostgradMajorController {
     }
 
     /** 任务4接口1：考研专业 → 大学列表（Pro 及以上） */
-    @RequirePro
+    @RequireVip
     @GetMapping("/{majorId}/universities")
     public R<IPage<UniversityBriefForPostgradVO>> universities(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId,
@@ -59,7 +59,7 @@ public class PostgradMajorController {
     }
 
     /** 任务1接口2（关联查询）：考研方向 → 本科专业列表（Pro 及以上） */
-    @RequirePro
+    @RequireVip
     @GetMapping("/{postgradMajorId}/undergraduate-majors")
     public R<IPage<UndergraduateMajorDirectionBriefVO>> undergraduateMajors(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long postgradMajorId,

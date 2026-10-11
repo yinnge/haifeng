@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.service.fileload.FileLoadService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
@@ -81,9 +82,18 @@ public class MiddleSchoolFileController {
     /**
      * 获取初中文件下载URL（仅VIP + 悲观锁防误触）
      */
-    @RequireVip
+    @RequireLogin
     @GetMapping("/{id}/download")
     public R<String> download(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getDownloadUrl(id));
+    }
+
+    /**
+     * 获取百度网盘资源取码信息（仅VIP：返回分享链接 + 提取码）
+     */
+    @RequireLogin
+    @GetMapping("/{id}/netdisk")
+    public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getNetdiskInfo(id));
     }
 }

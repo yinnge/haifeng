@@ -42,8 +42,6 @@ public class SystemSettings {
 
     private String modelName;
 
-    private Integer proPrice;
-
     private Integer vipPrice;
 
     /**
@@ -77,12 +75,7 @@ public class SystemSettings {
     private Integer floorCount;
 
     /**
-     * Pro会员提成比例（0-100），代表0%到100%
-     */
-    private Integer proCommissionRate;
-
-    /**
-     * VIP会员提成比例（0-100），代表0%到100%
+     * VIP会员提成比例（0-100），代表0%到100%（Pro已并入VIP，统一使用此比例）
      */
     private Integer vipCommissionRate;
 

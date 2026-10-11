@@ -40,7 +40,7 @@ public class CityServiceImpl implements CityService {
     private final CityMapper cityMapper;
     private final CityDetailMapper cityDetailMapper;
 
-    private static final int MAX_IMPORT_ROWS = 500;
+    private static final int MAX_IMPORT_ROWS = 1000;
     /** 导入报错信息最多展示条数，避免单条 msg 过长（完整错误见后端日志） */
     private static final int MAX_ERROR_DISPLAY = 50;
     private static final Set<String> VALID_CITY_LEVELS = Set.of("直辖市", "省会城市", "地级市", "县级市");

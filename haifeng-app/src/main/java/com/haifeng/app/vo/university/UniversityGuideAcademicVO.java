@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.util.Map;
 
-/** 任务 3.3 学业规划类（@RequirePro） */
+/** 任务 3.3 学业规划类（@RequireVip） */
 @Data
 @Builder
 @NoArgsConstructor

@@ -44,14 +44,20 @@ public class AiChatServiceImpl implements AiChatService {
     public String chatSync(Long userId, List<ChatMessage> messages) {
         List<ModelProviderConfig> providers = keyPool.orderedFallback(userId);
         if (providers.isEmpty()) {
-            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED);
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, "无可用AI模型供应商（均未配置或处于冷却期，请稍后重试）");
         }
-        return tryProviderSync(providers, 0, messages);
+        return tryProviderSync(providers, 0, messages, new StringBuilder());
     }
 
-    private String tryProviderSync(List<ModelProviderConfig> providers, int index, List<ChatMessage> messages) {
+    /**
+     * 逐个供应商重试，lastError 累积每次失败的真实原因；
+     * 全部失败后抛出的异常携带最后真实错误（超时/HTTP错误/响应解析失败），
+     * 避免上层只看到笼统的“AI 服务暂不可用”而无法排查。
+     */
+    private String tryProviderSync(List<ModelProviderConfig> providers, int index,
+                                   List<ChatMessage> messages, StringBuilder lastError) {
         if (index >= providers.size()) {
-            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED);
+            throw new BusinessException(ResultCode.AI_ALL_KEYS_FAILED, summarizeLastError(lastError));
         }
         ModelProviderConfig provider = providers.get(index);
         String body = buildSyncRequestBody(messages, provider.getModelName());
@@ -61,9 +67,39 @@ public class AiChatServiceImpl implements AiChatService {
         } catch (Exception err) {
             log.warn("DeepSeek sync call failed with provider id={}, key ...{}: {}",
                     provider.getId(), maskKey(provider.getApiKey()), err.getMessage());
+            if (lastError.length() > 0) {
+                lastError.append("; ");
+            }
+            lastError.append("供应商[").append(provider.getProviderName())
+                    .append("/").append(provider.getModelName()).append("]: ")
+                    .append(sanitizeError(err));
             keyPool.markUnhealthy(provider);
-            return tryProviderSync(providers, index + 1, messages);
+            return tryProviderSync(providers, index + 1, messages, lastError);
         }
+    }
+
+    /** 兑底消息 + 最后一次真实错误，供 fail_reason 与 SSE 错误提示展示 */
+    private String summarizeLastError(StringBuilder lastError) {
+        if (lastError.length() == 0) {
+            return ResultCode.AI_ALL_KEYS_FAILED.getMsg();
+        }
+        return ResultCode.AI_ALL_KEYS_FAILED.getMsg() + "（最后错误: " + lastError + "）";
+    }
+
+    /**
+     * 提取异常根因消息：压平换行并截断，避免超长/多行内容进入 fail_reason 或 SSE。
+     * 异常消息不含 API Key，无敏感信息泄露风险。
+     */
+    private String sanitizeError(Throwable err) {
+        String msg = err.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = err.getClass().getSimpleName();
+        }
+        msg = msg.replaceAll("\\s+", " ").trim();
+        if (msg.length() > 200) {
+            msg = msg.substring(0, 200) + "...";
+        }
+        return msg;
     }
 
     /**

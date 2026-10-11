@@ -16,7 +16,7 @@ import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanListVO;
 import com.haifeng.app.vo.algorithm.wish.WishPlanMajorVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -130,7 +130,7 @@ public class WishPlanController {
     }
 
     @GetMapping("/{planId}/export/progress")
-    @RequirePro
+    @RequireVip
     public R<WishPlanExportProgressVO> getExportProgress(@PathVariable @Min(1) Integer planId) {
         return R.ok(wishPlanService.getExportProgress(planId));
     }
@@ -139,7 +139,7 @@ public class WishPlanController {
      * 生成导出文件（POST，非幂等）
      */
     @PostMapping("/{planId}/export/generate")
-    @RequirePro
+    @RequireVip
     public R<WishPlanExportFileVO> generateExportFile(@PathVariable @Min(1) Integer planId) {
         return R.ok(wishPlanService.generateExportFile(planId));
     }
@@ -148,7 +148,7 @@ public class WishPlanController {
      * 下载已生成的导出文件（GET，只读）
      */
     @GetMapping("/{planId}/export/download")
-    @RequirePro
+    @RequireVip
     public ResponseEntity<byte[]> downloadExportFile(
             @PathVariable @Min(1) Integer planId,
             @RequestParam @NotBlank String file) {

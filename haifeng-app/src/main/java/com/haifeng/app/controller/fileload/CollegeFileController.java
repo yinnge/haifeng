@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.service.fileload.FileLoadService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
@@ -18,7 +19,7 @@ import java.util.List;
 
 /**
  * C 端大学文件
- * 列表：公开（免登录）
+ * 列表/动态筛选：需登录
  * 详情/预览/下载：仅VIP用户
  */
 @Validated
@@ -32,8 +33,9 @@ public class CollegeFileController {
     private static final String TARGET_AUDIENCE = "college";
 
     /**
-     * 分页查询大学文件列表（公开，免登录）
+     * 分页查询大学文件列表（需登录）
      */
+    @RequireLogin
     @GetMapping("/list")
     public R<IPage<FileLoadListVO>> list(@Valid BasePageQueryDTO dto,
                                          @RequestParam(required = false) String subject,
@@ -42,19 +44,22 @@ public class CollegeFileController {
         return R.ok(fileLoadService.page(dto, TARGET_AUDIENCE, subject, applicableStage, tag));
     }
 
-    /** 动态返回 applicable_stage 去重值（前端按钮筛选） */
+    /** 动态返回 applicable_stage 去重值（前端按钮筛选，需登录） */
+    @RequireLogin
     @GetMapping("/stages")
     public R<List<String>> stages() {
         return R.ok(fileLoadService.listStages(TARGET_AUDIENCE));
     }
 
-    /** 动态返回 subject 去重值（前端下拉筛选） */
+    /** 动态返回 subject 去重值（前端下拉筛选，需登录） */
+    @RequireLogin
     @GetMapping("/subjects")
     public R<List<String>> subjects() {
         return R.ok(fileLoadService.listSubjects(TARGET_AUDIENCE));
     }
 
-    /** 动态返回 tag 去重值（前端下拉筛选） */
+    /** 动态返回 tag 去重值（前端下拉筛选，需登录） */
+    @RequireLogin
     @GetMapping("/tags")
     public R<List<String>> tags() {
         return R.ok(fileLoadService.listTags(TARGET_AUDIENCE));
@@ -63,7 +68,7 @@ public class CollegeFileController {
     /**
      * 获取大学文件详情（仅VIP）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}")
     public R<FileLoadDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.detail(id));
@@ -72,7 +77,7 @@ public class CollegeFileController {
     /**
      * 获取大学文件预览URL（仅VIP）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}/preview")
     public R<String> preview(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getPreviewUrl(id));
@@ -85,5 +90,14 @@ public class CollegeFileController {
     @GetMapping("/{id}/download")
     public R<String> download(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getDownloadUrl(id));
+    }
+
+    /**
+     * 获取百度网盘资源取码信息（仅VIP：返回分享链接 + 提取码）
+     */
+    @RequireVip
+    @GetMapping("/{id}/netdisk")
+    public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getNetdiskInfo(id));
     }
 }

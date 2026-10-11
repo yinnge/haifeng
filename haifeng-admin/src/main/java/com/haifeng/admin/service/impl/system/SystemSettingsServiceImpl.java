@@ -54,9 +54,7 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
                 .floorCount(settings.getFloorCount())
                 .providerName(settings.getProviderName())
                 .modelName(settings.getModelName())
-                .proPrice(settings.getProPrice())
                 .vipPrice(settings.getVipPrice())
-                .proCommissionRate(settings.getProCommissionRate())
                 .vipCommissionRate(settings.getVipCommissionRate())
                 .seoTitle(settings.getSeoTitle())
                 .seoKeywords(settings.getSeoKeywords())
@@ -106,9 +104,6 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         if (dto.getFloorCount() != null) {
             settings.setFloorCount(dto.getFloorCount());
         }
-        if (dto.getProPrice() != null) {
-            settings.setProPrice(dto.getProPrice());
-        }
         if (dto.getVipPrice() != null) {
             settings.setVipPrice(dto.getVipPrice());
         }
@@ -117,9 +112,6 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         }
         if (dto.getSeoKeywords() != null) {
             settings.setSeoKeywords(dto.getSeoKeywords());
-        }
-        if (dto.getProCommissionRate() != null) {
-            settings.setProCommissionRate(dto.getProCommissionRate());
         }
         if (dto.getVipCommissionRate() != null) {
             settings.setVipCommissionRate(dto.getVipCommissionRate());
