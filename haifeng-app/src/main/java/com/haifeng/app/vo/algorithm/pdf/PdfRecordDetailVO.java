@@ -25,5 +25,8 @@ public class PdfRecordDetailVO {
     private String planSnapshot;
     private String failReason;
     private OffsetDateTime createdAt;
+    /** kkFileView onlinePreview 预览地址（新窗口打开整页预览用） */
     private String previewUrl;
+    /** 后端公开预览直链（带签名，多用途）——供 kkFileView 内置 pdf.js viewer 的 file 参数使用 */
+    private String directPdfUrl;
 }

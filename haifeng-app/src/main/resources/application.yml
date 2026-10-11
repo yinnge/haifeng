@@ -16,7 +16,9 @@ deepseek:
   max-tokens: 8192
   temperature: 1.0
   key-cooldown-seconds: 300
-  timeout-seconds: 60
+  # Reduce 阶段会把全部 Map 结果汇总后发起两次大调用（输入超长、输出 8192 tokens），
+  # 60s 曾导致 ReadTimeout → 全部供应商被冷却 → "AI 服务暂不可用"
+  timeout-seconds: 180
 
 submail:
   appid: ${SUBMAIL_APPID:10001}

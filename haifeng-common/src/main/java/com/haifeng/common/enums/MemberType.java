@@ -7,7 +7,6 @@ import lombok.Getter;
 public enum MemberType {
 
     NORMAL("normal", "普通用户"),
-    PRO("pro", "Pro会员"),
     VIP("vip", "VIP会员");
 
     @EnumValue

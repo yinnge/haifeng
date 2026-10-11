@@ -22,15 +22,15 @@ import com.haifeng.common.mapper.algorithm.pdf.PdfReportMapper;
 import com.haifeng.common.mapper.algorithm.wish.WishPlanMapper;
 import com.haifeng.common.config.OssProperties;
 import com.haifeng.common.config.PdfPreviewConfig;
-import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.ai.AiQuotaService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -40,8 +40,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -58,6 +61,25 @@ public class PdfReportServiceImpl implements PdfReportService {
      */
     private static final long MAP_ALL_OF_TIMEOUT_SECONDS = 180L;
 
+    /**
+     * 报告章节目录（与 pdf-report.html 目录页一致，顺序相同）。
+     * 检索键 = 序号 + 「、」+ 标题：目录页条目是 toc-num 与标题两个节点拼接（无「、」），
+     * 带「、」的完整标题只会命中正文章节标题，不会误匹配目录页本身。
+     */
+    private static final List<String[]> REPORT_SECTIONS = List.of(
+            new String[]{"一", "考生基础画像与现实约束条件"},
+            new String[]{"二", "外部宏观全景研判"},
+            new String[]{"三", "SWOT 象限分析"},
+            new String[]{"四", "海枫强烈推荐填报梯队顺序"},
+            new String[]{"五", "志愿梯队总览"},
+            new String[]{"六", "大学专项拆解"},
+            new String[]{"七", "专业专项拆解"},
+            new String[]{"八", "城市专项拆解"},
+            new String[]{"九", "综合评判"},
+            new String[]{"十", "就业前景与展望"},
+            new String[]{"十一", "官方数据源与查询渠道清单"}
+    );
+
     private final PdfReportMapper pdfReportMapper;
     private final AiChatService aiChatService;
     private final AiQuotaService quotaService;
@@ -70,7 +92,6 @@ public class PdfReportServiceImpl implements PdfReportService {
     private final ExecutorService pdfMapExecutor;
     private final PdfPreviewConfig pdfPreviewConfig;
     private final OssProperties ossProperties;
-    private final StringRedisTemplate redisTemplate;
 
     public PdfReportServiceImpl(PdfReportMapper pdfReportMapper,
                                 AiChatService aiChatService,
@@ -83,8 +104,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                                 ChartService chartService,
                                 @Qualifier("pdfMapExecutor") ExecutorService pdfMapExecutor,
                                 PdfPreviewConfig pdfPreviewConfig,
-                                OssProperties ossProperties,
-                                StringRedisTemplate redisTemplate) {
+                                OssProperties ossProperties) {
         this.pdfReportMapper = pdfReportMapper;
         this.aiChatService = aiChatService;
         this.quotaService = quotaService;
@@ -97,7 +117,6 @@ public class PdfReportServiceImpl implements PdfReportService {
         this.pdfMapExecutor = pdfMapExecutor;
         this.pdfPreviewConfig = pdfPreviewConfig;
         this.ossProperties = ossProperties;
-        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -109,7 +128,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                 doGenerate(userId, planId, sink, null);
             } catch (Exception e) {
                 log.error("PDF report generation failed, userId={}, planId={}", userId, planId, e);
-                sink.tryEmitNext(errorEvent(e.getMessage(), 500));
+                sink.tryEmitNext(errorEvent(e.getMessage() != null ? e.getMessage() : "生成失败（服务器内部错误）", 500));
             } finally {
                 sink.tryEmitComplete();
             }
@@ -127,7 +146,7 @@ public class PdfReportServiceImpl implements PdfReportService {
                 doRegenerate(userId, recordId, sink);
             } catch (Exception e) {
                 log.error("PDF report regeneration failed, userId={}, recordId={}", userId, recordId, e);
-                sink.tryEmitNext(errorEvent(e.getMessage(), 500));
+                sink.tryEmitNext(errorEvent(e.getMessage() != null ? e.getMessage() : "重新生成失败（服务器内部错误）", 500));
             } finally {
                 sink.tryEmitComplete();
             }
@@ -255,7 +274,8 @@ public class PdfReportServiceImpl implements PdfReportService {
             log.error("Failed to serialize map_results, recordId={}", recordId, e);
             updateReportFailed(recordId, "Map结果序列化失败: " + e.getMessage());
             if (quotaConsumed) quotaService.decr(userId);
-            sink.tryEmitNext(errorEvent("Map结果序列化失败", recordId, 500));
+            // SSE 错误消息与 fail_reason 保持一致，前端直接展示具体原因
+            sink.tryEmitNext(errorEvent("Map结果序列化失败: " + e.getMessage(), recordId, 500));
             return;
         }
 
@@ -325,7 +345,8 @@ public class PdfReportServiceImpl implements PdfReportService {
             log.error("Reduce phase failed, recordId={}", recordId, e);
             updateReportFailed(recordId, "Reduce阶段失败: " + e.getMessage());
             if (quotaConsumed) quotaService.decr(userId);
-            sink.tryEmitNext(errorEvent("Reduce阶段失败", recordId, 500));
+            // SSE 错误消息与 fail_reason 保持一致，携带真实原因（如 AI 超时/供应商错误），前端直接展示
+            sink.tryEmitNext(errorEvent("Reduce阶段失败: " + e.getMessage(), recordId, 500));
             return;
         }
 
@@ -338,7 +359,8 @@ public class PdfReportServiceImpl implements PdfReportService {
             log.error("Failed to save final result, recordId={}", recordId, e);
             updateReportFailed(recordId, "保存最终结果失败: " + e.getMessage());
             if (quotaConsumed) quotaService.decr(userId);
-            sink.tryEmitNext(errorEvent("保存最终结果失败", recordId, 500));
+            // SSE 错误消息与 fail_reason 保持一致，前端直接展示具体原因
+            sink.tryEmitNext(errorEvent("保存最终结果失败: " + e.getMessage(), recordId, 500));
             return;
         }
         log.info("PDF report generation completed, recordId={}, planId={}", recordId, planId);
@@ -1703,15 +1725,28 @@ public class PdfReportServiceImpl implements PdfReportService {
             planName = plan != null ? plan.getPlanName() : null;
         }
 
-        // 生成 kkfileview 预览 URL
+        // 生成前端 pdf.js 预览直链（同源相对路径）+ kkfileview 预览 URL（服务端回源抓取，需绝对地址）
         String previewUrl = null;
+        String directPdfUrl = null;
         if (report.getStatus() == PdfReportStatus.SUCCESS) {
             String token = generatePreviewToken(recordId);
-            String backendUrl = pdfPreviewConfig.getBaseUrl()
-                    + "/api/v1/public/pdf/preview/" + recordId
+            String previewPath = "/api/v1/public/pdf/preview/" + recordId
                     + "?token=" + token
                     + "&expire=" + (System.currentTimeMillis() + pdfPreviewConfig.getExpireSeconds() * 1000L);
-            String encodedUrl = URLEncoder.encode(backendUrl, StandardCharsets.UTF_8);
+
+            // directPdfUrl（浏览器侧 pdf.js viewer 的 file 参数）：只返回【同源相对路径】，绝不拼 host。
+            // 原因：拼绝对地址会把「服务端可达地址」误当成「浏览器可达地址」——页面的 API 请求
+            // 走 Vite proxy / nginx（服务端发起，永远通），而 viewer 的 iframe 是浏览器自己解析 host，
+            // 一旦 base-url 写成 localhost / 127.0.0.1 / Docker 内网名，接口看似 200，跨设备访问
+            // （手机、局域网 IP、线上域名）就会 ERR_CONNECTION_REFUSED。
+            // 返回相对路径后 dev 走 Vite proxy、prod 走 nginx，天然同源，与部署地址彻底解耦。
+            directPdfUrl = previewPath;
+
+            // kkfileview 的 onlinePreview 是【kkfileview 服务端】按 url 参数回源抓取，
+            // 故此处必须给绝对地址（prod 填 Docker 内网服务名 haifeng-app:18080）。
+            // 注：前端报告页现已改用 directPdfUrl + 自托管 pdf.js viewer，本字段仅作兜底。
+            String absoluteUrl = pdfPreviewConfig.getBaseUrl() + previewPath;
+            String encodedUrl = URLEncoder.encode(absoluteUrl, StandardCharsets.UTF_8);
             previewUrl = ossProperties.getKkfileviewBaseUrl() + "/onlinePreview?url=" + encodedUrl;
         }
 
@@ -1726,12 +1761,97 @@ public class PdfReportServiceImpl implements PdfReportService {
                 .failReason(report.getFailReason())
                 .createdAt(report.getCreatedAt())
                 .previewUrl(previewUrl)
+                .directPdfUrl(directPdfUrl)
                 .build();
     }
 
     @Override
     public byte[] renderPdf(Long userId, Integer recordId) {
         return pdfRenderService.renderPdf(userId, recordId);
+    }
+
+    @Override
+    public List<PdfSectionPageVO> getSectionPages(Long userId, Integer recordId) {
+        // 权限校验 + 渲染（renderPdf 内部有按 recordId + updatedAt 的缓存，重复调用廉价）
+        byte[] pdfBytes = renderPdf(userId, recordId);
+
+        // 逐页提取文本（页码 1-based，与 pdf.js #page 一致），先全部缓存再两遍匹配
+        List<String> pageTexts = new ArrayList<>();
+        try (PDDocument document = PDDocument.load(pdfBytes)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            int totalPages = document.getNumberOfPages();
+            for (int p = 1; p <= totalPages; p++) {
+                stripper.setStartPage(p);
+                stripper.setEndPage(p);
+                String text = stripper.getText(document);
+                // 去掉全部空白，规避提取时的换行/空格差异
+                pageTexts.add(text == null ? "" : text.replaceAll("\\s+", ""));
+            }
+        } catch (Exception e) {
+            // 降级不抛 500：返回页码为空的目录（前端显示「—」），日志保留全栈便于排查
+            log.error("PDF text extraction failed, section pages degraded, recordId={}", recordId, e);
+        }
+
+        Map<String, Integer> pageByKey = new HashMap<>();
+
+        // 第一遍：严格匹配「一、标题」——正文 section-title 带序号顿号，
+        // 目录页条目是 toc-num 与标题两个节点拼接（无顿号），不会误命中目录页
+        for (int i = 0; i < pageTexts.size(); i++) {
+            for (String[] section : REPORT_SECTIONS) {
+                if (pageByKey.containsKey(section[0])) {
+                    continue;
+                }
+                String searchKey = (section[0] + "、" + section[1]).replaceAll("\\s+", "");
+                if (pageTexts.get(i).contains(searchKey)) {
+                    pageByKey.put(section[0], i + 1);
+                }
+            }
+        }
+
+        // 第二遍兜底：仅按标题匹配（应对提取文本里顿号丢失等异常），
+        // 跳过「目录页」（含 ≥5 个章节标题的页），避免全部错误定位到目录页
+        if (pageByKey.isEmpty() && !pageTexts.isEmpty()) {
+            Set<Integer> tocLikePages = new HashSet<>();
+            for (int i = 0; i < pageTexts.size(); i++) {
+                int hits = 0;
+                for (String[] section : REPORT_SECTIONS) {
+                    if (pageTexts.get(i).contains(section[1].replaceAll("\\s+", ""))) {
+                        hits++;
+                    }
+                }
+                if (hits >= 5) {
+                    tocLikePages.add(i + 1);
+                }
+            }
+            for (int i = 0; i < pageTexts.size(); i++) {
+                int page = i + 1;
+                if (tocLikePages.contains(page)) {
+                    continue;
+                }
+                for (String[] section : REPORT_SECTIONS) {
+                    if (pageByKey.containsKey(section[0])) {
+                        continue;
+                    }
+                    if (pageTexts.get(i).contains(section[1].replaceAll("\\s+", ""))) {
+                        pageByKey.put(section[0], page);
+                    }
+                }
+            }
+            if (pageByKey.isEmpty()) {
+                log.warn("PDF section scan matched nothing (strict & fallback), recordId={}, totalPages={}",
+                        recordId, pageTexts.size());
+            }
+        }
+
+        List<PdfSectionPageVO> result = new ArrayList<>(REPORT_SECTIONS.size());
+        for (String[] section : REPORT_SECTIONS) {
+            result.add(PdfSectionPageVO.builder()
+                    .num(section[0])
+                    .title(section[1])
+                    .page(pageByKey.get(section[0]))
+                    .build());
+        }
+        return result;
     }
 
     @Override
@@ -1827,12 +1947,11 @@ public class PdfReportServiceImpl implements PdfReportService {
         String sign = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, pdfPreviewConfig.getSecret())
                 .hmacHex(data);
 
+        // 无状态多用途 token：HMAC(recordId:expire)，有效期内可重复使用。
+        // 预览页目录跳页会以 #page=N 重建 viewer 的 file 地址，同一 token 会被浏览器多次拉取，
+        // 故不做 Redis 一次性消费（过期与防篡改由签名 + expire 保证）。
         String token = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString((data + ":" + sign).getBytes(StandardCharsets.UTF_8));
-
-        String redisKey = RedisKeyConstant.getPdfPreviewTokenKey(token);
-        redisTemplate.opsForValue().set(redisKey, String.valueOf(recordId),
-                pdfPreviewConfig.getExpireSeconds(), TimeUnit.SECONDS);
 
         log.debug("PDF preview token generated, recordId={}, expire={}", recordId, expire);
         return token;

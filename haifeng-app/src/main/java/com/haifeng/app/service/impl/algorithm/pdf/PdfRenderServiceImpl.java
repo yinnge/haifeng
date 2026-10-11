@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haifeng.app.service.algorithm.pdf.PdfRenderService;
 import com.haifeng.app.service.algorithm.wish.WishPlanService;
 import com.haifeng.app.util.algorithm.pdf.EnrichmentLoader;
-import com.haifeng.app.util.watermark.WatermarkTileUtil;
 import com.haifeng.app.vo.algorithm.pdf.CityEnrichmentVO;
 import com.haifeng.app.vo.algorithm.pdf.MacroAnalysisVO;
 import com.haifeng.app.vo.algorithm.pdf.MapResultItem;
@@ -602,7 +601,6 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         // 7. Thymeleaf 渲染
         Context context = new Context();
         context.setVariable("data", data);
-        context.setVariable("watermarkStyle", buildWatermarkStyle());
         String html = templateEngine.process("pdf-report", context);
 
         // 8. OpenHTMLtoPDF 渲染
@@ -623,24 +621,40 @@ public class PdfRenderServiceImpl implements PdfRenderService {
         }
     }
 
-    /**
-     * 生成水印背景 CSS：走 @page 的 background-image，由 openhtmltopdf 在每一页自动平铺。
-     *
-     * 为什么不用「渲染完再用 PDFBox 逐页画水印」：
-     * 报告 PDF 本来就是在内存里生成的，再叠加一次 PDFBox 全量加载渲染会额外吃掉一大块堆内存
-     * （app 容器上限 768m）。渲染期直接把水印铺进页面背景，几乎零额外开销。
-     */
-    private String buildWatermarkStyle() {
-        String dataUri = WatermarkTileUtil.buildTileDataUri();
-        String rule = "background-image: url(\"" + dataUri + "\"); background-repeat: repeat;";
-        // 模板里 @page :first 单独设过 margin，这里只补背景属性，不会覆盖已有 margin
-        return "@page { " + rule + " } @page :first { " + rule + " }";
-    }
-
     private String markdownToHtml(String markdown) {
         if (markdown == null || markdown.isBlank()) return "";
-        Node document = flexmarkParser.parse(markdown);
+        String normalized = convertMarkdownInsideHtmlBlocks(markdown);
+        Node document = flexmarkParser.parse(normalized);
         return flexmarkRenderer.render(document);
+    }
+
+    /**
+     * AI 输出的 markdown 偶尔会内嵌 HTML 块（如 SWOT 的 <div class="swot-conclusion">）。
+     * flexmark 对 HTML 块内内容按原始 HTML 输出、不解析 markdown 语法，
+     * 导致块内 **加粗** 显示为字面星号（用户可见“**博弈辩证结论**”）。
+     * 此处把 HTML 块内的 **text** 预转换为 <strong>text</strong>，
+     * 并把块内换行转为 <br/>（HTML 块内的换行默认会被折叠成空格，段落无法分行走）。
+     */
+    private String convertMarkdownInsideHtmlBlocks(String md) {
+        if (!md.contains("<div")) {
+            return md;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?is)(<div\\b[^>]*>)(.*?)(</div>)")
+                .matcher(md);
+        StringBuilder sb = new StringBuilder(md.length() + 64);
+        while (m.find()) {
+            String converted = m.group(2)
+                    // 仅处理加粗（双星），单个 * 混在正文（如乘号）不误伤
+                    .replaceAll("\\*\\*(.+?)\\*\\*", "<strong>$1</strong>")
+                    .replace("\r\n", "\n")
+                    .replaceAll("\\n\\s*\\n+", "<br/><br/>")
+                    .replace("\n", "<br/>");
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(
+                    m.group(1) + converted + m.group(3)));
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private void registerFont(PdfRendererBuilder builder) {

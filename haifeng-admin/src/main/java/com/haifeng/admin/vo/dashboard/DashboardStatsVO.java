@@ -12,7 +12,6 @@ public class DashboardStatsVO {
     @Data
     public static class MemberStats {
         private Long totalMembers;
-        private Long proMembers;
         private Long vipMembers;
     }
 

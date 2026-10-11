@@ -158,15 +158,13 @@ public class MemberOrderServiceImpl implements MemberOrderService {
             throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
         }
 
-        // 2. 校验目标类型合法性（vip未过期不能降级为pro）
+        // 2. 校验目标类型合法性
+        // Pro 已并入 VIP：遗留的 "pro" 入参必须显式拒绝，防止 fromValue 静默回落 NORMAL 造成误降级
+        if ("pro".equalsIgnoreCase(dto.getTargetType())) {
+            throw new BusinessException(400, "Pro会员已并入VIP会员，请选择VIP会员");
+        }
         MemberType currentType = MemberType.fromValue(member.getMemberType());
         MemberType targetType = MemberType.fromValue(dto.getTargetType());
-
-        if (currentType == MemberType.VIP && targetType == MemberType.PRO) {
-            if (member.getExpireAt() != null && member.getExpireAt().isAfter(OffsetDateTime.now())) {
-                throw new BusinessException(400, "VIP会员未过期，不能降级为Pro");
-            }
-        }
 
         // 3. 计算到期时间
         OffsetDateTime now = OffsetDateTime.now();
@@ -271,31 +269,6 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         // 3. 更新用户表: memberType = order.afterType, expireAt = order.afterExpireAt
         OffsetDateTime now = OffsetDateTime.now();
 
-        // Pro → VIP 升级：暂存Pro剩余时间，VIP从现在开始
-        MemberType beforeType = order.getBeforeType();
-        MemberType afterType = order.getAfterType();
-        boolean isProToVip = (beforeType == MemberType.PRO && afterType == MemberType.VIP);
-        boolean isProActive = beforeType == MemberType.PRO
-                && (order.getBeforeExpireAt() == null || order.getBeforeExpireAt().isAfter(now));
-
-        if (isProToVip && isProActive) {
-            // 计算Pro剩余时间（永久Pro: 给一个合理的默认值，如12个月）
-            OffsetDateTime beforeExpireAt = order.getBeforeExpireAt();
-            int remainingMonths;
-            if (beforeExpireAt == null) {
-                // 永久Pro：默认挂起12个月
-                remainingMonths = 12;
-            } else {
-                long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(now, beforeExpireAt);
-                remainingMonths = (int) Math.max(1, Math.round(daysBetween / 30.0));
-            }
-            member.setSuspendedMemberType(MemberType.PRO.getValue());
-            member.setSuspendedExpireAt(beforeExpireAt);
-            member.setSuspendedRemainingMonths(remainingMonths);
-            log.info("Pro→VIP升级(订单确认)，暂存Pro: memberId={}, beforeExpireAt={}, remainingMonths={}",
-                    member.getId(), beforeExpireAt, remainingMonths);
-        }
-
         member.setMemberType(order.getAfterType().getValue());
         member.setExpireAt(order.getAfterExpireAt());
         member.setUpdatedAt(now);
@@ -382,12 +355,6 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         OffsetDateTime now = OffsetDateTime.now();
         member.setMemberType(order.getBeforeType().getValue());
         member.setExpireAt(order.getBeforeExpireAt());
-        // 撤销Pro→VIP订单时，清除挂起字段
-        if (order.getBeforeType() == MemberType.PRO && order.getAfterType() == MemberType.VIP) {
-            member.setSuspendedMemberType(null);
-            member.setSuspendedExpireAt(null);
-            member.setSuspendedRemainingMonths(null);
-        }
         member.setUpdatedAt(now);
         int affected = memberMapper.updateById(member);
         if (affected == 0) {
@@ -456,7 +423,8 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         if ("vip".equals(targetType)) {
             yearPrice = settings.getVipPrice();
         } else {
-            yearPrice = settings.getProPrice();
+            // Pro 已并入 VIP，非 vip 类型统一按 VIP 价格（'pro' 入参在上方已被拦截）
+            yearPrice = settings.getVipPrice();
         }
 
         if (yearPrice == null || yearPrice <= 0) {
@@ -497,12 +465,8 @@ public class MemberOrderServiceImpl implements MemberOrderService {
         }
 
         String targetType = order.getAfterType().getValue();
-        Integer commissionRatePercent;
-        if ("vip".equals(targetType)) {
-            commissionRatePercent = settings.getVipCommissionRate();
-        } else {
-            commissionRatePercent = settings.getProCommissionRate();
-        }
+        // Pro已并入VIP，统一使用vipCommissionRate
+        Integer commissionRatePercent = settings.getVipCommissionRate();
 
         if (commissionRatePercent == null || commissionRatePercent <= 0) {
             log.info("佣金比例为0或未设置，跳过佣金处理: targetType={}", targetType);

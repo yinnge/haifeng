@@ -55,9 +55,7 @@ public class SystemSettingsVO implements Serializable {
 
     private String providerName;
     private String modelName;
-    private Integer proPrice;
     private Integer vipPrice;
-    private Integer proCommissionRate;
     private Integer vipCommissionRate;
     private String seoTitle;
     private String seoKeywords;

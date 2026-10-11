@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.fileload.FileLoadQueryDTO;
+import com.haifeng.admin.dto.fileload.FileLoadUploadDTO;
 import com.haifeng.admin.service.fileload.FileLoadService;
 import com.haifeng.admin.vo.fileload.FileLoadDetailVO;
 import com.haifeng.admin.vo.fileload.FileLoadListVO;
@@ -40,6 +41,9 @@ public class FileLoadServiceImpl implements FileLoadService {
     private final FileInfoMapper fileInfoMapper;
     private final OssService ossService;
     private final OssProperties ossProperties;
+
+    /** 存储方式：百度网盘（不产生 OSS 对象） */
+    private static final String STORAGE_TYPE_BAIDU = "BAIDU";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -117,6 +121,53 @@ public class FileLoadServiceImpl implements FileLoadService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long addNetdisk(FileLoadUploadDTO dto, String targetAudience, String createBy) {
+        if (!StringUtils.hasText(dto.getFileName())) {
+            throw new BusinessException(400, "资源名称不能为空");
+        }
+        if (!StringUtils.hasText(dto.getNetdiskUrl())) {
+            throw new BusinessException(400, "百度网盘分享链接不能为空");
+        }
+        if (!dto.getNetdiskUrl().startsWith("http://") && !dto.getNetdiskUrl().startsWith("https://")) {
+            throw new BusinessException(400, "百度网盘分享链接需以 http(s):// 开头");
+        }
+
+        Long id = SnowflakeIdGenerator.nextId();
+        FileInfo fileInfo = FileInfo.builder()
+                .id(id)
+                .fileName(dto.getFileName().trim())
+                // BAIDU 行无 OSS 对象：fileUrl/fileMd5/fileSize/bucketName 等 OSS 语义列不填
+                .fileUrl(null)
+                .filePreviewUrl(null)
+                .fileType(null)
+                .fileSize(null)
+                .fileMd5(null)
+                .bucketName(null)
+                .storageType(STORAGE_TYPE_BAIDU)
+                .netdiskUrl(dto.getNetdiskUrl().trim())
+                .accessCode(StringUtils.hasText(dto.getAccessCode()) ? dto.getAccessCode().trim() : null)
+                .coverUrl(StringUtils.hasText(dto.getCoverUrl()) ? dto.getCoverUrl().trim() : null)
+                .targetAudience(targetAudience)
+                .applicableStage(dto.getApplicableStage())
+                .subject(dto.getSubject())
+                .description(dto.getDescription())
+                .tag(dto.getTag())
+                .version(0)
+                .createBy(createBy)
+                .createTime(OffsetDateTime.now())
+                .updateBy(createBy)
+                .updateTime(OffsetDateTime.now())
+                .deleted(false)
+                .build();
+
+        fileInfoMapper.insert(fileInfo);
+        log.info("百度网盘资源新增成功: id={}, fileName={}, targetAudience={}, subject={}",
+                id, fileInfo.getFileName(), targetAudience, dto.getSubject());
+        return id;
+    }
+
+    @Override
     public IPage<FileLoadListVO> page(FileLoadQueryDTO dto, String targetAudience) {
         Page<FileInfo> page = new Page<>(dto.getPage(), dto.getSize());
 
@@ -158,6 +209,13 @@ public class FileLoadServiceImpl implements FileLoadService {
         FileLoadDetailVO vo = new FileLoadDetailVO();
         BeanUtils.copyProperties(fileInfo, vo);
 
+        // 百度网盘资源：无 OSS 对象，不生成下载/预览链接，仅回显网盘信息（netdiskUrl/accessCode/coverUrl 已随 copy 带出）
+        if (STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            vo.setFileUrl(null);
+            vo.setFilePreviewUrl(null);
+            return vo;
+        }
+
         // 下载链接（带源文件名 disposition，对齐 user 端；浏览器下载同名自动加 (1)/(2)）
         vo.setFileUrl(ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName()));
 
@@ -181,15 +239,14 @@ public class FileLoadServiceImpl implements FileLoadService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void update(Long id, String fileName, String subject, String applicableStage,
-                       String description, String tag, Integer version, String updateBy) {
+    public void update(Long id, FileLoadUploadDTO dto, String updateBy) {
         FileInfo fileInfo = fileInfoMapper.selectById(id);
         if (fileInfo == null || fileInfo.getDeleted()) {
             throw new BusinessException(404, "文件不存在");
         }
 
         // 乐观锁校验
-        if (version == null || !version.equals(fileInfo.getVersion())) {
+        if (dto.getVersion() == null || !dto.getVersion().equals(fileInfo.getVersion())) {
             throw new BusinessException(409, "数据已被其他人修改，请刷新后重试");
         }
 
@@ -198,19 +255,27 @@ public class FileLoadServiceImpl implements FileLoadService {
         LambdaUpdateWrapper<FileInfo> uw = new LambdaUpdateWrapper<>();
         uw.eq(FileInfo::getId, id)
           .eq(FileInfo::getVersion, fileInfo.getVersion())
-          .set(FileInfo::getSubject, subject)
-          .set(FileInfo::getApplicableStage, applicableStage)
-          .set(FileInfo::getDescription, description)
-          .set(FileInfo::getTag, tag)
+          .set(FileInfo::getSubject, dto.getSubject())
+          .set(FileInfo::getApplicableStage, dto.getApplicableStage())
+          .set(FileInfo::getDescription, dto.getDescription())
+          .set(FileInfo::getTag, dto.getTag())
           .set(FileInfo::getUpdateBy, updateBy)
           .set(FileInfo::getUpdateTime, OffsetDateTime.now())
           .setSql("version = version + 1");
+        // 资源名称：仅传了才改（OSS 行名称=原件名，编辑不回传则不动；BAIDU 网盘行可改名）
+        if (StringUtils.hasText(dto.getFileName())) {
+            uw.set(FileInfo::getFileName, dto.getFileName().trim());
+        }
+        // 网盘字段：无条件 SET（OSS 行对应列本就为 NULL，set null 无副作用；BAIDU 行正常更新）
+        uw.set(FileInfo::getNetdiskUrl, StringUtils.hasText(dto.getNetdiskUrl()) ? dto.getNetdiskUrl().trim() : null)
+          .set(FileInfo::getAccessCode, StringUtils.hasText(dto.getAccessCode()) ? dto.getAccessCode().trim() : null)
+          .set(FileInfo::getCoverUrl, StringUtils.hasText(dto.getCoverUrl()) ? dto.getCoverUrl().trim() : null);
         int updatedRows = fileInfoMapper.update(null, uw);
         if (updatedRows == 0) {
             // 影响行数为 0：乐观锁 version 不匹配（前端传的 version 与 DB 不一致）或记录已不存在
             throw new BusinessException(409, "修改失败：数据已被其他人修改或不存在，请刷新列表后重试");
         }
-        log.info("文件更新成功: id={}, subject={}, applicableStage={}", id, subject, applicableStage);
+        log.info("文件更新成功: id={}, subject={}, applicableStage={}", id, dto.getSubject(), dto.getApplicableStage());
     }
 
     @Override
@@ -251,12 +316,14 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(404, "文件不存在");
         }
 
-        // 删除OSS文件
-        ossService.deleteFile(fileInfo.getFileUrl());
+        // 删除OSS文件（仅 OSS 存储行；百度网盘行无 OSS 对象，跳过）
+        if (!STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            ossService.deleteFile(fileInfo.getFileUrl());
 
-        // 同步清理已生成的带水印PDF，避免OSS残留孤儿对象
-        if (StringUtils.hasText(fileInfo.getWatermarkedFileUrl())) {
-            ossService.deleteFile(fileInfo.getWatermarkedFileUrl());
+            // 同步清理已生成的带水印PDF，避免OSS残留孤儿对象
+            if (StringUtils.hasText(fileInfo.getWatermarkedFileUrl())) {
+                ossService.deleteFile(fileInfo.getWatermarkedFileUrl());
+            }
         }
 
         // 软删除数据库记录：用 UpdateWrapper 显式 SET deleted=true，entity 传 null 绕开

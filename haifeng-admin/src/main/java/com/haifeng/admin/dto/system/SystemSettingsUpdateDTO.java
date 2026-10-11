@@ -54,15 +54,8 @@ public class SystemSettingsUpdateDTO {
     @Min(value = 0, message = "垫档数量不能小于0")
     private Integer floorCount;
 
-    @Min(value = 0, message = "Pro会员价格不能为负")
-    private Integer proPrice;
-
     @Min(value = 0, message = "VIP会员价格不能为负")
     private Integer vipPrice;
-
-    @Min(value = 0, message = "Pro提成比例不能小于0")
-    @Max(value = 100, message = "Pro提成比例不能大于100")
-    private Integer proCommissionRate;
 
     @Min(value = 0, message = "VIP提成比例不能小于0")
     @Max(value = 100, message = "VIP提成比例不能大于100")

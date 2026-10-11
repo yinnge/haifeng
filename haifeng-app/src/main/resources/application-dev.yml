@@ -86,5 +86,8 @@ oss:
 pdf:
   preview:
     secret: ${PDF_PREVIEW_SECRET}
-    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:300}
-    base-url: http://haifeng-app:18080
+    expire-seconds: ${PDF_PREVIEW_EXPIRE_SECONDS:7200}
+    # 该地址只给 kkfileview 容器【服务端回源抓取】PDF 用，浏览器侧已不再使用
+    #（directPdfUrl 返回同源相对路径 /api/v1/public/pdf/preview/...，dev 由 Vite proxy 转发到本机 app）。
+    # 故浏览器端不再受它影响；填 127.0.0.1 时仅 kkfileview 容器拉取不到 app（如需 kk 预览报告可改 host.docker.internal）
+    base-url: ${PDF_PREVIEW_BASE_URL:http://127.0.0.1:18080}

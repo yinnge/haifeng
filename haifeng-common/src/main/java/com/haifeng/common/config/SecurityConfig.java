@@ -64,6 +64,8 @@ public class SecurityConfig {
             // 企业
             "/api/v1/app/enterprise/list",
             "/api/v1/app/enterprise/types",
+            // 企业详情按 id 查询为公开接口（/industries 仍由 @RequireVip AOP 守卫，不会越权）
+            "/api/v1/app/enterprise/*",
             // 行业
             "/api/v1/app/industry/categories",
             "/api/v1/app/industry/list",
@@ -79,18 +81,32 @@ public class SecurityConfig {
             "/api/v1/app/special/channel/list",
             "/api/v1/app/special/strong-base-score/list",
             "/api/v1/app/special/channel-univ/list",
-            // 就业（列表公开）
+            // 就业（列表/筛选/年份公开，详情需登录）
             "/api/v1/app/employment/*/list",
             "/api/v1/app/employment/*/*/list",
+            "/api/v1/app/employment/*/filters",
+            "/api/v1/app/employment/*/*/filters",
             "/api/v1/app/employment/*/*/years",
             "/api/v1/app/employment/*/*/grad-years",
             "/api/v1/app/employment/content/*/list-by-type",
             "/api/v1/app/employment/content/*/*/view",
-            // 专栏文件（列表公开，详情/预览/下载仍需 VIP 鉴权）
+            // 专栏文件（列表 + 动态筛选公开，详情/预览/下载仍需 VIP 鉴权）
             "/api/v1/app/fileload/middle/list",
+            "/api/v1/app/fileload/middle/stages",
+            "/api/v1/app/fileload/middle/subjects",
+            "/api/v1/app/fileload/middle/tags",
             "/api/v1/app/fileload/high/list",
+            "/api/v1/app/fileload/high/stages",
+            "/api/v1/app/fileload/high/subjects",
+            "/api/v1/app/fileload/high/tags",
             // Actuator
             "/actuator/**",
+            // PDF 公开预览端点（HMAC 签名 token + 有效期自校验，供 pdf.js viewer 拉取报告 PDF）
+            "/api/v1/public/pdf/**",
+            // 自托管 pdf.js 查看器静态资源：PDF 直链与 viewer 同源（127.0.0.1:18080），
+            // 规避 pdf.js validateFileURL 的「file origin does not match viewer's」跨源拦截；
+            // 静态资源无敏感数据，viewer.html 自身不做任何后端数据请求
+            "/pdfjs/**",
             // Swagger
             "/swagger-ui/**",
             "/v3/api-docs/**"

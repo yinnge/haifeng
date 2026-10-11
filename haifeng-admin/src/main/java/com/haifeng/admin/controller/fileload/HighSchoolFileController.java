@@ -38,10 +38,14 @@ public class HighSchoolFileController {
      */
     @PostMapping("/upload")
     @OperationLog(module = "高中文件管理", action = "上传文件")
-    public R<Long> upload(@RequestParam("file") MultipartFile file,
+    public R<Long> upload(@RequestParam(value = "file", required = false) MultipartFile file,
                           @Valid FileLoadUploadDTO dto) {
         String operatorName = SecurityUtil.getCurrentUser() != null
                 ? SecurityUtil.getCurrentUser().getUsername() : "unknown";
+        // 百度网盘资源（storageType=BAIDU）：不传文件，直接录入分享链接 + 提取码
+        if ("BAIDU".equals(dto.getStorageType())) {
+            return R.ok(fileLoadService.addNetdisk(dto, TARGET_AUDIENCE, operatorName));
+        }
         return R.ok(fileLoadService.upload(file, TARGET_AUDIENCE, dto.getSubject(),
                 dto.getApplicableStage(), dto.getDescription(), dto.getTag(), operatorName));
     }
@@ -89,8 +93,7 @@ public class HighSchoolFileController {
                           @Valid @RequestBody FileLoadUploadDTO dto) {
         String operatorName = SecurityUtil.getCurrentUser() != null
                 ? SecurityUtil.getCurrentUser().getUsername() : "unknown";
-        fileLoadService.update(id, null, dto.getSubject(), dto.getApplicableStage(),
-                dto.getDescription(), dto.getTag(), dto.getVersion(), operatorName);
+        fileLoadService.update(id, dto, operatorName);
         return R.ok();
     }
 

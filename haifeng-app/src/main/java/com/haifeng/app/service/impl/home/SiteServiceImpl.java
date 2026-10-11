@@ -48,7 +48,6 @@ public class SiteServiceImpl implements SiteService {
                 )
                 .contactUrl(settings.getContactUrl())
                 .basicMessage(settings.getBasicMessage())
-                .proPrice(settings.getProPrice())
                 .vipPrice(settings.getVipPrice())
                 .build();
 

@@ -7,7 +7,7 @@ import com.haifeng.app.vo.company.EnterpriseIndustryGroupVO;
 import com.haifeng.app.vo.company.EnterpriseListVO;
 import com.haifeng.app.vo.company.EnterprisePositionVO;
 import com.haifeng.common.annotation.RequireLogin;
-import com.haifeng.common.annotation.RequirePro;
+import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -52,8 +52,8 @@ public class EnterpriseController {
         return R.ok(enterpriseService.positions(enterpriseId));
     }
 
-    /** 企业 → 行业跳转信息（Pro 及以上） */
-    @RequirePro
+    /** 企业 → 行业跳转信息 */
+    @RequireVip
     @GetMapping("/industries")
     public R<List<EnterpriseIndustryGroupVO>> industries(@RequestParam @NotEmpty(message = "企业ID列表不能为空") List<@Min(value = 1, message = "ID必须大于0") Long> enterpriseIds) {
         return R.ok(enterpriseService.industriesByEnterpriseIds(enterpriseIds));

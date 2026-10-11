@@ -8,6 +8,7 @@ import com.haifeng.app.service.fileload.FileLoadService;
 import com.haifeng.app.service.watermark.FileWatermarkService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.config.OssProperties;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
@@ -41,6 +42,9 @@ public class FileLoadServiceImpl implements FileLoadService {
     private final OssProperties ossProperties;
     private final StringRedisTemplate redisTemplate;
     private final FileWatermarkService fileWatermarkService;
+
+    /** 存储方式：百度网盘（不产生 OSS 对象） */
+    private static final String STORAGE_TYPE_BAIDU = "BAIDU";
 
     @Override
     public IPage<FileLoadListVO> page(BasePageQueryDTO dto, String targetAudience,
@@ -112,6 +116,14 @@ public class FileLoadServiceImpl implements FileLoadService {
         FileLoadDetailVO vo = new FileLoadDetailVO();
         BeanUtils.copyProperties(fileInfo, vo);
 
+        // 百度网盘资源：无 OSS 对象、无预览/下载，仅回显元信息 + 封面；
+        // 网盘链接+提取码不放在详情里（防止登录即绕过 VIP），统一走 /{id}/netdisk（@RequireVip）
+        if (STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            vo.setPreviewUrl(null);
+            vo.setDownloadUrl(null);
+            return vo;
+        }
+
         // 下载统一走带水印 PDF（首次访问触发生成并缓存到 OSS，后续直接复用）；
         // 不支持水印的格式、转换服务不可用、生成失败时自动降级为原文件
         vo.setDownloadUrl(fileWatermarkService.getWatermarkedDownloadUrl(fileInfo));
@@ -141,6 +153,10 @@ public class FileLoadServiceImpl implements FileLoadService {
         FileInfo fileInfo = fileInfoMapper.selectById(id);
         if (fileInfo == null || fileInfo.getDeleted()) {
             throw new BusinessException(404, "文件不存在");
+        }
+
+        if (STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            throw new BusinessException(400, "百度网盘资源不支持在线预览，请通过「获取网盘链接」获取");
         }
 
         if (!isPreviewable(fileInfo.getFileType())) {
@@ -175,6 +191,10 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(404, "文件不存在");
         }
 
+        if (STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            throw new BusinessException(400, "百度网盘资源请通过「获取网盘链接」获取");
+        }
+
         // 悲观锁：防止用户误触重复下载
         Long userId = SecurityUtil.getCurrentUserId();
         String lockKey = RedisKeyConstant.getFileloadActionLockKey(id, userId, "download");
@@ -186,6 +206,25 @@ public class FileLoadServiceImpl implements FileLoadService {
 
         // 下载统一输出带水印 PDF（生成结果按文件缓存复用，非每次下载都重算）
         return fileWatermarkService.getWatermarkedDownloadUrl(fileInfo);
+    }
+
+    @Override
+    public NetdiskInfoVO getNetdiskInfo(Long id) {
+        FileInfo fileInfo = fileInfoMapper.selectById(id);
+        if (fileInfo == null || fileInfo.getDeleted()) {
+            throw new BusinessException(404, "文件不存在");
+        }
+        if (!STORAGE_TYPE_BAIDU.equals(fileInfo.getStorageType())) {
+            throw new BusinessException(400, "该资源不是百度网盘存储");
+        }
+        if (!StringUtils.hasText(fileInfo.getNetdiskUrl())) {
+            throw new BusinessException(400, "该网盘资源链接为空，请联系管理员");
+        }
+
+        NetdiskInfoVO vo = new NetdiskInfoVO();
+        vo.setNetdiskUrl(fileInfo.getNetdiskUrl());
+        vo.setAccessCode(fileInfo.getAccessCode());
+        return vo;
     }
 
     private boolean isPreviewable(String fileType) {
