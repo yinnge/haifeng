@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * C 端实验室列表 / 详情（spec §3.1、§3.2）
  * 均需登录
@@ -28,13 +30,21 @@ public class LaboratoryController {
 
     private final LaboratoryService laboratoryService;
 
-    /** spec §3.1：按 universityId 分页查询实验室列表 */
+    /** spec §3.1：按 universityId 分页查询实验室列表（dto.labType 可选精确筛选） */
     @RequireLogin
     @GetMapping("/{universityId}/laboratories")
     public R<IPage<LaboratoryListVO>> list(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
             @Valid LaboratoryQueryDTO dto) {
         return R.ok(laboratoryService.page(universityId, dto));
+    }
+
+    /** 实验室类型清单（去重，用于前端筛选按钮，与列表页数据一致仅 status=1） */
+    @RequireLogin
+    @GetMapping("/{universityId}/laboratories/types")
+    public R<List<String>> types(
+            @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {
+        return R.ok(laboratoryService.types(universityId));
     }
 
     /** spec §3.2：按主键查询实验室详情 */

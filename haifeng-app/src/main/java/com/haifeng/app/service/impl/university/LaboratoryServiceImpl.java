@@ -17,6 +17,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -40,11 +44,40 @@ public class LaboratoryServiceImpl implements LaboratoryService {
         LambdaQueryWrapper<Laboratory> wrapper = new LambdaQueryWrapper<Laboratory>()
                 .eq(Laboratory::getUniversityId, universityId)
                 .eq(Laboratory::getStatus, STATUS_PUBLISHED)
+                .eq(dto.getLabType() != null && !dto.getLabType().isBlank(),
+                        Laboratory::getLabType, dto.getLabType())
                 .orderByAsc(Laboratory::getSortOrder)
                 .orderByDesc(Laboratory::getId);
 
         IPage<Laboratory> entityPage = laboratoryMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
+    }
+
+    @Override
+    public List<String> types(Long universityId) {
+        University univ = universityMapper.selectById(universityId);
+        if (univ == null || univ.getStatus() == null || univ.getStatus() != STATUS_PUBLISHED) {
+            log.debug("院校不存在或已下架, universityId={}", universityId);
+            return List.of();
+        }
+
+        // 只取 labType 一列（排序与分页一致），内存去重保序
+        List<Object> objs = laboratoryMapper.selectObjs(
+                new LambdaQueryWrapper<Laboratory>()
+                        .select(Laboratory::getLabType)
+                        .eq(Laboratory::getUniversityId, universityId)
+                        .eq(Laboratory::getStatus, STATUS_PUBLISHED)
+                        .isNotNull(Laboratory::getLabType)
+                        .orderByAsc(Laboratory::getSortOrder)
+                        .orderByDesc(Laboratory::getId));
+
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        for (Object o : objs) {
+            if (o != null && !o.toString().isBlank()) {
+                set.add(o.toString());
+            }
+        }
+        return new ArrayList<>(set);
     }
 
     @Override

@@ -193,9 +193,13 @@ public class NotificationServiceImpl implements NotificationService {
             throw new BusinessException(403, "无权操作此通知");
         }
 
-        notification.setDeleted(true);
-        notification.setUpdatedAt(OffsetDateTime.now());
-        memberNotificationMapper.updateById(notification);
+        // 注意：MemberNotification 实体带 @TableLogic，updateById 会自动剔除 is_deleted 字段，
+        // 导致 setDeleted(true) 静默失效（记录仍会出现在列表中）。改用专用逻辑删除方法绕过该限制，
+        // 真正将 is_deleted 置为 true，使列表查询（selectPage 自动带 WHERE is_deleted=false）不再返回该记录。
+        int rows = memberNotificationMapper.logicalDeleteById(notificationId, OffsetDateTime.now());
+        if (rows == 0) {
+            log.warn("通知删除影响行数为 0（可能已被删除或不存在）: notificationId={}, memberId={}", notificationId, memberId);
+        }
     }
 
     @Override

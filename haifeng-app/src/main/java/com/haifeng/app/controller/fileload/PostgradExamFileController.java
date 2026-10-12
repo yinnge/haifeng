@@ -1,0 +1,104 @@
+package com.haifeng.app.controller.fileload;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.service.fileload.FileLoadService;
+import com.haifeng.app.vo.fileload.FileLoadDetailVO;
+import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.app.vo.fileload.NetdiskInfoVO;
+import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireVip;
+import com.haifeng.common.dto.common.BasePageQueryDTO;
+import com.haifeng.common.response.R;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * C 端考研文件
+ * 列表/动态筛选：需登录
+ * 详情/预览/下载：仅VIP用户
+ * <p>复用 t_file_info 表，以 target_audience='postgrad_exam' 区分（与 admin 端 V69 配套）。
+ */
+@Validated
+@RestController
+@RequestMapping("/api/v1/app/fileload/postgrad-exam")
+@RequiredArgsConstructor
+public class PostgradExamFileController {
+
+    private final FileLoadService fileLoadService;
+
+    private static final String TARGET_AUDIENCE = "postgrad_exam";
+
+    /**
+     * 分页查询考研文件列表（需登录）
+     */
+    @RequireLogin
+    @GetMapping("/list")
+    public R<IPage<FileLoadListVO>> list(@Valid BasePageQueryDTO dto,
+                                         @RequestParam(required = false) String subject,
+                                         @RequestParam(required = false) String applicableStage,
+                                         @RequestParam(required = false) String tag) {
+        return R.ok(fileLoadService.page(dto, TARGET_AUDIENCE, subject, applicableStage, tag));
+    }
+
+    /** 动态返回 applicable_stage 去重值（前端按钮筛选，需登录） */
+    @RequireLogin
+    @GetMapping("/stages")
+    public R<List<String>> stages() {
+        return R.ok(fileLoadService.listStages(TARGET_AUDIENCE));
+    }
+
+    /** 动态返回 subject 去重值（前端下拉筛选，需登录） */
+    @RequireLogin
+    @GetMapping("/subjects")
+    public R<List<String>> subjects() {
+        return R.ok(fileLoadService.listSubjects(TARGET_AUDIENCE));
+    }
+
+    /** 动态返回 tag 去重值（前端下拉筛选，需登录） */
+    @RequireLogin
+    @GetMapping("/tags")
+    public R<List<String>> tags() {
+        return R.ok(fileLoadService.listTags(TARGET_AUDIENCE));
+    }
+
+    /**
+     * 获取考研文件详情（仅VIP）
+     */
+    @RequireVip
+    @GetMapping("/{id}")
+    public R<FileLoadDetailVO> detail(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.detail(id));
+    }
+
+    /**
+     * 获取考研文件预览URL（仅VIP）
+     */
+    @RequireVip
+    @GetMapping("/{id}/preview")
+    public R<String> preview(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getPreviewUrl(id));
+    }
+
+    /**
+     * 获取考研文件下载URL（仅VIP + 悲观锁防误触）
+     */
+    @RequireVip
+    @GetMapping("/{id}/download")
+    public R<String> download(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getDownloadUrl(id));
+    }
+
+    /**
+     * 获取百度网盘资源取码信息（仅VIP：返回分享链接 + 提取码）
+     */
+    @RequireVip
+    @GetMapping("/{id}/netdisk")
+    public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getNetdiskInfo(id));
+    }
+}
