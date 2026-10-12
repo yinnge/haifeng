@@ -34,7 +34,9 @@ public class CityServiceImpl implements CityService {
         LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<City>()
                 .eq(City::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getCityName()), City::getCityName, dto.getCityName())
-                .eq(StringUtils.hasText(dto.getProvince()), City::getProvince, dto.getProvince())
+                .apply(StringUtils.hasText(dto.getProvince()),
+                        "replace(replace(replace(replace(replace(replace(replace(province,'特别行政区',''),'回族自治区',''),'壮族自治区',''),'维吾尔自治区',''),'自治区',''),'省',''),'市','') = {0}",
+                        stripProvinceSuffix(dto.getProvince()))
                 .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion())
                 .orderByAsc(City::getId);
 
@@ -178,6 +180,27 @@ public class CityServiceImpl implements CityService {
         int ethnicIdx = s.indexOf("族");
         if (ethnicIdx > 0) {
             s = s.substring(0, ethnicIdx);
+        }
+        return s;
+    }
+
+    /** 省级行政区后缀，用于列表按省份查询时兼容「裸字段 / 带后缀」两种存储形态。
+     *  民族自治区须放在泛型「自治区」之前，否则「广西壮/宁夏回/新疆吾尔」会被误剥。 */
+    private static final String[] PROVINCE_SUFFIXES = {
+            "特别行政区", "回族自治区", "壮族自治区", "维吾尔自治区", "自治区", "省", "市"};
+
+    /**
+     * 剥离省级行政区后缀，得到与 DB 裸字段一致的核名。
+     * 示例：河北省↔河北、广西壮族自治区↔广西、宁夏回族自治区↔宁夏、新疆维吾尔自治区↔新疆、
+     *       内蒙古自治区↔内蒙古、北京市↔北京、香港特别行政区↔香港。
+     */
+    private String stripProvinceSuffix(String name) {
+        String s = name.trim();
+        for (String suffix : PROVINCE_SUFFIXES) {
+            if (s.endsWith(suffix)) {
+                s = s.substring(0, s.length() - suffix.length());
+                break;
+            }
         }
         return s;
     }
