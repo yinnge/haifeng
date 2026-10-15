@@ -19,12 +19,13 @@ import java.util.List;
 
 /**
  * 高考档案控制器
+ * <p>基础字典/计算类接口（年份、改革模式、位次、批次线）免登录——支持游客填写档案模拟填报；
+ * 档案读写（保存/查询本人档案）需登录。
  */
 @Validated
 @RestController
 @RequestMapping("/api/v1/app/gaokao")
 @RequiredArgsConstructor
-@RequireLogin
 public class GaokaoArchiveController {
 
     private final GaokaoArchiveService gaokaoArchiveService;
@@ -91,8 +92,9 @@ public class GaokaoArchiveController {
     }
 
     /**
-     * 保存高考档案（新增或更新）
+     * 保存高考档案（新增或更新，需登录）
      */
+    @RequireLogin
     @PostMapping("/archive")
     public R<Long> saveArchive(@Valid @RequestBody GaokaoArchiveSaveDTO dto) {
         Long archiveId = gaokaoArchiveService.saveArchive(dto);
@@ -100,8 +102,9 @@ public class GaokaoArchiveController {
     }
 
     /**
-     * 获取当前用户的高考档案
+     * 获取当前用户的高考档案（需登录）
      */
+    @RequireLogin
     @GetMapping("/archive")
     public R<GaokaoArchiveVO> getMyArchive() {
         return R.ok(gaokaoArchiveService.getMyArchive());

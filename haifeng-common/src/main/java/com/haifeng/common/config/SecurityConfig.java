@@ -52,6 +52,15 @@ public class SecurityConfig {
             "/api/v1/app/auth/forgot-password/reset",
             // 首页
             "/api/v1/app/home/**",
+            // 热点资讯（列表+详情均免登录公开；按模块分子路径，后续考公/考研/中考/英语四六级同型追加）
+            "/api/v1/app/algorithm/article/gaokao/*",
+            // 高考模拟填报（游客可查：年份/改革模式/位次/批次线 + 专业组/专业分页；档案读写 /archive 与组存活校验 /group/exists 仍需登录）
+            "/api/v1/app/gaokao/years",
+            "/api/v1/app/gaokao/reform-model",
+            "/api/v1/app/gaokao/rank",
+            "/api/v1/app/gaokao/batch-lines",
+            "/api/v1/app/admission/group/page",
+            "/api/v1/app/admission/major/page",
             // 院校（公开部分）
             "/api/v1/app/university/list",
             "/api/v1/app/university/channel-options",
