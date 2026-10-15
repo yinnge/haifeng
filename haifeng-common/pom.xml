@@ -80,6 +80,13 @@
             <artifactId>hutool-all</artifactId>
         </dependency>
 
+        <!-- jsoup - 富文本 HTML 白名单清洗（防存储型 XSS） -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+
         <!-- Hashids - 邀请码生成 -->
         <dependency>
             <groupId>org.hashids</groupId>

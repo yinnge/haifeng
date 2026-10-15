@@ -454,24 +454,28 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 errors.add("第" + rowNum + "行: 院系名称不能为空");
                 continue;
             }
-            mainDeptNames.add(dto.getDepartmentName().trim());
+            // 归一化后再登记 / 查库 / 入库，避免把 Excel 里的全角空格、不可见字符写进库，
+            // 也避免同一次导入内「同名」因空白差异被判成两个院系
+            String normalizedUniversityName = normalizeName(dto.getUniversityName());
+            String normalizedDeptName = normalizeName(dto.getDepartmentName());
+            mainDeptNames.add(normalizedDeptName);
             if (!StringUtils.hasText(dto.getDepartmentType())) {
                 errors.add("第" + rowNum + "行: 院系类型不能为空");
                 continue;
             }
 
-            University university = universityCache.get(dto.getUniversityName());
+            University university = universityCache.get(normalizedUniversityName);
             if (university == null) {
                 LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
-                univWrapper.eq(University::getName, dto.getUniversityName())
+                univWrapper.eq(University::getName, normalizedUniversityName)
                            .ne(University::getStatus, (short) 0);
                 university = universityMapper.selectOne(univWrapper);
                 if (university != null) {
-                    universityCache.put(dto.getUniversityName(), university);
+                    universityCache.put(normalizedUniversityName, university);
                 }
             }
             if (university == null) {
-                errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                errors.add("第" + rowNum + "行: 院校[" + normalizedUniversityName + "]不存在");
                 continue;
             }
 
@@ -479,7 +483,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
             List<Department> existingList = departmentMapper.selectList(
                     new LambdaQueryWrapper<Department>()
                             .eq(Department::getUniversityId, university.getId())
-                            .eq(Department::getDepartmentName, dto.getDepartmentName())
+                            .eq(Department::getDepartmentName, normalizedDeptName)
                             .eq(Department::getStatus, (short) 1));
             Department existing = existingList.isEmpty() ? null : existingList.get(0);
 
@@ -493,7 +497,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                             .id(SnowflakeIdGenerator.nextId())
                             .universityId(university.getId())
                             .universityName(university.getName())
-                            .departmentName(dto.getDepartmentName())
+                            .departmentName(normalizedDeptName)
                             .departmentType(dto.getDepartmentType())
                             .pageTitle(dto.getPageTitle())
                             .tags(dto.getTags())
@@ -506,8 +510,8 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                     addedCount++;
                 }
             } catch (Exception e) {
-                errors.add("第" + rowNum + "行: 保存失败[院校=" + dto.getUniversityName()
-                        + ", 院系=" + dto.getDepartmentName() + "]：" + e.getMessage());
+                errors.add("第" + rowNum + "行: 保存失败[院校=" + normalizedUniversityName
+                        + ", 院系=" + normalizedDeptName + "]：" + e.getMessage());
             }
         }
 
@@ -587,29 +591,32 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                     errors.add("第" + rowNum + "行: 院系名称不能为空");
                     continue;
                 }
-                mainDeptNames.add(dto.getDepartmentName().trim());
+                // 归一化后登记：既用于与报告分类Sheet 的名称匹配，也用于下方按名称查库
+                String normalizedDeptName = normalizeName(dto.getDepartmentName());
+                String normalizedUniversityName = normalizeName(dto.getUniversityName());
+                mainDeptNames.add(normalizedDeptName);
 
                 University university = universityMapper.selectOne(
                         new LambdaQueryWrapper<University>()
-                                .eq(University::getName, dto.getUniversityName())
+                                .eq(University::getName, normalizedUniversityName)
                                 .ne(University::getStatus, (short) 0));
                 if (university == null) {
-                    errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
+                    errors.add("第" + rowNum + "行: 院校[" + normalizedUniversityName + "]不存在");
                     continue;
                 }
 
                 Department dept = departmentMapper.selectOne(
                         new LambdaQueryWrapper<Department>()
                                 .eq(Department::getUniversityId, university.getId())
-                                .eq(Department::getDepartmentName, dto.getDepartmentName())
+                                .eq(Department::getDepartmentName, normalizedDeptName)
                                 .ne(Department::getStatus, (short) 0));
                 if (dept == null) {
-                    errors.add("第" + rowNum + "行: 院系[" + dto.getDepartmentName() + "]不存在");
+                    errors.add("第" + rowNum + "行: 院系[" + normalizedDeptName + "]不存在");
                     continue;
                 }
 
                 DepartmentReport existingReport = departmentReportMapper.selectByDepartmentId(dept.getId());
-                Map<String, Object> reportData = reportDataMap.get(dto.getDepartmentName().trim());
+                Map<String, Object> reportData = reportDataMap.get(normalizedDeptName);
 
                 try {
                     if (existingReport != null) {
@@ -633,7 +640,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                         addedCount++;
                     }
                 } catch (Exception e) {
-                    errors.add("第" + rowNum + "行: 保存失败[院系=" + dto.getDepartmentName() + "]：" + e.getMessage());
+                    errors.add("第" + rowNum + "行: 保存失败[院系=" + normalizedDeptName + "]：" + e.getMessage());
                 }
             }
 
@@ -665,6 +672,21 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
         }
     }
 
+    /**
+     * 名称归一化（仅用于导入期的查找 / 匹配，不改变库中已存数据的形态）。
+     * <p>背景：String.trim() 只去除 ASCII 空白（空格 \t \n \r \f \v），**不去**全角空格 U+3000、
+     * 不间断空格 U+00A0、零宽空格 U+200B。Excel 表头与院系列常从网页/文档粘贴而来，几乎必然带全角空格，
+     * 于是「报告分类Sheet中的院系名称[X]在主表『院系主表』中不存在」误报并整单回滚，
+     * 而用户看两边的名字明明完全一样；同样会让按名称的 selectOne 查不到院校/院系。
+     * <p>这里只剥掉首尾的上述空白，保留名称内部的空格，避免把「大学 物理」这类名称合并成「大学物理」。
+     */
+    private static String normalizeName(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.replaceAll("^[\\s\u3000\u00A0\u200B]+|[\\s\u3000\u00A0\u200B]+$", "");
+    }
+
     private Map<String, Map<String, Object>> buildReportDataMap(byte[] fileBytes) {
         Map<String, Map<String, Object>> result = new HashMap<>();
 
@@ -689,7 +711,7 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 List<String> row = rows.get(i);
                 if (row == null || row.isEmpty() || !StringUtils.hasText(row.get(0))) continue;
 
-                String deptName = row.get(0).trim();
+                String deptName = normalizeName(row.get(0));
                 Map<String, Object> deptReport = result.computeIfAbsent(deptName, k -> new LinkedHashMap<>());
 
                 switch (fieldName) {
