@@ -21,13 +21,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/app/admission")
 @RequiredArgsConstructor
-@RequireLogin
 public class AdmissionQueryController {
 
     private final AdmissionQueryService admissionQueryService;
 
     /**
-     * 分页查询专业组
+     * 分页查询专业组（免登录，支持游客模拟填报）
      */
     @GetMapping("/group/page")
     public R<IPage<AdmissionGroupPageVO>> pageGroups(@Valid AdmissionGroupQueryDTO dto) {
@@ -35,7 +34,7 @@ public class AdmissionQueryController {
     }
 
     /**
-     * 分页查询专业明细
+     * 分页查询专业明细（免登录，支持游客模拟填报）
      */
     @GetMapping("/major/page")
     public R<IPage<AdmissionMajorPageVO>> pageMajors(@Valid AdmissionMajorQueryDTO dto) {
@@ -45,7 +44,9 @@ public class AdmissionQueryController {
     /**
      * 批量校验专业组是否仍存在于目录（用于清理前端暂存区里指向已删除/已禁用组的孤儿记录）。
      * 全局逻辑删除会自动过滤 is_deleted=true 的记录，因此返回结果只包含当前有效的组。
+     * 需登录：暂存区孤儿清理只发生在登录用户的志愿表链路上。
      */
+    @RequireLogin
     @GetMapping("/group/exists")
     public R<List<Integer>> listExistingGroupIds(@RequestParam("ids") List<Integer> ids) {
         return R.ok(admissionQueryService.listExistingGroupIds(ids));
