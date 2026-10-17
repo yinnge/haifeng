@@ -116,7 +116,7 @@ public class AppAuthServiceImpl implements AppAuthService {
         redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, member.getMemberType(), tokenVersion, member.getUsername());
+        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, member.getMemberType(), tokenVersion, member.getUsername(), member.getTeacher());
         String refreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
@@ -168,7 +168,7 @@ public class AppAuthServiceImpl implements AppAuthService {
         redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername());
+        String accessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername(), member.getTeacher());
         String refreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         String redisKey = RedisKeyConstant.getRefreshTokenKey(member.getId(), JwtUtil.USER_TYPE_MEMBER);
@@ -226,7 +226,7 @@ public class AppAuthServiceImpl implements AppAuthService {
         redisTemplate.opsForValue().set(versionKey, String.valueOf(tokenVersion),
                 jwtUtil.getRefreshTokenExpire(), TimeUnit.SECONDS);
 
-        String newAccessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername());
+        String newAccessToken = jwtUtil.generateAccessToken(member.getId(), JwtUtil.USER_TYPE_MEMBER, effectiveMemberType, tokenVersion, member.getUsername(), member.getTeacher());
         String newRefreshToken = jwtUtil.generateRefreshToken(member.getId(), JwtUtil.USER_TYPE_MEMBER);
 
         redisTemplate.opsForValue().set(redisKey, newRefreshToken,

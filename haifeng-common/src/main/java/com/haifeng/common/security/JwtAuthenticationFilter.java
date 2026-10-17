@@ -53,6 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String userType = jwtUtil.getUserTypeFromToken(token);
                 String memberType = jwtUtil.getMemberTypeFromToken(token);
                 String username = jwtUtil.getUsernameFromToken(token);
+                Boolean isTeacher = jwtUtil.getIsTeacherFromToken(token);
 
                 if (userId != null && isTokenVersionValid(claims)) {
                     // 构建权限列表
@@ -64,6 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             .userType(userType)
                             .memberType(memberType)
                             .username(username)
+                            .teacher(isTeacher)
                             .authorities(authorities)
                             .build();
 

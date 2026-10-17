@@ -50,6 +50,11 @@ public class AuthUser implements UserDetails {
      */
     private Collection<? extends GrantedAuthority> authorities;
 
+    /**
+     * 是否老师身份（叠加在会员体系之上，独立于 memberType）
+     */
+    private Boolean teacher;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if (authorities == null) {
@@ -122,5 +127,12 @@ public class AuthUser implements UserDetails {
      */
     public boolean isProOrAbove() {
         return isMember() && ("pro".equals(memberType) || "vip".equals(memberType));
+    }
+
+    /**
+     * 判断是否为老师身份（独立于会员档位）
+     */
+    public boolean isTeacher() {
+        return Boolean.TRUE.equals(teacher);
     }
 }

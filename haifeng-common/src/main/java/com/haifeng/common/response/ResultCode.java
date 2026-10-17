@@ -24,6 +24,7 @@ public enum ResultCode {
     MEMBER_EXPIRED(1003, "会员已过期"),
     PRO_REQUIRED(1004, "权限不足（需要专业版及以上）"),
     VIP_REQUIRED(1005, "权限不足（需要旗舰版）"),
+    TEACHER_REQUIRED(1008, "权限不足（需要老师身份）"),
     ACCOUNT_LOCKED(1006, "账号已锁定，请30分钟后重试"),
     GAOKAO_ARCHIVE_NOT_FOUND(1010, "用户高考档案不存在，请先填写档案"),
     ADMISSION_GROUP_NOT_FOUND(1011, "专业组不存在"),

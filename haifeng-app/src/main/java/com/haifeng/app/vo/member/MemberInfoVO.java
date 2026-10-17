@@ -43,4 +43,9 @@ public class MemberInfoVO {
      * 挂起会员的恢复日期（VIP到期日，恢复后Pro有效期从该日期顺延）
      */
     private OffsetDateTime suspendedExpireAt;
+
+    /**
+     * 是否老师身份（叠加在会员体系之上）
+     */
+    private Boolean teacher;
 }

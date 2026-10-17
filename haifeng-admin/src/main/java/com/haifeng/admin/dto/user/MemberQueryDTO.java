@@ -31,6 +31,11 @@ public class MemberQueryDTO extends BasePageQueryDTO {
     private String status;
 
     /**
+     * 是否老师身份（true/false，用于筛选）
+     */
+    private Boolean teacher;
+
+    /**
      * 邀请码（模糊查询）
      */
     @Size(max = 50, message = "邀请码长度不能超过50")

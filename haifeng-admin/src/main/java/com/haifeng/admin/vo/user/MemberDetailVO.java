@@ -43,6 +43,11 @@ public class MemberDetailVO {
 
     private String status;
 
+    /**
+     * 是否老师身份
+     */
+    private Boolean teacher;
+
     private OffsetDateTime lastLoginAt;
 
     private String lastLoginIp;
