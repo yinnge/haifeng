@@ -17,7 +17,9 @@ public enum NotificationType {
     MEMBER_RENEWED("member_renewed", "会员续费成功"),
     MEMBER_ACTIVATION_SUCCESS("member_activation_success", "会员开通成功"),
     MEMBER_REVOKED("member_revoked", "会员已撤销"),
-    COMMISSION_REVERSED("commission_reversed", "佣金已撤回");
+    COMMISSION_REVERSED("commission_reversed", "佣金已撤回"),
+    TEACHER_GRANTED("teacher_granted", "老师身份已开通"),
+    TEACHER_REVOKED("teacher_revoked", "老师身份已撤销");
 
     @EnumValue
     private final String value;

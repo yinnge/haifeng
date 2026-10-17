@@ -3,6 +3,7 @@ package com.haifeng.admin.controller.user;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.admin.dto.user.MemberQueryDTO;
 import com.haifeng.admin.dto.user.MemberStatusDTO;
+import com.haifeng.admin.dto.user.MemberTeacherDTO;
 import com.haifeng.admin.dto.user.MemberUpgradeDTO;
 import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.vo.user.MemberDetailVO;
@@ -72,5 +73,15 @@ public class MemberController {
     @OperationLog(module = "用户管理", action = "会员开通/续费")
     public R<Long> upgradeMember(@PathVariable @Min(1) Long id, @Valid @RequestBody MemberUpgradeDTO dto) {
         return R.ok(memberService.upgradeMember(id, dto));
+    }
+
+    /**
+     * 授予/撤销老师身份（不付款，实时生效，发通知）
+     */
+    @PostMapping("/{id}/teacher")
+    @OperationLog(module = "用户管理", action = "设置老师身份")
+    public R<Void> setTeacher(@PathVariable @Min(1) Long id, @Valid @RequestBody MemberTeacherDTO dto) {
+        memberService.setTeacher(id, dto);
+        return R.ok();
     }
 }

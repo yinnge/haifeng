@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.user.MemberQueryDTO;
 import com.haifeng.admin.dto.user.MemberStatusDTO;
+import com.haifeng.admin.dto.user.MemberTeacherDTO;
 import com.haifeng.admin.dto.user.MemberUpgradeDTO;
 import com.haifeng.admin.service.user.MemberService;
 import com.haifeng.admin.service.user.NotificationService;
@@ -74,6 +75,10 @@ public class MemberServiceImpl implements MemberService {
         }
         if (StringUtils.hasText(dto.getStatus())) {
             wrapper.eq(Member::getStatus, dto.getStatus());
+        }
+        if (dto.getTeacher() != null) {
+            // 数据库列 is_teacher；实体字段为 teacher
+            wrapper.eq(Member::getTeacher, dto.getTeacher());
         }
         if (StringUtils.hasText(dto.getWechatId())) {
             // 将微信号转换为盲索引进行等值查询
@@ -280,6 +285,41 @@ public class MemberServiceImpl implements MemberService {
 
         // 12. 返回订单ID
         return orderId;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setTeacher(Long id, MemberTeacherDTO dto) {
+        Member member = memberMapper.selectById(id);
+        if (member == null || member.getDeleted()) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
+        }
+
+        boolean newVal = Boolean.TRUE.equals(dto.getTeacher());
+        boolean oldVal = member.isTeacher();
+        if (newVal == oldVal) {
+            // 幂等：状态未变化，无需操作
+            return;
+        }
+
+        // 注意：老师身份授予/撤销不是安全事件，不 bump tokenVersion（与会员升级一致）。
+        // 权限实时性由 AuthAspect.checkTeacher 回退 DB 查询保证，用户无需重登。
+        member.setTeacher(newVal);
+        member.setUpdatedAt(OffsetDateTime.now());
+        int affected = memberMapper.updateById(member);
+        if (affected == 0) {
+            throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
+
+        // 发送通知
+        NotificationType notificationType = newVal ? NotificationType.TEACHER_GRANTED : NotificationType.TEACHER_REVOKED;
+        String title = newVal ? "老师身份已开通" : "老师身份已撤销";
+        String content = newVal
+                ? "您已被授予「老师」身份，现可访问老师专属内容。"
+                : "您的「老师」身份已被撤销，老师专属内容将无法继续访问。";
+        notificationService.sendNotification(member.getId(), notificationType, title, content, id);
+
+        log.info("设置老师身份成功: userId={}, isTeacher={}", id, newVal);
     }
 
     /**

@@ -61,6 +61,7 @@ public class MemberInfoServiceImpl implements MemberInfoService {
                 .commissionTotalPaid(member.getCommissionTotalPaid())
                 .memberType(effectiveType)
                 .expireAt(effectiveExpireAt)
+                .teacher(member.getTeacher())
                 .build();
     }
 

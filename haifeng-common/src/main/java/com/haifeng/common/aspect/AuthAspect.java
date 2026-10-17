@@ -2,6 +2,7 @@ package com.haifeng.common.aspect;
 
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireTeacher;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.exception.BusinessException;
@@ -90,6 +91,36 @@ public class AuthAspect {
         log.warn("用户非VIP，拒绝访问: userId={}, memberType={}",
                 currentUser.getUserId(), currentUser.getMemberType());
         throw new BusinessException(ResultCode.VIP_REQUIRED);
+    }
+
+    /**
+     * 检查老师身份（叠加在会员体系之上，独立于 member_type）
+     */
+    @Before("@annotation(requireTeacher) || @within(requireTeacher)")
+    public void checkTeacher(JoinPoint joinPoint, RequireTeacher requireTeacher) {
+        AuthUser currentUser = SecurityUtil.getCurrentUser();
+        if (currentUser == null) {
+            log.warn("用户未登录，拒绝老师专属访问: {}", joinPoint.getSignature().toShortString());
+            throw new BusinessException(ResultCode.UNAUTHORIZED);
+        }
+
+        // 快速路径：token 已声明老师身份
+        if (currentUser.isTeacher()) {
+            return;
+        }
+
+        // 实时校验：管理员可能刚授予老师身份，token 中 teacher 尚未刷新（避免用户必须重登才能用老师权限）。
+        // 老师身份变更不 bump tokenVersion，故此处回退 DB 查询保证实时生效。
+        if (currentUser.isMember() && currentUser.getUserId() != null) {
+            Member member = memberMapper.selectById(currentUser.getUserId());
+            if (member != null && !member.getDeleted() && member.isTeacher()) {
+                return;
+            }
+        }
+
+        log.warn("用户非老师身份，拒绝访问: userId={}, isTeacher={}",
+                currentUser.getUserId(), currentUser.isTeacher());
+        throw new BusinessException(ResultCode.TEACHER_REQUIRED);
     }
 
     /**

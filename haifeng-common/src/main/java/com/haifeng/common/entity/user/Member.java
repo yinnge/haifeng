@@ -86,6 +86,20 @@ public class Member {
      */
     private Integer tokenVersion;
 
+    /**
+     * 是否老师身份（叠加在会员体系之上，独立于 member_type，由管理员授予/撤销）
+     */
+    @Builder.Default
+    @TableField("is_teacher")
+    private Boolean teacher = false;
+
+    /**
+     * 判断是否为老师身份
+     */
+    public boolean isTeacher() {
+        return Boolean.TRUE.equals(this.teacher);
+    }
+
     public boolean isVipActive() {
         if (!"vip".equals(memberType)) {
             return false;

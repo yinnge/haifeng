@@ -6,6 +6,7 @@ import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
 import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.annotation.RequireLogin;
+import com.haifeng.common.annotation.RequireTeacher;
 import com.haifeng.common.annotation.RequireVip;
 import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.response.R;
@@ -31,6 +32,11 @@ public class HighSchoolFileController {
     private final FileLoadService fileLoadService;
 
     private static final String TARGET_AUDIENCE = "high_school";
+
+    /**
+     * 老师专属文件受众（面向人群固定为 teacher，与 high_school 互斥）
+     */
+    private static final String TEACHER_AUDIENCE = "teacher";
 
     /**
      * 分页查询高中文件列表（公开，免登录）
@@ -94,6 +100,77 @@ public class HighSchoolFileController {
     @RequireLogin
     @GetMapping("/{id}/netdisk")
     public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getNetdiskInfo(id));
+    }
+
+    // ===================== 老师专属文件（面向人群固定为 teacher，仅老师身份可访问） =====================
+
+    /**
+     * 分页查询老师专属文件列表（仅老师身份）
+     */
+    @RequireTeacher
+    @GetMapping("/teacher/list")
+    public R<IPage<FileLoadListVO>> teacherList(@Valid BasePageQueryDTO dto,
+                                               @RequestParam(required = false) String subject,
+                                               @RequestParam(required = false) String applicableStage,
+                                               @RequestParam(required = false) String tag) {
+        return R.ok(fileLoadService.page(dto, TEACHER_AUDIENCE, subject, applicableStage, tag));
+    }
+
+    /** 老师专属：动态返回 applicable_stage 去重值 */
+    @RequireTeacher
+    @GetMapping("/teacher/stages")
+    public R<List<String>> teacherStages() {
+        return R.ok(fileLoadService.listStages(TEACHER_AUDIENCE));
+    }
+
+    /** 老师专属：动态返回 subject 去重值 */
+    @RequireTeacher
+    @GetMapping("/teacher/subjects")
+    public R<List<String>> teacherSubjects() {
+        return R.ok(fileLoadService.listSubjects(TEACHER_AUDIENCE));
+    }
+
+    /** 老师专属：动态返回 tag 去重值 */
+    @RequireTeacher
+    @GetMapping("/teacher/tags")
+    public R<List<String>> teacherTags() {
+        return R.ok(fileLoadService.listTags(TEACHER_AUDIENCE));
+    }
+
+    /**
+     * 获取老师专属文件详情（仅老师身份）
+     */
+    @RequireTeacher
+    @GetMapping("/teacher/{id}")
+    public R<FileLoadDetailVO> teacherDetail(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.detail(id));
+    }
+
+    /**
+     * 获取老师专属文件预览URL（仅老师身份）
+     */
+    @RequireTeacher
+    @GetMapping("/teacher/{id}/preview")
+    public R<String> teacherPreview(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getPreviewUrl(id));
+    }
+
+    /**
+     * 获取老师专属文件下载URL（仅老师身份）
+     */
+    @RequireTeacher
+    @GetMapping("/teacher/{id}/download")
+    public R<String> teacherDownload(@PathVariable @Min(1) Long id) {
+        return R.ok(fileLoadService.getDownloadUrl(id));
+    }
+
+    /**
+     * 获取老师专属百度网盘资源取码信息（仅老师身份）
+     */
+    @RequireTeacher
+    @GetMapping("/teacher/{id}/netdisk")
+    public R<NetdiskInfoVO> teacherNetdisk(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getNetdiskInfo(id));
     }
 }

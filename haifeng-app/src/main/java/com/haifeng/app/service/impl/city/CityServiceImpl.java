@@ -31,12 +31,19 @@ public class CityServiceImpl implements CityService {
     public IPage<CityListVO> page(CityQueryDTO dto) {
         Page<City> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 注意：apply 的 condition 只能决定是否拼接 SQL，挡不住 Java 实参的急切求值——
+        // province 为空时若在实参位直接调 stripProvinceSuffix(null) 会 NPE（name.trim()）。
+        // 因此先在 Java 侧判空剥离，再以「剥离结果是否为 null」作为 apply 的条件。
+        String province = StringUtils.hasText(dto.getProvince())
+                ? stripProvinceSuffix(dto.getProvince())
+                : null;
+
         LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<City>()
                 .eq(City::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getCityName()), City::getCityName, dto.getCityName())
-                .apply(StringUtils.hasText(dto.getProvince()),
+                .apply(province != null,
                         "replace(replace(replace(replace(replace(replace(replace(province,'特别行政区',''),'回族自治区',''),'壮族自治区',''),'维吾尔自治区',''),'自治区',''),'省',''),'市','') = {0}",
-                        stripProvinceSuffix(dto.getProvince()))
+                        province)
                 .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion())
                 .orderByAsc(City::getId);
 
@@ -170,6 +177,9 @@ public class CityServiceImpl implements CityService {
      * 一并剥到「族」字之前，得到核心名（延边）。
      */
     private String stripCitySuffix(String name) {
+        if (name == null) {
+            return null;
+        }
         String s = name.trim();
         for (String suffix : CITY_SUFFIXES) {
             if (s.endsWith(suffix)) {
@@ -195,6 +205,9 @@ public class CityServiceImpl implements CityService {
      *       内蒙古自治区↔内蒙古、北京市↔北京、香港特别行政区↔香港。
      */
     private String stripProvinceSuffix(String name) {
+        if (name == null) {
+            return null;
+        }
         String s = name.trim();
         for (String suffix : PROVINCE_SUFFIXES) {
             if (s.endsWith(suffix)) {

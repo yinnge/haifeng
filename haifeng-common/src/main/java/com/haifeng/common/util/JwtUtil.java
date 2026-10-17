@@ -36,6 +36,7 @@ public class JwtUtil {
     private static final String CLAIM_MEMBER_TYPE = "memberType";
     private static final String CLAIM_TOKEN_VERSION = "tokenVersion";
     private static final String CLAIM_USERNAME = "username";
+    private static final String CLAIM_TEACHER = "isTeacher";
     private static final String TOKEN_TYPE_ACCESS = "access";
     private static final String TOKEN_TYPE_REFRESH = "refresh";
     public static final String USER_TYPE_ADMIN = "admin";
@@ -87,6 +88,13 @@ public class JwtUtil {
      * 生成 AccessToken（2小时）- 含 tokenVersion 和 username
      */
     public String generateAccessToken(Long userId, String userType, String memberType, Integer tokenVersion, String username) {
+        return generateAccessToken(userId, userType, memberType, tokenVersion, username, null);
+    }
+
+    /**
+     * 生成 AccessToken（2小时）- 含 tokenVersion、username 和 isTeacher
+     */
+    public String generateAccessToken(Long userId, String userType, String memberType, Integer tokenVersion, String username, Boolean isTeacher) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(CLAIM_USER_ID, userId);
         claims.put(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS);
@@ -97,6 +105,9 @@ public class JwtUtil {
         }
         if (username != null) {
             claims.put(CLAIM_USERNAME, username);
+        }
+        if (isTeacher != null) {
+            claims.put(CLAIM_TEACHER, isTeacher);
         }
         return createToken(claims, accessTokenExpire);
     }
@@ -229,6 +240,17 @@ public class JwtUtil {
             return null;
         }
         return claims.get(CLAIM_USERNAME, String.class);
+    }
+
+    /**
+     * 从Token中获取老师身份标记
+     */
+    public Boolean getIsTeacherFromToken(String token) {
+        Claims claims = parseToken(token);
+        if (claims == null) {
+            return null;
+        }
+        return claims.get(CLAIM_TEACHER, Boolean.class);
     }
 
     /**
