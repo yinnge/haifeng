@@ -12,6 +12,8 @@ import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,7 +23,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 管理端 - 热点资讯管理
@@ -60,6 +65,18 @@ public class BizArticleController {
     @GetMapping("/{id}")
     public R<BizArticleDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(bizArticleService.detail(id));
+    }
+
+    /**
+     * 查询指定模块下已填写过的专栏名（去重），供新增/修改时下拉选择
+     */
+    @GetMapping("/columns")
+    public R<List<String>> columns(
+            @RequestParam
+            @NotBlank(message = "所属模块不能为空")
+            @Pattern(regexp = "高考|考公|考研|中考|英语四六级", message = "所属模块必须是：高考/考公/考研/中考/英语四六级")
+            String moduleName) {
+        return R.ok(bizArticleService.listColumns(moduleName));
     }
 
     /**

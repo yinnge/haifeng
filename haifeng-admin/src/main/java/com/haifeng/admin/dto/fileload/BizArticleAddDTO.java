@@ -55,6 +55,9 @@ public class BizArticleAddDTO {
     /** 排序权重（越大越靠前），默认0 */
     private Integer sortOrder;
 
+    /** 浏览量（允许 admin 在新增时自行设置初始浏览值；空则默认0） */
+    private Long viewCount;
+
     /** 发布时间；空则由前端/业务侧后续指定 */
     private OffsetDateTime publishTime;
 }
