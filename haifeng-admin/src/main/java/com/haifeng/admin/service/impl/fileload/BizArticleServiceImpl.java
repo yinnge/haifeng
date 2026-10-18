@@ -1,7 +1,9 @@
 package com.haifeng.admin.service.impl.fileload;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.fileload.BizArticleAddDTO;
 import com.haifeng.admin.dto.fileload.BizArticleQueryDTO;
@@ -21,6 +23,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 热点资讯 ServiceImpl
@@ -55,7 +60,27 @@ public class BizArticleServiceImpl implements BizArticleService {
         if (article == null) {
             throw new BusinessException(404, "资讯不存在");
         }
+        // 浏览量 +1（原子自增，避免并发丢失更新）
+        bizArticleMapper.update(null, Wrappers.<BizArticle>lambdaUpdate()
+                .setSql("view_count = COALESCE(view_count, 0) + 1")
+                .eq(BizArticle::getId, id));
+        // 返回自增后的值（避免再查一次库，内存中 +1 即可，DB 值以原子更新为准）
+        long newCount = (article.getViewCount() == null ? 0 : article.getViewCount()) + 1;
+        article.setViewCount(newCount);
         return toDetailVO(article);
+    }
+
+    @Override
+    public List<String> listColumns(String moduleName) {
+        QueryWrapper<BizArticle> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT column_name")
+                .eq("module_name", moduleName)
+                .isNotNull("column_name")
+                .orderByAsc("column_name");
+        return bizArticleMapper.selectObjs(wrapper).stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -69,6 +94,8 @@ public class BizArticleServiceImpl implements BizArticleService {
         if (entity.getSortOrder() == null) {
             entity.setSortOrder(0);
         }
+        // 浏览量：允许 admin 在新增时自行设置初始值，空则默认 0
+        entity.setViewCount(dto.getViewCount() != null ? dto.getViewCount() : 0L);
         // 富文本正文入库前白名单清洗，防存储型 XSS
         entity.setContent(HtmlSanitizerUtil.sanitizeRichText(dto.getContent()));
         AuthUser currentUser = SecurityUtil.getCurrentUser();
@@ -96,6 +123,9 @@ public class BizArticleServiceImpl implements BizArticleService {
         if (entity.getSortOrder() == null) {
             entity.setSortOrder(existing.getSortOrder());
         }
+        // 浏览量：仅当 admin 显式传了 viewCount 才覆盖（允许手动修改），否则不改动原值
+        // （updateById 默认忽略 null 字段，故置 null 即保留 DB 原值）
+        entity.setViewCount(dto.getViewCount());
         // 富文本正文入库前白名单清洗，防存储型 XSS
         entity.setContent(HtmlSanitizerUtil.sanitizeRichText(dto.getContent()));
         // update_time 走 MetaObjectHandler INSERT_UPDATE 自动填充

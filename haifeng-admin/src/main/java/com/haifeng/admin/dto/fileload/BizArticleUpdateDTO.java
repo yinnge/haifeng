@@ -55,6 +55,9 @@ public class BizArticleUpdateDTO {
     /** 排序权重（越大越靠前） */
     private Integer sortOrder;
 
+    /** 浏览量（允许 admin 在修改时自行修改浏览值；空表示不改动原值） */
+    private Long viewCount;
+
     /** 发布时间 */
     private OffsetDateTime publishTime;
 }
