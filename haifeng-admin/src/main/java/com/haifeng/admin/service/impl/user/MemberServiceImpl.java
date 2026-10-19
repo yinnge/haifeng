@@ -296,7 +296,7 @@ public class MemberServiceImpl implements MemberService {
         }
 
         boolean newVal = Boolean.TRUE.equals(dto.getTeacher());
-        boolean oldVal = member.isTeacher();
+        boolean oldVal = Boolean.TRUE.equals(member.getTeacher());
         if (newVal == oldVal) {
             // 幂等：状态未变化，无需操作
             return;

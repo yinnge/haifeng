@@ -113,7 +113,7 @@ public class AuthAspect {
         // 老师身份变更不 bump tokenVersion，故此处回退 DB 查询保证实时生效。
         if (currentUser.isMember() && currentUser.getUserId() != null) {
             Member member = memberMapper.selectById(currentUser.getUserId());
-            if (member != null && !member.getDeleted() && member.isTeacher()) {
+            if (member != null && !member.getDeleted() && Boolean.TRUE.equals(member.getTeacher())) {
                 return;
             }
         }
