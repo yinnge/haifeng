@@ -1,6 +1,7 @@
 package com.haifeng.app.service.impl.member;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.haifeng.app.dto.member.AvatarUpdateDTO;
 import com.haifeng.app.dto.member.MemberInfoUpdateDTO;
 import com.haifeng.app.dto.member.PasswordUpdateDTO;
@@ -144,11 +145,19 @@ public class MemberInfoServiceImpl implements MemberInfoService {
             throw new BusinessException(404, "用户不存在");
         }
 
-        member.setWechatId(dto.getWechatId());
+        // wechatId 标记了 updateStrategy=NEVER，updateById 不会写入该加密列；
+        // 此处显式通过 UpdateWrapper 写入，并手动 AES 加密后存密文（handler 不再自动参与，避免无关更新反复重加密）。
+        String encrypted = CryptoUtil.encrypt(dto.getWechatId(), securityProperties.getAesKey());
         String blindIndex = CryptoUtil.blindIndex(dto.getWechatId(), securityProperties.getHashSalt());
-        member.setWechatIdIndex(blindIndex);
-        memberMapper.updateById(member);
+        LambdaUpdateWrapper<Member> uw = new LambdaUpdateWrapper<Member>()
+                .eq(Member::getId, memberId)
+                .set(Member::getWechatId, encrypted)
+                .set(Member::getWechatIdIndex, blindIndex)
+                .set(Member::getUpdatedAt, OffsetDateTime.now());
+        memberMapper.update(null, uw);
 
+        // 重新加载最新数据用于同步
+        member = memberMapper.selectById(memberId);
         syncMemberInfo(memberId, member);
 
         log.info("更新微信号成功: memberId={}", memberId);

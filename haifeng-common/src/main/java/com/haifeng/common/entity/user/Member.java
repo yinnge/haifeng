@@ -50,7 +50,7 @@ public class Member {
 
     private String lastLoginIp;
 
-    @TableField(typeHandler = AESEncryptTypeHandler.class)
+    @TableField(typeHandler = AESEncryptTypeHandler.class, updateStrategy = FieldStrategy.NEVER)
     private String wechatId;
 
     private String wechatIdIndex;
@@ -92,13 +92,6 @@ public class Member {
     @Builder.Default
     @TableField("is_teacher")
     private Boolean teacher = false;
-
-    /**
-     * 判断是否为老师身份
-     */
-    public boolean isTeacher() {
-        return Boolean.TRUE.equals(this.teacher);
-    }
 
     public boolean isVipActive() {
         if (!"vip".equals(memberType)) {
