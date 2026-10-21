@@ -17,6 +17,7 @@ import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityGuideMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.util.ProvinceNameUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
 import com.haifeng.admin.excel.university.UniversityExcelDTO;
@@ -62,9 +63,11 @@ public class UniversityServiceImpl implements UniversityService {
         if (StringUtils.hasText(dto.getName())) {
             wrapper.like(University::getName, dto.getName());
         }
-        // 省份精确筛选
+        // 省份筛选：与 C 端列表一致，剥后缀对齐比较，兼容库中全称与表单可能传入的简称
+        // （详见 ProvinceNameUtil；stripSuffix(null) 安全，此处 hasText 后恒不为 null）
         if (StringUtils.hasText(dto.getProvinceName())) {
-            wrapper.eq(University::getProvinceName, dto.getProvinceName());
+            wrapper.apply(ProvinceNameUtil.strippedColumnEquals("province_name"),
+                    ProvinceNameUtil.stripSuffix(dto.getProvinceName()));
         }
         // 类别精确筛选
         if (StringUtils.hasText(dto.getCategory())) {

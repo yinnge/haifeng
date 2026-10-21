@@ -7,7 +7,8 @@ import lombok.EqualsAndHashCode;
 
 /**
  * C 端院校列表查询 DTO
- * 全部筛选字段 optional；name 走 LIKE，其余精准匹配（AND 组合）
+ * 全部筛选字段 optional；name 走 LIKE，provinceName 走「剥后缀归一化」匹配（兼容简称/全称），
+ * 其余精准匹配（AND 组合）
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

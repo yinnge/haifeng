@@ -20,6 +20,7 @@ import com.haifeng.common.mapper.special.SpecialChannelUniversityMapper;
 import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.util.ProvinceNameUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,10 +43,19 @@ public class UniversityServiceImpl implements UniversityService {
     public IPage<UniversityListVO> page(UniversityQueryDTO dto) {
         Page<University> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 省份兼容匹配：前端传简称（天津/黑龙江/内蒙古…），库中多存全称（天津市/黑龙江省/内蒙古自治区…），
+        // 少量脏数据存简称（四川、北京）。两侧都剥后缀成核名再比较（详见 ProvinceNameUtil）。
+        // stripSuffix(null) 返回 null，下面以「是否为 null」决定是否拼接该 SQL 条件。
+        String province = StringUtils.hasText(dto.getProvinceName())
+                ? ProvinceNameUtil.stripSuffix(dto.getProvinceName())
+                : null;
+
         LambdaQueryWrapper<University> wrapper = new LambdaQueryWrapper<University>()
                 .eq(University::getStatus, STATUS_PUBLISHED)
                 .like(StringUtils.hasText(dto.getName()), University::getName, dto.getName())
-                .eq(StringUtils.hasText(dto.getProvinceName()), University::getProvinceName, dto.getProvinceName())
+                .apply(province != null,
+                        ProvinceNameUtil.strippedColumnEquals("province_name"),
+                        province)
                 .eq(StringUtils.hasText(dto.getNature()), University::getNature, dto.getNature())
                 .eq(StringUtils.hasText(dto.getCategory()), University::getCategory, dto.getCategory())
                 .eq(StringUtils.hasText(dto.getDepartment()), University::getDepartment, dto.getDepartment())

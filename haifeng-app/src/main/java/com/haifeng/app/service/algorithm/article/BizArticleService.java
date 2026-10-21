@@ -31,7 +31,9 @@ public interface BizArticleService {
 
     /**
      * 标题关键字搜索（免登录，去噪对齐匹配，AND 语义，按 sort_order DESC → publish_time DESC
-     * 取前 limit 条并附高亮区间；province 空白或「全国」= 不限省份）
+     * 取前 limit 条并附高亮区间；province 空白或「全国」= 不限省份）。
+     * <p>moduleName 非空时仅查该类型；为 null 时跨全部类型（高考/考公/考研/中考/英语四六级）查询。
+     * 高考模块与新首页搜索共用本方法，避免重复搜索编排逻辑。
      */
     List<BizArticleSearchItemVO> searchPublished(String moduleName, BizArticleSearchDTO dto);
 }
