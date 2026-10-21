@@ -43,7 +43,11 @@ public class BizArticleServiceImpl implements BizArticleService {
     public IPage<BizArticleListVO> pagePublished(String moduleName, BizArticleQueryDTO dto) {
         LambdaQueryWrapper<BizArticle> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(BizArticle::getModuleName, moduleName)
-                .eq(StringUtils.hasText(dto.getProvince()), BizArticle::getProvince, dto.getProvince())
+                // C 端按档案省份查询资讯：命中「指定省份」或「全国(national)」或「未设省份(admin 清空)」三类
+                .and(StringUtils.hasText(dto.getProvince()), w -> w
+                        .eq(BizArticle::getProvince, dto.getProvince())
+                        .or().eq(BizArticle::getProvince, "全国")
+                        .or().isNull(BizArticle::getProvince))
                 .eq(BizArticle::getStatus, STATUS_PUBLISHED)
                 .orderByDesc(BizArticle::getSortOrder)
                 .orderByDesc(BizArticle::getCreateTime)
@@ -78,7 +82,8 @@ public class BizArticleServiceImpl implements BizArticleService {
         LambdaQueryWrapper<BizArticle> wrapper = new LambdaQueryWrapper<>();
         wrapper.select(BizArticle::getId, BizArticle::getColumnName, BizArticle::getProvince,
                         BizArticle::getTitle, BizArticle::getSortOrder, BizArticle::getPublishTime)
-                .eq(BizArticle::getModuleName, moduleName)
+                // moduleName 为 null 时跨全部类型查询；非空时仅查该类型
+                .eq(moduleName != null, BizArticle::getModuleName, moduleName)
                 .eq(BizArticle::getStatus, STATUS_PUBLISHED)
                 .eq(province != null, BizArticle::getProvince, province)
                 .orderByDesc(BizArticle::getSortOrder)

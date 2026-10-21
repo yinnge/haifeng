@@ -14,6 +14,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.city.CityDetailMapper;
 import com.haifeng.common.mapper.city.CityMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.util.ProvinceNameUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,18 +32,17 @@ public class CityServiceImpl implements CityService {
     public IPage<CityListVO> page(CityQueryDTO dto) {
         Page<City> page = new Page<>(dto.getPage(), dto.getSize());
 
-        // 注意：apply 的 condition 只能决定是否拼接 SQL，挡不住 Java 实参的急切求值——
-        // province 为空时若在实参位直接调 stripProvinceSuffix(null) 会 NPE（name.trim()）。
-        // 因此先在 Java 侧判空剥离，再以「剥离结果是否为 null」作为 apply 的条件。
+        // 省份兼容匹配：stripSuffix(null) 返回 null，
+        // 以「剥离结果是否为 null」作为 apply 的条件，避免空参拼接 SQL。
         String province = StringUtils.hasText(dto.getProvince())
-                ? stripProvinceSuffix(dto.getProvince())
+                ? ProvinceNameUtil.stripSuffix(dto.getProvince())
                 : null;
 
         LambdaQueryWrapper<City> wrapper = new LambdaQueryWrapper<City>()
                 .eq(City::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getCityName()), City::getCityName, dto.getCityName())
                 .apply(province != null,
-                        "replace(replace(replace(replace(replace(replace(replace(province,'特别行政区',''),'回族自治区',''),'壮族自治区',''),'维吾尔自治区',''),'自治区',''),'省',''),'市','') = {0}",
+                        ProvinceNameUtil.strippedColumnEquals("province"),
                         province)
                 .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion())
                 .orderByAsc(City::getId);
@@ -194,29 +194,9 @@ public class CityServiceImpl implements CityService {
         return s;
     }
 
-    /** 省级行政区后缀，用于列表按省份查询时兼容「裸字段 / 带后缀」两种存储形态。
-     *  民族自治区须放在泛型「自治区」之前，否则「广西壮/宁夏回/新疆吾尔」会被误剥。 */
-    private static final String[] PROVINCE_SUFFIXES = {
-            "特别行政区", "回族自治区", "壮族自治区", "维吾尔自治区", "自治区", "省", "市"};
-
     /**
-     * 剥离省级行政区后缀，得到与 DB 裸字段一致的核名。
-     * 示例：河北省↔河北、广西壮族自治区↔广西、宁夏回族自治区↔宁夏、新疆维吾尔自治区↔新疆、
-     *       内蒙古自治区↔内蒙古、北京市↔北京、香港特别行政区↔香港。
+     * 省级行政区名称归一化已抽取为公共方法：com.haifeng.common.util.ProvinceNameUtil。
      */
-    private String stripProvinceSuffix(String name) {
-        if (name == null) {
-            return null;
-        }
-        String s = name.trim();
-        for (String suffix : PROVINCE_SUFFIXES) {
-            if (s.endsWith(suffix)) {
-                s = s.substring(0, s.length() - suffix.length());
-                break;
-            }
-        }
-        return s;
-    }
 
     private City selectActiveByName(String name) {
         return cityMapper.selectOne(new LambdaQueryWrapper<City>()
