@@ -52,6 +52,8 @@ public class SecurityConfig {
             "/api/v1/app/auth/forgot-password/reset",
             // 首页
             "/api/v1/app/home/**",
+            // 全站模糊搜索（游客可用：院校/城市/专业联想）
+            "/api/v1/app/search/**",
             // 热点资讯（列表+详情均免登录公开；按模块分子路径，后续考公/考研/中考/英语四六级同型追加）
             "/api/v1/app/algorithm/article/gaokao/*",
             // 高考模拟填报（游客可查：年份/改革模式/位次/批次线 + 专业组/专业分页；档案读写 /archive 与组存活校验 /group/exists 仍需登录）

@@ -3,12 +3,15 @@ package com.haifeng.app.service.impl.algorithm.article;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.haifeng.app.dto.algorithm.article.BizArticleGlobalQueryDTO;
 import com.haifeng.app.dto.algorithm.article.BizArticleQueryDTO;
 import com.haifeng.app.dto.algorithm.article.BizArticleSearchDTO;
 import com.haifeng.app.service.algorithm.article.BizArticleService;
 import com.haifeng.app.util.algorithm.article.TitleAlignMatcher;
 import com.haifeng.app.vo.algorithm.article.BizArticleDetailVO;
+import com.haifeng.app.vo.algorithm.article.BizArticleGlobalListVO;
 import com.haifeng.app.vo.algorithm.article.BizArticleListVO;
+import com.haifeng.app.vo.algorithm.article.BizArticleNewsVO;
 import com.haifeng.app.vo.algorithm.article.BizArticleSearchItemVO;
 import com.haifeng.common.entity.article.BizArticle;
 import com.haifeng.common.exception.BusinessException;
@@ -68,6 +71,60 @@ public class BizArticleServiceImpl implements BizArticleService {
             throw new BusinessException(404, "资讯不存在或已下架");
         }
         return toDetailVO(article);
+    }
+
+    @Override
+    public IPage<BizArticleGlobalListVO> pagePublishedGlobal(BizArticleGlobalQueryDTO dto) {
+        String moduleName = dto.getModuleName() == null ? null : dto.getModuleName().trim();
+        String rawProvince = dto.getProvince() == null ? "" : dto.getProvince().trim();
+        String province = rawProvince.isEmpty() ? null : rawProvince;
+
+        LambdaQueryWrapper<BizArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(StringUtils.hasText(moduleName), BizArticle::getModuleName, moduleName)
+                // province 为空 = 不限省份（命中指定省份 + 全国 + 未设省份三类）；非空则仅查该省份
+                .and(province != null, w -> w
+                        .eq(BizArticle::getProvince, province)
+                        .or().eq(BizArticle::getProvince, "全国")
+                        .or().isNull(BizArticle::getProvince))
+                .eq(BizArticle::getStatus, STATUS_PUBLISHED)
+                .orderByDesc(BizArticle::getSortOrder)
+                .orderByDesc(BizArticle::getCreateTime)
+                .orderByDesc(BizArticle::getId);
+
+        return bizArticleMapper.selectPage(new Page<>(dto.getPage(), dto.getSize()), wrapper)
+                .convert(BizArticleServiceImpl::toGlobalListVO);
+    }
+
+    @Override
+    public BizArticleDetailVO getPublishedDetailGlobal(Long id) {
+        BizArticle article = bizArticleMapper.selectById(id);
+        // 全局详情不限模块：仅校验存在性 + 已发布，下架/不存在统一按 404 处理，不暴露存在性信息
+        if (article == null
+                || article.getStatus() == null
+                || article.getStatus() != STATUS_PUBLISHED) {
+            throw new BusinessException(404, "资讯不存在或已下架");
+        }
+        return toDetailVO(article);
+    }
+
+    @Override
+    public IPage<BizArticleNewsVO> pagePublishedNews(BizArticleGlobalQueryDTO dto) {
+        String moduleName = dto.getModuleName() == null ? null : dto.getModuleName().trim();
+        String rawProvince = dto.getProvince() == null ? "" : dto.getProvince().trim();
+        String province = rawProvince.isEmpty() ? null : rawProvince;
+
+        LambdaQueryWrapper<BizArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(StringUtils.hasText(moduleName), BizArticle::getModuleName, moduleName)
+                .and(province != null, w -> w
+                        .eq(BizArticle::getProvince, province)
+                        .or().eq(BizArticle::getProvince, "全国")
+                        .or().isNull(BizArticle::getProvince))
+                .eq(BizArticle::getStatus, STATUS_PUBLISHED)
+                // 主页按年份倒序（NULL 置后）→ 发布时间倒序 → id（不用权重 sort_order，谁新谁在前）
+                .last("ORDER BY (year IS NULL), year DESC, publish_time DESC, id DESC");
+
+        return bizArticleMapper.selectPage(new Page<>(dto.getPage(), dto.getSize()), wrapper)
+                .convert(BizArticleServiceImpl::toNewsVO);
     }
 
     @Override
@@ -131,12 +188,36 @@ public class BizArticleServiceImpl implements BizArticleService {
     private static BizArticleDetailVO toDetailVO(BizArticle article) {
         return BizArticleDetailVO.builder()
                 .province(article.getProvince())
+                .moduleName(article.getModuleName())
                 .year(article.getYear())
                 .columnName(article.getColumnName())
                 .title(article.getTitle())
                 .summary(article.getSummary())
                 .content(article.getContent())
                 .viewCount(article.getViewCount())
+                .publishTime(article.getPublishTime())
+                .build();
+    }
+
+    private static BizArticleGlobalListVO toGlobalListVO(BizArticle article) {
+        return BizArticleGlobalListVO.builder()
+                .id(article.getId())
+                .moduleName(article.getModuleName())
+                .province(article.getProvince())
+                .columnName(article.getColumnName())
+                .title(article.getTitle())
+                .year(article.getYear())
+                .sortOrder(article.getSortOrder())
+                .build();
+    }
+
+    private static BizArticleNewsVO toNewsVO(BizArticle article) {
+        return BizArticleNewsVO.builder()
+                .id(article.getId())
+                .moduleName(article.getModuleName())
+                .title(article.getTitle())
+                .columnName(article.getColumnName())
+                .year(article.getYear())
                 .publishTime(article.getPublishTime())
                 .build();
     }

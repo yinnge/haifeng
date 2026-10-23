@@ -1,10 +1,13 @@
 package com.haifeng.app.service.algorithm.article;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.algorithm.article.BizArticleGlobalQueryDTO;
 import com.haifeng.app.dto.algorithm.article.BizArticleQueryDTO;
 import com.haifeng.app.dto.algorithm.article.BizArticleSearchDTO;
 import com.haifeng.app.vo.algorithm.article.BizArticleDetailVO;
+import com.haifeng.app.vo.algorithm.article.BizArticleGlobalListVO;
 import com.haifeng.app.vo.algorithm.article.BizArticleListVO;
+import com.haifeng.app.vo.algorithm.article.BizArticleNewsVO;
 import com.haifeng.app.vo.algorithm.article.BizArticleSearchItemVO;
 
 import java.util.List;
@@ -28,6 +31,24 @@ public interface BizArticleService {
      * 查询某模块已发布资讯详情（校验模块归属 + status=0，下架/跨模块一律 404 不暴露）
      */
     BizArticleDetailVO getPublishedDetail(String moduleName, Long id);
+
+    /**
+     * 分页查询全局（跨模块）已发布资讯列表（moduleName 精准查询可空、province 可空，均由前端传入；
+     * 空/「全国」= 不限省份）。排序：sort_order DESC → create_time DESC → id DESC（与高考列表一致）。
+     * 返回 模块名/省份/专栏名/标题/年份/sortOrder。
+     */
+    IPage<BizArticleGlobalListVO> pagePublishedGlobal(BizArticleGlobalQueryDTO dto);
+
+    /**
+     * 查询已发布资讯详情（全局统一入口，不限模块，id 唯一；下架/不存在一律 404 不暴露存在性信息）。
+     */
+    BizArticleDetailVO getPublishedDetailGlobal(Long id);
+
+    /**
+     * 主页资讯列表（轻量 VO：标题/专栏名/年份），复用全局筛选（moduleName/province 可空），
+     * 排序：年份 DESC（NULL 置后）→ publish_time DESC → sort_order DESC → id DESC。
+     */
+    IPage<BizArticleNewsVO> pagePublishedNews(BizArticleGlobalQueryDTO dto);
 
     /**
      * 标题关键字搜索（免登录，去噪对齐匹配，AND 语义，按 sort_order DESC → publish_time DESC

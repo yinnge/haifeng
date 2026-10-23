@@ -2,7 +2,6 @@ package com.haifeng.app.controller.search;
 
 import com.haifeng.app.service.search.SearchService;
 import com.haifeng.app.vo.search.SearchResultVO;
-import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/app/search")
 @RequiredArgsConstructor
-@RequireLogin
 public class SearchController {
 
     private final SearchService searchService;
