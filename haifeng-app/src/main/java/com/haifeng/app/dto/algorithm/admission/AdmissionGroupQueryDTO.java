@@ -1,6 +1,5 @@
 package com.haifeng.app.dto.algorithm.admission;
 
-import com.haifeng.common.dto.common.BasePageQueryDTO;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -12,7 +11,7 @@ import java.math.BigDecimal;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class AdmissionGroupQueryDTO extends BasePageQueryDTO {
+public class AdmissionGroupQueryDTO extends GuestArchiveQueryDTO {
 
     @NotBlank(message = "批次不能为空")
     @Size(max = 50, message = "批次名称不能超过50字")

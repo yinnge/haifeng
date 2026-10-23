@@ -18,7 +18,6 @@ import com.haifeng.common.entity.algorithm.MemberGaokao;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.AdmissionGroupMapper;
 import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
-import com.haifeng.common.mapper.algorithm.MemberGaokaoMapper;
 import com.haifeng.common.response.ResultCode;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatchResult;
 import com.haifeng.common.service.algorithm.matcher.SubjectMatcher;
@@ -26,7 +25,6 @@ import com.haifeng.common.service.algorithm.safety.SafetyLevelService;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyBatchContext;
 import com.haifeng.common.service.algorithm.safety.dto.SafetyCalcResult;
 import com.haifeng.common.service.algorithm.matcher.ConstraintMatcherService;
-import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,7 +40,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
-    private final MemberGaokaoMapper memberGaokaoMapper;
+    private final GuestArchiveResolver guestArchiveResolver;
     private final AdmissionGroupMapper admissionGroupMapper;
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final SubjectMatcher subjectMatcher;
@@ -58,9 +56,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     @Override
     public IPage<AdmissionGroupPageVO> pageGroups(AdmissionGroupQueryDTO dto) {
-        Long memberId = SecurityUtil.getCurrentMemberId();
-
-        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
+        // 已登录优先服务端档案；游客用请求携带的本地档案组装临时档案（不落库）
+        MemberGaokao gaokao = guestArchiveResolver.resolve(dto);
         if (gaokao == null) {
             throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }
@@ -286,8 +283,8 @@ public class AdmissionQueryServiceImpl implements AdmissionQueryService {
 
     @Override
     public IPage<AdmissionMajorPageVO> pageMajors(AdmissionMajorQueryDTO dto) {
-        Long memberId = SecurityUtil.getCurrentMemberId();
-        MemberGaokao gaokao = memberGaokaoMapper.selectByMemberId(memberId);
+        // 同 pageGroups：已登录用服务端档案，游客用请求携带的本地档案
+        MemberGaokao gaokao = guestArchiveResolver.resolve(dto);
         if (gaokao == null) {
             throw new BusinessException(ResultCode.GAOKAO_ARCHIVE_NOT_FOUND);
         }

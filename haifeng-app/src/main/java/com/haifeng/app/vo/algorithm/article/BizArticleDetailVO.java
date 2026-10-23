@@ -15,6 +15,9 @@ public class BizArticleDetailVO {
     /** 省份裸值（如 山西；全国） */
     private String province;
 
+    /** 所属模块（高考/中考/考公/考研/英语四六级，作彩色标签） */
+    private String moduleName;
+
     /** 年份；NULL=不分年份 */
     private Integer year;
 

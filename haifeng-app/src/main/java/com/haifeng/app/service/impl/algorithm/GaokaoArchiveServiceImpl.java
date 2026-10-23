@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.time.Year;
@@ -163,17 +164,17 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     public Long saveArchive(GaokaoArchiveSaveDTO dto) {
         Long memberId = SecurityUtil.getCurrentMemberId();
 
-        String reformModel = provinceReformService.getReformModel(
-                dto.getGaokaoProvince(), dto.getGaokaoYear());
-
-        validateSubjects(dto, reformModel);
-
         MemberGaokao existing = memberGaokaoMapper.selectOne(
                 new LambdaQueryWrapper<MemberGaokao>()
                         .eq(MemberGaokao::getMemberId, memberId)
         );
 
         if (existing == null) {
+            // ===== 首次保存：省份以入参为准（此后不可再改） =====
+            String reformModel = provinceReformService.getReformModel(
+                    dto.getGaokaoProvince(), dto.getGaokaoYear());
+            validateSubjects(dto, reformModel);
+
             MemberGaokao entity = convertToEntity(dto);
             entity.setId(SnowflakeIdGenerator.nextId());
             entity.setMemberId(memberId);
@@ -187,6 +188,19 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
             log.info("创建高考档案成功: memberId={}, archiveId={}", memberId, entity.getId());
             return entity.getId();
         } else {
+            // ===== 已保存过档案：省份锁定，不可再改 =====
+            // 省份直接决定选科体系、批次线、录取数据口径，故一经确认只允许改其它字段。
+            if (StringUtils.hasText(dto.getGaokaoProvince())
+                    && !dto.getGaokaoProvince().equals(existing.getGaokaoProvince())) {
+                log.warn("拒绝修改已保存档案的省份: memberId={}, 入参={}, 库中={}",
+                        memberId, dto.getGaokaoProvince(), existing.getGaokaoProvince());
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "高考省份保存后不可修改");
+            }
+            // 改革模式按「库中省份」推导，避免入参省份为空时误判为传统文理
+            String reformModel = provinceReformService.getReformModel(
+                    existing.getGaokaoProvince(), dto.getGaokaoYear());
+            validateSubjects(dto, reformModel);
+
             updateExistingFromDto(existing, dto, reformModel);
             existing.setUpdatedAt(OffsetDateTime.now());
             memberGaokaoMapper.updateById(existing);
@@ -345,11 +359,11 @@ public class GaokaoArchiveServiceImpl implements GaokaoArchiveService {
     }
 
     /**
-     * 更新已有档案：将 DTO 字段设置到 existing 实体
+     * 更新已有档案：将 DTO 字段设置到 existing 实体。
+     * ⚠️ 省份不在此覆盖：省份一经保存即锁定，始终沿用库中值（saveArchive 已做校验拦截）。
      */
     private void updateExistingFromDto(MemberGaokao existing, GaokaoArchiveSaveDTO dto, String reformModel) {
         existing.setGaokaoYear(dto.getGaokaoYear());
-        existing.setGaokaoProvince(dto.getGaokaoProvince());
         existing.setScore(dto.getScore());
         existing.setRank(dto.getRank());
         existing.setReformModel(reformModel);
