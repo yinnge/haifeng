@@ -35,7 +35,7 @@ public class CollegeFileController {
     /**
      * 分页查询大学文件列表（需登录）
      */
-    @RequireLogin
+
     @GetMapping("/list")
     public R<IPage<FileLoadListVO>> list(@Valid BasePageQueryDTO dto,
                                          @RequestParam(required = false) String subject,
@@ -45,21 +45,21 @@ public class CollegeFileController {
     }
 
     /** 动态返回 applicable_stage 去重值（前端按钮筛选，需登录） */
-    @RequireLogin
+
     @GetMapping("/stages")
     public R<List<String>> stages() {
         return R.ok(fileLoadService.listStages(TARGET_AUDIENCE));
     }
 
     /** 动态返回 subject 去重值（前端下拉筛选，需登录） */
-    @RequireLogin
+
     @GetMapping("/subjects")
     public R<List<String>> subjects() {
         return R.ok(fileLoadService.listSubjects(TARGET_AUDIENCE));
     }
 
     /** 动态返回 tag 去重值（前端下拉筛选，需登录） */
-    @RequireLogin
+
     @GetMapping("/tags")
     public R<List<String>> tags() {
         return R.ok(fileLoadService.listTags(TARGET_AUDIENCE));
@@ -68,7 +68,7 @@ public class CollegeFileController {
     /**
      * 获取大学文件详情（仅VIP）
      */
-    @RequireVip
+    @RequireLogin
     @GetMapping("/{id}")
     public R<FileLoadDetailVO> detail(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.detail(id));
@@ -77,7 +77,7 @@ public class CollegeFileController {
     /**
      * 获取大学文件预览URL（仅VIP）
      */
-    @RequireVip
+    @RequireLogin
     @GetMapping("/{id}/preview")
     public R<String> preview(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getPreviewUrl(id));
