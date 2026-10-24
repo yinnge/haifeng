@@ -88,7 +88,7 @@ public class HighSchoolFileController {
     /**
      * 获取高中文件下载URL（仅VIP + 悲观锁防误触）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}/download")
     public R<String> download(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getDownloadUrl(id));
@@ -97,7 +97,7 @@ public class HighSchoolFileController {
     /**
      * 获取百度网盘资源取码信息（仅VIP：返回分享链接 + 提取码）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}/netdisk")
     public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getNetdiskInfo(id));
@@ -108,7 +108,7 @@ public class HighSchoolFileController {
     /**
      * 分页查询老师专属文件列表（仅老师身份）
      */
-    @RequireTeacher
+
     @GetMapping("/teacher/list")
     public R<IPage<FileLoadListVO>> teacherList(@Valid BasePageQueryDTO dto,
                                                @RequestParam(required = false) String subject,
@@ -118,21 +118,21 @@ public class HighSchoolFileController {
     }
 
     /** 老师专属：动态返回 applicable_stage 去重值 */
-    @RequireTeacher
+
     @GetMapping("/teacher/stages")
     public R<List<String>> teacherStages() {
         return R.ok(fileLoadService.listStages(TEACHER_AUDIENCE));
     }
 
-    /** 老师专属：动态返回 subject 去重值 */
-    @RequireTeacher
+    /** 动态返回 subject 去重值 */
+
     @GetMapping("/teacher/subjects")
     public R<List<String>> teacherSubjects() {
         return R.ok(fileLoadService.listSubjects(TEACHER_AUDIENCE));
     }
 
-    /** 老师专属：动态返回 tag 去重值 */
-    @RequireTeacher
+    /** 动态返回 tag 去重值 */
+
     @GetMapping("/teacher/tags")
     public R<List<String>> teacherTags() {
         return R.ok(fileLoadService.listTags(TEACHER_AUDIENCE));

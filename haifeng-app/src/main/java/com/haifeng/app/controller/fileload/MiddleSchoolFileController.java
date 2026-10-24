@@ -82,7 +82,7 @@ public class MiddleSchoolFileController {
     /**
      * 获取初中文件下载URL（仅VIP + 悲观锁防误触）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}/download")
     public R<String> download(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getDownloadUrl(id));
@@ -91,7 +91,7 @@ public class MiddleSchoolFileController {
     /**
      * 获取百度网盘资源取码信息（仅VIP：返回分享链接 + 提取码）
      */
-    @RequireLogin
+    @RequireVip
     @GetMapping("/{id}/netdisk")
     public R<NetdiskInfoVO> netdisk(@PathVariable @Min(1) Long id) {
         return R.ok(fileLoadService.getNetdiskInfo(id));
