@@ -8,7 +8,7 @@ import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireTeacher;
 import com.haifeng.common.annotation.RequireVip;
-import com.haifeng.common.dto.common.BasePageQueryDTO;
+import com.haifeng.app.dto.fileload.FileLoadPageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -42,7 +42,7 @@ public class HighSchoolFileController {
      * 分页查询高中文件列表（公开，免登录）
      */
     @GetMapping("/list")
-    public R<IPage<FileLoadListVO>> list(@Valid BasePageQueryDTO dto,
+    public R<IPage<FileLoadListVO>> list(@Valid FileLoadPageQueryDTO dto,
                                          @RequestParam(required = false) String subject,
                                          @RequestParam(required = false) String applicableStage,
                                          @RequestParam(required = false) String tag) {
@@ -110,7 +110,7 @@ public class HighSchoolFileController {
      */
 
     @GetMapping("/teacher/list")
-    public R<IPage<FileLoadListVO>> teacherList(@Valid BasePageQueryDTO dto,
+    public R<IPage<FileLoadListVO>> teacherList(@Valid FileLoadPageQueryDTO dto,
                                                @RequestParam(required = false) String subject,
                                                @RequestParam(required = false) String applicableStage,
                                                @RequestParam(required = false) String tag) {

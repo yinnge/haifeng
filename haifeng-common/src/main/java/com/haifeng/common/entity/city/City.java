@@ -35,6 +35,9 @@ public class City {
 
     private BigDecimal gdp;
 
+    /** 城市背景图URL */
+    private String coverImageUrl;
+
     private Boolean isDeleted;
 
     @TableField(fill = FieldFill.INSERT)

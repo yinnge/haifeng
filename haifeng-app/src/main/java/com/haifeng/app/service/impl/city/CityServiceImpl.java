@@ -2,12 +2,15 @@ package com.haifeng.app.service.impl.city;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.city.CityQueryDTO;
 import com.haifeng.app.service.city.CityService;
 import com.haifeng.app.vo.city.CityBriefVO;
 import com.haifeng.app.vo.city.CityDetailVO;
 import com.haifeng.app.vo.city.CityListVO;
+import com.haifeng.app.vo.city.CityRankVO;
+import com.haifeng.app.vo.city.CityStatsVO;
 import com.haifeng.common.entity.city.City;
 import com.haifeng.common.entity.city.CityDetail;
 import com.haifeng.common.exception.BusinessException;
@@ -20,6 +23,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,6 +36,16 @@ public class CityServiceImpl implements CityService {
 
     private final CityMapper cityMapper;
     private final CityDetailMapper cityDetailMapper;
+
+    /** 排行榜指标 → 排序列白名单（DTO @Pattern 已做第一层校验，此处兜底） */
+    private static final Map<String, SFunction<City, ?>> RANK_COLUMNS = Map.of(
+            "college", City::getCollegeCount,
+            "keyCollege", City::getKeyCollegeCount,
+            "gdp", City::getGdp,
+            "population", City::getResidentPopulation);
+
+    private static final int RANK_LIMIT_MAX = 50;
+    private static final int RANK_LIMIT_DEFAULT = 10;
 
     @Override
     public IPage<CityListVO> page(CityQueryDTO dto) {
@@ -44,11 +63,61 @@ public class CityServiceImpl implements CityService {
                 .apply(province != null,
                         ProvinceNameUtil.strippedColumnEquals("province"),
                         province)
-                .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion())
-                .orderByAsc(City::getId);
+                .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion());
+
+        // 排行榜"查看全部"：白名单指标倒序；默认 id 正序
+        applySort(wrapper, dto.getSortBy());
 
         IPage<City> entityPage = cityMapper.selectPage(page, wrapper);
-        return entityPage.convert(this::toListVO);
+        Map<Long, String> levelMap = loadCityLevels(entityPage.getRecords());
+        return entityPage.convert(e -> toListVO(e, levelMap.get(e.getId())));
+    }
+
+    @Override
+    public List<CityRankVO> rank(String metric, Integer limit) {
+        SFunction<City, ?> column = RANK_COLUMNS.get(metric);
+        if (column == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "排行榜指标不合法");
+        }
+        int n = limit == null ? RANK_LIMIT_DEFAULT : Math.min(limit, RANK_LIMIT_MAX);
+        n = Math.max(1, n);
+
+        List<City> cities = cityMapper.selectList(new LambdaQueryWrapper<City>()
+                .select(City::getId, City::getCityName, City::getProvince, column)
+                .eq(City::getIsDeleted, false)
+                .orderByDesc(column)
+                .last("LIMIT " + n));
+
+        List<CityRankVO> result = new ArrayList<>(cities.size());
+        int rank = 1;
+        for (City c : cities) {
+            Object v = column.apply(c);
+            result.add(CityRankVO.builder()
+                    .rank(rank++)
+                    .id(c.getId())
+                    .cityName(c.getCityName())
+                    .province(c.getProvince())
+                    .value(v == null ? null : new BigDecimal(v.toString()))
+                    .build());
+        }
+        return result;
+    }
+
+    @Override
+    public CityStatsVO stats() {
+        Map<String, Object> row = cityMapper.selectOverviewStats();
+        if (row == null) {
+            return CityStatsVO.builder()
+                    .cityCount(0L).collegeTotal(0L)
+                    .populationTotal(BigDecimal.ZERO).gdpTotal(BigDecimal.ZERO)
+                    .build();
+        }
+        return CityStatsVO.builder()
+                .cityCount(asLong(row.get("cityCount")))
+                .collegeTotal(asLong(row.get("collegeTotal")))
+                .populationTotal(asBigDecimal(row.get("populationTotal")))
+                .gdpTotal(asBigDecimal(row.get("gdpTotal")))
+                .build();
     }
 
     @Override
@@ -205,7 +274,7 @@ public class CityServiceImpl implements CityService {
                 .last("LIMIT 1"));
     }
 
-    private CityListVO toListVO(City e) {
+    private CityListVO toListVO(City e, String cityLevel) {
         return CityListVO.builder()
                 .id(e.getId())
                 .cityName(e.getCityName())
@@ -216,6 +285,58 @@ public class CityServiceImpl implements CityService {
                 .keyCollegeCount(e.getKeyCollegeCount())
                 .residentPopulation(e.getResidentPopulation())
                 .gdp(e.getGdp())
+                .coverImageUrl(e.getCoverImageUrl())
+                .cityLevel(cityLevel)
                 .build();
+    }
+
+    /** 排序白名单（DTO @Pattern 已做第一层校验），均为倒序 + id 正序稳定排序 */
+    private void applySort(LambdaQueryWrapper<City> wrapper, String sortBy) {
+        if (!StringUtils.hasText(sortBy)) {
+            wrapper.orderByAsc(City::getId);
+            return;
+        }
+        switch (sortBy) {
+            case "college" -> wrapper.orderByDesc(City::getCollegeCount).orderByAsc(City::getId);
+            case "keyCollege" -> wrapper.orderByDesc(City::getKeyCollegeCount).orderByAsc(City::getId);
+            case "gdp" -> wrapper.orderByDesc(City::getGdp).orderByAsc(City::getId);
+            case "population" -> wrapper.orderByDesc(City::getResidentPopulation).orderByAsc(City::getId);
+            default -> wrapper.orderByAsc(City::getId);
+        }
+    }
+
+    /**
+     * 批量取当前页城市的 cityLevel（单次 IN 查询，避免 N+1）。
+     * 无详情记录或 cityLevel 为空的城市不出现在 Map 中，取值侧得到 null。
+     */
+    private Map<Long, String> loadCityLevels(List<City> cities) {
+        if (cities == null || cities.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> cityIds = cities.stream().map(City::getId).toList();
+        List<CityDetail> details = cityDetailMapper.selectList(new LambdaQueryWrapper<CityDetail>()
+                .in(CityDetail::getCityId, cityIds)
+                .select(CityDetail::getCityId, CityDetail::getCityLevel));
+        Map<Long, String> levelMap = new HashMap<>();
+        for (CityDetail d : details) {
+            if (d.getCityId() != null && StringUtils.hasText(d.getCityLevel())) {
+                levelMap.put(d.getCityId(), d.getCityLevel());
+            }
+        }
+        return levelMap;
+    }
+
+    private Long asLong(Object v) {
+        if (v == null) {
+            return 0L;
+        }
+        return v instanceof Number n ? n.longValue() : Long.parseLong(v.toString());
+    }
+
+    private BigDecimal asBigDecimal(Object v) {
+        if (v == null) {
+            return BigDecimal.ZERO;
+        }
+        return v instanceof BigDecimal b ? b : new BigDecimal(v.toString());
     }
 }

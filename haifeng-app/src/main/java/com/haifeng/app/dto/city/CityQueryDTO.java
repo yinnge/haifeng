@@ -1,6 +1,7 @@
 package com.haifeng.app.dto.city;
 
 import com.haifeng.common.dto.common.BasePageQueryDTO;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -24,4 +25,11 @@ public class CityQueryDTO extends BasePageQueryDTO {
     /** 地区精准匹配 */
     @Size(max = 20, message = "地区长度不能超过20")
     private String region;
+
+    /**
+     * 排序字段（排行榜"查看全部"跳转用），白名单校验防注入：
+     * college=高校数量 / keyCollege=重点院校 / gdp=GDP / population=人口，均为倒序；空则默认按 id 正序
+     */
+    @Pattern(regexp = "college|keyCollege|gdp|population", message = "排序字段不合法")
+    private String sortBy;
 }

@@ -8,6 +8,8 @@ import com.haifeng.admin.dto.certificate.CertificateStatusDTO;
 import com.haifeng.admin.dto.certificate.CertificateUpdateDTO;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
 import com.haifeng.admin.vo.certificate.CertificateListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -57,4 +59,11 @@ public interface CertificateService {
      * 批量修改证书状态（启用/禁用）
      */
     void batchUpdateCertificateStatus(CertificateBatchStatusDTO dto);
+
+    /**
+     * 批量导入证书（EasyExcel）。
+     * 规则：cert_name 已存在(启用)→补空不覆盖；已存在(软删除)→冲突报错；表内重复 cert_name→报错；库无→新增。
+     * 校验不过或任意行失败均整批回滚。
+     */
+    ImportResultVO importData(MultipartFile file);
 }

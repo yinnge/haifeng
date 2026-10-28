@@ -141,6 +141,7 @@ public class CityServiceImpl implements CityService {
                 .keyCollegeCount(dto.getKeyCollegeCount() != null ? dto.getKeyCollegeCount() : 0)
                 .residentPopulation(dto.getResidentPopulation())
                 .gdp(dto.getGdp())
+                .coverImageUrl(dto.getCoverImageUrl())
                 .isDeleted(false)
                 .createdAt(now)
                 .updatedAt(now)
@@ -212,6 +213,7 @@ public class CityServiceImpl implements CityService {
         city.setKeyCollegeCount(dto.getKeyCollegeCount());
         city.setResidentPopulation(dto.getResidentPopulation());
         city.setGdp(dto.getGdp());
+        city.setCoverImageUrl(dto.getCoverImageUrl());
         city.setUpdatedAt(OffsetDateTime.now());
 
         int rows = cityMapper.updateByIdCustom(city);
@@ -365,6 +367,7 @@ public class CityServiceImpl implements CityService {
                 String cityName = data.getCityName() == null ? null : data.getCityName().trim();
                 String province = data.getProvince() == null ? null : data.getProvince().trim();
                 String region = data.getRegion() == null ? null : data.getRegion().trim();
+                String coverImageUrl = data.getCoverImageUrl() == null ? null : data.getCoverImageUrl().trim();
 
                 // 校验必填字段
                 if (!StringUtils.hasText(cityName)) {
@@ -387,6 +390,10 @@ public class CityServiceImpl implements CityService {
                 }
                 if (region != null && region.length() > 20) {
                     errorMsgs.add("第" + rowNum + "行：所属地区不能超过20个字符");
+                    continue;
+                }
+                if (coverImageUrl != null && coverImageUrl.length() > 500) {
+                    errorMsgs.add("第" + rowNum + "行：城市背景图URL不能超过500个字符");
                     continue;
                 }
 
@@ -419,6 +426,7 @@ public class CityServiceImpl implements CityService {
                                 .keyCollegeCount(data.getKeyCollegeCount())
                                 .residentPopulation(data.getResidentPopulation())
                                 .gdp(data.getGdp())
+                                .coverImageUrl(coverImageUrl)
                                 .isDeleted(false)
                                 .createdAt(now)
                                 .updatedAt(now)
@@ -1022,6 +1030,10 @@ public class CityServiceImpl implements CityService {
         }
         if (existing.getGdp() == null && data.getGdp() != null) {
             existing.setGdp(data.getGdp());
+            changed = true;
+        }
+        if (!StringUtils.hasText(existing.getCoverImageUrl()) && StringUtils.hasText(data.getCoverImageUrl())) {
+            existing.setCoverImageUrl(data.getCoverImageUrl().trim());
             changed = true;
         }
         return changed;

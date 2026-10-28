@@ -10,12 +10,14 @@ import com.haifeng.admin.dto.certificate.CertificateUpdateDTO;
 import com.haifeng.admin.service.certificate.CertificateService;
 import com.haifeng.admin.vo.certificate.CertificateDetailVO;
 import com.haifeng.admin.vo.certificate.CertificateListVO;
+import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/admin/certificate")
@@ -88,5 +90,14 @@ public class CertificateController {
     public R<Void> batchUpdateStatus(@Valid @RequestBody CertificateBatchStatusDTO dto) {
         certificateService.batchUpdateCertificateStatus(dto);
         return R.ok();
+    }
+
+    /**
+     * 批量导入证书（EasyExcel）
+     */
+    @PostMapping("/import")
+    @OperationLog(module = "竞赛证书管理", action = "导入证书数据")
+    public R<ImportResultVO> importData(@RequestParam("file") MultipartFile file) {
+        return R.ok(certificateService.importData(file));
     }
 }

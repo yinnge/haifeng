@@ -7,7 +7,7 @@ import com.haifeng.app.vo.fileload.FileLoadListVO;
 import com.haifeng.app.vo.fileload.NetdiskInfoVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.annotation.RequireVip;
-import com.haifeng.common.dto.common.BasePageQueryDTO;
+import com.haifeng.app.dto.fileload.FileLoadPageQueryDTO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -37,7 +37,7 @@ public class CollegeFileController {
      */
 
     @GetMapping("/list")
-    public R<IPage<FileLoadListVO>> list(@Valid BasePageQueryDTO dto,
+    public R<IPage<FileLoadListVO>> list(@Valid FileLoadPageQueryDTO dto,
                                          @RequestParam(required = false) String subject,
                                          @RequestParam(required = false) String applicableStage,
                                          @RequestParam(required = false) String tag) {

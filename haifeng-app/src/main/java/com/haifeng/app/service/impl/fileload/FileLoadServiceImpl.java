@@ -9,9 +9,9 @@ import com.haifeng.app.service.watermark.FileWatermarkService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
 import com.haifeng.app.vo.fileload.NetdiskInfoVO;
+import com.haifeng.app.dto.fileload.FileLoadPageQueryDTO;
 import com.haifeng.common.config.OssProperties;
 import com.haifeng.common.constant.RedisKeyConstant;
-import com.haifeng.common.dto.common.BasePageQueryDTO;
 import com.haifeng.common.entity.resource.FileInfo;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.resource.FileInfoMapper;
@@ -47,7 +47,7 @@ public class FileLoadServiceImpl implements FileLoadService {
     private static final String STORAGE_TYPE_BAIDU = "BAIDU";
 
     @Override
-    public IPage<FileLoadListVO> page(BasePageQueryDTO dto, String targetAudience,
+    public IPage<FileLoadListVO> page(FileLoadPageQueryDTO dto, String targetAudience,
                                        String subject, String applicableStage, String tag) {
         Page<FileInfo> page = new Page<>(dto.getPage(), dto.getSize());
 

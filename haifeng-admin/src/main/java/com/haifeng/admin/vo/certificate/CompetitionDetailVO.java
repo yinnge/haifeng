@@ -30,7 +30,7 @@ public class CompetitionDetailVO {
     // 详情字段
     private Long detailId;
 
-    private Map<String, Object> basicInfo;
+    private List<Map<String, String>> basicInfo;
 
     private List<String> awards;
 

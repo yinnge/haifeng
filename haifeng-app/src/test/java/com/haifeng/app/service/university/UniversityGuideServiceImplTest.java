@@ -56,7 +56,7 @@ class UniversityGuideServiceImplTest {
         when(guideMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(sampleGuide());
         University u = University.builder()
                 .id(100L).name("清华").region("华北").category("综合")
-                .nature("公办").imageUrl("img.png").tags(List.of("985"))
+                .nature("公办").imageUrl("院校列表.png").tags(List.of("985"))
                 .status((short) 1).build();
         when(universityMapper.selectById(100L)).thenReturn(u);
 

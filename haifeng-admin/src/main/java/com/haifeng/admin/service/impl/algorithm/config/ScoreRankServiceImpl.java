@@ -30,6 +30,9 @@ import java.util.*;
 public class ScoreRankServiceImpl implements ScoreRankService {
 
     private static final int MAX_ERROR_DISPLAY = 50;
+    private static final int LATE_YEAR_NUMBER = 2200;
+    private static final int MAX_EXPORT_NUMBER = 5000;
+
     private final ScoreRankMapper scoreRankMapper;
 
     @Override
@@ -138,8 +141,8 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         if (entity == null) {
             throw new BusinessException(404, "一分一段记录不存在");
         }
-        scoreRankMapper.deleteById(id);
-        log.info("删除一分一段记录，id={}", id);
+        scoreRankMapper.hardDeleteById(id);
+        log.info("删除一分一段记录（物理删除），id={}", id);
     }
 
     @Override
@@ -159,8 +162,8 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         if (ids == null || ids.isEmpty()) {
             throw new BusinessException(400, "请选择要删除的记录");
         }
-        scoreRankMapper.batchSoftDelete(ids);
-        log.info("批量删除一分一段记录，count={}", ids.size());
+        scoreRankMapper.batchHardDelete(ids);
+        log.info("批量删除一分一段记录（物理删除），count={}", ids.size());
     }
 
     @Override
@@ -198,8 +201,8 @@ public class ScoreRankServiceImpl implements ScoreRankService {
         }
 
         // P2: 行数上限
-        if (dataList.size() > 1000) {
-            throw new BusinessException(400, "单次导入不能超过1000条记录");
+        if (dataList.size() > MAX_EXPORT_NUMBER) {
+            throw new BusinessException(400, "单次导入不能超过10000条记录");
         }
 
         // ==================== 校验阶段 ====================
@@ -242,7 +245,7 @@ public class ScoreRankServiceImpl implements ScoreRankService {
             }
 
             // P4: 年份范围校验
-            if (dto.getYear() < 2000 || dto.getYear() > 2100) {
+            if (dto.getYear() < 2000 || dto.getYear() > LATE_YEAR_NUMBER) {
                 errors.add("第" + rowNum + "行: 年份[" + dto.getYear() + "]不合法，只允许2000-2100");
                 continue;
             }

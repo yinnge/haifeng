@@ -45,4 +45,10 @@ public class CityUpdateDTO {
      * GDP（亿元）
      */
     private BigDecimal gdp;
+
+    /**
+     * 城市背景图URL
+     */
+    @Size(max = 500, message = "城市背景图URL不能超过500个字符")
+    private String coverImageUrl;
 }

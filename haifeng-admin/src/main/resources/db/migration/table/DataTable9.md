@@ -150,19 +150,19 @@ CREATE TABLE IF NOT EXISTS t_competition_detail (
     competition_id          INTEGER         NOT NULL UNIQUE,        -- 关联竞赛表（一对一）
 
     -- ==================== 基本详情 ====================
-    basic_info              JSONB           DEFAULT '{}'::JSONB,
+    basic_info              JSONB           DEFAULT '[]'::JSONB,
     /*
-    {
-        "organizer":        "教育部高等教育司",
-        "hold_time":        "每年9月-11月",
-        "target":           "全日制在校本科生及研究生",
-        "participation_form": "团队",
-        "level":            "国家级",
-        "reg_fee":          "免费",
-        "official_website":  "https://xxx.edu.cn",
-        "contact_email":    "xxx@edu.cn",
-        "contact_phone":    "010-12345678"
-    }
+    [
+        { "title": "主办方", "content": "教育部高等教育司" },
+        { "title": "举办时间", "content": "每年9月-11月" },
+        { "title": "参赛对象", "content": "全日制在校本科生及研究生" },
+        { "title": "参赛形式", "content": "团队" },
+        { "title": "级别", "content": "国家级" },
+        { "title": "报名费", "content": "免费" },
+        { "title": "官网", "content": "https://xxx.edu.cn" },
+        { "title": "联系邮箱", "content": "xxx@edu.cn" },
+        { "title": "联系电话", "content": "010-12345678" }
+    ]
     */
 
     -- ==================== 奖项设置（列表展示）====================
@@ -216,7 +216,7 @@ CREATE TRIGGER trg_competition_detail_updated_at
 
 COMMENT ON TABLE  t_competition_detail                  IS '竞赛详情表（与竞赛表一对一）';
 COMMENT ON COLUMN t_competition_detail.competition_id   IS '关联竞赛ID';
-COMMENT ON COLUMN t_competition_detail.basic_info       IS '基本信息（主办方、时间、对象等）';
+COMMENT ON COLUMN t_competition_detail.basic_info       IS '基本信息（title+content数组）';
 COMMENT ON COLUMN t_competition_detail.competition_rules IS '竞赛规则（title+content数组）';
 COMMENT ON COLUMN t_competition_detail.process_guide    IS '参赛流程指南（title+content数组）';
 COMMENT ON COLUMN t_competition_detail.awards_display   IS '奖项设置展示（title+content数组）';

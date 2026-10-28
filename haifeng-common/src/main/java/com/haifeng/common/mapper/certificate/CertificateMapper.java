@@ -61,6 +61,16 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
     Certificate findByIdIgnoreLogicDelete(@Param("id") Long id);
 
     /**
+     * 忽略逻辑删除，根据证书名称查询（含已软删除记录）。
+     * 用于导入时区分「启用冲突（补空不覆盖）」与「软删除冲突（报错）」。
+     */
+    @Select("SELECT * FROM t_certificate WHERE cert_name = #{certName}")
+    @Results({
+            @Result(column = "exam_requirements", property = "examRequirements", typeHandler = StringListTypeHandler.class)
+    })
+    Certificate selectByCertNameIgnoreLogicDelete(@Param("certName") String certName);
+
+    /**
      * 忽略逻辑删除，直接更新is_deleted字段
      */
     @Update("UPDATE t_certificate SET is_deleted = #{isDeleted}, updated_at = NOW() WHERE id = #{id}")
