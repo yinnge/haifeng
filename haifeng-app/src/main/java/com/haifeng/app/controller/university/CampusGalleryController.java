@@ -27,7 +27,7 @@ public class CampusGalleryController {
 
     private final CampusGalleryService galleryService;
 
-    @RequireLogin
+
     @GetMapping("/{universityId}/gallery")
     public R<IPage<CampusGalleryListVO>> gallery(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId,
@@ -35,7 +35,7 @@ public class CampusGalleryController {
         return R.ok(galleryService.page(universityId, dto));
     }
 
-    @RequireLogin
+
     @GetMapping("/{universityId}/gallery/types")
     public R<List<String>> galleryTypes(
             @PathVariable @Min(value = 1, message = "ID必须大于0") Long universityId) {

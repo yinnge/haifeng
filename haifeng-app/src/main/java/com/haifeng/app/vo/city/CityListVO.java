@@ -31,4 +31,10 @@ public class CityListVO implements Serializable {
     private Integer keyCollegeCount;
     private BigDecimal residentPopulation;
     private BigDecimal gdp;
+
+    /** 城市背景图URL */
+    private String coverImageUrl;
+
+    /** 城市等级（直辖市/省会城市/地级市/县级市，来自 t_city_detail） */
+    private String cityLevel;
 }

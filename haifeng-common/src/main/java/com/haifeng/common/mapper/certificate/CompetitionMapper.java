@@ -53,4 +53,12 @@ public interface CompetitionMapper extends BaseMapper<Competition> {
             "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
             "</script>")
     int physicalDeleteBatchByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 查询全部竞赛的 (id, comp_name, is_deleted) 投影。
+     * 自定义 @Select 绕过 MyBatis-Plus 全局逻辑删除拦截器，软删除行也会返回，
+     * 用于导入时构建「竞赛名称 -> 竞赛」映射（需区分启用/禁用），以及详情导入的存在性校验。
+     */
+    @Select("SELECT id, comp_name, is_deleted FROM t_competition")
+    List<Competition> selectAllIdName();
 }

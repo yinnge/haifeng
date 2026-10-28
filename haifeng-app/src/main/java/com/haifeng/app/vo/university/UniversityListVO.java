@@ -9,7 +9,9 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * C 端院校列表 VO（任务 1）
+ * C 端院校列表 VO（按界面原型重设计）
+ * imageUrl=院校 logo；coverImage=详情轮播首图（detail 缺失或轮播为空时为 null，前端用占位图）；
+ * content=院校简介（后端返全文，截断展示由前端处理）
  */
 @Data
 @Builder
@@ -22,15 +24,14 @@ public class UniversityListVO implements Serializable {
     private Long id;
     private String name;
     private List<String> tags;
-    private String cityName;
-    private String educationLevel;
     private String provinceName;
-    private String introduction;
-    private String imageUrl;
-    private String nature;
+    private String cityName;
+    private String region;
     private String category;
     private Integer majorCount;
-    private Boolean hasDoctorate;
-    private Boolean hasMaster;
-    private String department;
+    private String educationLevel;
+    private String nature;
+    private String imageUrl;
+    private String coverImage;
+    private String content;
 }

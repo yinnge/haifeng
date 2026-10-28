@@ -35,4 +35,7 @@ public class CityExcelDTO {
 
     @ExcelProperty("GDP(亿元)")
     private BigDecimal gdp;
+
+    @ExcelProperty("城市背景图")
+    private String coverImageUrl;
 }

@@ -8,6 +8,7 @@ import com.haifeng.app.vo.university.ChannelOptionVO;
 import com.haifeng.app.vo.university.UniversityChannelListVO;
 import com.haifeng.app.vo.university.UniversityDetailVO;
 import com.haifeng.app.vo.university.UniversityListVO;
+import com.haifeng.app.vo.university.UniversityStatsVO;
 import com.haifeng.common.annotation.RequireLogin;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
@@ -32,10 +33,22 @@ public class UniversityController {
 
     private final UniversityService universityService;
 
-    /** 任务 1：分页查询院校列表，无需登录 */
+    /** 院校列表（按界面原型重设计）：分页查询，免登录；排序仅 sort_order DESC */
     @GetMapping("/list")
     public R<IPage<UniversityListVO>> list(@Valid UniversityQueryDTO dto) {
         return R.ok(universityService.page(dto));
+    }
+
+    /** 院校统计概览（985/211/双一流/本科数量），免登录，不受列表筛选影响 */
+    @GetMapping("/stats")
+    public R<UniversityStatsVO> stats() {
+        return R.ok(universityService.stats());
+    }
+
+    /** 招生类型筛选下拉选项（t_special_channel，is_active=true，按 sort_order 升序），免登录 */
+    @GetMapping("/special-channel-options")
+    public R<List<ChannelOptionVO>> specialChannelOptions() {
+        return R.ok(universityService.listSpecialChannelOptions());
     }
 
     /** 任务 2：院校详情，需登录 */

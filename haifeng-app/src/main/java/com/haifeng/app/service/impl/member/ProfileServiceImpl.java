@@ -7,6 +7,7 @@ import com.haifeng.app.vo.member.ProfileVO;
 import com.haifeng.common.entity.city.City;
 import com.haifeng.common.entity.major.Major;
 import com.haifeng.common.entity.university.University;
+import com.haifeng.common.entity.user.MemberFavorite;
 import com.haifeng.common.entity.user.MemberProfile;
 import com.haifeng.common.enums.GenderEnum;
 import com.haifeng.common.enums.IdentityEnum;
@@ -15,6 +16,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.city.CityMapper;
 import com.haifeng.common.mapper.major.MajorMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
+import com.haifeng.common.mapper.user.MemberFavoriteMapper;
 import com.haifeng.common.mapper.user.MemberProfileMapper;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
@@ -32,6 +34,7 @@ import java.time.OffsetDateTime;
 public class ProfileServiceImpl implements ProfileService {
 
     private final MemberProfileMapper profileMapper;
+    private final MemberFavoriteMapper memberFavoriteMapper;
     private final UniversityMapper universityMapper;
     private final CityMapper cityMapper;
     private final MajorMapper majorMapper;
@@ -51,6 +54,10 @@ public class ProfileServiceImpl implements ProfileService {
 
         boolean canEditSchool = IdentityEnum.canHaveSchool(profile.getIdentity());
 
+        Long favoriteCount = memberFavoriteMapper.selectCount(
+                new LambdaQueryWrapper<MemberFavorite>()
+                        .eq(MemberFavorite::getMemberId, memberId));
+
         return ProfileVO.builder()
                 .email(profile.getEmail())
                 .gender(profile.getGender())
@@ -61,7 +68,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .identity(profile.getIdentity())
                 .grade(profile.getGrade())
                 .educationLevel(profile.getEducationLevel())
-                .favoriteCount(profile.getFavoriteCount())
+                .favoriteCount(favoriteCount == null ? 0 : favoriteCount.intValue())
                 .viewCount(profile.getViewCount())
                 .canEditSchool(canEditSchool)
                 .build();

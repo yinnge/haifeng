@@ -6,7 +6,7 @@ import java.util.Map;
 
 @Data
 public class CompetitionDetailDTO {
-    private Map<String, Object> basicInfo;
+    private List<Map<String, String>> basicInfo;
     private List<String> awards;
     private String background;
     private List<String> purposes;

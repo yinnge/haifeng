@@ -3,14 +3,14 @@ package com.haifeng.app.service.fileload;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
+import com.haifeng.app.dto.fileload.FileLoadPageQueryDTO;
 import com.haifeng.app.vo.fileload.NetdiskInfoVO;
-import com.haifeng.common.dto.common.BasePageQueryDTO;
 
 import java.util.List;
 
 public interface FileLoadService {
 
-    IPage<FileLoadListVO> page(BasePageQueryDTO dto, String targetAudience,
+    IPage<FileLoadListVO> page(FileLoadPageQueryDTO dto, String targetAudience,
                                String subject, String applicableStage, String tag);
 
     FileLoadDetailVO detail(Long id);

@@ -50,6 +50,12 @@ public class CityAddDTO {
      */
     private BigDecimal gdp;
 
+    /**
+     * 城市背景图URL
+     */
+    @Size(max = 500, message = "城市背景图URL不能超过500个字符")
+    private String coverImageUrl;
+
     // ==================== 详情表字段 ====================
 
     /**

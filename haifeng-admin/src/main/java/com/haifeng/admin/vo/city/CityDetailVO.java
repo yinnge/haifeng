@@ -59,6 +59,11 @@ public class CityDetailVO {
     private BigDecimal gdp;
 
     /**
+     * 城市背景图URL
+     */
+    private String coverImageUrl;
+
+    /**
      * 删除状态
      */
     private Boolean isDeleted;

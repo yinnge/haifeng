@@ -25,7 +25,7 @@ public class CompetitionDetail {
     private Long competitionId;
 
     @TableField(typeHandler = JsonbTypeHandler.class)
-    private Map<String, Object> basicInfo;
+    private List<Map<String, String>> basicInfo;
 
     @TableField(typeHandler = StringListTypeHandler.class)
     private List<String> awards;

@@ -40,6 +40,11 @@ public class CityListVO {
     private BigDecimal residentPopulation;
 
     /**
+     * 城市背景图URL
+     */
+    private String coverImageUrl;
+
+    /**
      * 删除状态
      */
     private Boolean isDeleted;
