@@ -1,6 +1,7 @@
 package com.haifeng.admin.service.impl.company;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.exception.ExcelAnalysisException;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -40,7 +41,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     private final EnterprisePositionMapper enterprisePositionMapper;
     private final EnterpriseIndustryMapper enterpriseIndustryMapper;
 
-    private static final int MAX_IMPORT_ROWS = 500;
+    private static final int MAX_IMPORT_ROWS = 3000;
     private static final int MAX_ERROR_DISPLAY = 50;
     private static final Set<String> VALID_ENTERPRISE_NATURES = Set.of("央企", "国企", "民企", "外企", "合资");
     private static final Set<String> VALID_RECRUITMENT_TYPES = Set.of("校招", "社招", "实习");
@@ -282,11 +283,14 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                     .sheet("企业岗位")
                     .doReadSync();
 
-            if (enterpriseData == null || enterpriseData.isEmpty()) {
-                throw new BusinessException(400, "导入失败：企业数据Sheet为空");
+            boolean hasEnterpriseData = enterpriseData != null && !enterpriseData.isEmpty();
+            boolean hasPositionData = positionData != null && !positionData.isEmpty();
+            // 企业主表与岗位表允许任一为空：岗位可仅引用数据库中已存在的企业（企业名称唯一，等价于主键）
+            if (!hasEnterpriseData && !hasPositionData) {
+                throw new BusinessException(400, "导入失败：企业数据Sheet与岗位数据Sheet均为空");
             }
 
-            if (enterpriseData.size() > MAX_IMPORT_ROWS) {
+            if (enterpriseData != null && enterpriseData.size() > MAX_IMPORT_ROWS) {
                 throw new BusinessException(400, "导入失败：企业数据单次导入数量不能超过" + MAX_IMPORT_ROWS + "行");
             }
 
@@ -427,10 +431,14 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                             continue;
                         }
 
-                        // 解析企业ID：优先本文件新增，其次库中已经存在
+                        // 解析企业ID：优先本文件主表，其次数据库（企业名称唯一，等价于主键）
                         Long enterpriseId = enterpriseNameToIdMap.get(enterpriseName);
                         if (enterpriseId == null) {
                             enterpriseId = enterpriseMapper.findIdByEnterpriseName(enterpriseName);
+                            if (enterpriseId != null) {
+                                // 缓存，避免同一文件内重复查库，并保证同名企业指向同一 ID
+                                enterpriseNameToIdMap.put(enterpriseName, enterpriseId);
+                            }
                         }
                         if (enterpriseId == null) {
                             errorMsgs.add("企业岗位第" + rowNum + "行：企业名称'" + enterpriseName
@@ -588,10 +596,17 @@ public class EnterpriseServiceImpl implements EnterpriseService {
             throw e;
         } catch (IOException e) {
             log.error("读取Excel文件失败", e);
-            throw new BusinessException(500, "读取Excel文件失败");
+            throw new BusinessException(500, "读取Excel文件失败：" + (e.getMessage() != null ? e.getMessage() : ""));
+        } catch (ExcelAnalysisException e) {
+            // EasyExcel 读取阶段的数据格式/类型错误，其 message 通常已包含具体行/列信息，直接透出便于定位
+            log.error("解析Excel数据失败（数据格式/类型问题）", e);
+            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            throw new BusinessException(400, "解析Excel数据失败，请检查格式与数据类型：" + detail);
         } catch (Exception e) {
             log.error("导入企业数据失败", e);
-            throw new BusinessException(400, "解析Excel数据失败，请检查Excel格式和数据类型是否正确");
+            // 透出真实异常类型与信息，避免被笼统文案掩盖（如落库约束冲突等）
+            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            throw new BusinessException(400, "解析Excel数据失败：" + e.getClass().getSimpleName() + " - " + detail);
         }
     }
 

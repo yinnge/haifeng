@@ -296,6 +296,7 @@ class UniversityServiceImplTest {
                 .id(1L).name("清华大学").nameEn("Tsinghua").provinceName("北京")
                 .cityName("北京").region("华北").category("综合").majorCount(120)
                 .educationLevel("本科").nature("公办").department("教育部")
+                .imageUrl("https://cdn.example.com/tsinghua.png")
                 .hasDoctorate(true).hasMaster(true).status((short) 1).build();
         UniversityDetail detail = UniversityDetail.builder()
                 .id(11L).universityId(1L).address("北京市海淀区")
@@ -308,6 +309,7 @@ class UniversityServiceImplTest {
         UniversityDetailVO vo = service.detail(1L);
 
         assertThat(vo.getName()).isEqualTo("清华大学");
+        assertThat(vo.getImageUrl()).isEqualTo("https://cdn.example.com/tsinghua.png");
         assertThat(vo.getAddress()).isEqualTo("北京市海淀区");
         assertThat(vo.getIntroduction()).isEqualTo("详细介绍");
     }

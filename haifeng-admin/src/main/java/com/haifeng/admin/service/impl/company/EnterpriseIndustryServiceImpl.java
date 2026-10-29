@@ -40,7 +40,7 @@ public class EnterpriseIndustryServiceImpl implements EnterpriseIndustryService 
     private final EnterpriseMapper enterpriseMapper;
     private final IndustryMapper industryMapper;
 
-    private static final int MAX_IMPORT_ROWS = 500;
+    private static final int MAX_IMPORT_ROWS = 3000;
     private static final int MAX_ERROR_DISPLAY = 50;
 
     @Override

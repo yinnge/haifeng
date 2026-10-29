@@ -161,6 +161,7 @@ public class UniversityServiceImpl implements UniversityService {
                 // university
                 .name(univ.getName())
                 .nameEn(univ.getNameEn())
+                .imageUrl(univ.getImageUrl())
                 .provinceName(univ.getProvinceName())
                 .cityName(univ.getCityName())
                 .region(univ.getRegion())

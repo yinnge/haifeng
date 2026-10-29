@@ -37,6 +37,7 @@ public class UniversityDetailVO implements Serializable {
     // ===== 来自 t_universities =====
     private String name;
     private String nameEn;
+    private String imageUrl;
     private String provinceName;
     private String cityName;
     private String region;
