@@ -219,4 +219,9 @@ public class CityDetailVO {
      * 文化娱乐
      */
     private Map<String, Object> culture;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

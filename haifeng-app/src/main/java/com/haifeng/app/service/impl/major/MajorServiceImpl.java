@@ -61,8 +61,38 @@ public class MajorServiceImpl implements MajorService {
                 .eq(dto.getMajorType() != null && !dto.getMajorType().isBlank(),
                         Major::getMajorType, dto.getMajorType())
                 .eq(dto.getMajorCategory() != null && !dto.getMajorCategory().isBlank(),
-                        Major::getMajorCategory, dto.getMajorCategory())
-                .orderByDesc(Major::getId);
+                        Major::getMajorCategory, dto.getMajorCategory());
+
+        // 就业率区间筛选
+        if (dto.getEmploymentRateMin() != null) {
+            wrapper.ge(Major::getEmploymentRate, dto.getEmploymentRateMin());
+        }
+        if (dto.getEmploymentRateMax() != null) {
+            wrapper.le(Major::getEmploymentRate, dto.getEmploymentRateMax());
+        }
+        // 月薪区间筛选
+        if (dto.getSalaryMin() != null) {
+            wrapper.ge(Major::getSalaryMin, dto.getSalaryMin());
+        }
+        if (dto.getSalaryMax() != null) {
+            wrapper.le(Major::getSalaryMax, dto.getSalaryMax());
+        }
+
+        // 动态排序：综合排序=默认(sort_order, created_at)；就业率/薪资水平按对应列(NULLS LAST)；热度=sort_order
+        String sortBy = dto.getSortBy();
+        boolean isAsc = "asc".equalsIgnoreCase(dto.getSortOrder());
+        String direction = isAsc ? "ASC" : "DESC";
+        String orderSql;
+        if ("employmentRate".equals(sortBy)) {
+            orderSql = "ORDER BY employment_rate " + direction + " NULLS LAST, id DESC";
+        } else if ("salaryMax".equals(sortBy)) {
+            orderSql = "ORDER BY salary_max " + direction + " NULLS LAST, id DESC";
+        } else if ("sortOrder".equals(sortBy)) {
+            orderSql = "ORDER BY sort_order " + direction + ", id DESC";
+        } else {
+            orderSql = "ORDER BY sort_order DESC, created_at DESC";
+        }
+        wrapper.last(orderSql);
 
         IPage<Major> entityPage = majorMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
@@ -231,6 +261,7 @@ public class MajorServiceImpl implements MajorService {
                 .parentCategory(e.getParentCategory())
                 .majorTags(e.getMajorTags())
                 .degreeAwarded(e.getDegreeAwarded())
+                .studyDuration(e.getStudyDuration())
                 .employmentRate(e.getEmploymentRate())
                 .salaryMin(e.getSalaryMin())
                 .salaryMax(e.getSalaryMax())

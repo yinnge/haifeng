@@ -164,6 +164,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                 .crossExamFactors(addDTO.getCrossExamFactors())
                 .crossExamDifficulty(addDTO.getCrossExamDifficulty())
                 .crossExamDescription(addDTO.getCrossExamDescription())
+                .sortOrder(addDTO.getSortOrder() != null ? addDTO.getSortOrder() : 0)
                 .status((short) 1)
                 .createdAt(now)
                 .updatedAt(now)
@@ -239,6 +240,9 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
         }
         if (updateDTO.getCrossExamDescription() != null) {
             major.setCrossExamDescription(updateDTO.getCrossExamDescription());
+        }
+        if (updateDTO.getSortOrder() != null) {
+            major.setSortOrder(updateDTO.getSortOrder());
         }
         if (updateDTO.getStatus() != null) {
             major.setStatus(updateDTO.getStatus());
@@ -420,6 +424,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                         .crossExamFactors(crossExamFactors)
                         .crossExamDifficulty(dto.getCrossExamDifficulty())
                         .crossExamDescription(dto.getCrossExamDescription())
+                        .sortOrder(0)
                         .status((short) 1)
                         .createdAt(now)
                         .updatedAt(now)

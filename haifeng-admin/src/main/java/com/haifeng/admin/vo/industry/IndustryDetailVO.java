@@ -148,4 +148,9 @@ public class IndustryDetailVO {
      * 薪资数据
      */
     private Map<String, Object> salaryData;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

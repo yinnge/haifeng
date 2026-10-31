@@ -93,6 +93,7 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
             "<if test='examRequirements != null'>exam_requirements = #{examRequirements, typeHandler=com.haifeng.common.config.StringListTypeHandler},</if>" +
             "<if test='examArrangement != null'>exam_arrangement = #{examArrangement},</if>" +
             "<if test='officialWebsite != null'>official_website = #{officialWebsite},</if>" +
+            "sort_order = #{sortOrder}," +
             "updated_at = NOW()" +
             "</set>" +
             "WHERE id = #{id}" +
@@ -108,7 +109,8 @@ public interface CertificateMapper extends BaseMapper<Certificate> {
                                     @Param("certIntro") String certIntro,
                                     @Param("examRequirements") List<String> examRequirements,
                                     @Param("examArrangement") String examArrangement,
-                                    @Param("officialWebsite") String officialWebsite);
+                                    @Param("officialWebsite") String officialWebsite,
+                                    @Param("sortOrder") Integer sortOrder);
 
     /**
      * 忽略逻辑删除，批量更新is_deleted字段

@@ -36,14 +36,13 @@ public class PostgradMajorController {
     private final PostgradMajorService postgradMajorService;
 
     /** 任务2接口1：考研专业列表（登录） */
-    @RequireLogin
+
     @GetMapping("/list")
     public R<IPage<PostgradMajorListVO>> list(@Valid PostgradMajorListQueryDTO dto) {
         return R.ok(postgradMajorService.page(dto));
     }
 
     /** 任务2接口2：考研专业详情（登录） */
-    @RequireLogin
     @GetMapping("/{majorId}/detail")
     public R<PostgradMajorDetailVO> detail(@PathVariable @Min(value = 1, message = "ID必须大于0") Long majorId) {
         return R.ok(postgradMajorService.detail(majorId));
@@ -68,7 +67,6 @@ public class PostgradMajorController {
     }
 
     /** 学科门类枚举（已发布专业去重，登录） */
-    @RequireLogin
     @GetMapping("/discipline-categories")
     public R<List<String>> disciplineCategories() {
         return R.ok(postgradMajorService.disciplineCategories());

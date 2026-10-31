@@ -17,4 +17,9 @@ public class EnterpriseListVO {
     private String recruitmentStatus;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

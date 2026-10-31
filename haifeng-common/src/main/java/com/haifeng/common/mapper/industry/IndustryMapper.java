@@ -45,6 +45,7 @@ public interface IndustryMapper extends BaseMapper<Industry> {
             "<if test='marketTrend != null'>market_trend = #{marketTrend},</if>" +
             "<if test='talentTrend != null'>talent_trend = #{talentTrend},</if>" +
             "<if test='investmentTrend != null'>investment_trend = #{investmentTrend},</if>" +
+            "<if test='sortOrder != null'>sort_order = #{sortOrder},</if>" +
             "updated_at = #{updatedAt}" +
             "</set>" +
             "WHERE id = #{id}" +

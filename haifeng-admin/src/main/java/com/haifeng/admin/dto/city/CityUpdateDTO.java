@@ -51,4 +51,9 @@ public class CityUpdateDTO {
      */
     @Size(max = 500, message = "城市背景图URL不能超过500个字符")
     private String coverImageUrl;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示；不传默认 0）
+     */
+    private Integer sortOrder;
 }

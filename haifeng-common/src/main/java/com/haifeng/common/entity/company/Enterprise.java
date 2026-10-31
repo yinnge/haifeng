@@ -42,6 +42,10 @@ public class Enterprise {
 
     private Boolean isDeleted;
 
+    /** 排序权重（越大越靠前，C 端热点优先展示） */
+    @TableField("sort_order")
+    private Integer sortOrder;
+
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
 

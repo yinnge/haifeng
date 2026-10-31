@@ -76,6 +76,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         Certificate certificate = new Certificate();
         BeanUtils.copyProperties(addDTO, certificate);
+        certificate.setSortOrder(addDTO.getSortOrder() != null ? addDTO.getSortOrder() : 0);
         certificate.setIsDeleted(false);
 
         certificateMapper.insert(certificate);
@@ -101,6 +102,8 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         // 使用自定义SQL更新，绕过MyBatis-Plus全局逻辑删除配置
+        // sortOrder：管理员未传则保留库内原值（existing 已查出，必有值）
+        Integer certSortOrder = updateDTO.getSortOrder() != null ? updateDTO.getSortOrder() : existing.getSortOrder();
         certificateMapper.updateByIdIgnoreLogicDelete(
                 updateDTO.getId(),
                 updateDTO.getCertName(),
@@ -113,7 +116,8 @@ public class CertificateServiceImpl implements CertificateService {
                 updateDTO.getCertIntro(),
                 updateDTO.getExamRequirements(),
                 updateDTO.getExamArrangement(),
-                updateDTO.getOfficialWebsite()
+                updateDTO.getOfficialWebsite(),
+                certSortOrder
         );
         log.info("更新证书成功，id={}", updateDTO.getId());
     }
@@ -338,6 +342,7 @@ public class CertificateServiceImpl implements CertificateService {
                         .examRequirements(splitExamRequirements(dto.getExamRequirements()))
                         .examArrangement(dto.getExamArrangement())
                         .officialWebsite(dto.getOfficialWebsite())
+                        .sortOrder(0)
                         .isDeleted(false)
                         .build();
                 certificateMapper.insert(entity);
@@ -447,6 +452,7 @@ public class CertificateServiceImpl implements CertificateService {
                 .examTime(certificate.getExamTime())
                 .examFee(certificate.getExamFee())
                 .isDeleted(certificate.getIsDeleted())
+                .sortOrder(certificate.getSortOrder())
                 .createdAt(certificate.getCreatedAt())
                 .updatedAt(certificate.getUpdatedAt())
                 .build();
@@ -466,6 +472,7 @@ public class CertificateServiceImpl implements CertificateService {
                 .examRequirements(certificate.getExamRequirements())
                 .examArrangement(certificate.getExamArrangement())
                 .officialWebsite(certificate.getOfficialWebsite())
+                .sortOrder(certificate.getSortOrder())
                 .createdAt(certificate.getCreatedAt())
                 .updatedAt(certificate.getUpdatedAt())
                 .build();

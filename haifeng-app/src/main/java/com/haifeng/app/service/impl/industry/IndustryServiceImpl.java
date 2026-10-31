@@ -50,7 +50,8 @@ public class IndustryServiceImpl implements IndustryService {
         LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<Industry>()
                 .eq(Industry::getIsDeleted, false)
                 .eq(StringUtils.hasText(dto.getCategory()), Industry::getCategory, dto.getCategory())
-                .orderByAsc(Industry::getId);
+                .orderByDesc(Industry::getSortOrder)
+                .orderByDesc(Industry::getCreatedAt);
 
         IPage<Industry> entityPage = industryMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

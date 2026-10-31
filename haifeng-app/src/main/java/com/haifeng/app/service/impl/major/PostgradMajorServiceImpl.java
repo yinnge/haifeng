@@ -53,7 +53,8 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                         PostgradMajor::getPopularity, dto.getPopularity())
                 .eq(dto.getDifficulty() != null && !dto.getDifficulty().isBlank(),
                         PostgradMajor::getDifficulty, dto.getDifficulty())
-                .orderByDesc(PostgradMajor::getId);
+                .orderByDesc(PostgradMajor::getSortOrder)
+                .orderByDesc(PostgradMajor::getCreatedAt);
 
         IPage<PostgradMajor> entityPage = postgradMajorMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

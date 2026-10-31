@@ -27,4 +27,9 @@ public class EnterpriseDetailVO {
     private LocalDateTime updatedAt;
     // Tab2: 岗位列表
     private List<EnterprisePositionVO> positions;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

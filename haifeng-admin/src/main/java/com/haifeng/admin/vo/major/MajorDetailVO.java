@@ -71,4 +71,9 @@ public class MajorDetailVO {
     private String[] mainCourses;
 
     private String[] knowledgeSkills;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

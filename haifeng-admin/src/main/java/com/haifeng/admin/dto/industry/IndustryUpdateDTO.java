@@ -74,4 +74,9 @@ public class IndustryUpdateDTO {
     @Size(max = 20, message = "投资趋势不能超过20个字符")
     private String investmentTrend;
 
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示；不传默认 0）
+     */
+    private Integer sortOrder;
+
 }

@@ -40,7 +40,7 @@ public interface CityMapper extends BaseMapper<City> {
             "city_name = #{cityName}, province = #{province}, region = #{region}, " +
             "city_intro = #{cityIntro}, college_count = #{collegeCount}, " +
             "key_college_count = #{keyCollegeCount}, resident_population = #{residentPopulation}, " +
-            "gdp = #{gdp}, cover_image_url = #{coverImageUrl}, updated_at = NOW() " +
+            "gdp = #{gdp}, cover_image_url = #{coverImageUrl}, sort_order = #{sortOrder}, updated_at = NOW() " +
             "WHERE id = #{id}")
     int updateByIdCustom(City city);
 
