@@ -155,6 +155,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .mainBusiness(dto.getMainBusiness())
                 .enterpriseIntro(dto.getEnterpriseIntro())
                 .recruitmentStatus(dto.getRecruitmentStatus())
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
                 .isDeleted(false)
                 .createdAt(now)
                 .updatedAt(now)
@@ -191,6 +192,8 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         enterprise.setMainBusiness(dto.getMainBusiness());
         enterprise.setEnterpriseIntro(dto.getEnterpriseIntro());
         enterprise.setRecruitmentStatus(dto.getRecruitmentStatus());
+        enterprise.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder()
+                : (enterprise.getSortOrder() != null ? enterprise.getSortOrder() : 0));
         enterprise.setUpdatedAt(OffsetDateTime.now());
 
         enterpriseMapper.updateEntityById(enterprise);

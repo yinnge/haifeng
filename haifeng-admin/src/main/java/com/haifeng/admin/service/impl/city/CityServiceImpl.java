@@ -142,6 +142,7 @@ public class CityServiceImpl implements CityService {
                 .residentPopulation(dto.getResidentPopulation())
                 .gdp(dto.getGdp())
                 .coverImageUrl(dto.getCoverImageUrl())
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
                 .isDeleted(false)
                 .createdAt(now)
                 .updatedAt(now)
@@ -214,6 +215,8 @@ public class CityServiceImpl implements CityService {
         city.setResidentPopulation(dto.getResidentPopulation());
         city.setGdp(dto.getGdp());
         city.setCoverImageUrl(dto.getCoverImageUrl());
+        city.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder()
+                : (city.getSortOrder() != null ? city.getSortOrder() : 0));
         city.setUpdatedAt(OffsetDateTime.now());
 
         int rows = cityMapper.updateByIdCustom(city);

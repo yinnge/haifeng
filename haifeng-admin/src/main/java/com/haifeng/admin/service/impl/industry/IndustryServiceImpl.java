@@ -137,6 +137,7 @@ public class IndustryServiceImpl implements IndustryService {
                 .marketTrend(dto.getMarketTrend())
                 .talentTrend(dto.getTalentTrend())
                 .investmentTrend(dto.getInvestmentTrend())
+                .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
                 .isDeleted(false)
                 .createdAt(now)
                 .updatedAt(now)
@@ -195,6 +196,9 @@ public class IndustryServiceImpl implements IndustryService {
         industry.setMarketTrend(dto.getMarketTrend());
         industry.setTalentTrend(dto.getTalentTrend());
         industry.setInvestmentTrend(dto.getInvestmentTrend());
+        if (dto.getSortOrder() != null) {
+            industry.setSortOrder(dto.getSortOrder());
+        }
         industry.setUpdatedAt(OffsetDateTime.now());
 
         industryMapper.updateByIdIgnoreLogicDelete(industry);
@@ -431,6 +435,7 @@ public class IndustryServiceImpl implements IndustryService {
                             .marketTrend(data.getMarketTrend())
                             .talentTrend(data.getTalentTrend())
                             .investmentTrend(data.getInvestmentTrend())
+                            .sortOrder(0)
                             .isDeleted(false)
                             .createdAt(now)
                             .updatedAt(now)

@@ -293,7 +293,7 @@ public class CityServiceImpl implements CityService {
     /** 排序白名单（DTO @Pattern 已做第一层校验），均为倒序 + id 正序稳定排序 */
     private void applySort(LambdaQueryWrapper<City> wrapper, String sortBy) {
         if (!StringUtils.hasText(sortBy)) {
-            wrapper.orderByAsc(City::getId);
+            wrapper.orderByDesc(City::getSortOrder).orderByDesc(City::getCreatedAt);
             return;
         }
         switch (sortBy) {

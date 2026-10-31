@@ -65,6 +65,7 @@ public interface EnterpriseMapper extends BaseMapper<Enterprise> {
             "main_business = #{e.mainBusiness}, " +
             "enterprise_intro = #{e.enterpriseIntro}, " +
             "recruitment_status = #{e.recruitmentStatus}, " +
+            "sort_order = #{e.sortOrder}, " +
             "updated_at = #{e.updatedAt} " +
             "WHERE id = #{e.id}" +
             "</script>")

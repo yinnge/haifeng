@@ -192,4 +192,9 @@ public class CityAddDTO {
      * 文化娱乐
      */
     private Map<String, Object> culture;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示；不传默认 0）
+     */
+    private Integer sortOrder;
 }

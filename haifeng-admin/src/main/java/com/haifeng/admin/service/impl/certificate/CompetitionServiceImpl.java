@@ -89,6 +89,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         // 创建竞赛主表记录
         Competition competition = new Competition();
         BeanUtils.copyProperties(addDTO, competition);
+        competition.setSortOrder(addDTO.getSortOrder() != null ? addDTO.getSortOrder() : 0);
         competition.setIsDeleted(false);
         competitionMapper.insert(competition);
 
@@ -160,6 +161,9 @@ public class CompetitionServiceImpl implements CompetitionService {
         existing.setCompName(updateDTO.getCompName());
         existing.setCompLevel(updateDTO.getCompLevel());
         existing.setRegistrationTime(updateDTO.getRegistrationTime());
+        if (updateDTO.getSortOrder() != null) {
+            existing.setSortOrder(updateDTO.getSortOrder());
+        }
         competitionMapper.updateIgnoreLogicDelete(existing);
 
         // 更新详情表
@@ -259,6 +263,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .compName(competition.getCompName())
                 .compLevel(competition.getCompLevel())
                 .registrationTime(competition.getRegistrationTime())
+                .sortOrder(competition.getSortOrder())
                 .isDeleted(competition.getIsDeleted())
                 .createdAt(competition.getCreatedAt())
                 .updatedAt(competition.getUpdatedAt())
@@ -271,6 +276,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .compName(competition.getCompName())
                 .compLevel(competition.getCompLevel())
                 .registrationTime(competition.getRegistrationTime())
+                .sortOrder(competition.getSortOrder())
                 .createdAt(competition.getCreatedAt())
                 .updatedAt(competition.getUpdatedAt());
 
@@ -391,6 +397,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                         .compName(compName)
                         .compLevel(dto.getCompLevel())
                         .registrationTime(dto.getRegistrationTime())
+                        .sortOrder(0)
                         .isDeleted(false)
                         .build();
                 competitionMapper.insert(entity);

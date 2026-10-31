@@ -30,4 +30,9 @@ public class CompetitionListVO {
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示）
+     */
+    private Integer sortOrder;
 }

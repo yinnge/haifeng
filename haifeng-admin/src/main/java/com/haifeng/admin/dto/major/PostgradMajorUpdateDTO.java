@@ -81,4 +81,9 @@ public class PostgradMajorUpdateDTO {
      * 状态
      */
     private Short status;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示；不传默认 0）
+     */
+    private Integer sortOrder;
 }

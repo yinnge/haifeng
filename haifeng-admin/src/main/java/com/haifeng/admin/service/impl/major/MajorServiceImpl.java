@@ -164,6 +164,7 @@ public class MajorServiceImpl implements MajorService {
                 .salaryMin(addDTO.getSalaryMin())
                 .salaryMax(addDTO.getSalaryMax())
                 .description(addDTO.getDescription())
+                .sortOrder(addDTO.getSortOrder() != null ? addDTO.getSortOrder() : 0)
                 .status((short) 1)
                 .createdAt(now)
                 .updatedAt(now)
@@ -226,6 +227,9 @@ public class MajorServiceImpl implements MajorService {
         }
         if (updateDTO.getDescription() != null) {
             major.setDescription(updateDTO.getDescription());
+        }
+        if (updateDTO.getSortOrder() != null) {
+            major.setSortOrder(updateDTO.getSortOrder());
         }
         major.setUpdatedAt(OffsetDateTime.now());
 
@@ -480,6 +484,7 @@ public class MajorServiceImpl implements MajorService {
                             .salaryMin(dto.getSalaryMin())
                             .salaryMax(dto.getSalaryMax())
                             .description(dto.getDescription())
+                            .sortOrder(0)
                             .status((short) 1)
                             .createdAt(now)
                             .updatedAt(now)

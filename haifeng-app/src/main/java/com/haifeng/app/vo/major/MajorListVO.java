@@ -25,6 +25,7 @@ public class MajorListVO implements Serializable {
     private String parentCategory;
     private String majorTags;
     private String degreeAwarded;
+    private String studyDuration;
     private BigDecimal employmentRate;
     private Integer salaryMin;
     private Integer salaryMax;

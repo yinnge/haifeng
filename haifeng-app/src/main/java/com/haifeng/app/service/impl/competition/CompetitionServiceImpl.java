@@ -42,7 +42,8 @@ public class CompetitionServiceImpl implements CompetitionService {
                         Competition::getCompName, dto.getCompName())
                 .eq(StringUtils.hasText(dto.getCompLevel()),
                         Competition::getCompLevel, dto.getCompLevel())
-                .orderByAsc(Competition::getId);
+                .orderByDesc(Competition::getSortOrder)
+                .orderByDesc(Competition::getCreatedAt);
 
         IPage<Competition> entityPage = competitionMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

@@ -42,7 +42,7 @@ public interface CompetitionMapper extends BaseMapper<Competition> {
     int updateIsDeletedById(@Param("id") Long id, @Param("isDeleted") Boolean isDeleted);
 
     @Update("UPDATE t_competition SET comp_name = #{compName}, comp_level = #{compLevel}, " +
-            "registration_time = #{registrationTime}, updated_at = NOW() WHERE id = #{id}")
+            "registration_time = #{registrationTime}, sort_order = #{sortOrder}, updated_at = NOW() WHERE id = #{id}")
     int updateIgnoreLogicDelete(Competition competition);
 
     @Delete("DELETE FROM t_competition WHERE id = #{id}")

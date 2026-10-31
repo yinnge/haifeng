@@ -49,7 +49,8 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .eq(StringUtils.hasText(dto.getEnterpriseType()), Enterprise::getEnterpriseType, dto.getEnterpriseType())
                 .eq(StringUtils.hasText(dto.getCityName()), Enterprise::getCityName, dto.getCityName())
                 .eq(StringUtils.hasText(dto.getRecruitmentStatus()), Enterprise::getRecruitmentStatus, dto.getRecruitmentStatus())
-                .orderByAsc(Enterprise::getId);
+                .orderByDesc(Enterprise::getSortOrder)
+                .orderByDesc(Enterprise::getCreatedAt);
 
         IPage<Enterprise> entityPage = enterpriseMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

@@ -40,4 +40,9 @@ public class CertificateAddDTO {
 
     @Size(max = 500, message = "官网链接最长500字符")
     private String officialWebsite;
+
+    /**
+     * 排序权重（越大越靠前，C 端热点优先展示；不传默认 0）
+     */
+    private Integer sortOrder;
 }
