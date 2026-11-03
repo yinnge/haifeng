@@ -2,6 +2,7 @@ package com.haifeng.app.dto.fileload;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -18,4 +19,11 @@ public class FileLoadPageQueryDTO {
     @Min(value = 12, message = "每页最小12条")
     @Max(value = 110, message = "每页最大110条")
     private Integer size = 12;
+
+    /**
+     * 独立搜索关键词（与 subject/applicableStage/tag 三个筛选项正交，可单独用也可叠加）。
+     * 命中 file_name 或 description（PostgreSQL ILIKE 不区分大小写包含），空值表示不过滤。
+     */
+    @Size(max = 50, message = "搜索关键词长度不能超过50")
+    private String keyword;
 }

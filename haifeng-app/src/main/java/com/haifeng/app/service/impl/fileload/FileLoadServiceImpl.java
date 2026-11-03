@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.service.fileload.FileLoadService;
-import com.haifeng.app.service.watermark.FileWatermarkService;
 import com.haifeng.app.vo.fileload.FileLoadDetailVO;
 import com.haifeng.app.vo.fileload.FileLoadListVO;
 import com.haifeng.app.vo.fileload.NetdiskInfoVO;
@@ -41,7 +40,6 @@ public class FileLoadServiceImpl implements FileLoadService {
     private final OssService ossService;
     private final OssProperties ossProperties;
     private final StringRedisTemplate redisTemplate;
-    private final FileWatermarkService fileWatermarkService;
 
     /** 存储方式：百度网盘（不产生 OSS 对象） */
     private static final String STORAGE_TYPE_BAIDU = "BAIDU";
@@ -63,6 +61,21 @@ public class FileLoadServiceImpl implements FileLoadService {
         }
         if (StringUtils.hasText(tag)) {
             wrapper.eq(FileInfo::getTag, tag);
+        }
+
+        // 独立搜索关键词：命中 文件名 或 简介（PostgreSQL ILIKE 不区分大小写包含），
+        // 与 subject / applicableStage / tag 三个筛选项以 AND 叠加（先搜后筛、先筛后搜均生效）。
+        // 转义 LIKE 通配符 % _，避免用户输入被当作通配符；trim 去除首尾空格。
+        String keyword = dto.getKeyword();
+        if (StringUtils.hasText(keyword)) {
+            String kw = keyword.trim()
+                    .replace("%", "\\%")
+                    .replace("_", "\\_");
+            String pattern = "%" + kw + "%";
+            wrapper.and(w -> w
+                    .apply("file_name ILIKE {0} ESCAPE '\\'", pattern)
+                    .or()
+                    .apply("description ILIKE {0} ESCAPE '\\'", pattern));
         }
 
         wrapper.orderByDesc(FileInfo::getCreateTime);
@@ -124,9 +137,8 @@ public class FileLoadServiceImpl implements FileLoadService {
             return vo;
         }
 
-        // 下载统一走带水印 PDF（首次访问触发生成并缓存到 OSS，后续直接复用）；
-        // 不支持水印的格式、转换服务不可用、生成失败时自动降级为原文件
-        vo.setDownloadUrl(fileWatermarkService.getWatermarkedDownloadUrl(fileInfo));
+        // 下载直接返回原文件（不再触发水印链路）
+        vo.setDownloadUrl(ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName()));
 
         // 生成KKFileView预览URL（4.x 要求 url 参数为 Base64 编码）
         // 【关键1】预览必须用【干净】的 OSS 预签名 URL（不带 disposition），否则 URL 里 response-content-disposition
@@ -204,8 +216,8 @@ public class FileLoadServiceImpl implements FileLoadService {
             throw new BusinessException(429, "操作频繁，请稍后再试");
         }
 
-        // 下载统一输出带水印 PDF（生成结果按文件缓存复用，非每次下载都重算）
-        return fileWatermarkService.getWatermarkedDownloadUrl(fileInfo);
+        // 下载直接返回原文件（不再触发水印链路）
+        return ossService.generatePresignedUrl(fileInfo.getFileUrl(), fileInfo.getFileName());
     }
 
     @Override
