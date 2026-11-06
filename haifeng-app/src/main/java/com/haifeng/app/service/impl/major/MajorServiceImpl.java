@@ -52,6 +52,13 @@ public class MajorServiceImpl implements MajorService {
     public IPage<MajorListVO> page(MajorListQueryDTO dto) {
         Page<Major> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的专业 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<MajorListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<Major>()
                 .eq(Major::getStatus, STATUS_PUBLISHED)
                 .like(dto.getName() != null && !dto.getName().isBlank(),
@@ -61,7 +68,8 @@ public class MajorServiceImpl implements MajorService {
                 .eq(dto.getMajorType() != null && !dto.getMajorType().isBlank(),
                         Major::getMajorType, dto.getMajorType())
                 .eq(dto.getMajorCategory() != null && !dto.getMajorCategory().isBlank(),
-                        Major::getMajorCategory, dto.getMajorCategory());
+                        Major::getMajorCategory, dto.getMajorCategory())
+                .in(favoriteIds != null, Major::getId, favoriteIds);
 
         // 就业率区间筛选
         if (dto.getEmploymentRateMin() != null) {

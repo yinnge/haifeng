@@ -70,6 +70,13 @@ public class UniversityServiceImpl implements UniversityService {
             }
         }
 
+        // 收藏过滤：传入收藏的院校 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<>(dto.getPage(), dto.getSize());
+        }
+
         // 省份兼容匹配：前端传简称（天津/黑龙江/内蒙古…），库中多存全称（天津市/黑龙江省/内蒙古自治区…），
         // 少量脏数据存简称（四川、北京）。两侧都剥后缀成核名再比较（详见 ProvinceNameUtil）。
         // stripSuffix(null) 返回 null，下面以「是否为 null」决定是否拼接该 SQL 条件。
@@ -86,7 +93,8 @@ public class UniversityServiceImpl implements UniversityService {
                 .eq(StringUtils.hasText(dto.getNature()), University::getNature, dto.getNature())
                 .eq(StringUtils.hasText(dto.getCategory()), University::getCategory, dto.getCategory())
                 .eq(StringUtils.hasText(dto.getEducationLevel()), University::getEducationLevel, dto.getEducationLevel())
-                .in(channelUniversityIds != null, University::getId, channelUniversityIds);
+                .in(channelUniversityIds != null, University::getId, channelUniversityIds)
+                .in(favoriteIds != null, University::getId, favoriteIds);
         // 标签筛选：tags @> ARRAY['x']::text[]，多标签逐条拼接 = AND 交集；{0} 走绑定参数防注入
         if (dto.getTags() != null) {
             dto.getTags().stream()

@@ -17,7 +17,8 @@ public enum FavoriteTargetType {
     COMPETITION("competition", "竞赛"),
     CERTIFICATE("certificate", "证书"),
     ENTERPRISE("enterprise", "企业"),
-    INDUSTRY("industry", "行业");
+    INDUSTRY("industry", "行业"),
+    FILE_INFO("file_info", "文件");
 
     @EnumValue
     private final String value;
