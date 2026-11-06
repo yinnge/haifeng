@@ -28,6 +28,13 @@ public class CertificateServiceImpl implements CertificateService {
     public IPage<CertificateListVO> page(CertificateListQueryDTO dto) {
         Page<Certificate> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的证书 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<CertificateListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<Certificate> wrapper = new LambdaQueryWrapper<Certificate>()
                 .eq(Certificate::getIsDeleted, false)
                 .eq(StringUtils.hasText(dto.getCategory()),
@@ -35,7 +42,8 @@ public class CertificateServiceImpl implements CertificateService {
                 .like(StringUtils.hasText(dto.getCertName()),
                         Certificate::getCertName, dto.getCertName())
                 .orderByDesc(Certificate::getSortOrder)
-                .orderByDesc(Certificate::getCreatedAt);
+                .orderByDesc(Certificate::getCreatedAt)
+                .in(favoriteIds != null, Certificate::getId, favoriteIds);
 
         IPage<Certificate> entityPage = certificateMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

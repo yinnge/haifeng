@@ -42,6 +42,13 @@ public class EnterpriseServiceImpl implements EnterpriseService {
     public IPage<EnterpriseListVO> page(EnterpriseQueryDTO dto) {
         Page<Enterprise> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的企业 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<EnterpriseListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<Enterprise> wrapper = new LambdaQueryWrapper<Enterprise>()
                 .eq(Enterprise::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getEnterpriseName()), Enterprise::getEnterpriseName, dto.getEnterpriseName())
@@ -50,7 +57,8 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .eq(StringUtils.hasText(dto.getCityName()), Enterprise::getCityName, dto.getCityName())
                 .eq(StringUtils.hasText(dto.getRecruitmentStatus()), Enterprise::getRecruitmentStatus, dto.getRecruitmentStatus())
                 .orderByDesc(Enterprise::getSortOrder)
-                .orderByDesc(Enterprise::getCreatedAt);
+                .orderByDesc(Enterprise::getCreatedAt)
+                .in(favoriteIds != null, Enterprise::getId, favoriteIds);
 
         IPage<Enterprise> entityPage = enterpriseMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

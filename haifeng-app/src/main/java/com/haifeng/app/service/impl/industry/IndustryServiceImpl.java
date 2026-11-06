@@ -47,11 +47,19 @@ public class IndustryServiceImpl implements IndustryService {
     public IPage<IndustryListVO> page(IndustryQueryDTO dto) {
         Page<Industry> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的行业 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<IndustryListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<Industry> wrapper = new LambdaQueryWrapper<Industry>()
                 .eq(Industry::getIsDeleted, false)
                 .eq(StringUtils.hasText(dto.getCategory()), Industry::getCategory, dto.getCategory())
                 .orderByDesc(Industry::getSortOrder)
-                .orderByDesc(Industry::getCreatedAt);
+                .orderByDesc(Industry::getCreatedAt)
+                .in(favoriteIds != null, Industry::getId, favoriteIds);
 
         IPage<Industry> entityPage = industryMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);

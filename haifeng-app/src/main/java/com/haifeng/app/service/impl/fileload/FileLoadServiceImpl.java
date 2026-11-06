@@ -63,6 +63,14 @@ public class FileLoadServiceImpl implements FileLoadService {
             wrapper.eq(FileInfo::getTag, tag);
         }
 
+        // 收藏过滤：传入已收藏的文件 id 集合时，仅返回命中项，与上面筛选 AND 叠加。
+        // 空集合表示"无收藏" → 直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> ids = dto.getIds();
+        if (ids != null && ids.isEmpty()) {
+            return new Page<FileLoadListVO>(dto.getPage(), dto.getSize());
+        }
+        wrapper.in(ids != null, FileInfo::getId, ids);
+
         // 独立搜索关键词：命中 文件名 或 简介（PostgreSQL ILIKE 不区分大小写包含），
         // 与 subject / applicableStage / tag 三个筛选项以 AND 叠加（先搜后筛、先筛后搜均生效）。
         // 转义 LIKE 通配符 % _，避免用户输入被当作通配符；trim 去除首尾空格。

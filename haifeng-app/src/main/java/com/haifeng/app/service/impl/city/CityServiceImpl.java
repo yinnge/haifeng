@@ -51,6 +51,13 @@ public class CityServiceImpl implements CityService {
     public IPage<CityListVO> page(CityQueryDTO dto) {
         Page<City> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的城市 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<CityListVO>(dto.getPage(), dto.getSize());
+        }
+
         // 省份兼容匹配：stripSuffix(null) 返回 null，
         // 以「剥离结果是否为 null」作为 apply 的条件，避免空参拼接 SQL。
         String province = StringUtils.hasText(dto.getProvince())
@@ -63,7 +70,8 @@ public class CityServiceImpl implements CityService {
                 .apply(province != null,
                         ProvinceNameUtil.strippedColumnEquals("province"),
                         province)
-                .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion());
+                .eq(StringUtils.hasText(dto.getRegion()), City::getRegion, dto.getRegion())
+                .in(favoriteIds != null, City::getId, favoriteIds);
 
         // 排行榜"查看全部"：白名单指标倒序；默认 id 正序
         applySort(wrapper, dto.getSortBy());

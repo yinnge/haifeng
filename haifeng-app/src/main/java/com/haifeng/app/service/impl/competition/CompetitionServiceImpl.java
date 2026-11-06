@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -36,6 +37,13 @@ public class CompetitionServiceImpl implements CompetitionService {
     public IPage<CompetitionListVO> page(CompetitionListQueryDTO dto) {
         Page<Competition> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的竞赛 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<CompetitionListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<Competition> wrapper = new LambdaQueryWrapper<Competition>()
                 .eq(Competition::getIsDeleted, false)
                 .like(StringUtils.hasText(dto.getCompName()),
@@ -43,7 +51,8 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .eq(StringUtils.hasText(dto.getCompLevel()),
                         Competition::getCompLevel, dto.getCompLevel())
                 .orderByDesc(Competition::getSortOrder)
-                .orderByDesc(Competition::getCreatedAt);
+                .orderByDesc(Competition::getCreatedAt)
+                .in(favoriteIds != null, Competition::getId, favoriteIds);
 
         IPage<Competition> entityPage = competitionMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
