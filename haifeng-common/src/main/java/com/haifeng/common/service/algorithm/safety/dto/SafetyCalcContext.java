@@ -27,7 +27,7 @@ public class SafetyCalcContext {
     /** 用户省份的改革年份（null = 未改革省份） */
     private Short reformYear;
 
-    /** 约束 severity 映射（key: 约束code, value: HARD/SOFT），service 层预聚合 */
+    /** 约束 severity 映射（key: 约束名称 name, value: HARD/SOFT），service 层预聚合 */
     private Map<String, String> severityMap;
 
     /** 当前专业明细的历史录取数据 */

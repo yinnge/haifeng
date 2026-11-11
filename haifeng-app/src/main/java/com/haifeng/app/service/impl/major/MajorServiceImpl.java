@@ -59,32 +59,8 @@ public class MajorServiceImpl implements MajorService {
             return new Page<MajorListVO>(dto.getPage(), dto.getSize());
         }
 
-        LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<Major>()
-                .eq(Major::getStatus, STATUS_PUBLISHED)
-                .like(dto.getName() != null && !dto.getName().isBlank(),
-                        Major::getMajorName, dto.getName())
-                .like(dto.getCode() != null && !dto.getCode().isBlank(),
-                        Major::getMajorCode, dto.getCode())
-                .eq(dto.getMajorType() != null && !dto.getMajorType().isBlank(),
-                        Major::getMajorType, dto.getMajorType())
-                .eq(dto.getMajorCategory() != null && !dto.getMajorCategory().isBlank(),
-                        Major::getMajorCategory, dto.getMajorCategory())
-                .in(favoriteIds != null, Major::getId, favoriteIds);
-
-        // 就业率区间筛选
-        if (dto.getEmploymentRateMin() != null) {
-            wrapper.ge(Major::getEmploymentRate, dto.getEmploymentRateMin());
-        }
-        if (dto.getEmploymentRateMax() != null) {
-            wrapper.le(Major::getEmploymentRate, dto.getEmploymentRateMax());
-        }
-        // 月薪区间筛选
-        if (dto.getSalaryMin() != null) {
-            wrapper.ge(Major::getSalaryMin, dto.getSalaryMin());
-        }
-        if (dto.getSalaryMax() != null) {
-            wrapper.le(Major::getSalaryMax, dto.getSalaryMax());
-        }
+        // 与「授予学位候选值」接口共用同一份筛选条件，避免两处条件漂移
+        LambdaQueryWrapper<Major> wrapper = buildQueryWrapper(dto);
 
         // 动态排序：综合排序=默认(sort_order, created_at)；就业率/薪资水平按对应列(NULLS LAST)；热度=sort_order
         String sortBy = dto.getSortBy();
@@ -104,6 +80,70 @@ public class MajorServiceImpl implements MajorService {
 
         IPage<Major> entityPage = majorMapper.selectPage(page, wrapper);
         return entityPage.convert(this::toListVO);
+    }
+
+    @Override
+    public List<String> listDegreeAwardedOptions(MajorListQueryDTO dto) {
+        // 与 page() 保持一致的「空 ids = 无匹配」语义
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return List.of();
+        }
+
+        // 与 /list 同一份 WHERE 条件，跨全量匹配记录去重（不分页、不带列表的动态排序）
+        LambdaQueryWrapper<Major> wrapper = buildQueryWrapper(dto)
+                .isNotNull(Major::getDegreeAwarded)
+                .ne(Major::getDegreeAwarded, "")
+                // V43 曾修复导入产生的字面量 'null'，此处同样排除
+                .ne(Major::getDegreeAwarded, "null")
+                .groupBy(Major::getDegreeAwarded)
+                .select(Major::getDegreeAwarded)
+                .orderByAsc(Major::getDegreeAwarded);
+
+        // 不做 trim：返回什么值，用户点选后用 eq 就能原样命中
+        return majorMapper.selectObjs(wrapper).stream()
+                .filter(value -> value != null)
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 构造 /list 与 /degree-awarded/options 共用的筛选条件（仅 WHERE，不含分页与动态排序）。
+     * 新增筛选字段时只改这里，保证下拉候选值与列表结果始终基于同一结果集。
+     * 注意：调用方需先自行处理 ids 为空集合（= 无匹配）的情况，避免 IN () 生成非法 SQL。
+     */
+    private LambdaQueryWrapper<Major> buildQueryWrapper(MajorListQueryDTO dto) {
+        List<Long> favoriteIds = dto.getIds();
+        LambdaQueryWrapper<Major> wrapper = new LambdaQueryWrapper<Major>()
+                .eq(Major::getStatus, STATUS_PUBLISHED)
+                .like(dto.getName() != null && !dto.getName().isBlank(),
+                        Major::getMajorName, dto.getName())
+                .like(dto.getCode() != null && !dto.getCode().isBlank(),
+                        Major::getMajorCode, dto.getCode())
+                .eq(dto.getMajorType() != null && !dto.getMajorType().isBlank(),
+                        Major::getMajorType, dto.getMajorType())
+                .eq(dto.getMajorCategory() != null && !dto.getMajorCategory().isBlank(),
+                        Major::getMajorCategory, dto.getMajorCategory())
+                // 授予学位精准匹配，与其它条件 AND；不做 trim，与候选值接口口径一致
+                .eq(dto.getDegreeAwarded() != null && !dto.getDegreeAwarded().isBlank(),
+                        Major::getDegreeAwarded, dto.getDegreeAwarded())
+                .in(favoriteIds != null, Major::getId, favoriteIds);
+
+        // 就业率区间筛选
+        if (dto.getEmploymentRateMin() != null) {
+            wrapper.ge(Major::getEmploymentRate, dto.getEmploymentRateMin());
+        }
+        if (dto.getEmploymentRateMax() != null) {
+            wrapper.le(Major::getEmploymentRate, dto.getEmploymentRateMax());
+        }
+        // 月薪区间筛选
+        if (dto.getSalaryMin() != null) {
+            wrapper.ge(Major::getSalaryMin, dto.getSalaryMin());
+        }
+        if (dto.getSalaryMax() != null) {
+            wrapper.le(Major::getSalaryMax, dto.getSalaryMax());
+        }
+        return wrapper;
     }
 
     @Override

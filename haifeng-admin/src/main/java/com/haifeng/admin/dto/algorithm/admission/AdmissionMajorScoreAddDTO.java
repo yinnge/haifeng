@@ -2,6 +2,7 @@ package com.haifeng.admin.dto.algorithm.admission;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,7 +35,8 @@ public class AdmissionMajorScoreAddDTO {
     private Integer avgRank;
     private Integer maxScore;
     private Integer maxRank;
-    private List<String> constraints;
+    @Size(max = 20, message = "报考限制条件数量不能超过20")
+    private List<@Size(max = 100, message = "报考限制条件名称长度不能超过100") String> constraints;
 
     /**
      * 可选：多年度分数数组（优先于平铺分数字段）。

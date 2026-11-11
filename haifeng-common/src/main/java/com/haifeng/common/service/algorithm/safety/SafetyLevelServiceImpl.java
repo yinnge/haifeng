@@ -60,11 +60,11 @@ public class SafetyLevelServiceImpl implements SafetyLevelService {
         // 3. 约束权重配置（单例）
         GaokaoConfig gaokaoConfig = gaokaoConfigMapper.selectSingleton();
 
-        // 4. 用户约束 severity 映射
+        // 4. 用户约束 severity 映射（专业明细 constraints 存名称，故以字典 name 为 key）
         Map<String, String> severityMap = Collections.emptyMap();
         if (userConstraints != null && !userConstraints.isEmpty()) {
             severityMap = constraintDictMapper.selectSeverityByCodes(userConstraints).stream()
-                    .collect(Collectors.toMap(ConstraintDict::getCode, ConstraintDict::getSeverity, (a, b) -> a));
+                    .collect(Collectors.toMap(ConstraintDict::getName, ConstraintDict::getSeverity, (a, b) -> a));
         }
 
         return SafetyBatchContext.builder()

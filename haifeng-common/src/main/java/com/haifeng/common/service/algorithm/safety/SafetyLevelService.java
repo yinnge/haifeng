@@ -14,7 +14,7 @@ import java.util.List;
 public interface SafetyLevelService {
 
     /**
-     * 预取批量计算上下文（密度/省配置/GaokaoConfig/约束severityMap 各查一次）
+     * 预取批量计算上下文（密度/省配置/GaokaoConfig/约束名称severityMap 各查一次）
      * 供同一用户的批量安全系数计算复用
      *
      * @param gaokao          用户档案

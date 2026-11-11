@@ -14,6 +14,7 @@ import com.haifeng.common.entity.algorithm.AdmissionMajorScore;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.AdmissionGroupMapper;
 import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
+import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
 
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final AdmissionGroupMapper admissionGroupMapper;
+    private final ConstraintDictMapper constraintDictMapper;
 
     @Override
     public IPage<AdmissionMajorScoreListVO> page(AdmissionMajorScoreQueryDTO dto) {
@@ -78,7 +80,7 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         entity.setDuration(dto.getDuration());
         entity.setTuition(dto.getTuition());
         entity.setDescription(dto.getDescription());
-        entity.setConstraints(dto.getConstraints());
+        entity.setConstraints(normalizeAndValidateConstraints(dto.getConstraints()));
         entity.setIsDeleted(false);
 
         // 从 DTO 构建 history jsonb：优先使用多年度数组，否则用平铺分数字段构建单条
@@ -121,7 +123,9 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
         if (dto.getDuration() != null) existing.setDuration(dto.getDuration());
         if (dto.getTuition() != null) existing.setTuition(dto.getTuition());
         if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
-        if (dto.getConstraints() != null) existing.setConstraints(dto.getConstraints());
+        if (dto.getConstraints() != null) {
+            existing.setConstraints(normalizeAndValidateConstraints(dto.getConstraints()));
+        }
 
         // 更新 history：优先整体替换（前端提交全量多年度分数），否则用平铺字段按年份覆盖/追加
         if (dto.getHistory() != null) {
@@ -231,6 +235,37 @@ public class AdmissionMajorScoreServiceImpl implements AdmissionMajorScoreServic
 
     private boolean existsByGroupIdAndMajorCode(Integer groupId, String majorCode, Integer excludeId) {
         return admissionMajorScoreMapper.countByGroupIdAndMajorCode(groupId, majorCode, excludeId) > 0;
+    }
+
+    /**
+     * 规整并校验报考限制条件：去空白、去重，名称必须存在于约束字典（仅启用项）。
+     */
+    private List<String> normalizeAndValidateConstraints(List<String> constraints) {
+        if (constraints == null || constraints.isEmpty()) {
+            return constraints;
+        }
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        for (String constraint : constraints) {
+            if (constraint == null) {
+                continue;
+            }
+            String name = constraint.trim();
+            if (!name.isEmpty()) {
+                normalized.add(name);
+            }
+        }
+        if (normalized.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Set<String> activeNames = new HashSet<>(constraintDictMapper.selectActiveNames());
+        List<String> invalidNames = normalized.stream()
+                .filter(name -> !activeNames.contains(name))
+                .toList();
+        if (!invalidNames.isEmpty()) {
+            throw new BusinessException(400, "报考限制条件不存在或未启用："
+                    + String.join("、", invalidNames));
+        }
+        return new ArrayList<>(normalized);
     }
 
     private AdmissionMajorScoreListVO convertToListVO(AdmissionMajorScore entity) {
