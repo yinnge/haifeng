@@ -18,6 +18,9 @@ public interface MajorService {
     /** 任务1接口1：专业列表（公开） */
     IPage<MajorListVO> page(MajorListQueryDTO dto);
 
+    /** 授予学位候选值（公开）：与 /list 同筛选条件，跨全量匹配记录去重后返回，供前端下拉联动 */
+    List<String> listDegreeAwardedOptions(MajorListQueryDTO dto);
+
     /** 任务1接口2：专业详情（登录） */
     MajorDetailVO detail(Long majorId);
 

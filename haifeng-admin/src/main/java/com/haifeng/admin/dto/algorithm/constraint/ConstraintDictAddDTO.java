@@ -15,6 +15,7 @@ public class ConstraintDictAddDTO {
 
     @NotBlank(message = "约束名称不能为空")
     @Size(max = 100, message = "约束名称最长100字符")
+    @Pattern(regexp = "^[^,，]*$", message = "约束名称不能包含逗号")
     private String name;
 
     @NotBlank(message = "约束大类不能为空")

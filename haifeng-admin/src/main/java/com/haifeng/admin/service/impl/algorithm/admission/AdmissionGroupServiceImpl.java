@@ -19,6 +19,7 @@ import com.haifeng.common.entity.university.University;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.algorithm.AdmissionGroupMapper;
 import com.haifeng.common.mapper.algorithm.AdmissionMajorScoreMapper;
+import com.haifeng.common.mapper.algorithm.ConstraintDictMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,9 +41,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdmissionGroupServiceImpl implements AdmissionGroupService {
 
+    private static final int MAX_EXCEL_UPLOAD_NUMBER = 3000;
     private final AdmissionGroupMapper admissionGroupMapper;
     private final AdmissionMajorScoreMapper admissionMajorScoreMapper;
     private final UniversityMapper universityMapper;
+    private final ConstraintDictMapper constraintDictMapper;
     private final PlatformTransactionManager transactionManager;
 
     private static final int MAX_ERROR_DISPLAY = 50;
@@ -259,8 +262,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         if (dataList == null || dataList.isEmpty()) {
             throw new BusinessException(400, "Excel文件中没有数据");
         }
-        if (dataList.size() > 1000) {
-            throw new BusinessException(400, "单次导入不能超过1000条记录");
+        if (dataList.size() > MAX_EXCEL_UPLOAD_NUMBER) {
+            throw new BusinessException(400, "单次导入不能超过3000条记录");
         }
 
         // ==================== 2. 第一轮：全量校验（事务外，绝不 insert） ====================
@@ -284,6 +287,8 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
                 "湖北", "湖南", "广东", "广西", "海南", "重庆", "四川", "贵州",
                 "云南", "西藏", "陕西", "甘肃", "青海", "宁夏", "新疆"
         );
+        // 约束字典中启用中的名称（一次查询，全量行复用；报考限制条件必须命中）
+        Set<String> activeConstraintNames = new HashSet<>(constraintDictMapper.selectActiveNames());
 
         for (int i = 0; i < dataList.size(); i++) {
             int rowNum = i + 2;
@@ -365,6 +370,19 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
             if (dto.getConstraintsStr() != null && dto.getConstraintsStr().length() > 500) {
                 errors.add("第" + rowNum + "行: 报考限制条件长度不能超过500");
+            }
+
+            // ---- 报考限制条件：名称必须存在于约束字典（仅启用项）----
+            List<String> rowConstraintNames = parseList(dto.getConstraintsStr());
+            if (!rowConstraintNames.isEmpty()) {
+                List<String> invalidConstraintNames = rowConstraintNames.stream()
+                        .filter(name -> !activeConstraintNames.contains(name))
+                        .distinct()
+                        .collect(Collectors.toList());
+                if (!invalidConstraintNames.isEmpty()) {
+                    errors.add("第" + rowNum + "行: 报考限制条件["
+                            + String.join("、", invalidConstraintNames) + "]不存在或未启用");
+                }
             }
 
             // ---- 年份范围 ----

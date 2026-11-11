@@ -54,6 +54,12 @@ public class MajorController {
         return R.ok(majorService.detail(majorId));
     }
 
+    /** 授予学位候选值（公开）：入参与 /list 完全一致，按同一筛选结果集去重返回 */
+    @GetMapping("/degree-awarded/options")
+    public R<List<String>> degreeAwardedOptions(@Valid MajorListQueryDTO dto) {
+        return R.ok(majorService.listDegreeAwardedOptions(dto));
+    }
+
     /** 任务1接口3：按 major_category 分组统计（公开） */
     @GetMapping("/category-stats")
     public R<List<MajorCategoryStatVO>> categoryStats() {

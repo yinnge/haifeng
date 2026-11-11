@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -24,11 +24,11 @@ public class ConstraintWeightCalculator {
     private final GaokaoConfigMapper gaokaoConfigMapper;
 
     /**
-     * 计算约束权重
+     * 计算约束权重（DB 版）
      *
      * @param userConstraints  用户触发的约束 codes
-     * @param groupConstraints 专业组的 constraints 数组
-     * @param majorConstraints 专业明细的 constraints 数组
+     * @param groupConstraints 专业组的约束名称数组（当前业务已下线，通常为 null）
+     * @param majorConstraints 专业明细的约束名称数组（存约束字典 name）
      * @return 权重结果
      */
     public ConstraintWeightResult calculate(List<String> userConstraints,
@@ -43,52 +43,10 @@ public class ConstraintWeightCalculator {
         BigDecimal weightSoftGroup = config != null ? config.getWeightSoftGroup() : BigDecimal.valueOf(0.6);
         BigDecimal weightSoftBoth = config != null ? config.getWeightSoftBoth() : BigDecimal.valueOf(0.3);
 
-        // 步骤1：专业组约束检查
-        List<String> groupIntersection = intersection(userConstraints, groupConstraints);
-        boolean groupHasSoft = false;
-
-        if (!groupIntersection.isEmpty()) {
-            Map<String, String> severityMap = querySeverity(groupIntersection);
-
-            for (String code : groupIntersection) {
-                String severity = severityMap.get(code);
-                if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业组限制：" + code);
-                }
-                if ("SOFT".equals(severity)) {
-                    groupHasSoft = true;
-                }
-            }
-        }
-
-        BigDecimal groupWeight = groupHasSoft ? weightSoftGroup : BigDecimal.ONE;
-
-        // 步骤2：专业明细约束检查
-        List<String> majorIntersection = intersection(userConstraints, majorConstraints);
-
-        if (!majorIntersection.isEmpty()) {
-            Map<String, String> severityMap = querySeverity(majorIntersection);
-
-            for (String code : majorIntersection) {
-                String severity = severityMap.get(code);
-                if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业限制：" + code);
-                }
-                if ("SOFT".equals(severity)) {
-                    if (groupHasSoft) {
-                        return ConstraintWeightResult.softWeight(weightSoftBoth);
-                    } else {
-                        return ConstraintWeightResult.softWeight(weightSoftGroup);
-                    }
-                }
-            }
-        }
-
-        // 步骤3：无约束冲突
-        if (groupHasSoft) {
-            return ConstraintWeightResult.softWeight(groupWeight);
-        }
-        return ConstraintWeightResult.ok();
+        // 用户约束是 code，专业明细存的是 name，先做一次 code -> name 映射
+        Map<String, String> severityByName = querySeverityByName(userConstraints);
+        return applyConstraints(severityByName, groupConstraints, majorConstraints,
+                weightSoftGroup, weightSoftBoth);
     }
 
     /**
@@ -96,10 +54,10 @@ public class ConstraintWeightCalculator {
      * 权重值与 severityMap 由调用方预取（如 SafetyBatchContext），适用于批量计算场景
      *
      * @param userConstraints  用户触发的约束 codes
-     * @param groupConstraints 专业组的 constraints 数组
-     * @param majorConstraints 专业明细的 constraints 数组
+     * @param groupConstraints 专业组的约束名称数组
+     * @param majorConstraints 专业明细的约束名称数组
      * @param config           预取的 GaokaoConfig（null 时权重回退 0.6/0.3）
-     * @param severityMap      预取的 code -> HARD/SOFT 映射
+     * @param severityMap      预取的约束名称 -> HARD/SOFT 映射（key 为约束字典 name）
      * @return 权重结果
      */
     public ConstraintWeightResult calculate(List<String> userConstraints,
@@ -111,7 +69,7 @@ public class ConstraintWeightCalculator {
             return ConstraintWeightResult.ok();
         }
         if (severityMap == null) {
-            severityMap = java.util.Collections.emptyMap();
+            severityMap = Collections.emptyMap();
         }
 
         BigDecimal weightSoftGroup = config != null && config.getWeightSoftGroup() != null
@@ -119,14 +77,32 @@ public class ConstraintWeightCalculator {
         BigDecimal weightSoftBoth = config != null && config.getWeightSoftBoth() != null
                 ? config.getWeightSoftBoth() : BigDecimal.valueOf(0.3);
 
+        return applyConstraints(severityMap, groupConstraints, majorConstraints,
+                weightSoftGroup, weightSoftBoth);
+    }
+
+    /**
+     * 按约束名称比对用户已触发的约束，计算最终权重。
+     *
+     * @param severityByName   用户已触发约束的名称 -> HARD/SOFT
+     * @param groupConstraints 专业组约束名称数组
+     * @param majorConstraints 专业明细约束名称数组
+     */
+    private ConstraintWeightResult applyConstraints(Map<String, String> severityByName,
+                                                    List<String> groupConstraints,
+                                                    List<String> majorConstraints,
+                                                    BigDecimal weightSoftGroup,
+                                                    BigDecimal weightSoftBoth) {
         // 步骤1：专业组约束检查
         boolean groupHasSoft = false;
         if (groupConstraints != null) {
-            for (String code : userConstraints) {
-                if (!groupConstraints.contains(code)) continue;
-                String severity = severityMap.get(code);
+            for (String name : groupConstraints) {
+                String severity = severityByName.get(name);
+                if (severity == null) {
+                    continue;
+                }
                 if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业组限制：" + code);
+                    return ConstraintWeightResult.blocked("专业组限制：" + name);
                 }
                 if ("SOFT".equals(severity)) {
                     groupHasSoft = true;
@@ -136,14 +112,17 @@ public class ConstraintWeightCalculator {
 
         // 步骤2：专业明细约束检查
         if (majorConstraints != null) {
-            for (String code : userConstraints) {
-                if (!majorConstraints.contains(code)) continue;
-                String severity = severityMap.get(code);
+            for (String name : majorConstraints) {
+                String severity = severityByName.get(name);
+                if (severity == null) {
+                    continue;
+                }
                 if ("HARD".equals(severity)) {
-                    return ConstraintWeightResult.blocked("专业限制：" + code);
+                    return ConstraintWeightResult.blocked("专业限制：" + name);
                 }
                 if ("SOFT".equals(severity)) {
-                    return ConstraintWeightResult.softWeight(groupHasSoft ? weightSoftBoth : weightSoftGroup);
+                    return ConstraintWeightResult.softWeight(
+                            groupHasSoft ? weightSoftBoth : weightSoftGroup);
                 }
             }
         }
@@ -155,18 +134,9 @@ public class ConstraintWeightCalculator {
         return ConstraintWeightResult.ok();
     }
 
-    private List<String> intersection(List<String> list1, List<String> list2) {
-        if (list1 == null || list2 == null) {
-            return new ArrayList<>();
-        }
-        return list1.stream()
-                .filter(list2::contains)
-                .collect(Collectors.toList());
-    }
-
-    private Map<String, String> querySeverity(List<String> codes) {
+    private Map<String, String> querySeverityByName(List<String> codes) {
         List<ConstraintDict> dicts = constraintDictMapper.selectSeverityByCodes(codes);
         return dicts.stream()
-                .collect(Collectors.toMap(ConstraintDict::getCode, ConstraintDict::getSeverity));
+                .collect(Collectors.toMap(ConstraintDict::getName, ConstraintDict::getSeverity, (a, b) -> a));
     }
 }

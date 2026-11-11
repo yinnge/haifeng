@@ -24,6 +24,9 @@ public interface ConstraintDictMapper extends BaseMapper<ConstraintDict> {
     @Select("SELECT * FROM t_constraint_dict WHERE is_active = true AND is_deleted = FALSE ORDER BY sort_order ASC")
     List<ConstraintDict> selectActiveList();
 
+    @Select("SELECT name FROM t_constraint_dict WHERE is_active = true AND is_deleted = FALSE")
+    List<String> selectActiveNames();
+
     @Select("<script>" +
             "SELECT * FROM t_constraint_dict " +
             "WHERE code IN " +

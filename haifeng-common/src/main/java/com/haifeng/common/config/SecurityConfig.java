@@ -70,6 +70,7 @@ public class SecurityConfig {
             // 专业（公开部分）
             "/api/v1/app/major/list",
             "/api/v1/app/major/category-stats",
+            "/api/v1/app/major/degree-awarded/options",
             // 城市
             "/api/v1/app/city/list",
             // 企业

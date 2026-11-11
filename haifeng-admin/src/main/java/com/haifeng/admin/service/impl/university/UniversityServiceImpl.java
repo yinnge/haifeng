@@ -46,7 +46,7 @@ public class UniversityServiceImpl implements UniversityService {
 
     private final UniversityMapper universityMapper;
 
-    private static final int MAX_IMPORT_ROWS = 1000;
+    private static final int MAX_IMPORT_ROWS = 3000;
 
     /** 导入错误信息最多展示条数，超出部分只提示总数，避免 msg 过长 */
     private static final int MAX_ERROR_SHOWN = 50;

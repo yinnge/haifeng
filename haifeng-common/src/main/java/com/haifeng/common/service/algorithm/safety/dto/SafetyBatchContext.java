@@ -26,6 +26,6 @@ public class SafetyBatchContext {
     /** 约束权重配置（GaokaoConfig 单例，一次） */
     private GaokaoConfig gaokaoConfig;
 
-    /** 用户约束 code -> HARD/SOFT（一次） */
+    /** 用户已触发约束的名称 -> HARD/SOFT（一次，key 为约束字典 name） */
     private Map<String, String> severityMap;
 }

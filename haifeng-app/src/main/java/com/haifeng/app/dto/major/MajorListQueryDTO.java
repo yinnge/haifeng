@@ -25,6 +25,13 @@ public class MajorListQueryDTO extends BasePageQueryDTO {
     private String majorCategory;
 
     /**
+     * 授予学位：精准查询（eq），与其它条件 AND，未传或空白不过滤。
+     * 上限 50 对齐 t_major.degree_awarded VARCHAR(50)；不做 trim，保证候选值点选后可原样命中。
+     */
+    @Size(max = 50, message = "授予学位最长50个字符")
+    private String degreeAwarded;
+
+    /**
      * 排序字段：综合排序(comprehensive, 默认) / 就业率(employmentRate) / 薪资水平(salaryMax) / 热度(sortOrder)
      */
     @Pattern(regexp = "comprehensive|employmentRate|salaryMax|sortOrder",
