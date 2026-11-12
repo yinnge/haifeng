@@ -63,10 +63,13 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
     /**
      * 任务2接口3：分页查询某竞赛关联的专业（id + name）
      * 走 idx_cm_competition 索引
+     * 注意：原生 @Select 不经过 MyBatis-Plus 逻辑删除拦截，必须手工带 is_deleted = FALSE，
+     * 否则已软删的关联会返回给 C 端用户。
      */
     @Select("SELECT cm.major_id AS \"majorId\", cm.major_name AS \"majorName\" " +
             "FROM t_competition_major cm " +
             "WHERE cm.competition_id = #{competitionId} " +
+            "AND cm.is_deleted = FALSE " +
             "ORDER BY cm.id ASC NULLS LAST")
     IPage<Map<String, Object>> selectMajorsByCompetitionId(
             Page<?> page,
@@ -75,10 +78,12 @@ public interface CompetitionMajorMapper extends BaseMapper<CompetitionMajor> {
     /**
      * 任务3：分页查询某专业关联的竞赛（id + name）
      * 走 idx_cm_major 索引
+     * 注意：同上，原生 @Select 需手工带 is_deleted = FALSE。
      */
     @Select("SELECT cm.competition_id AS \"competitionId\", cm.competition_name AS \"competitionName\" " +
             "FROM t_competition_major cm " +
             "WHERE cm.major_id = #{majorId} " +
+            "AND cm.is_deleted = FALSE " +
             "ORDER BY cm.id ASC NULLS LAST")
     IPage<Map<String, Object>> selectCompetitionsByMajorId(
             Page<?> page,
