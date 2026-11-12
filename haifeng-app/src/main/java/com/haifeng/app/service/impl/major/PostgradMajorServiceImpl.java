@@ -39,6 +39,13 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
     public IPage<PostgradMajorListVO> page(PostgradMajorListQueryDTO dto) {
         Page<PostgradMajor> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 收藏过滤：传入收藏的考研专业 ID 集合时，仅返回这些 ID（与原筛选 AND 组合）。
+        // 空集合视作「无匹配」直接返回空页，避免 IN () 生成非法 SQL。
+        List<Long> favoriteIds = dto.getIds();
+        if (favoriteIds != null && favoriteIds.isEmpty()) {
+            return new Page<PostgradMajorListVO>(dto.getPage(), dto.getSize());
+        }
+
         LambdaQueryWrapper<PostgradMajor> wrapper = new LambdaQueryWrapper<PostgradMajor>()
                 .eq(PostgradMajor::getStatus, STATUS_PUBLISHED)
                 .like(dto.getName() != null && !dto.getName().isBlank(),
@@ -53,6 +60,7 @@ public class PostgradMajorServiceImpl implements PostgradMajorService {
                         PostgradMajor::getPopularity, dto.getPopularity())
                 .eq(dto.getDifficulty() != null && !dto.getDifficulty().isBlank(),
                         PostgradMajor::getDifficulty, dto.getDifficulty())
+                .in(favoriteIds != null, PostgradMajor::getId, favoriteIds)
                 .orderByDesc(PostgradMajor::getSortOrder)
                 .orderByDesc(PostgradMajor::getCreatedAt);
 
