@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.article;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,6 +17,7 @@ import java.util.List;
 public class BizArticleSearchItemVO {
 
     /** 资讯 id（跳详情用；前端 json-bigint 解析为 string） */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /** 专栏名（建议列表 pill） */

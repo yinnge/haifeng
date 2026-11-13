@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.pdf;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.haifeng.app.vo.algorithm.wish.WishExportMajorVO;
 import com.haifeng.common.entity.major.MajorDetail;
 import com.haifeng.common.entity.major.MajorPostgradDirection;
@@ -25,6 +27,7 @@ public class ExportGroupContextVO {
     private Integer groupSnapshotId;
 
     /** 院校ID */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long universityId;
 
     /** 院校名称 */

@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.pdf;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +19,7 @@ import java.util.List;
 @AllArgsConstructor
 public class MapResultItem {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long universityId;
     private String universityName;
     private String cityName;
