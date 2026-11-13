@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.article;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 
@@ -12,6 +14,7 @@ import lombok.Data;
 public class BizArticleListVO {
 
     /** 资讯 id（跳转详情用） */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /** 专栏名（前端据此分组归类） */

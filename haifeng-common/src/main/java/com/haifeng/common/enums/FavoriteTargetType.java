@@ -13,6 +13,8 @@ public enum FavoriteTargetType {
 
     UNIVERSITY("university", "院校"),
     MAJOR("major", "专业"),
+    /** 考研专业（独立表 t_postgrad_major，ID 空间与本科专业不重叠，不可复用 MAJOR） */
+    POSTGRAD_MAJOR("postgrad_major", "考研专业"),
     CITY("city", "城市"),
     COMPETITION("competition", "竞赛"),
     CERTIFICATE("certificate", "证书"),

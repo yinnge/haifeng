@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.special;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +14,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class SpecialChannelDetailVO implements Serializable {
     private static final long serialVersionUID = 1L;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String channelCode;
     private String channelName;

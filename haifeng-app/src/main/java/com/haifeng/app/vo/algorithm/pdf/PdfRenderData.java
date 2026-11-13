@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.pdf;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.haifeng.app.vo.algorithm.wish.WishPlanLimitVO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -152,6 +154,7 @@ public class PdfRenderData {
     @AllArgsConstructor
     public static class GroupRenderData {
         private Integer groupSnapshotId;
+        @JsonSerialize(using = ToStringSerializer.class)
         private Long universityId;
         private String universityName;
         private String cityName;
@@ -181,6 +184,7 @@ public class PdfRenderData {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MajorRenderData {
+        @JsonSerialize(using = ToStringSerializer.class)
         private Long majorId;
         private String majorName;
         private String majorCode;

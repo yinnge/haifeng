@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.university;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 
@@ -9,6 +11,7 @@ import java.util.List;
 @Data
 @Builder
 public class UniversityBriefVO {
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String name;
     private String provinceName;

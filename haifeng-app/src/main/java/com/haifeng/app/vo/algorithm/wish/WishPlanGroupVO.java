@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.wish;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,6 +15,7 @@ public class WishPlanGroupVO {
     private Integer groupId;
     private Integer planId;
     private Integer groupSortOrder;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long universityId;
     private String universityName;
     private String cityName;

@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.wish;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.haifeng.app.vo.algorithm.admission.YearScoreVO;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +14,7 @@ import java.util.List;
 public class WishPlanMajorVO {
     private Integer id;
     private Integer groupSnapshotId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long majorId;
     private Integer majorSortOrder;
     private String majorCode;

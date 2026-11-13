@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.pdf;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +21,7 @@ import java.util.List;
 public class UniversityInfoVO {
 
     /** 院校ID */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /** 院校名称 */

@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm.wish;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.haifeng.app.vo.algorithm.pdf.MajorEnrichmentVO;
 import com.haifeng.common.entity.algorithm.wish.WishMajorSnapshot;
 import lombok.AllArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.List;
 public class WishExportMajorVO {
 
     /** 专业ID（t_wish_major_snapshot.major_id） */
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long majorId;
 
     /** 专业名称 */

@@ -54,7 +54,10 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .like(StringUtils.hasText(dto.getEnterpriseName()), Enterprise::getEnterpriseName, dto.getEnterpriseName())
                 .eq(StringUtils.hasText(dto.getEnterpriseNature()), Enterprise::getEnterpriseNature, dto.getEnterpriseNature())
                 .eq(StringUtils.hasText(dto.getEnterpriseType()), Enterprise::getEnterpriseType, dto.getEnterpriseType())
-                .eq(StringUtils.hasText(dto.getCityName()), Enterprise::getCityName, dto.getCityName())
+                // 城市：改为模糊匹配。
+                // 原因：city_name 存的是裸字段（北京 / 上海 / 深圳），前端是自由文本输入框，
+                //      精确匹配会导致用户输入「北京市」「浦东」等任何变体都搜不到结果。
+                .like(StringUtils.hasText(dto.getCityName()), Enterprise::getCityName, dto.getCityName())
                 .eq(StringUtils.hasText(dto.getRecruitmentStatus()), Enterprise::getRecruitmentStatus, dto.getRecruitmentStatus())
                 .orderByDesc(Enterprise::getSortOrder)
                 .orderByDesc(Enterprise::getCreatedAt)

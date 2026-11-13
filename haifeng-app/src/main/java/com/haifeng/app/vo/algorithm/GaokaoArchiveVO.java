@@ -1,5 +1,7 @@
 package com.haifeng.app.vo.algorithm;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +18,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class GaokaoArchiveVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     // ========== 高考基本信息 ==========
