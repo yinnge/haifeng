@@ -25,10 +25,6 @@ spring:
           max-idle: 4
           min-idle: 1
 
-  # Flyway 配置
-  flyway:
-      enabled: false
-
   # 文件上传配置
   servlet:
     multipart:

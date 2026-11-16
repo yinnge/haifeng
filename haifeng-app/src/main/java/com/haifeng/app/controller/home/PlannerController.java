@@ -1,11 +1,15 @@
 package com.haifeng.app.controller.home;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.haifeng.app.dto.consultation.ConsultationAddDTO;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
+import com.haifeng.app.service.consultation.ConsultationService;
 import com.haifeng.app.service.home.PlannerService;
 import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
+import com.haifeng.common.annotation.RateLimit;
+import com.haifeng.common.enums.ConsultationBizType;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -14,6 +18,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlannerController {
 
     private final PlannerService plannerService;
+    private final ConsultationService consultationService;
 
     /** 该服务对象下实际存在的省份（供前端筛选按钮，DB 有什么返回什么） */
     @GetMapping("/provinces")
@@ -53,5 +60,13 @@ public class PlannerController {
     @GetMapping("/{id}/appointment")
     public R<PlannerAppointmentVO> appointment(@Min(value = 1, message = "ID必须大于0") @PathVariable Long id) {
         return R.ok(plannerService.appointment(id));
+    }
+
+    /** 提交咨询留言（公开，IP 限流） */
+    @PostMapping("/{id}/consultations")
+    @RateLimit(value = 3, time = 60)
+    public R<Long> submitConsultation(@Min(value = 1, message = "ID必须大于0") @PathVariable Long id,
+                                      @Valid @RequestBody ConsultationAddDTO dto) {
+        return R.ok(consultationService.submit(ConsultationBizType.PLANNER, id, dto));
     }
 }

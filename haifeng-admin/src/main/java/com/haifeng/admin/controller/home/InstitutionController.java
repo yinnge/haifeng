@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 首页管理 - 培训机构管理
  */
@@ -30,6 +32,23 @@ public class InstitutionController {
     @GetMapping("/list")
     public R<IPage<InstitutionListVO>> list(@Valid InstitutionQueryDTO dto) {
         return R.ok(institutionService.page(dto));
+    }
+
+    /**
+     * 教师身份会员下拉选项（管理账号选择用）
+     * 弹窗展示 username，选中后提交其 id 作为机构的 userId
+     */
+    @GetMapping("/teachers")
+    public R<List<TeacherOptionVO>> teachers() {
+        return R.ok(institutionService.listTeacherOptions());
+    }
+
+    /**
+     * 分类下拉选项（写死的 4 个值）
+     */
+    @GetMapping("/categories")
+    public R<List<InstitutionOptionVO>> categories() {
+        return R.ok(institutionService.categories());
     }
 
     /**

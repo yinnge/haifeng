@@ -320,10 +320,13 @@ public final class RedisKeyConstant {
     }
 
     /**
-     * 培训机构列表缓存 Key
+     * 培训机构列表缓存 Key（name + category + province 参与维度，避免不同筛选串数据）
      */
-    public static String getInstitutionListKey(int page, int size, String name) {
-        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size + ":name=" + truncateForKey(name);
+    public static String getInstitutionListKey(int page, int size, String name, String category, String province) {
+        return HOME_INSTITUTION_LIST_PREFIX + "p=" + page + ":s=" + size
+                + ":name=" + truncateForKey(name)
+                + ":category=" + truncateForKey(category)
+                + ":province=" + truncateForKey(province);
     }
 
     /**

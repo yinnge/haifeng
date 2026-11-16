@@ -78,7 +78,7 @@ curl http://8.130.89.54/api/v1/app/home/...    # 用户端 API
 curl http://8.130.89.54/                       # 用户端页面
 curl http://8.130.89.54/admin/                 # 管理后台
 docker compose ps                              # 查看容器状态
-docker compose logs -f haifeng-admin           # 看启动日志（Flyway 建表）
+docker compose logs -f haifeng-admin           # 看启动日志
 ```
 
 ## 六、常见问题（2G 内存）
@@ -86,7 +86,7 @@ docker compose logs -f haifeng-admin           # 看启动日志（Flyway 建表
 | 问题 | 处理 |
 |------|------|
 | 构建 OOM | 服务器内存紧张时，可在本地 `mvn package -pl haifeng-admin -am -DskipTests` 打包，将 jar 传入服务器后用 `docker compose build` 跳过 Maven 阶段（或临时加 swap） |
-| Flyway 建表失败 | 首次启动 admin 会自动建表，看 `docker compose logs haifeng-admin` |
+| 数据库未初始化 | 新环境先手工执行 `docs/db/schema.sql` 建表，再做数据导入 |
 | 数据导入 | 空库部署，业务数据（院校/Excel 数据）上线后到管理后台逐项导入 |
 
 swap 建议（2G 服务器强烈建议）：

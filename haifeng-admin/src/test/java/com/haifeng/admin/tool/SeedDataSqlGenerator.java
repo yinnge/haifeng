@@ -6,10 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 生成 V26__seed_admin_module_data.sql
- * 使用雪花算法 ID，作为 Flyway 迁移文件
+ * 生成管理员模块等初始化数据 SQL
+ * 使用雪花算法 ID
  * <p>
- * 用法：运行 main 方法，输出内容直接替换 V26__seed_admin_module_data.sql
+ * 用法：运行 main 方法，输出内容作为初始化 SQL 手工执行
  */
 public class SeedDataSqlGenerator {
 

@@ -20,7 +20,6 @@
 - 后端：Spring Boot 3.x + MyBatis-Plus + Spring Security + Spring AI
 - 数据库：PostgreSQL + Redis
 - 认证：JWT 双Token（Access 2h + Refresh 7d）
-- 数据库迁移：Flyway
 - 构建：Maven
 - 部署：Docker + Traefik
 - ID生成：雪花算法
@@ -305,12 +304,10 @@ log.error("查询用户失败，userId={}", id, e)  ← e要带上！
 - 生产用 application-prod.yml
 - .env文件已加入.gitignore
 
-## Flyway规范
-- 文件位置：统一放到:haifeng-admin\src\main\resources\db\migration
-- 命名：V{版本}__{描述}.sql
-  例：V1__create_member_table.sql
-  V2__add_index_member_phone.sql
-- 禁止修改已提交的migration文件
+## 数据库变更规范
+- 不使用 Flyway 等自动迁移工具，表结构变更直接手动执行 SQL（Navicat / psql）
+- 每次表结构变更后，同步更新最终版建表脚本：`docs/db/schema.sql`
+- 新环境初始化：手工执行 `docs/db/schema.sql`
 
 
 ## Redis Key规范
