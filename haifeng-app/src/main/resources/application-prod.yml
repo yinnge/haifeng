@@ -81,6 +81,9 @@ oss:
   bucket-name: ${OSS_BUCKET_NAME}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: ${KKFILEVIEW_BASE_URL}
+  # 会员头像专用 Bucket（公共读，用户自制头像）
+  avatar-bucket-name: ${OSS_AVATAR_BUCKET_NAME:}
+  avatar-url-prefix: ${OSS_AVATAR_URL_PREFIX:}
 
 # PDF预览配置
 pdf:

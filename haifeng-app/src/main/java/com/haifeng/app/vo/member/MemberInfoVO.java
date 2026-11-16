@@ -20,6 +20,12 @@ public class MemberInfoVO {
 
     private String avatar;
 
+    /**
+     * 用户最近一次上传的自定义头像 URL（即使当前用的是内置头像也会返回，便于切回）。
+     * 未上传过时为 null。
+     */
+    private String customAvatar;
+
     private Boolean hasWechat;
 
     private String inviteCode;

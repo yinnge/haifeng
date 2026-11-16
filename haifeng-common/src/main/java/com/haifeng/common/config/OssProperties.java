@@ -40,6 +40,18 @@ public class OssProperties {
      */
     private String publicUrlPrefix;
 
+    /**
+     * 会员头像专用 Bucket（公共读）。
+     * <p>与 {@link #publicBucketName} 分离：头像使用固定 objectKey（每用户一个），
+     * 覆盖上传即「删除旧图更新新图」，且与 admin 上传的公开素材互不干扰。
+     */
+    private String avatarBucketName;
+
+    /**
+     * 会员头像访问前缀；留空则由 avatarBucketName + endpoint 推导。
+     */
+    private String avatarUrlPrefix;
+
     /** 预签名 URL 过期时间（秒） */
     private Integer urlExpire = 3600;
 

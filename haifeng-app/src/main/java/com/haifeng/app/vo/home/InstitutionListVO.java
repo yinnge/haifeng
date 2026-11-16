@@ -33,4 +33,9 @@ public class InstitutionListVO implements Serializable {
      * 标签
      */
     private List<String> tags;
+
+    /**
+     * 轮播图首图 URL；轮播为空时为 null，前端用占位图兜底
+     */
+    private String coverImage;
 }

@@ -8,6 +8,7 @@ import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/app/member/profile")
@@ -32,5 +33,15 @@ public class ProfileController {
     public R<Void> updateProfile(@Valid @RequestBody ProfileUpdateDTO dto) {
         profileService.updateProfile(dto);
         return R.ok();
+    }
+
+    /**
+     * 上传自定义头像（写入头像专用公共读 Bucket，按 memberId 固定 key 覆盖更新）。
+     * <p>校验：JPG / PNG、≤2MB、边长 64~2048px、宽高比 1:2~2:1。
+     * 返回可直接被 C 端 {@code <img src>} 引用的完整 URL。
+     */
+    @PostMapping("/avatar/upload")
+    public R<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        return R.ok(profileService.uploadAvatar(file));
     }
 }

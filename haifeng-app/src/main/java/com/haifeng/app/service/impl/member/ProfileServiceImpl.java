@@ -7,6 +7,7 @@ import com.haifeng.app.vo.member.ProfileVO;
 import com.haifeng.common.entity.city.City;
 import com.haifeng.common.entity.major.Major;
 import com.haifeng.common.entity.university.University;
+import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.entity.user.MemberFavorite;
 import com.haifeng.common.entity.user.MemberProfile;
 import com.haifeng.common.enums.GenderEnum;
@@ -17,7 +18,9 @@ import com.haifeng.common.mapper.city.CityMapper;
 import com.haifeng.common.mapper.major.MajorMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.mapper.user.MemberFavoriteMapper;
+import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberProfileMapper;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +28,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.Locale;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -38,6 +48,21 @@ public class ProfileServiceImpl implements ProfileService {
     private final UniversityMapper universityMapper;
     private final CityMapper cityMapper;
     private final MajorMapper majorMapper;
+    private final MemberMapper memberMapper;
+    private final OssService ossService;
+
+    /** 头像允许的格式（不含 svg：用户自制头像走公共读 bucket，svg 会引入存储型 XSS） */
+    private static final Set<String> ALLOWED_AVATAR_EXTENSIONS = Set.of("png", "jpg", "jpeg");
+    /** 头像文件大小上限：2MB */
+    private static final long MAX_AVATAR_SIZE = 2L * 1024 * 1024;
+    /** 头像像素下限（避免糊图 / 1x1 占位图） */
+    private static final int MIN_AVATAR_DIMENSION = 64;
+    /** 头像像素上限（C 端展示直径 ≤ 160px，2048 足够且防超大图滥用） */
+    private static final int MAX_AVATAR_DIMENSION = 2048;
+    /** 宽高比下限（避免极端细长图） */
+    private static final double MIN_AVATAR_RATIO = 0.5;
+    /** 宽高比上限 */
+    private static final double MAX_AVATAR_RATIO = 2.0;
 
     @Override
     public ProfileVO getProfile() {
@@ -158,6 +183,73 @@ public class ProfileServiceImpl implements ProfileService {
         profileMapper.updateById(profile);
 
         log.info("更新用户资料成功: memberId={}", memberId);
+    }
+
+    @Override
+    public String uploadAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "请选择要上传的头像");
+        }
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new BusinessException(400, "头像大小不能超过 2MB");
+        }
+
+        String extension = extractExtension(file.getOriginalFilename());
+        if (!ALLOWED_AVATAR_EXTENSIONS.contains(extension)) {
+            throw new BusinessException(400, "头像仅支持 JPG / PNG 格式");
+        }
+
+        byte[] data;
+        BufferedImage image;
+        try {
+            data = file.getBytes();
+            image = ImageIO.read(new ByteArrayInputStream(data));
+        } catch (IOException e) {
+            throw new BusinessException(400, "头像读取失败，请重新选择");
+        }
+        if (image == null) {
+            throw new BusinessException(400, "无法识别的图片格式");
+        }
+
+        int width = image.getWidth();
+        int height = image.getHeight();
+        if (width < MIN_AVATAR_DIMENSION || height < MIN_AVATAR_DIMENSION) {
+            throw new BusinessException(400, "头像尺寸不能小于 64×64 像素");
+        }
+        if (width > MAX_AVATAR_DIMENSION || height > MAX_AVATAR_DIMENSION) {
+            throw new BusinessException(400, "头像尺寸不能超过 2048×2048 像素");
+        }
+        double ratio = (double) width / height;
+        if (ratio < MIN_AVATAR_RATIO || ratio > MAX_AVATAR_RATIO) {
+            throw new BusinessException(400, "头像宽高比例需在 1:2 至 2:1 之间");
+        }
+
+        Long memberId = SecurityUtil.getCurrentMemberId();
+        Member member = memberMapper.selectById(memberId);
+        if (member == null || member.getDeleted()) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 固定 objectKey 覆盖上传：换头像即自动「删除旧图、写入新图」，无需手动删对象。
+        // 用户切换到内置静态头像时不调用本接口，OSS 上的自定义头像会保留，便于随时切回。
+        String url = ossService.uploadMemberAvatar(data, "." + extension, memberId);
+        member.setAvatar(url);
+        memberMapper.updateById(member);
+
+        log.info("上传会员头像成功: memberId={}, size={}, dimension={}x{}", memberId, data.length, width, height);
+        return url;
+    }
+
+    /** 从文件名提取小写扩展名（不含点）；无扩展名返回空串 */
+    private String extractExtension(String fileName) {
+        if (fileName == null) {
+            return "";
+        }
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private MemberProfile createEmptyProfile(Long memberId) {
