@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.home.PlannerUpdateDTO;
 import com.haifeng.admin.service.home.PlannerService;
 import com.haifeng.admin.vo.home.PlannerDetailVO;
 import com.haifeng.admin.vo.home.PlannerListVO;
+import com.haifeng.admin.vo.home.TeacherOptionVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -14,6 +15,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 首页管理 - 规划师管理
@@ -26,6 +29,15 @@ import org.springframework.web.bind.annotation.*;
 public class PlannerController {
 
     private final PlannerService plannerService;
+
+    /**
+     * 教师身份用户下拉选项（新增/编辑弹窗用）
+     * 弹窗展示 username，选中后提交其 id 作为规划师的 userId
+     */
+    @GetMapping("/teachers")
+    public R<List<TeacherOptionVO>> teachers() {
+        return R.ok(plannerService.listTeacherOptions());
+    }
 
     /**
      * 分页查询规划师列表

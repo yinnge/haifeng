@@ -9,12 +9,15 @@ import com.haifeng.admin.dto.home.PlannerUpdateDTO;
 import com.haifeng.admin.service.home.PlannerService;
 import com.haifeng.admin.vo.home.PlannerDetailVO;
 import com.haifeng.admin.vo.home.PlannerListVO;
+import com.haifeng.admin.vo.home.TeacherOptionVO;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.home.Planner;
+import com.haifeng.common.entity.user.Member;
 import com.haifeng.common.enums.ProvinceEnum;
 import com.haifeng.common.enums.ServiceTargetEnum;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.PlannerMapper;
+import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +35,9 @@ import org.springframework.util.StringUtils;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,7 +45,19 @@ import java.util.Set;
 public class PlannerServiceImpl implements PlannerService {
 
     private final PlannerMapper plannerMapper;
+    private final MemberMapper memberMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    public List<TeacherOptionVO> listTeacherOptions() {
+        // 教师身份用户：is_teacher=true，且未软删除（显式写条件，与 MemberServiceImpl 保持一致）
+        LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Member::getTeacher, true)
+               .eq(Member::getDeleted, false);
+        return memberMapper.selectList(wrapper).stream()
+                .map(m -> new TeacherOptionVO(m.getId(), m.getUsername()))
+                .collect(Collectors.toList());
+    }
 
     @Override
     public IPage<PlannerListVO> page(PlannerQueryDTO dto) {
@@ -91,6 +108,7 @@ public class PlannerServiceImpl implements PlannerService {
     @Transactional(rollbackFor = Exception.class)
     public Long add(PlannerAddDTO dto) {
         validateTargetAndProvince(dto.getServiceTarget(), dto.getProvince());
+        validateTeacher(dto.getUserId());
 
         OffsetDateTime now = OffsetDateTime.now();
         Long id = SnowflakeIdGenerator.nextId();
@@ -142,6 +160,7 @@ public class PlannerServiceImpl implements PlannerService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, PlannerUpdateDTO dto) {
         validateTargetAndProvince(dto.getServiceTarget(), dto.getProvince());
+        validateTeacher(dto.getUserId());
 
         Planner planner = plannerMapper.selectById(id);
         if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
@@ -224,6 +243,25 @@ public class PlannerServiceImpl implements PlannerService {
         }
         if (StringUtils.hasText(province) && !ProvinceEnum.isValid(province)) {
             throw new BusinessException(400, "无效的省份");
+        }
+    }
+
+    /**
+     * 绑定用户校验：必须是存在、未软删除、且 is_teacher=true 的用户。
+     *
+     * <p>注意 Member 带 @TableLogic，selectById 会自动过滤 is_deleted=true，
+     * 这里再显式判断 deleted 并校验 teacher，防止非教师账号被绑定为规划师。
+     */
+    private void validateTeacher(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(400, "关联用户不能为空");
+        }
+        Member member = memberMapper.selectById(userId);
+        if (member == null || Boolean.TRUE.equals(member.getDeleted())) {
+            throw new BusinessException(400, "关联用户不存在");
+        }
+        if (!Boolean.TRUE.equals(member.getTeacher())) {
+            throw new BusinessException(400, "关联用户不是教师身份，请先授予教师身份");
         }
     }
 
