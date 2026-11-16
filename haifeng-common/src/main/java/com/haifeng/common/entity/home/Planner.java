@@ -1,7 +1,7 @@
 package com.haifeng.common.entity.home;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.haifeng.common.config.JsonbTypeHandler;
+import com.haifeng.common.config.PlannerServiceItemListTypeHandler;
 import com.haifeng.common.config.StringListTypeHandler;
 import com.haifeng.common.dto.home.PlannerServiceItem;
 import lombok.AllArgsConstructor;
@@ -78,7 +78,7 @@ public class Planner {
     private List<String> detailTags;
 
     /** 服务内容：[{"title":"首次诊断","content":"..."}] */
-    @TableField(typeHandler = JsonbTypeHandler.class)
+    @TableField(typeHandler = PlannerServiceItemListTypeHandler.class)
     private List<PlannerServiceItem> services;
 
     /** 邮箱（可空） */

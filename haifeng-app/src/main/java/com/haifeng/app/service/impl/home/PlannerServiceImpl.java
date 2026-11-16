@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.SerializationException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -91,7 +92,16 @@ public class PlannerServiceImpl implements PlannerService {
     public PlannerDetailVO detail(Long id) {
         String cacheKey = RedisKeyConstant.getPlannerDetailKey(id);
 
-        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        Object cached;
+        try {
+            cached = redisTemplate.opsForValue().get(cacheKey);
+        } catch (SerializationException e) {
+            // 兼容存量脏缓存：旧版 services 曾以 List<LinkedHashMap> 写入，default typing
+            // 反序列化时 type id 冲突。删除脏 key 回源 DB 重建，无需手动清 Redis。
+            log.warn("规划师详情缓存反序列化失败，删除脏缓存重建, key={}", cacheKey, e);
+            redisTemplate.delete(cacheKey);
+            cached = null;
+        }
         if (cached instanceof PlannerDetailVO) {
             log.debug("规划师详情缓存命中, key={}", cacheKey);
             return (PlannerDetailVO) cached;

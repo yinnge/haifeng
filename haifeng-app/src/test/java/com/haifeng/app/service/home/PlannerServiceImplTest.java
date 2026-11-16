@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.serializer.SerializationException;
 
 import java.util.Collections;
 import java.util.List;
@@ -174,6 +175,24 @@ class PlannerServiceImplTest {
         PlannerDetailVO result = service.detail(1L);
 
         assertThat(result.getName()).isEqualTo("张老师");
+        verify(valueOps).set(eq(key), any(PlannerDetailVO.class),
+                eq(RedisKeyConstant.HOME_CACHE_TTL_MINUTES), eq(TimeUnit.MINUTES));
+    }
+
+    @Test
+    void detail_corruptedCache_fallsBackToDbAndDeletesBadKey() {
+        // 存量脏缓存：services 元素曾以 LinkedHashMap 写入，反序列化抛 SerializationException
+        String key = RedisKeyConstant.getPlannerDetailKey(1L);
+        when(valueOps.get(key)).thenThrow(new SerializationException("Not a subtype"));
+        Planner entity = Planner.builder()
+                .id(1L).name("张老师").serviceTarget("高考").deleted(false).build();
+        when(plannerMapper.selectById(1L)).thenReturn(entity);
+
+        PlannerDetailVO result = service.detail(1L);
+
+        assertThat(result.getName()).isEqualTo("张老师");
+        // 脏 key 被删除，并从 DB 重建缓存
+        verify(redisTemplate).delete(key);
         verify(valueOps).set(eq(key), any(PlannerDetailVO.class),
                 eq(RedisKeyConstant.HOME_CACHE_TTL_MINUTES), eq(TimeUnit.MINUTES));
     }
