@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
 import com.haifeng.app.service.impl.home.PlannerServiceImpl;
+import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.constant.RedisKeyConstant;
@@ -42,19 +43,42 @@ class PlannerServiceImplTest {
 
     @InjectMocks private PlannerServiceImpl service;
 
+    private PlannerQueryDTO dto(String target, String province) {
+        PlannerQueryDTO dto = new PlannerQueryDTO();
+        dto.setServiceTarget(target);
+        dto.setProvince(province);
+        return dto;
+    }
+
     @BeforeEach
     void setUp() {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
     }
 
-    // ===== region 校验 =====
+    // ===== serviceTarget 校验 =====
 
     @Test
-    void list_invalidRegion_throws400_doesNotTouchCacheOrDb() {
-        PlannerQueryDTO dto = new PlannerQueryDTO();
-        dto.setRegion("火星");
+    void list_invalidTarget_throws400_doesNotTouchCacheOrDb() {
+        assertThatThrownBy(() -> service.page(dto("火星", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
 
-        assertThatThrownBy(() -> service.page(dto))
+        verify(redisTemplate, never()).opsForValue();
+        verify(plannerMapper, never()).selectPage(any(), any());
+    }
+
+    @Test
+    void list_nullTarget_throws400() {
+        assertThatThrownBy(() -> service.page(dto(null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
+    }
+
+    // ===== province 校验 =====
+
+    @Test
+    void list_invalidProvince_throws400_doesNotTouchCacheOrDb() {
+        assertThatThrownBy(() -> service.page(dto("高考", "火星")))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("无效的省份");
 
@@ -63,30 +87,27 @@ class PlannerServiceImplTest {
     }
 
     @Test
-    void list_nullRegion_noValidationError_proceeds() {
+    void list_nullProvince_proceedsToQuery() {
         when(valueOps.get(anyString())).thenReturn(null);
         Page<Planner> empty = new Page<>(1, 10);
         empty.setRecords(Collections.emptyList());
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(empty);
 
-        service.page(new PlannerQueryDTO());  // region=null
+        service.page(dto("高考", null));
 
         verify(plannerMapper).selectPage(any(Page.class), any(Wrapper.class));
     }
 
     @Test
-    void list_validRegion_proceedsToQuery() {
-        PlannerQueryDTO dto = new PlannerQueryDTO();
-        dto.setRegion("北京");
-
+    void list_validProvince_proceedsToQuery() {
         when(valueOps.get(anyString())).thenReturn(null);
         Page<Planner> empty = new Page<>(1, 10);
         empty.setRecords(Collections.emptyList());
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(empty);
 
-        service.page(dto);
+        service.page(dto("高考", "北京"));
 
-        String key = RedisKeyConstant.getPlannerListKey(1, 10, "北京");
+        String key = RedisKeyConstant.getPlannerListKey(1, 10, "高考", "北京");
         verify(valueOps).get(key);
     }
 
@@ -101,7 +122,7 @@ class PlannerServiceImplTest {
                 new PageCacheDTO<>(List.of(vo), 1L, 1L, 10L);
         when(valueOps.get(anyString())).thenReturn(cached);
 
-        IPage<PlannerListVO> result = service.page(new PlannerQueryDTO());
+        IPage<PlannerListVO> result = service.page(dto("高考", null));
 
         assertThat(result.getRecords()).hasSize(1);
         assertThat(result.getRecords().get(0).getName()).isEqualTo("cached");
@@ -110,17 +131,17 @@ class PlannerServiceImplTest {
 
     @Test
     void list_cacheMiss_queriesDbAndWritesCache() {
-        String key = RedisKeyConstant.getPlannerListKey(1, 10, null);
+        String key = RedisKeyConstant.getPlannerListKey(1, 10, "高考", null);
         when(valueOps.get(key)).thenReturn(null);
 
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").region("北京").status((short) 1).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").province("北京").deleted(false).build();
         Page<Planner> page = new Page<>(1, 10);
         page.setRecords(List.of(entity));
         page.setTotal(1);
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
 
-        IPage<PlannerListVO> result = service.page(new PlannerQueryDTO());
+        IPage<PlannerListVO> result = service.page(dto("高考", null));
 
         assertThat(result.getRecords()).hasSize(1);
         verify(valueOps).set(eq(key), any(PageCacheDTO.class),
@@ -147,7 +168,7 @@ class PlannerServiceImplTest {
         String key = RedisKeyConstant.getPlannerDetailKey(1L);
         when(valueOps.get(key)).thenReturn(null);
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").status((short) 1).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").deleted(false).build();
         when(plannerMapper.selectById(1L)).thenReturn(entity);
 
         PlannerDetailVO result = service.detail(1L);
@@ -168,14 +189,88 @@ class PlannerServiceImplTest {
     }
 
     @Test
-    void detail_statusZero_throws404() {
+    void detail_softDeleted_throws404() {
         when(valueOps.get(anyString())).thenReturn(null);
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").status((short) 0).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").deleted(true).build();
         when(plannerMapper.selectById(1L)).thenReturn(entity);
 
         assertThatThrownBy(() -> service.detail(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("规划师不存在");
+    }
+
+    // ===== 预约信息 =====
+
+    @Test
+    void appointment_exists_returnsContactInfo_withoutCache() {
+        Planner entity = Planner.builder()
+                .id(1L).name("张老师").avatarUrl("/static/avatar.svg")
+                .email("zhang@example.com").phone("13800000000")
+                .address("西安市雁塔区").wechatQrcodeUrl("/static/qr.png")
+                .deleted(false).build();
+        when(plannerMapper.selectById(1L)).thenReturn(entity);
+
+        PlannerAppointmentVO vo = service.appointment(1L);
+
+        assertThat(vo.getName()).isEqualTo("张老师");
+        assertThat(vo.getAvatarUrl()).isEqualTo("/static/avatar.svg");
+        assertThat(vo.getEmail()).isEqualTo("zhang@example.com");
+        assertThat(vo.getPhone()).isEqualTo("13800000000");
+        assertThat(vo.getAddress()).isEqualTo("西安市雁塔区");
+        assertThat(vo.getWechatQrcodeUrl()).isEqualTo("/static/qr.png");
+        // 预约接口不读写缓存
+        verifyNoInteractions(valueOps);
+    }
+
+    @Test
+    void appointment_notFound_throws404() {
+        when(plannerMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.appointment(99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("规划师不存在");
+    }
+
+    @Test
+    void appointment_softDeleted_throws404() {
+        Planner entity = Planner.builder().id(1L).deleted(true).build();
+        when(plannerMapper.selectById(1L)).thenReturn(entity);
+
+        assertThatThrownBy(() -> service.appointment(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("规划师不存在");
+    }
+
+    // ===== 省份列表 =====
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void provinces_returnsDistinctInAdminOrder() {
+        // DB 乱序 + 重复；Enum 顺序应为 北京 < 江苏 < 陕西
+        when(plannerMapper.selectObjs(any(Wrapper.class)))
+                .thenReturn((java.util.List) java.util.List.of("陕西", "北京", "江苏", "北京"));
+
+        java.util.List<String> result = service.listProvinces("高考");
+
+        assertThat(result).containsExactly("北京", "江苏", "陕西");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void provinces_emptyDb_returnsEmptyList() {
+        when(plannerMapper.selectObjs(any(Wrapper.class)))
+                .thenReturn((java.util.List) java.util.Collections.emptyList());
+
+        assertThat(service.listProvinces("考研")).isEmpty();
+    }
+
+    @Test
+    void provinces_invalidTarget_throws400_doesNotTouchDb() {
+        assertThatThrownBy(() -> service.listProvinces("火星"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
+
+        verify(plannerMapper, never()).selectObjs(any());
     }
 }

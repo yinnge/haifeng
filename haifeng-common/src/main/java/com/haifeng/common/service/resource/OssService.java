@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -89,6 +90,81 @@ public class OssService {
      * 从OSS下载对象为字节数组（仅用于服务端加工，如加水印）。
      * 注意：整个文件会驻留内存，大文件需谨慎（推荐配合大小上限校验使用）。
      */
+    /**
+     * 上传公开素材图片到「公共读」Bucket，返回可直接访问的完整 URL。
+     *
+     * <p>与 {@link #uploadFile(MultipartFile)} 的关键区别：
+     * <ul>
+     *   <li>{@code uploadFile} 写入私有读 bucket（承载 VIP 门禁文件），只返回 objectKey，
+     *       访问必须经后端签发预签名 URL；</li>
+     *   <li>本方法写入独立的公共读 bucket，返回永久有效的完整 URL，
+     *       供头像 / 轮播图 / 二维码等公开素材直接被 C 端 {@code <img src>} 引用。</li>
+     * </ul>
+     * 严禁把私有 bucket 改成公共读来复用本方法 —— 那会让 fileload 的 VIP 门禁失效。
+     *
+     * @param file      图片文件
+     * @param extension 扩展名（含点，如 {@code .png}）
+     * @return 可直接访问的完整 URL
+     */
+    public String uploadPublicImage(MultipartFile file, String extension) {
+        try {
+            return uploadPublicBytes(file.getBytes(), extension);
+        } catch (IOException e) {
+            throw new RuntimeException("图片读取失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 上传公开素材字节流到「公共读」Bucket，返回可直接访问的完整 URL。
+     *
+     * @param data      图片字节内容
+     * @param extension 扩展名（含点，如 {@code .png}）
+     * @return 可直接访问的完整 URL
+     */
+    public String uploadPublicBytes(byte[] data, String extension) {
+        String publicBucket = ossProperties.getPublicBucketName();
+        if (publicBucket == null || publicBucket.isBlank()) {
+            throw new IllegalStateException("公开素材 Bucket 未配置（oss.public-bucket-name），无法上传图片");
+        }
+
+        String objectKey = "haifeng/images/" + UUID.randomUUID().toString().replace("-", "") + extension;
+
+        OSS ossClient = createClient();
+        try (InputStream inputStream = new ByteArrayInputStream(data)) {
+            PutObjectRequest putObjectRequest = new PutObjectRequest(publicBucket, objectKey, inputStream);
+            ossClient.putObject(putObjectRequest);
+            log.info("公开素材图片上传OSS成功: bucket={}, key={}, size={}", publicBucket, objectKey, data.length);
+        } catch (Exception e) {
+            log.error("公开素材图片上传OSS失败: {}", e.getMessage(), e);
+            throw new RuntimeException("图片上传失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
+
+        return buildPublicUrl(objectKey);
+    }
+
+    /**
+     * 拼接公开素材的完整访问 URL。
+     * <p>优先使用显式配置的 {@code publicUrlPrefix}；未配置时按
+     * {@code https://{bucket}.{endpointHost}} 推导（endpoint 形如
+     * {@code https://oss-cn-beijing.aliyuncs.com}）。
+     */
+    public String buildPublicUrl(String objectKey) {
+        String prefix = ossProperties.getPublicUrlPrefix();
+        if (prefix == null || prefix.isBlank()) {
+            String bucket = ossProperties.getPublicBucketName();
+            String endpoint = ossProperties.getEndpoint();
+            if (bucket == null || bucket.isBlank() || endpoint == null || endpoint.isBlank()) {
+                throw new IllegalStateException("公开素材访问地址未配置（oss.public-url-prefix / oss.public-bucket-name）");
+            }
+            // 去掉 endpoint 末尾斜杠与协议头，取 host 部分
+            String host = endpoint.replaceFirst("^https?://", "").replaceAll("/+$", "");
+            prefix = "https://" + bucket + "." + host;
+        }
+        return prefix.replaceAll("/+$", "") + "/" + objectKey;
+    }
+
     public byte[] downloadBytes(String objectKey) {
         OSS ossClient = createClient();
         try (OSSObject ossObject = ossClient.getObject(ossProperties.getBucketName(), objectKey);

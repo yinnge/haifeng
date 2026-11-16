@@ -19,7 +19,8 @@ public enum NotificationType {
     MEMBER_REVOKED("member_revoked", "会员已撤销"),
     COMMISSION_REVERSED("commission_reversed", "佣金已撤回"),
     TEACHER_GRANTED("teacher_granted", "老师身份已开通"),
-    TEACHER_REVOKED("teacher_revoked", "老师身份已撤销");
+    TEACHER_REVOKED("teacher_revoked", "老师身份已撤销"),
+    CONSULTATION_RECEIVED("consultation_received", "收到咨询留言");
 
     @EnumValue
     private final String value;

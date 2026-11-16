@@ -26,6 +26,12 @@ public class NotificationDetailVO {
 
     private String content;
 
+    /**
+     * 业务关联ID（如咨询留言ID），无关联时为 null
+     */
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long relatedId;
+
     private Boolean isRead;
 
     private OffsetDateTime createdAt;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 public class PlannerListVO implements Serializable {
@@ -14,9 +15,10 @@ public class PlannerListVO implements Serializable {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String name;
-    private String region;
+    private String serviceTarget;
     private String position;
-    private String avatar;
-    private String specialty;
-    private String personalDescription;
+    private String province;
+    private String listDesc;
+    private List<String> listTags;
+    private String avatarUrl;
 }

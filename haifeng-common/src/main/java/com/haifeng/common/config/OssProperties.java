@@ -24,6 +24,22 @@ public class OssProperties {
     /** Bucket 名称 */
     private String bucketName;
 
+    /**
+     * 公开素材 Bucket 名称（公共读）。
+     * <p>与 {@link #bucketName} 分离：后者是私有读 bucket，承载 VIP 门禁文件
+     * （fileload 模块），其 objectKey 一旦可匿名直连即绕过全部权限校验，
+     * 因此严禁把私有 bucket 改成公共读。公开素材（头像 / 轮播图 / 二维码）
+     * 必须放在独立的公共读 bucket 里。
+     */
+    private String publicBucketName;
+
+    /**
+     * 公开素材访问前缀（用于拼接完整可访问 URL）。
+     * <p>留空则由 publicBucketName + endpoint 自动推导，形如
+     * {@code https://{bucket}.oss-cn-beijing.aliyuncs.com}。
+     */
+    private String publicUrlPrefix;
+
     /** 预签名 URL 过期时间（秒） */
     private Integer urlExpire = 3600;
 

@@ -1,9 +1,14 @@
 package com.haifeng.admin.controller.home;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.haifeng.admin.dto.home.*;
+import com.haifeng.admin.dto.home.PlannerAddDTO;
+import com.haifeng.admin.dto.home.PlannerQueryDTO;
+import com.haifeng.admin.dto.home.PlannerUpdateDTO;
+import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.PlannerService;
-import com.haifeng.admin.vo.home.*;
+import com.haifeng.admin.vo.home.PlannerDetailVO;
+import com.haifeng.admin.vo.home.PlannerListVO;
+import com.haifeng.admin.vo.home.TeacherOptionVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -11,6 +16,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 首页管理 - 规划师管理
@@ -23,6 +30,15 @@ import org.springframework.web.bind.annotation.*;
 public class PlannerController {
 
     private final PlannerService plannerService;
+
+    /**
+     * 教师身份用户下拉选项（新增/编辑弹窗用）
+     * 弹窗展示 username，选中后提交其 id 作为规划师的 userId
+     */
+    @GetMapping("/teachers")
+    public R<List<TeacherOptionVO>> teachers() {
+        return R.ok(plannerService.listTeacherOptions());
+    }
 
     /**
      * 分页查询规划师列表
@@ -60,22 +76,24 @@ public class PlannerController {
     }
 
     /**
-     * 修改规划师状态
+     * 修改规划师上下架状态
+     * <p>规划师无 status 列：状态由软删除标记 is_deleted 承担，
+     * {@code 1}=上线（is_deleted=false），{@code 0}=下线（is_deleted=true）。
      */
     @PutMapping("/{id}/status")
-    @OperationLog(module = "首页管理", action = "修改规划师状态")
+    @OperationLog(module = "首页管理", action = "修改规划师上下架状态")
     public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
         plannerService.updateStatus(id, dto);
         return R.ok();
     }
 
     /**
-     * 硬删除规划师
+     * 彻底删除规划师（物理删除，不可恢复）
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "首页管理", action = "硬删除规划师")
+    @OperationLog(module = "首页管理", action = "彻底删除规划师")
     public R<Void> delete(@PathVariable Long id) {
-        plannerService.delete(id);
+        plannerService.hardDelete(id);
         return R.ok();
     }
 }

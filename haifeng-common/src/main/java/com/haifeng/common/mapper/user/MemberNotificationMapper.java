@@ -80,6 +80,8 @@ public interface MemberNotificationMapper extends BaseMapper<MemberNotification>
             "is_read, read_at, is_deleted as disabled, created_at, updated_at " +
             "FROM t_member_notification " +
             "WHERE 1=1 " +
+            // 咨询留言走独立的「咨询留言」管理页，不在通知管理里展示
+            "AND notification_type <> 'consultation_received' " +
             "<if test='notificationType != null'> AND notification_type = #{notificationType} </if> " +
             "<if test='memberId != null'> AND member_id = #{memberId} </if> " +
             "<if test='isRead != null'> AND is_read = #{isRead} </if> " +
@@ -97,6 +99,7 @@ public interface MemberNotificationMapper extends BaseMapper<MemberNotification>
     @Select("<script>" +
             "SELECT COUNT(*) FROM t_member_notification " +
             "WHERE 1=1 " +
+            "AND notification_type <> 'consultation_received' " +
             "<if test='notificationType != null'> AND notification_type = #{notificationType} </if> " +
             "<if test='memberId != null'> AND member_id = #{memberId} </if> " +
             "<if test='isRead != null'> AND is_read = #{isRead} </if>" +
