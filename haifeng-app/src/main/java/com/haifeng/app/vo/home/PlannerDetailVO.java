@@ -8,6 +8,10 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * C 端规划师详情 VO：基础信息 + 列表页展示 + 详情页展示。
+ * 预约信息（邮箱/手机/地址/微信二维码）不在此接口，见 PlannerAppointmentVO。
+ */
 @Data
 public class PlannerDetailVO implements Serializable {
 
@@ -15,11 +19,19 @@ public class PlannerDetailVO implements Serializable {
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    // ===== 基础信息 =====
     private String name;
     private String serviceTarget;
     private String position;
     private String province;
     private String avatarUrl;
+
+    // ===== 列表页展示 =====
+    private String listDesc;
+    private List<String> listTags;
+
+    // ===== 详情页展示 =====
     private String workYears;
     private String servedCount;
     private String draftSla;
@@ -27,8 +39,4 @@ public class PlannerDetailVO implements Serializable {
     private String description;
     private List<String> detailTags;
     private List<PlannerServiceItem> services;
-    private String email;
-    private String phone;
-    private String address;
-    private String wechatQrcodeUrl;
 }

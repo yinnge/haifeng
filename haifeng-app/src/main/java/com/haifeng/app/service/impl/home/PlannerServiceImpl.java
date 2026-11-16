@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
 import com.haifeng.app.service.home.PlannerService;
+import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.constant.RedisKeyConstant;
@@ -92,10 +93,7 @@ public class PlannerServiceImpl implements PlannerService {
         }
         log.debug("规划师详情缓存未命中, key={}", cacheKey);
 
-        Planner entity = plannerMapper.selectById(id);
-        if (entity == null || Boolean.TRUE.equals(entity.getDeleted())) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "规划师不存在");
-        }
+        Planner entity = findActivePlanner(id);
 
         PlannerDetailVO vo = new PlannerDetailVO();
         BeanUtils.copyProperties(entity, vo);
@@ -103,6 +101,25 @@ public class PlannerServiceImpl implements PlannerService {
         redisTemplate.opsForValue().set(cacheKey, vo,
                 RedisKeyConstant.HOME_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         return vo;
+    }
+
+    @Override
+    public PlannerAppointmentVO appointment(Long id) {
+        // 联系方式数据敏感且量小，直连 DB 不缓存，保证编辑后实时生效
+        Planner entity = findActivePlanner(id);
+
+        PlannerAppointmentVO vo = new PlannerAppointmentVO();
+        BeanUtils.copyProperties(entity, vo);
+        return vo;
+    }
+
+    /** 查询未软删除的规划师，否则抛 404 */
+    private Planner findActivePlanner(Long id) {
+        Planner entity = plannerMapper.selectById(id);
+        if (entity == null || Boolean.TRUE.equals(entity.getDeleted())) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "规划师不存在");
+        }
+        return entity;
     }
 
     private PlannerListVO toListVO(Planner entity) {

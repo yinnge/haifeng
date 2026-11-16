@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
 import com.haifeng.app.service.impl.home.PlannerServiceImpl;
+import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.constant.RedisKeyConstant;
@@ -195,6 +196,48 @@ class PlannerServiceImplTest {
         when(plannerMapper.selectById(1L)).thenReturn(entity);
 
         assertThatThrownBy(() -> service.detail(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("规划师不存在");
+    }
+
+    // ===== 预约信息 =====
+
+    @Test
+    void appointment_exists_returnsContactInfo_withoutCache() {
+        Planner entity = Planner.builder()
+                .id(1L).name("张老师").avatarUrl("/static/avatar.svg")
+                .email("zhang@example.com").phone("13800000000")
+                .address("西安市雁塔区").wechatQrcodeUrl("/static/qr.png")
+                .deleted(false).build();
+        when(plannerMapper.selectById(1L)).thenReturn(entity);
+
+        PlannerAppointmentVO vo = service.appointment(1L);
+
+        assertThat(vo.getName()).isEqualTo("张老师");
+        assertThat(vo.getAvatarUrl()).isEqualTo("/static/avatar.svg");
+        assertThat(vo.getEmail()).isEqualTo("zhang@example.com");
+        assertThat(vo.getPhone()).isEqualTo("13800000000");
+        assertThat(vo.getAddress()).isEqualTo("西安市雁塔区");
+        assertThat(vo.getWechatQrcodeUrl()).isEqualTo("/static/qr.png");
+        // 预约接口不读写缓存
+        verifyNoInteractions(valueOps);
+    }
+
+    @Test
+    void appointment_notFound_throws404() {
+        when(plannerMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.appointment(99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("规划师不存在");
+    }
+
+    @Test
+    void appointment_softDeleted_throws404() {
+        Planner entity = Planner.builder().id(1L).deleted(true).build();
+        when(plannerMapper.selectById(1L)).thenReturn(entity);
+
+        assertThatThrownBy(() -> service.appointment(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("规划师不存在");
     }

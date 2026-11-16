@@ -3,6 +3,7 @@ package com.haifeng.app.controller.home;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
 import com.haifeng.app.service.home.PlannerService;
+import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.response.R;
@@ -32,9 +33,15 @@ public class PlannerController {
         return R.ok(plannerService.page(dto));
     }
 
-    /** 规划师详情 */
+    /** 规划师详情（基础信息 + 列表页展示 + 详情页展示） */
     @GetMapping("/{id}")
     public R<PlannerDetailVO> detail(@Min(value = 1, message = "ID必须大于0") @PathVariable Long id) {
         return R.ok(plannerService.detail(id));
+    }
+
+    /** 规划师预约信息（头像 + 姓名 + 联系方式） */
+    @GetMapping("/{id}/appointment")
+    public R<PlannerAppointmentVO> appointment(@Min(value = 1, message = "ID必须大于0") @PathVariable Long id) {
+        return R.ok(plannerService.appointment(id));
     }
 }

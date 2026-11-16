@@ -2,6 +2,7 @@ package com.haifeng.app.service.home;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.haifeng.app.dto.home.PlannerQueryDTO;
+import com.haifeng.app.vo.home.PlannerAppointmentVO;
 import com.haifeng.app.vo.home.PlannerDetailVO;
 import com.haifeng.app.vo.home.PlannerListVO;
 
@@ -12,4 +13,7 @@ public interface PlannerService {
 
     /** 查询规划师详情（未软删除，不存在抛 404） */
     PlannerDetailVO detail(Long id);
+
+    /** 查询规划师预约信息（未软删除，不存在抛 404） */
+    PlannerAppointmentVO appointment(Long id);
 }
