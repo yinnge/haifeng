@@ -22,7 +22,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -111,6 +116,36 @@ public class PlannerServiceImpl implements PlannerService {
         PlannerAppointmentVO vo = new PlannerAppointmentVO();
         BeanUtils.copyProperties(entity, vo);
         return vo;
+    }
+
+    @Override
+    public List<String> listProvinces(String serviceTarget) {
+        if (!ServiceTargetEnum.isValid(serviceTarget)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "服务对象须为高考或考研");
+        }
+        // DB 实际存在的省份：手动软删条件 + groupBy 去重（范式同 FileLoadServiceImpl.distinctColumn）
+        LambdaQueryWrapper<Planner> w = new LambdaQueryWrapper<Planner>()
+                .eq(Planner::getDeleted, false)
+                .eq(Planner::getServiceTarget, serviceTarget)
+                .isNotNull(Planner::getProvince)
+                .ne(Planner::getProvince, "")
+                .groupBy(Planner::getProvince)
+                .select(Planner::getProvince);
+        Set<String> existing = plannerMapper.selectObjs(w).stream()
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .collect(Collectors.toSet());
+
+        // 按 ProvinceEnum 行政顺序输出，保证前端展示稳定
+        List<String> ordered = new ArrayList<>();
+        for (ProvinceEnum p : ProvinceEnum.values()) {
+            if (existing.remove(p.getDesc())) {
+                ordered.add(p.getDesc());
+            }
+        }
+        // 枚举外的脏数据兜底追加，避免遗漏（正常不会出现）
+        ordered.addAll(existing);
+        return ordered;
     }
 
     /** 查询未软删除的规划师，否则抛 404 */

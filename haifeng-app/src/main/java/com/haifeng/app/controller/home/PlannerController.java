@@ -9,9 +9,12 @@ import com.haifeng.app.vo.home.PlannerListVO;
 import com.haifeng.common.response.R;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import java.util.List;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlannerController {
 
     private final PlannerService plannerService;
+
+    /** 该服务对象下实际存在的省份（供前端筛选按钮，DB 有什么返回什么） */
+    @GetMapping("/provinces")
+    public R<List<String>> provinces(
+            @NotBlank(message = "服务对象不能为空") @RequestParam String serviceTarget) {
+        return R.ok(plannerService.listProvinces(serviceTarget));
+    }
 
     /** 分页查询规划师列表 */
     @GetMapping

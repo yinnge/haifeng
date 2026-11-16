@@ -241,4 +241,36 @@ class PlannerServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("规划师不存在");
     }
+
+    // ===== 省份列表 =====
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void provinces_returnsDistinctInAdminOrder() {
+        // DB 乱序 + 重复；Enum 顺序应为 北京 < 江苏 < 陕西
+        when(plannerMapper.selectObjs(any(Wrapper.class)))
+                .thenReturn((java.util.List) java.util.List.of("陕西", "北京", "江苏", "北京"));
+
+        java.util.List<String> result = service.listProvinces("高考");
+
+        assertThat(result).containsExactly("北京", "江苏", "陕西");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void provinces_emptyDb_returnsEmptyList() {
+        when(plannerMapper.selectObjs(any(Wrapper.class)))
+                .thenReturn((java.util.List) java.util.Collections.emptyList());
+
+        assertThat(service.listProvinces("考研")).isEmpty();
+    }
+
+    @Test
+    void provinces_invalidTarget_throws400_doesNotTouchDb() {
+        assertThatThrownBy(() -> service.listProvinces("火星"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
+
+        verify(plannerMapper, never()).selectObjs(any());
+    }
 }
