@@ -11,6 +11,12 @@ spring:
       idle-timeout: 30000
       connection-timeout: 30000
 
+  # 文件上传配置（头像上传上限 2MB，留余量）
+  servlet:
+    multipart:
+      max-file-size: 3MB
+      max-request-size: 4MB
+
   # Redis 配置
   data:
     redis:
@@ -76,6 +82,9 @@ oss:
   bucket-name: ${OSS_BUCKET_NAME}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: http://127.0.0.1:8012
+  # 会员头像专用 Bucket（公共读，用户自制头像）
+  avatar-bucket-name: ${OSS_AVATAR_BUCKET_NAME:}
+  avatar-url-prefix: ${OSS_AVATAR_URL_PREFIX:}
 
 # PDF预览配置
 pdf:

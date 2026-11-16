@@ -15,6 +15,7 @@ import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.mapper.user.MemberOrderMapper;
 import com.haifeng.common.mapper.user.ReferralCommissionMapper;
 import com.haifeng.common.mapper.user.WithdrawRecordMapper;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.CryptoUtil;
 import com.haifeng.common.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class MemberInfoServiceImpl implements MemberInfoService {
     private final WithdrawRecordMapper withdrawRecordMapper;
     private final PasswordEncoder passwordEncoder;
     private final SecurityProperties securityProperties;
+    private final OssService ossService;
 
     @Override
     public MemberInfoVO getInfo() {
@@ -51,10 +53,23 @@ public class MemberInfoServiceImpl implements MemberInfoService {
         String effectiveType = member.getEffectiveMemberType();
         OffsetDateTime effectiveExpireAt = member.getExpireAt();
 
+        // 自定义头像 URL 与当前 avatar 分开返回：当前用内置头像时仍能拿到历史上传头像，供前端「切回我的头像」。
+        // 固定 key（haifeng/avatars/{memberId}）保证 URL 稳定，COS 对象在切换内置头像时不会被删除。
+        String customAvatar = null;
+        try {
+            String customUrl = ossService.buildMemberAvatarUrl(ossService.memberAvatarObjectKey(memberId));
+            if (customUrl.equals(member.getAvatar()) || ossService.memberAvatarExists(memberId)) {
+                customAvatar = customUrl;
+            }
+        } catch (IllegalStateException e) {
+            log.warn("会员头像 Bucket 未配置，跳过 customAvatar 返回: memberId={}", memberId);
+        }
+
         return MemberInfoVO.builder()
                 .username(member.getUsername())
                 .phone(member.getPhone())
                 .avatar(member.getAvatar())
+                .customAvatar(customAvatar)
                 .hasWechat(StringUtils.hasText(member.getWechatId()))
                 .inviteCode(member.getInviteCode())
                 .commissionBalance(member.getCommissionBalance())

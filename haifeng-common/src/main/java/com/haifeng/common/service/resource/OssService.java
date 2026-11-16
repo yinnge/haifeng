@@ -197,6 +197,80 @@ public class OssService {
         return prefix.replaceAll("/+$", "") + "/" + objectKey;
     }
 
+    /**
+     * 会员头像 objectKey：按 memberId 固定，覆盖上传即为「更换头像」，无需手动删旧对象。
+     * 注意 key 不带扩展名，Content-Type 由上传时按实际格式写入元数据。
+     */
+    public String memberAvatarObjectKey(Long memberId) {
+        return "haifeng/avatars/" + memberId;
+    }
+
+    /**
+     * 拼接会员头像完整访问 URL。
+     */
+    public String buildMemberAvatarUrl(String objectKey) {
+        String prefix = ossProperties.getAvatarUrlPrefix();
+        if (prefix == null || prefix.isBlank()) {
+            String bucket = ossProperties.getAvatarBucketName();
+            String endpoint = ossProperties.getEndpoint();
+            if (bucket == null || bucket.isBlank() || endpoint == null || endpoint.isBlank()) {
+                throw new IllegalStateException("会员头像访问地址未配置（oss.avatar-url-prefix / oss.avatar-bucket-name）");
+            }
+            String host = endpoint.replaceFirst("^https?://", "").replaceAll("/+$", "");
+            prefix = "https://" + bucket + "." + host;
+        }
+        return prefix.replaceAll("/+$", "") + "/" + objectKey;
+    }
+
+    /**
+     * 上传会员头像到「头像专用公共读 Bucket」，使用固定 objectKey 覆盖更新。
+     * <p>返回可直接被 C 端 {@code <img src>} 引用的完整 URL。
+     */
+    public String uploadMemberAvatar(byte[] data, String extension, Long memberId) {
+        String bucket = ossProperties.getAvatarBucketName();
+        if (bucket == null || bucket.isBlank()) {
+            throw new IllegalStateException("会员头像 Bucket 未配置（oss.avatar-bucket-name），无法上传头像");
+        }
+        String objectKey = memberAvatarObjectKey(memberId);
+
+        OSS ossClient = createClient();
+        try (InputStream inputStream = new ByteArrayInputStream(data)) {
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, objectKey, inputStream);
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentType(resolveContentType(extension));
+            putObjectRequest.setMetadata(metadata);
+            ossClient.putObject(putObjectRequest);
+            log.info("会员头像上传OSS成功: bucket={}, key={}, size={}, contentType={}",
+                    bucket, objectKey, data.length, metadata.getContentType());
+        } catch (Exception e) {
+            log.error("会员头像上传OSS失败: key={}, error={}", objectKey, e.getMessage(), e);
+            throw new RuntimeException("头像上传失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
+
+        return buildMemberAvatarUrl(objectKey);
+    }
+
+    /**
+     * 判断会员是否已上传过自定义头像（用于前端展示「我的头像」回切选项）。
+     */
+    public boolean memberAvatarExists(Long memberId) {
+        String bucket = ossProperties.getAvatarBucketName();
+        if (bucket == null || bucket.isBlank()) {
+            return false;
+        }
+        OSS ossClient = createClient();
+        try {
+            return ossClient.doesObjectExist(bucket, memberAvatarObjectKey(memberId));
+        } catch (Exception e) {
+            log.error("查询会员头像失败: memberId={}, error={}", memberId, e.getMessage(), e);
+            return false;
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
     public byte[] downloadBytes(String objectKey) {
         OSS ossClient = createClient();
         try (OSSObject ossObject = ossClient.getObject(ossProperties.getBucketName(), objectKey);
