@@ -42,19 +42,42 @@ class PlannerServiceImplTest {
 
     @InjectMocks private PlannerServiceImpl service;
 
+    private PlannerQueryDTO dto(String target, String province) {
+        PlannerQueryDTO dto = new PlannerQueryDTO();
+        dto.setServiceTarget(target);
+        dto.setProvince(province);
+        return dto;
+    }
+
     @BeforeEach
     void setUp() {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
     }
 
-    // ===== region 校验 =====
+    // ===== serviceTarget 校验 =====
 
     @Test
-    void list_invalidRegion_throws400_doesNotTouchCacheOrDb() {
-        PlannerQueryDTO dto = new PlannerQueryDTO();
-        dto.setRegion("火星");
+    void list_invalidTarget_throws400_doesNotTouchCacheOrDb() {
+        assertThatThrownBy(() -> service.page(dto("火星", null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
 
-        assertThatThrownBy(() -> service.page(dto))
+        verify(redisTemplate, never()).opsForValue();
+        verify(plannerMapper, never()).selectPage(any(), any());
+    }
+
+    @Test
+    void list_nullTarget_throws400() {
+        assertThatThrownBy(() -> service.page(dto(null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("服务对象");
+    }
+
+    // ===== province 校验 =====
+
+    @Test
+    void list_invalidProvince_throws400_doesNotTouchCacheOrDb() {
+        assertThatThrownBy(() -> service.page(dto("高考", "火星")))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("无效的省份");
 
@@ -63,30 +86,27 @@ class PlannerServiceImplTest {
     }
 
     @Test
-    void list_nullRegion_noValidationError_proceeds() {
+    void list_nullProvince_proceedsToQuery() {
         when(valueOps.get(anyString())).thenReturn(null);
         Page<Planner> empty = new Page<>(1, 10);
         empty.setRecords(Collections.emptyList());
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(empty);
 
-        service.page(new PlannerQueryDTO());  // region=null
+        service.page(dto("高考", null));
 
         verify(plannerMapper).selectPage(any(Page.class), any(Wrapper.class));
     }
 
     @Test
-    void list_validRegion_proceedsToQuery() {
-        PlannerQueryDTO dto = new PlannerQueryDTO();
-        dto.setRegion("北京");
-
+    void list_validProvince_proceedsToQuery() {
         when(valueOps.get(anyString())).thenReturn(null);
         Page<Planner> empty = new Page<>(1, 10);
         empty.setRecords(Collections.emptyList());
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(empty);
 
-        service.page(dto);
+        service.page(dto("高考", "北京"));
 
-        String key = RedisKeyConstant.getPlannerListKey(1, 10, "北京");
+        String key = RedisKeyConstant.getPlannerListKey(1, 10, "高考", "北京");
         verify(valueOps).get(key);
     }
 
@@ -101,7 +121,7 @@ class PlannerServiceImplTest {
                 new PageCacheDTO<>(List.of(vo), 1L, 1L, 10L);
         when(valueOps.get(anyString())).thenReturn(cached);
 
-        IPage<PlannerListVO> result = service.page(new PlannerQueryDTO());
+        IPage<PlannerListVO> result = service.page(dto("高考", null));
 
         assertThat(result.getRecords()).hasSize(1);
         assertThat(result.getRecords().get(0).getName()).isEqualTo("cached");
@@ -110,17 +130,17 @@ class PlannerServiceImplTest {
 
     @Test
     void list_cacheMiss_queriesDbAndWritesCache() {
-        String key = RedisKeyConstant.getPlannerListKey(1, 10, null);
+        String key = RedisKeyConstant.getPlannerListKey(1, 10, "高考", null);
         when(valueOps.get(key)).thenReturn(null);
 
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").region("北京").status((short) 1).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").province("北京").deleted(false).build();
         Page<Planner> page = new Page<>(1, 10);
         page.setRecords(List.of(entity));
         page.setTotal(1);
         when(plannerMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
 
-        IPage<PlannerListVO> result = service.page(new PlannerQueryDTO());
+        IPage<PlannerListVO> result = service.page(dto("高考", null));
 
         assertThat(result.getRecords()).hasSize(1);
         verify(valueOps).set(eq(key), any(PageCacheDTO.class),
@@ -147,7 +167,7 @@ class PlannerServiceImplTest {
         String key = RedisKeyConstant.getPlannerDetailKey(1L);
         when(valueOps.get(key)).thenReturn(null);
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").status((short) 1).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").deleted(false).build();
         when(plannerMapper.selectById(1L)).thenReturn(entity);
 
         PlannerDetailVO result = service.detail(1L);
@@ -168,10 +188,10 @@ class PlannerServiceImplTest {
     }
 
     @Test
-    void detail_statusZero_throws404() {
+    void detail_softDeleted_throws404() {
         when(valueOps.get(anyString())).thenReturn(null);
         Planner entity = Planner.builder()
-                .id(1L).name("张老师").status((short) 0).deleted(false).build();
+                .id(1L).name("张老师").serviceTarget("高考").deleted(true).build();
         when(plannerMapper.selectById(1L)).thenReturn(entity);
 
         assertThatThrownBy(() -> service.detail(1L))

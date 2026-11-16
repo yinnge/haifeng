@@ -11,6 +11,7 @@ import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.dto.common.PageCacheDTO;
 import com.haifeng.common.entity.home.Planner;
 import com.haifeng.common.enums.ProvinceEnum;
+import com.haifeng.common.enums.ServiceTargetEnum;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.PlannerMapper;
 import com.haifeng.common.response.ResultCode;
@@ -29,25 +30,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlannerServiceImpl implements PlannerService {
 
-    private static final short STATUS_PUBLISHED = 1;
-
     private final PlannerMapper plannerMapper;
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @SuppressWarnings("unchecked")
     public IPage<PlannerListVO> page(PlannerQueryDTO dto) {
-        // 1) 参数校验：region 必须在 ProvinceEnum 中（null 视为合法）
-        if (dto.getRegion() != null && !ProvinceEnum.isValid(dto.getRegion())) {
+        // 1) 参数校验：serviceTarget 必填且合法；province 可选，传了须合法
+        if (!ServiceTargetEnum.isValid(dto.getServiceTarget())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "服务对象须为高考或考研");
+        }
+        String province = dto.getProvince();
+        if (province != null && !ProvinceEnum.isValid(province)) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "无效的省份");
         }
 
         int pageNo = dto.getPage();
         int size = dto.getSize();
-        String region = dto.getRegion();
+        String serviceTarget = dto.getServiceTarget();
 
-        // 2) 缓存查询
-        String cacheKey = RedisKeyConstant.getPlannerListKey(pageNo, size, region);
+        // 2) 缓存查询（serviceTarget + province 参与维度）
+        String cacheKey = RedisKeyConstant.getPlannerListKey(pageNo, size, serviceTarget, province);
         Object cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached instanceof PageCacheDTO) {
             log.debug("规划师列表缓存命中, key={}", cacheKey);
@@ -55,12 +58,13 @@ public class PlannerServiceImpl implements PlannerService {
         }
         log.debug("规划师列表缓存未命中, key={}", cacheKey);
 
-        // 3) DB 查询
+        // 3) DB 查询：软删除手动条件（禁用 @TableLogic）
         Page<Planner> page = new Page<>(pageNo, size);
         LambdaQueryWrapper<Planner> wrapper = new LambdaQueryWrapper<Planner>()
-                .eq(Planner::getStatus, STATUS_PUBLISHED);
-        if (region != null) {
-            wrapper.eq(Planner::getRegion, region);
+                .eq(Planner::getDeleted, false)
+                .eq(Planner::getServiceTarget, serviceTarget);
+        if (province != null) {
+            wrapper.eq(Planner::getProvince, province);
         }
         wrapper.orderByAsc(Planner::getSortOrder)
                .orderByDesc(Planner::getId);
@@ -89,7 +93,7 @@ public class PlannerServiceImpl implements PlannerService {
         log.debug("规划师详情缓存未命中, key={}", cacheKey);
 
         Planner entity = plannerMapper.selectById(id);
-        if (entity == null || entity.getStatus() == null || entity.getStatus() != STATUS_PUBLISHED) {
+        if (entity == null || Boolean.TRUE.equals(entity.getDeleted())) {
             throw new BusinessException(ResultCode.NOT_FOUND, "规划师不存在");
         }
 

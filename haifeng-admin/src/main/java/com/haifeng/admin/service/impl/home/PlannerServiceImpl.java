@@ -6,29 +6,31 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.home.PlannerAddDTO;
 import com.haifeng.admin.dto.home.PlannerQueryDTO;
 import com.haifeng.admin.dto.home.PlannerUpdateDTO;
-import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.PlannerService;
 import com.haifeng.admin.vo.home.PlannerDetailVO;
 import com.haifeng.admin.vo.home.PlannerListVO;
 import com.haifeng.common.constant.RedisKeyConstant;
 import com.haifeng.common.entity.home.Planner;
+import com.haifeng.common.enums.ProvinceEnum;
+import com.haifeng.common.enums.ServiceTargetEnum;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.PlannerMapper;
+import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
-import org.springframework.data.redis.core.Cursor;
-import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -42,21 +44,25 @@ public class PlannerServiceImpl implements PlannerService {
 
     @Override
     public IPage<PlannerListVO> page(PlannerQueryDTO dto) {
+        // 参数校验：serviceTarget / province 若传则必须合法
+        validateFilter(dto.getServiceTarget(), dto.getProvince());
+
         Page<Planner> page = new Page<>(dto.getPage(), dto.getSize());
 
+        // 软删除手动条件（禁用 @TableLogic）
         LambdaQueryWrapper<Planner> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Planner::getDeleted, false);
 
-        // 姓名模糊查询
         if (StringUtils.hasText(dto.getName())) {
             wrapper.like(Planner::getName, dto.getName());
         }
-        // 状态筛选
-        if (dto.getStatus() != null) {
-            wrapper.eq(Planner::getStatus, dto.getStatus());
+        if (StringUtils.hasText(dto.getServiceTarget())) {
+            wrapper.eq(Planner::getServiceTarget, dto.getServiceTarget());
+        }
+        if (StringUtils.hasText(dto.getProvince())) {
+            wrapper.eq(Planner::getProvince, dto.getProvince());
         }
 
-        // 按sortOrder升序 + createdAt降序排列
         wrapper.orderByAsc(Planner::getSortOrder)
                .orderByDesc(Planner::getCreatedAt);
 
@@ -72,7 +78,7 @@ public class PlannerServiceImpl implements PlannerService {
     @Override
     public PlannerDetailVO detail(Long id) {
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || planner.getDeleted()) {
+        if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
             throw new BusinessException(404, "规划师不存在");
         }
 
@@ -84,25 +90,38 @@ public class PlannerServiceImpl implements PlannerService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long add(PlannerAddDTO dto) {
+        validateTargetAndProvince(dto.getServiceTarget(), dto.getProvince());
+
         OffsetDateTime now = OffsetDateTime.now();
         Long id = SnowflakeIdGenerator.nextId();
+        Long operatorId = SecurityUtil.getCurrentAdminId();
 
         Planner planner = Planner.builder()
                 .id(id)
+                .userId(dto.getUserId())
                 .name(dto.getName())
+                .serviceTarget(dto.getServiceTarget())
                 .position(dto.getPosition())
-                .region(dto.getRegion())
-                .avatar(dto.getAvatar())
-                .specialty(dto.getSpecialty())
-                .douyinName(dto.getDouyinName())
-                .douyinUrl(dto.getDouyinUrl())
-                .personalDescription(dto.getPersonalDescription())
-                .experienceJob(dto.getExperienceJob())
-                .achievements(dto.getAchievements())
-                .expertiseAreas(dto.getExpertiseAreas())
+                .province(dto.getProvince())
+                .listDesc(dto.getListDesc())
+                .listTags(dto.getListTags() == null ? Collections.emptyList() : dto.getListTags())
+                .avatarUrl(dto.getAvatarUrl())
+                .workYears(dto.getWorkYears())
+                .servedCount(dto.getServedCount())
+                .draftSla(dto.getDraftSla())
+                .certDesc(dto.getCertDesc())
+                .description(dto.getDescription())
+                .detailTags(dto.getDetailTags() == null ? Collections.emptyList() : dto.getDetailTags())
+                .services(dto.getServices() == null ? Collections.emptyList() : dto.getServices())
+                .email(dto.getEmail())
+                .phone(dto.getPhone())
+                .address(dto.getAddress())
+                .wechatQrcodeUrl(dto.getWechatQrcodeUrl())
                 .sortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0)
-                .status((short) 1)  // 默认展示状态
+                .version(0)
                 .deleted(false)
+                .createdBy(operatorId)
+                .updatedBy(operatorId)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -115,30 +134,43 @@ public class PlannerServiceImpl implements PlannerService {
                 evictCache();
             }
         });
-        log.info("新增规划师成功: id={}, name={}", id, dto.getName());
+        log.info("新增规划师成功: id={}, name={}, operator={}", id, dto.getName(), operatorId);
         return id;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(Long id, PlannerUpdateDTO dto) {
+        validateTargetAndProvince(dto.getServiceTarget(), dto.getProvince());
+
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || planner.getDeleted()) {
+        if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
             throw new BusinessException(404, "规划师不存在");
         }
 
+        Long operatorId = SecurityUtil.getCurrentAdminId();
+
+        planner.setUserId(dto.getUserId());
         planner.setName(dto.getName());
+        planner.setServiceTarget(dto.getServiceTarget());
         planner.setPosition(dto.getPosition());
-        planner.setRegion(dto.getRegion());
-        planner.setAvatar(dto.getAvatar());
-        planner.setSpecialty(dto.getSpecialty());
-        planner.setDouyinName(dto.getDouyinName());
-        planner.setDouyinUrl(dto.getDouyinUrl());
-        planner.setPersonalDescription(dto.getPersonalDescription());
-        planner.setExperienceJob(dto.getExperienceJob());
-        planner.setAchievements(dto.getAchievements());
-        planner.setExpertiseAreas(dto.getExpertiseAreas());
+        planner.setProvince(dto.getProvince());
+        planner.setListDesc(dto.getListDesc());
+        planner.setListTags(dto.getListTags() == null ? Collections.emptyList() : dto.getListTags());
+        planner.setAvatarUrl(dto.getAvatarUrl());
+        planner.setWorkYears(dto.getWorkYears());
+        planner.setServedCount(dto.getServedCount());
+        planner.setDraftSla(dto.getDraftSla());
+        planner.setCertDesc(dto.getCertDesc());
+        planner.setDescription(dto.getDescription());
+        planner.setDetailTags(dto.getDetailTags() == null ? Collections.emptyList() : dto.getDetailTags());
+        planner.setServices(dto.getServices() == null ? Collections.emptyList() : dto.getServices());
+        planner.setEmail(dto.getEmail());
+        planner.setPhone(dto.getPhone());
+        planner.setAddress(dto.getAddress());
+        planner.setWechatQrcodeUrl(dto.getWechatQrcodeUrl());
         planner.setSortOrder(dto.getSortOrder());
+        planner.setUpdatedBy(operatorId);
         planner.setUpdatedAt(OffsetDateTime.now());
 
         plannerMapper.updateById(planner);
@@ -149,20 +181,21 @@ public class PlannerServiceImpl implements PlannerService {
                 evictCache();
             }
         });
-        log.info("更新规划师成功: id={}, name={}", id, dto.getName());
+        log.info("更新规划师成功: id={}, name={}, operator={}", id, dto.getName(), operatorId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateStatus(Long id, StatusDTO dto) {
+    public void delete(Long id) {
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || planner.getDeleted()) {
+        if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
             throw new BusinessException(404, "规划师不存在");
         }
 
-        planner.setStatus(dto.getStatus());
+        // 软删除：手动置 is_deleted=true（禁用 @TableLogic）
+        planner.setDeleted(true);
+        planner.setUpdatedBy(SecurityUtil.getCurrentAdminId());
         planner.setUpdatedAt(OffsetDateTime.now());
-
         plannerMapper.updateById(planner);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -171,20 +204,27 @@ public class PlannerServiceImpl implements PlannerService {
                 evictCache();
             }
         });
-        log.info("更新规划师状态成功: id={}, status={}", id, dto.getStatus());
+        log.info("软删除规划师成功: id={}", id);
     }
 
-    @Override
-    public void delete(Long id) {
-        Planner planner = plannerMapper.selectById(id);
-        if (planner == null) {
-            throw new BusinessException(404, "规划师不存在");
+    /** 筛选参数校验（可选字段：传了才校验） */
+    private void validateFilter(String serviceTarget, String province) {
+        if (StringUtils.hasText(serviceTarget) && !ServiceTargetEnum.isValid(serviceTarget)) {
+            throw new BusinessException(400, "服务对象须为高考或考研");
         }
+        if (StringUtils.hasText(province) && !ProvinceEnum.isValid(province)) {
+            throw new BusinessException(400, "无效的省份");
+        }
+    }
 
-        plannerMapper.hardDeleteById(id);
-
-        evictCache();
-        log.info("硬删除规划师成功: id={}", id);
+    /** 新增/修改必填枚举校验 */
+    private void validateTargetAndProvince(String serviceTarget, String province) {
+        if (!ServiceTargetEnum.isValid(serviceTarget)) {
+            throw new BusinessException(400, "服务对象须为高考或考研");
+        }
+        if (StringUtils.hasText(province) && !ProvinceEnum.isValid(province)) {
+            throw new BusinessException(400, "无效的省份");
+        }
     }
 
     private void evictCache() {

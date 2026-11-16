@@ -304,10 +304,12 @@ public final class RedisKeyConstant {
     }
 
     /**
-     * 规划师列表缓存 Key
+     * 规划师列表缓存 Key（serviceTarget + province 参与维度，避免高考/考研两页串数据）
      */
-    public static String getPlannerListKey(int page, int size, String region) {
-        return HOME_PLANNER_LIST_PREFIX + "p=" + page + ":s=" + size + ":region=" + truncateForKey(region);
+    public static String getPlannerListKey(int page, int size, String serviceTarget, String province) {
+        return HOME_PLANNER_LIST_PREFIX + "p=" + page + ":s=" + size
+                + ":target=" + truncateForKey(serviceTarget)
+                + ":province=" + truncateForKey(province);
     }
 
     /**

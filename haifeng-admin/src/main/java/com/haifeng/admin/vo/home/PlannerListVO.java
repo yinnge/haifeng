@@ -1,21 +1,26 @@
 package com.haifeng.admin.vo.home;
 
-import lombok.Data;
-
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class PlannerListVO {
+
     @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long userId;
+
     private String name;
+    private String serviceTarget;
     private String position;
-    private String region;
-    private String avatar;
-    private String specialty;
-    private String douyinName;
-    private String douyinUrl;
+    private String province;
+    private String listDesc;
+    private List<String> listTags;
+    private String avatarUrl;
     private Integer sortOrder;
-    private Short status;
 }

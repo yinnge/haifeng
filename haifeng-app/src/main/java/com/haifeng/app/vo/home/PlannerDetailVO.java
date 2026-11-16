@@ -2,6 +2,7 @@ package com.haifeng.app.vo.home;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import com.haifeng.common.dto.home.PlannerServiceItem;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -15,14 +16,19 @@ public class PlannerDetailVO implements Serializable {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String name;
+    private String serviceTarget;
     private String position;
-    private String region;
-    private String avatar;
-    private String specialty;
-    private String douyinName;
-    private String douyinUrl;
-    private String personalDescription;
-    private String experienceJob;
-    private List<String> achievements;
-    private List<String> expertiseAreas;
+    private String province;
+    private String avatarUrl;
+    private String workYears;
+    private String servedCount;
+    private String draftSla;
+    private String certDesc;
+    private String description;
+    private List<String> detailTags;
+    private List<PlannerServiceItem> services;
+    private String email;
+    private String phone;
+    private String address;
+    private String wechatQrcodeUrl;
 }

@@ -1,9 +1,12 @@
 package com.haifeng.admin.controller.home;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.haifeng.admin.dto.home.*;
+import com.haifeng.admin.dto.home.PlannerAddDTO;
+import com.haifeng.admin.dto.home.PlannerQueryDTO;
+import com.haifeng.admin.dto.home.PlannerUpdateDTO;
 import com.haifeng.admin.service.home.PlannerService;
-import com.haifeng.admin.vo.home.*;
+import com.haifeng.admin.vo.home.PlannerDetailVO;
+import com.haifeng.admin.vo.home.PlannerListVO;
 import com.haifeng.common.annotation.OperationLog;
 import com.haifeng.common.annotation.RequireAdminModule;
 import com.haifeng.common.response.R;
@@ -60,20 +63,10 @@ public class PlannerController {
     }
 
     /**
-     * 修改规划师状态
-     */
-    @PutMapping("/{id}/status")
-    @OperationLog(module = "首页管理", action = "修改规划师状态")
-    public R<Void> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusDTO dto) {
-        plannerService.updateStatus(id, dto);
-        return R.ok();
-    }
-
-    /**
-     * 硬删除规划师
+     * 软删除规划师
      */
     @DeleteMapping("/{id}")
-    @OperationLog(module = "首页管理", action = "硬删除规划师")
+    @OperationLog(module = "首页管理", action = "软删除规划师")
     public R<Void> delete(@PathVariable Long id) {
         plannerService.delete(id);
         return R.ok();
