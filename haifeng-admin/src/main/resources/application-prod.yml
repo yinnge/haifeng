@@ -11,6 +11,15 @@ spring:
       idle-timeout: 30000
       connection-timeout: 30000
 
+  # Flyway 数据库迁移（脚本位于 classpath:db/migration，启动时自动执行）
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    clean-disabled: true
+    out-of-order: false
+
   # Redis 配置
   data:
     redis:
@@ -24,13 +33,6 @@ spring:
           max-active: 8
           max-idle: 4
           min-idle: 1
-
-  # Flyway 配置f
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    validate-on-migrate: true
 
   # 文件上传配置
   servlet:
@@ -86,5 +88,9 @@ oss:
   access-key-id: ${OSS_ACCESS_KEY_ID}
   access-key-secret: ${OSS_ACCESS_KEY_SECRET}
   bucket-name: ${OSS_BUCKET_NAME}
+  # 公开素材 bucket（公共读）：仅存头像/轮播图/二维码等公开图片
+  # 严禁把上面的私有 bucket 改成公共读——那会让 fileload 的 VIP 门禁失效
+  public-bucket-name: ${OSS_PUBLIC_BUCKET_NAME:}
+  public-url-prefix: ${OSS_PUBLIC_URL_PREFIX:}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: ${KKFILEVIEW_BASE_URL}

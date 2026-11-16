@@ -86,6 +86,8 @@ services:
       OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
       OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
+      OSS_PUBLIC_BUCKET_NAME: ${OSS_PUBLIC_BUCKET_NAME:-}
+      OSS_PUBLIC_URL_PREFIX: ${OSS_PUBLIC_URL_PREFIX:-}
       KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
       JAVA_OPTS: -Xms128m -Xmx320m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC
     networks:
@@ -132,6 +134,8 @@ services:
       OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
       OSS_URL_EXPIRE: ${OSS_URL_EXPIRE:-3600}
+      OSS_PUBLIC_BUCKET_NAME: ${OSS_PUBLIC_BUCKET_NAME:-}
+      OSS_PUBLIC_URL_PREFIX: ${OSS_PUBLIC_URL_PREFIX:-}
       KKFILEVIEW_BASE_URL: ${KKFILEVIEW_BASE_URL}
       # PDF 报告预览：浏览器侧已改为【同源相对路径】，由 nginx 反代 /api/v1/public/pdf/ 与 /pdfjs/，
       # 不再依赖此值；它现在只给 kkfileview 容器在 Docker 内网【服务端回源抓取】PDF 用，

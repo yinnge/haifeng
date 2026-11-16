@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.home.PlannerAddDTO;
 import com.haifeng.admin.dto.home.PlannerQueryDTO;
 import com.haifeng.admin.dto.home.PlannerUpdateDTO;
+import com.haifeng.admin.dto.home.StatusDTO;
 import com.haifeng.admin.service.home.PlannerService;
 import com.haifeng.admin.vo.home.PlannerDetailVO;
 import com.haifeng.admin.vo.home.PlannerListVO;
@@ -33,10 +34,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -67,8 +72,11 @@ public class PlannerServiceImpl implements PlannerService {
         Page<Planner> page = new Page<>(dto.getPage(), dto.getSize());
 
         // 软删除手动条件（禁用 @TableLogic）
+        // status=null 查全部（含已下线）；status=1 只查在线；status=0 只查已下线
         LambdaQueryWrapper<Planner> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Planner::getDeleted, false);
+        if (dto.getStatus() != null) {
+            wrapper.eq(Planner::getDeleted, dto.getStatus() == 0);
+        }
 
         if (StringUtils.hasText(dto.getName())) {
             wrapper.like(Planner::getName, dto.getName());
@@ -85,9 +93,19 @@ public class PlannerServiceImpl implements PlannerService {
 
         IPage<Planner> plannerPage = plannerMapper.selectPage(page, wrapper);
 
+        // 批量取绑定的教师账号，避免 N+1
+        Map<Long, Member> teacherMap = loadTeachers(plannerPage.getRecords().stream()
+                .map(Planner::getUserId)
+                .collect(Collectors.toSet()));
+
         return plannerPage.convert(planner -> {
             PlannerListVO vo = new PlannerListVO();
             BeanUtils.copyProperties(planner, vo);
+            vo.setStatus(Boolean.TRUE.equals(planner.getDeleted()) ? (short) 0 : (short) 1);
+            Member teacher = teacherMap.get(planner.getUserId());
+            if (teacher != null) {
+                vo.setTeacherUsername(teacher.getUsername());
+            }
             return vo;
         });
     }
@@ -95,12 +113,19 @@ public class PlannerServiceImpl implements PlannerService {
     @Override
     public PlannerDetailVO detail(Long id) {
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
+        if (planner == null) {
             throw new BusinessException(404, "规划师不存在");
         }
 
         PlannerDetailVO vo = new PlannerDetailVO();
         BeanUtils.copyProperties(planner, vo);
+        vo.setStatus(Boolean.TRUE.equals(planner.getDeleted()) ? (short) 0 : (short) 1);
+        if (planner.getUserId() != null) {
+            Member teacher = memberMapper.selectById(planner.getUserId());
+            if (teacher != null) {
+                vo.setTeacherUsername(teacher.getUsername());
+            }
+        }
         return vo;
     }
 
@@ -146,12 +171,7 @@ public class PlannerServiceImpl implements PlannerService {
 
         plannerMapper.insert(planner);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                evictCache();
-            }
-        });
+        evictCacheAfterCommit();
         log.info("新增规划师成功: id={}, name={}, operator={}", id, dto.getName(), operatorId);
         return id;
     }
@@ -188,42 +208,53 @@ public class PlannerServiceImpl implements PlannerService {
         planner.setPhone(dto.getPhone());
         planner.setAddress(dto.getAddress());
         planner.setWechatQrcodeUrl(dto.getWechatQrcodeUrl());
-        planner.setSortOrder(dto.getSortOrder());
+        planner.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         planner.setUpdatedBy(operatorId);
         planner.setUpdatedAt(OffsetDateTime.now());
 
         plannerMapper.updateById(planner);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                evictCache();
-            }
-        });
+        evictCacheAfterCommit();
         log.info("更新规划师成功: id={}, name={}, operator={}", id, dto.getName(), operatorId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
+    public void updateStatus(Long id, StatusDTO dto) {
         Planner planner = plannerMapper.selectById(id);
-        if (planner == null || Boolean.TRUE.equals(planner.getDeleted())) {
+        if (planner == null) {
             throw new BusinessException(404, "规划师不存在");
         }
 
-        // 软删除：手动置 is_deleted=true（禁用 @TableLogic）
-        planner.setDeleted(true);
+        // 规划师无 status 列：状态由软删除标记承担，1=上线，0=下线
+        boolean deleted = dto.getStatus() == 0;
+        if (Boolean.TRUE.equals(planner.getDeleted()) == deleted) {
+            // 状态未变化，直接返回（幂等）
+            return;
+        }
+
+        planner.setDeleted(deleted);
         planner.setUpdatedBy(SecurityUtil.getCurrentAdminId());
         planner.setUpdatedAt(OffsetDateTime.now());
         plannerMapper.updateById(planner);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                evictCache();
-            }
-        });
-        log.info("软删除规划师成功: id={}", id);
+        evictCacheAfterCommit();
+        log.info("修改规划师上下架状态成功: id={}, status={}", id, dto.getStatus());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void hardDelete(Long id) {
+        Planner planner = plannerMapper.selectById(id);
+        if (planner == null) {
+            throw new BusinessException(404, "规划师不存在");
+        }
+
+        // 物理删除：无论当前是否已下线都允许彻底移除
+        plannerMapper.deleteById(id);
+
+        evictCacheAfterCommit();
+        log.info("彻底删除规划师成功: id={}", id);
     }
 
     /** 筛选参数校验（可选字段：传了才校验） */
@@ -265,8 +296,35 @@ public class PlannerServiceImpl implements PlannerService {
         }
     }
 
-    private void evictCache() {
-        try {
+    /** 批量取教师账号，避免列表 N+1 */
+    private Map<Long, Member> loadTeachers(Collection<Long> userIds) {
+        Set<Long> distinctIds = userIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        return memberMapper.selectBatchIds(distinctIds).stream()
+                .collect(Collectors.toMap(Member::getId, Function.identity(), (a, b) -> a));
+    }
+
+    /**
+     * 有事务时提交后清缓存，无事务（如单测/非事务方法）时立即清
+     */
+    private void evictCacheAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    evictCache();
+                }
+            });
+        } else {
+            evictCache();
+        }
+    }
+
+    private void evictCache() {        try {
             Set<String> listKeys = scanKeys(RedisKeyConstant.HOME_PLANNER_LIST_PREFIX + "*");
             if (!listKeys.isEmpty()) {
                 redisTemplate.delete(listKeys);
