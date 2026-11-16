@@ -4,6 +4,7 @@ import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
+import com.aliyun.oss.model.ObjectMetadata;
 import com.aliyun.oss.model.PutObjectRequest;
 import com.aliyun.oss.model.ResponseHeaderOverrides;
 import com.haifeng.common.config.OssProperties;
@@ -21,6 +22,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -132,8 +134,16 @@ public class OssService {
         OSS ossClient = createClient();
         try (InputStream inputStream = new ByteArrayInputStream(data)) {
             PutObjectRequest putObjectRequest = new PutObjectRequest(publicBucket, objectKey, inputStream);
+            // 必须显式设置 Content-Type：SDK 用 InputStream 构造时默认 application/octet-stream，
+            // 浏览器会因此把 SVG 当成附件下载而不是内联渲染（PNG/JPG 靠魔数嗅探侥幸能显示，SVG 不行）。
+            // 注意：OSS 不支持 putObject 自定义 HTTP 响应头（实测 X-Content-Type-Options 会被静默丢弃），
+            // 故这里只设 Content-Type；SVG 的 XSS 防护由「上传前内容消毒 + bucket 强制下载」承担。
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentType(resolveContentType(extension));
+            putObjectRequest.setMetadata(metadata);
             ossClient.putObject(putObjectRequest);
-            log.info("公开素材图片上传OSS成功: bucket={}, key={}, size={}", publicBucket, objectKey, data.length);
+            log.info("公开素材图片上传OSS成功: bucket={}, key={}, size={}, contentType={}",
+                    publicBucket, objectKey, data.length, metadata.getContentType());
         } catch (Exception e) {
             log.error("公开素材图片上传OSS失败: {}", e.getMessage(), e);
             throw new RuntimeException("图片上传失败: " + e.getMessage());
@@ -142,6 +152,28 @@ public class OssService {
         }
 
         return buildPublicUrl(objectKey);
+    }
+
+    /**
+     * 按扩展名解析 Content-Type。
+     */
+    private String resolveContentType(String extension) {
+        if (extension == null) {
+            return "application/octet-stream";
+        }
+        switch (extension.toLowerCase(Locale.ROOT)) {
+            case ".png":
+                return "image/png";
+            case ".jpg":
+            case ".jpeg":
+                return "image/jpeg";
+            case ".webp":
+                return "image/webp";
+            case ".svg":
+                return "image/svg+xml";
+            default:
+                return "application/octet-stream";
+        }
     }
 
     /**
