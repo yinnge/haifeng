@@ -60,10 +60,10 @@ public class InstitutionServiceImpl implements InstitutionService {
         log.debug("培训机构列表缓存未命中, key={}", cacheKey);
 
         Page<Institution> page = new Page<>(pageNo, size);
-        // 列表只取卡片需要的列，介绍/班型/轮播图等大字段留给详情
+        // 列表只取卡片需要的列 + 轮播图（取首图做封面）；介绍/班型等大字段留给详情
         LambdaQueryWrapper<Institution> wrapper = new LambdaQueryWrapper<Institution>()
                 .select(Institution::getId, Institution::getName, Institution::getCategory,
-                        Institution::getProvince, Institution::getTags)
+                        Institution::getProvince, Institution::getTags, Institution::getCarouselImages)
                 .eq(Institution::getStatus, STATUS_PUBLISHED);
 
         if (name != null) {
@@ -156,6 +156,8 @@ public class InstitutionServiceImpl implements InstitutionService {
         vo.setCategory(entity.getCategory());
         vo.setProvince(entity.getProvince());
         vo.setTags(copyList(entity.getTags()));
+        List<String> images = entity.getCarouselImages();
+        vo.setCoverImage(images == null || images.isEmpty() ? null : images.get(0));
         return vo;
     }
 

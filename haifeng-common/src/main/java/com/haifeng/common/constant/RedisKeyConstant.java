@@ -209,8 +209,9 @@ public final class RedisKeyConstant {
 
     /**
      * 首页 - 培训机构缓存
+     * v2: 列表 VO 增加 coverImage（轮播首图），旧缓存反序列化后该字段为 null，换前缀强制回源
      */
-    public static final String HOME_INSTITUTION_LIST_PREFIX   = "haifeng:app:home:institution:list:";
+    public static final String HOME_INSTITUTION_LIST_PREFIX   = "haifeng:app:home:institution:list:v2:";
     public static final String HOME_INSTITUTION_DETAIL_PREFIX = "haifeng:app:home:institution:detail:";
 
     /**
