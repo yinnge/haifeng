@@ -22,6 +22,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.InstitutionMapper;
 import com.haifeng.common.mapper.user.MemberMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +63,7 @@ public class InstitutionServiceImpl implements InstitutionService {
     private final InstitutionMapper institutionMapper;
     private final MemberMapper memberMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final OssService ossService;
 
     @Override
     public IPage<InstitutionListVO> page(InstitutionQueryDTO dto) {
@@ -164,6 +166,22 @@ public class InstitutionServiceImpl implements InstitutionService {
     public void update(Long id, InstitutionUpdateDTO dto) {
         Institution entity = getExisting(id);
 
+        // 收集被替换掉的旧图片 URL（事务提交后删 OSS）：轮播图取新旧差集，二维码取变化值
+        List<String> obsoleteImageUrls = new ArrayList<>();
+        List<String> newCarouselImages = copyList(dto.getCarouselImages());
+        Set<String> newCarouselSet = new HashSet<>(newCarouselImages);
+        if (entity.getCarouselImages() != null) {
+            for (String oldUrl : entity.getCarouselImages()) {
+                if (oldUrl != null && !oldUrl.isEmpty() && !newCarouselSet.contains(oldUrl)) {
+                    obsoleteImageUrls.add(oldUrl);
+                }
+            }
+        }
+        // null 统一归一为空串：MyBatis-Plus 默认 NOT_NULL 策略会跳过 null 字段，
+        // 若不归一，前端清空时 DB 残留旧 URL、OSS 却已删，C 端出现破图。
+        String newQrcodeUrl = dto.getWechatQrcodeUrl() == null ? "" : dto.getWechatQrcodeUrl().trim();
+        collectReplacedUrl(entity.getWechatQrcodeUrl(), newQrcodeUrl, obsoleteImageUrls);
+
         String category = requireCategory(dto.getCategory());
         String province = requireProvince(dto.getProvince());
         validateManager(dto.getUserId(), id);
@@ -184,7 +202,7 @@ public class InstitutionServiceImpl implements InstitutionService {
         entity.setNotice(trimToNull(dto.getNotice()));
         entity.setAdvantages(copyList(dto.getAdvantages()));
         entity.setAddress(trimToNull(dto.getAddress()));
-        entity.setWechatQrcodeUrl(trimToNull(dto.getWechatQrcodeUrl()));
+        entity.setWechatQrcodeUrl(newQrcodeUrl);
         entity.setEmail(trimToNull(dto.getEmail()));
         entity.setPhone(trimToNull(dto.getPhone()));
         entity.setSortOrder(dto.getSortOrder() == null ? DEFAULT_SORT_ORDER : dto.getSortOrder());
@@ -201,6 +219,7 @@ public class InstitutionServiceImpl implements InstitutionService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "数据已被他人修改，请刷新后重试");
         }
 
+        deleteOssAfterCommit(obsoleteImageUrls);
         evictCacheAfterCommit();
         log.info("更新培训机构成功: id={}, name={}", id, entity.getName());
     }
@@ -225,8 +244,13 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     public void delete(Long id) {
-        getExisting(id);
+        Institution entity = getExisting(id);
+        List<String> obsoleteImageUrls = new ArrayList<>();
+        obsoleteImageUrls.addAll(copyList(entity.getCarouselImages()));
+        addIfPresent(entity.getWechatQrcodeUrl(), obsoleteImageUrls);
         institutionMapper.deleteById(id);
+
+        deleteOssAfterCommit(obsoleteImageUrls);
         evictCache();
         log.info("删除培训机构成功: id={}", id);
     }
@@ -389,6 +413,46 @@ public class InstitutionServiceImpl implements InstitutionService {
                     .build());
         }
         return target;
+    }
+
+    /** 旧值存在且被换成新值（含被清空）时，登记旧 URL 为待删除 */
+    private static void collectReplacedUrl(String oldUrl, String newUrl, List<String> obsoleteUrls) {
+        if (StringUtils.hasText(oldUrl) && !oldUrl.equals(newUrl)) {
+            obsoleteUrls.add(oldUrl);
+        }
+    }
+
+    /** URL 非空则加入待删列表（删除整行场景用） */
+    private static void addIfPresent(String url, List<String> obsoleteUrls) {
+        if (StringUtils.hasText(url)) {
+            obsoleteUrls.add(url);
+        }
+    }
+
+    /**
+     * 事务提交后再删 OSS 图片：先保证 DB 变更落地，删除失败也只留孤儿对象，不会因回滚丢图。
+     * 有事务走 afterCommit，无事务（delete 方法未加 @Transactional，或单测）则立即删。
+     */
+    private void deleteOssAfterCommit(List<String> obsoleteUrls) {
+        if (obsoleteUrls == null || obsoleteUrls.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doDeleteOss(obsoleteUrls);
+                }
+            });
+        } else {
+            doDeleteOss(obsoleteUrls);
+        }
+    }
+
+    private void doDeleteOss(List<String> obsoleteUrls) {
+        for (String url : obsoleteUrls) {
+            ossService.deletePublicFileByUrl(url);
+        }
     }
 
     /**

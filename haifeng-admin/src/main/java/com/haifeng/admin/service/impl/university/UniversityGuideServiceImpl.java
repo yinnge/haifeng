@@ -7,6 +7,7 @@ import com.haifeng.admin.dto.university.UniversityGuideAddDTO;
 import com.haifeng.admin.dto.university.UniversityGuideQueryDTO;
 import com.haifeng.admin.dto.university.UniversityGuideUpdateDTO;
 import com.haifeng.admin.service.university.UniversityGuideService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.university.UniversityGuideDetailVO;
 import com.haifeng.admin.vo.university.UniversityGuideListVO;
 import com.haifeng.admin.vo.major.ImportResultVO;
@@ -453,10 +454,10 @@ public class UniversityGuideServiceImpl implements UniversityGuideService {
                 // 该行涉及的数据库操作整体包 try-catch：一旦失败即可带上行号转成行级错误，
                 // 否则异常向上抛出后丢失行号，前端/管理员无法定位是哪一行出错。
                 try {
-                    University university = universityMapper.selectOne(
-                            new LambdaQueryWrapper<University>()
-                                    .eq(University::getName, univName)
-                                    .ne(University::getStatus, (short) 0));
+                    University university = UniversityNameResolver.resolve(univName, candidate ->
+                            universityMapper.selectOne(new LambdaQueryWrapper<University>()
+                                    .eq(University::getName, candidate)
+                                    .ne(University::getStatus, (short) 0)));
 
                     if (university == null) {
                         errors.add("第" + rowNum + "行: 院校[" + univName + "]不存在");

@@ -19,6 +19,7 @@ import com.haifeng.common.enums.ServiceTargetEnum;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.home.PlannerMapper;
 import com.haifeng.common.mapper.user.MemberMapper;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.SecurityUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -52,6 +54,7 @@ public class PlannerServiceImpl implements PlannerService {
     private final PlannerMapper plannerMapper;
     private final MemberMapper memberMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final OssService ossService;
 
     @Override
     public List<TeacherOptionVO> listTeacherOptions() {
@@ -189,6 +192,15 @@ public class PlannerServiceImpl implements PlannerService {
 
         Long operatorId = SecurityUtil.getCurrentAdminId();
 
+        // 收集被替换掉的旧图片 URL（旧值存在且新值不同），事务提交后删 OSS，避免"删了图却回滚"
+        // null 统一归一为空串：MyBatis-Plus 默认 NOT_NULL 策略会跳过 null 字段，
+        // 若不归一，前端清空（或旧版前端省略字段）时 DB 残留旧 URL、OSS 却已删，出现破图。
+        List<String> obsoleteImageUrls = new ArrayList<>();
+        String newAvatarUrl = dto.getAvatarUrl() == null ? "" : dto.getAvatarUrl();
+        String newQrcodeUrl = dto.getWechatQrcodeUrl() == null ? "" : dto.getWechatQrcodeUrl();
+        collectReplacedUrl(planner.getAvatarUrl(), newAvatarUrl, obsoleteImageUrls);
+        collectReplacedUrl(planner.getWechatQrcodeUrl(), newQrcodeUrl, obsoleteImageUrls);
+
         planner.setUserId(dto.getUserId());
         planner.setName(dto.getName());
         planner.setServiceTarget(dto.getServiceTarget());
@@ -196,7 +208,7 @@ public class PlannerServiceImpl implements PlannerService {
         planner.setProvince(dto.getProvince());
         planner.setListDesc(dto.getListDesc());
         planner.setListTags(dto.getListTags() == null ? Collections.emptyList() : dto.getListTags());
-        planner.setAvatarUrl(dto.getAvatarUrl());
+        planner.setAvatarUrl(newAvatarUrl);
         planner.setWorkYears(dto.getWorkYears());
         planner.setServedCount(dto.getServedCount());
         planner.setDraftSla(dto.getDraftSla());
@@ -207,13 +219,14 @@ public class PlannerServiceImpl implements PlannerService {
         planner.setEmail(dto.getEmail());
         planner.setPhone(dto.getPhone());
         planner.setAddress(dto.getAddress());
-        planner.setWechatQrcodeUrl(dto.getWechatQrcodeUrl());
+        planner.setWechatQrcodeUrl(newQrcodeUrl);
         planner.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         planner.setUpdatedBy(operatorId);
         planner.setUpdatedAt(OffsetDateTime.now());
 
         plannerMapper.updateById(planner);
 
+        deleteOssAfterCommit(obsoleteImageUrls);
         evictCacheAfterCommit();
         log.info("更新规划师成功: id={}, name={}, operator={}", id, dto.getName(), operatorId);
     }
@@ -250,9 +263,13 @@ public class PlannerServiceImpl implements PlannerService {
             throw new BusinessException(404, "规划师不存在");
         }
 
-        // 物理删除：无论当前是否已下线都允许彻底移除
+        // 物理删除：无论当前是否已下线都允许彻底移除；同时清掉该规划师引用的图片
+        List<String> obsoleteImageUrls = new ArrayList<>();
+        addIfPresent(planner.getAvatarUrl(), obsoleteImageUrls);
+        addIfPresent(planner.getWechatQrcodeUrl(), obsoleteImageUrls);
         plannerMapper.deleteById(id);
 
+        deleteOssAfterCommit(obsoleteImageUrls);
         evictCacheAfterCommit();
         log.info("彻底删除规划师成功: id={}", id);
     }
@@ -306,6 +323,46 @@ public class PlannerServiceImpl implements PlannerService {
         }
         return memberMapper.selectBatchIds(distinctIds).stream()
                 .collect(Collectors.toMap(Member::getId, Function.identity(), (a, b) -> a));
+    }
+
+    /** 旧值存在且被换成新值（含被清空）时，登记旧 URL 为待删除 */
+    private static void collectReplacedUrl(String oldUrl, String newUrl, List<String> obsoleteUrls) {
+        if (StringUtils.hasText(oldUrl) && !oldUrl.equals(newUrl)) {
+            obsoleteUrls.add(oldUrl);
+        }
+    }
+
+    /** URL 非空则加入待删列表（删除整行场景用） */
+    private static void addIfPresent(String url, List<String> obsoleteUrls) {
+        if (StringUtils.hasText(url)) {
+            obsoleteUrls.add(url);
+        }
+    }
+
+    /**
+     * 事务提交后再删 OSS 图片：先保证 DB 变更落地，删除失败也只留孤儿对象，不会因回滚丢图。
+     * 有事务走 afterCommit，无事务（单测/非事务调用）则立即删。
+     */
+    private void deleteOssAfterCommit(List<String> obsoleteUrls) {
+        if (obsoleteUrls == null || obsoleteUrls.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doDeleteOss(obsoleteUrls);
+                }
+            });
+        } else {
+            doDeleteOss(obsoleteUrls);
+        }
+    }
+
+    private void doDeleteOss(List<String> obsoleteUrls) {
+        for (String url : obsoleteUrls) {
+            ossService.deletePublicFileByUrl(url);
+        }
     }
 
     /**

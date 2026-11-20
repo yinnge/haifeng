@@ -9,6 +9,7 @@ import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupAddDTO;
 import com.haifeng.admin.dto.algorithm.admission.AdmissionGroupQueryDTO;
 import com.haifeng.admin.excel.algorithm.admission.AdmissionImportDTO;
 import com.haifeng.admin.service.algorithm.admission.AdmissionGroupService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupDetailVO;
 import com.haifeng.admin.vo.algorithm.admission.AdmissionGroupListVO;
 import com.haifeng.admin.vo.major.ImportResultVO;
@@ -494,19 +495,25 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // ---- 位次逻辑关系 ----
-            if (dto.getMinRank() != null && dto.getMaxRank() != null && dto.getMinRank() > dto.getMaxRank()) {
-                errors.add("第" + rowNum + "行: 最低位次不能大于最高位次");
+            // 位次与分数相反：数字越小越靠前。
+            // 「最低位次」= 录取最低分考生的位次（数字最大、排名最靠后）；
+            // 「最高位次」= 录取最高分考生的位次（数字最小、排名最靠前）；
+            // 「中位位次」居中。故合法关系为：最低位次 >= 中位位次 >= 最高位次。
+            if (dto.getMinRank() != null && dto.getMaxRank() != null && dto.getMinRank() < dto.getMaxRank()) {
+                errors.add("第" + rowNum + "行: 最低位次不能小于最高位次");
             }
-            if (dto.getMinRank() != null && dto.getAvgRank() != null && dto.getMinRank() > dto.getAvgRank()) {
-                errors.add("第" + rowNum + "行: 最低位次不能大于中位位次");
+            if (dto.getMinRank() != null && dto.getAvgRank() != null && dto.getMinRank() < dto.getAvgRank()) {
+                errors.add("第" + rowNum + "行: 最低位次不能小于中位位次");
             }
-            if (dto.getAvgRank() != null && dto.getMaxRank() != null && dto.getAvgRank() > dto.getMaxRank()) {
-                errors.add("第" + rowNum + "行: 中位位次不能大于最高位次");
+            if (dto.getAvgRank() != null && dto.getMaxRank() != null && dto.getAvgRank() < dto.getMaxRank()) {
+                errors.add("第" + rowNum + "行: 中位位次不能小于最高位次");
             }
 
-            // ---- 大学名校验 + 缓存 ----
+            // ---- 大学名校验 + 缓存（只缓存命中结果，未命中直接报错跳过）----
+            // 注意：不可把 null 也 put 进缓存——HashMap.containsKey 对 null 值返回 true，
+            // 会让后续同名行跳过本校验分支，拿到 null 后在下游 NPE。
             if (!universityCache.containsKey(uniName)) {
-                University university = universityMapper.selectIdAndCityByName(uniName);
+                University university = findUniversity(uniName);
                 if (university == null) {
                     errors.add("第" + rowNum + "行: 大学[" + uniName + "]不存在");
                     continue;
@@ -811,6 +818,14 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         return joined;
     }
 
+    /**
+     * 按大学名查找：先精确匹配，未命中时由公共工具兼容中英文括号差异。
+     * 结果由调用方 universityCache 按原始名字缓存，不会因降级重试重复查库。
+     */
+    private University findUniversity(String name) {
+        return UniversityNameResolver.resolve(name, universityMapper::selectIdAndCityByName);
+    }
+
     @Override
     public Integer recalcAll() {
         Integer count = admissionGroupMapper.recalcAllGroups();
@@ -825,7 +840,7 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
         if (!StringUtils.hasText(universityName)) {
             throw new BusinessException(400, "大学名称不能为空");
         }
-        University university = universityMapper.selectIdAndCityByName(universityName.trim());
+        University university = findUniversity(universityName.trim());
         if (university == null) {
             throw new BusinessException(400, "大学[" + universityName + "]不存在或已禁用");
         }

@@ -8,6 +8,7 @@ import com.haifeng.admin.dto.university.CampusGalleryAddDTO;
 import com.haifeng.admin.dto.university.CampusGalleryQueryDTO;
 import com.haifeng.admin.dto.university.CampusGalleryUpdateDTO;
 import com.haifeng.admin.service.university.CampusGalleryService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.university.CampusGalleryDetailVO;
 import com.haifeng.admin.vo.university.CampusGalleryListVO;
 import com.haifeng.admin.vo.major.ImportResultVO;
@@ -17,6 +18,7 @@ import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.university.CampusGalleryMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
 import com.haifeng.admin.excel.university.CampusGalleryExcelDTO;
@@ -24,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -47,6 +51,7 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     private static final int MAX_IMPORT_ROWS = 1000;
     private static final int MAX_ERROR_DISPLAY = 50;
     private final UniversityMapper universityMapper;
+    private final OssService ossService;
 
     @Override
     public IPage<CampusGalleryListVO> page(CampusGalleryQueryDTO dto) {
@@ -145,6 +150,8 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
             throw new BusinessException(ResultCode.NOT_FOUND, "校园图册不存在");
         }
 
+        String oldImageUrl = gallery.getImageUrl();
+
         gallery.setImageType(dto.getImageType());
         gallery.setImageUrl(dto.getImageUrl());
         if (dto.getSortOrder() != null) {
@@ -158,6 +165,12 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
         int affected = campusGalleryMapper.updateById(gallery);
         if (affected == 0) {
             throw new BusinessException(400, "数据已被其他人修改，请刷新后重试");
+        }
+
+        // 换图（或清空）成功后删旧 OSS 对象；新旧相同则不删，避免误删仍在使用的图
+        String newImageUrl = dto.getImageUrl();
+        if (StringUtils.hasText(oldImageUrl) && !oldImageUrl.equals(newImageUrl)) {
+            deleteOssAfterCommit(List.of(oldImageUrl));
         }
 
         log.info("修改校园图册成功: id={}", id);
@@ -212,8 +225,12 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
             throw new BusinessException(ResultCode.NOT_FOUND, "校园图册不存在");
         }
 
-        // 硬删除：物理删除
+        // 硬删除：物理删除，成功后删 OSS 图片
+        String imageUrl = gallery.getImageUrl();
         campusGalleryMapper.deleteById(id);
+        if (StringUtils.hasText(imageUrl)) {
+            deleteOssAfterCommit(List.of(imageUrl));
+        }
 
         log.info("硬删除校园图册成功: id={}", id);
     }
@@ -239,7 +256,17 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
     public void batchHardDelete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
 
+        // 先收集图片 URL，物理删除成功后统一删 OSS
+        List<String> imageUrls = new ArrayList<>();
+        for (Long id : ids) {
+            CampusGallery gallery = campusGalleryMapper.selectById(id);
+            if (gallery != null && StringUtils.hasText(gallery.getImageUrl())) {
+                imageUrls.add(gallery.getImageUrl());
+            }
+        }
+
         int affected = campusGalleryMapper.deleteByIds(ids);
+        deleteOssAfterCommit(imageUrls);
 
         log.info("批量硬删除校园图册成功，数量={}", affected);
     }
@@ -292,10 +319,10 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
 
             University university = universityCache.get(dto.getUniversityName());
             if (university == null) {
-                LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
-                univWrapper.eq(University::getName, dto.getUniversityName())
-                           .ne(University::getStatus, (short) 0);
-                university = universityMapper.selectOne(univWrapper);
+                university = UniversityNameResolver.resolve(dto.getUniversityName(), candidate ->
+                        universityMapper.selectOne(new LambdaQueryWrapper<University>()
+                                .eq(University::getName, candidate)
+                                .ne(University::getStatus, (short) 0)));
                 if (university != null) {
                     universityCache.put(dto.getUniversityName(), university);
                 }
@@ -384,6 +411,33 @@ public class CampusGalleryServiceImpl implements CampusGalleryService {
             db.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         }
         db.setUpdatedAt(now);
+    }
+
+    /**
+     * 有事务时提交后删 OSS，无事务时立即删。
+     * DB 先提交再删对象：万一删失败只留孤儿图，不会因回滚导致图片丢失。
+     */
+    private void deleteOssAfterCommit(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doDeleteOss(imageUrls);
+                }
+            });
+        } else {
+            doDeleteOss(imageUrls);
+        }
+    }
+
+    private void doDeleteOss(List<String> imageUrls) {
+        for (String url : imageUrls) {
+            // 只删本系统 OSS 图片（含 haifeng/images/ 等前缀），外部 URL / 相对路径自动跳过
+            ossService.deletePublicFileByUrl(url);
+        }
     }
 
     private String joinErrors(List<String> errors) {

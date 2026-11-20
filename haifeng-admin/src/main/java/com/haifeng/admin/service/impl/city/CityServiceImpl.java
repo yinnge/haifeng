@@ -18,12 +18,15 @@ import com.haifeng.common.entity.city.CityDetail;
 import com.haifeng.common.exception.BusinessException;
 import com.haifeng.common.mapper.city.CityDetailMapper;
 import com.haifeng.common.mapper.city.CityMapper;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,6 +42,7 @@ public class CityServiceImpl implements CityService {
 
     private final CityMapper cityMapper;
     private final CityDetailMapper cityDetailMapper;
+    private final OssService ossService;
 
     private static final int MAX_IMPORT_ROWS = 1000;
     /** 导入报错信息最多展示条数，避免单条 msg 过长（完整错误见后端日志） */
@@ -206,6 +210,8 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(400, "城市名称已存在");
         }
 
+        String oldCoverUrl = city.getCoverImageUrl();
+
         city.setCityName(dto.getCityName());
         city.setProvince(dto.getProvince());
         city.setRegion(dto.getRegion());
@@ -230,6 +236,12 @@ public class CityServiceImpl implements CityService {
             detail.setCityName(dto.getCityName());
             detail.setUpdatedAt(OffsetDateTime.now());
             cityDetailMapper.updateById(detail);
+        }
+
+        // 换图（或清空）成功后删旧 OSS 对象；新旧相同则不删
+        String newCoverUrl = dto.getCoverImageUrl();
+        if (StringUtils.hasText(oldCoverUrl) && !oldCoverUrl.equals(newCoverUrl)) {
+            deleteOssAfterCommit(List.of(oldCoverUrl));
         }
 
         log.info("更新城市成功: id={}, cityName={}", id, dto.getCityName());
@@ -316,6 +328,11 @@ public class CityServiceImpl implements CityService {
         // 硬删除主表
         cityMapper.hardDeleteById(id);
 
+        // 物理删除后删封面图
+        if (StringUtils.hasText(city.getCoverImageUrl())) {
+            deleteOssAfterCommit(List.of(city.getCoverImageUrl()));
+        }
+
         log.info("硬删除城市成功: id={}, cityName={}", id, city.getCityName());
     }
 
@@ -326,11 +343,21 @@ public class CityServiceImpl implements CityService {
             throw new BusinessException(400, "请选择要删除的城市");
         }
 
+        // 先收集封面图 URL，物理删除成功后统一删 OSS
+        List<String> coverUrls = new ArrayList<>();
+        for (Long id : ids) {
+            City city = cityMapper.findByIdIgnoreLogicDelete(id);
+            if (city != null && StringUtils.hasText(city.getCoverImageUrl())) {
+                coverUrls.add(city.getCoverImageUrl());
+            }
+        }
+
         // 批量硬删除详情记录
         cityDetailMapper.deleteByCityIds(ids);
 
         // 批量硬删除主表记录
         int deleted = cityMapper.hardDeleteBatchByIds(ids);
+        deleteOssAfterCommit(coverUrls);
 
         log.info("批量硬删除城市成功: 删除数量={}, ids={}", deleted, ids);
     }
@@ -1061,5 +1088,32 @@ public class CityServiceImpl implements CityService {
 
     private boolean isBlankList(List<?> list) {
         return list == null || list.isEmpty();
+    }
+
+    /**
+     * 有事务时提交后删 OSS，无事务时立即删。
+     * DB 先提交再删对象：万一删失败只留孤儿图，不会因回滚导致图片丢失。
+     */
+    private void deleteOssAfterCommit(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doDeleteOss(imageUrls);
+                }
+            });
+        } else {
+            doDeleteOss(imageUrls);
+        }
+    }
+
+    private void doDeleteOss(List<String> imageUrls) {
+        for (String url : imageUrls) {
+            // 只删本系统 OSS 图片，外部 URL / 相对路径自动跳过
+            ossService.deletePublicFileByUrl(url);
+        }
     }
 }

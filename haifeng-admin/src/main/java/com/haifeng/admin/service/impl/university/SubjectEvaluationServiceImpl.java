@@ -11,6 +11,7 @@ import com.haifeng.admin.dto.university.SubjectEvaluationQueryDTO;
 import com.haifeng.admin.dto.university.SubjectEvaluationUpdateDTO;
 import com.haifeng.admin.excel.university.SubjectEvaluationExcelDTO;
 import com.haifeng.admin.service.university.SubjectEvaluationService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationDetailVO;
 import com.haifeng.admin.vo.university.SubjectEvaluationListVO;
@@ -284,9 +285,10 @@ public class SubjectEvaluationServiceImpl extends ServiceImpl<SubjectEvaluationM
 
                 Long universityId = universityIdCache.get(data.getUniversityName());
                 if (universityId == null) {
-                    LambdaQueryWrapper<University> uniWrapper = new LambdaQueryWrapper<>();
-                    uniWrapper.eq(University::getName, data.getUniversityName()).eq(University::getStatus, (short) 1);
-                    University university = universityMapper.selectOne(uniWrapper);
+                    University university = UniversityNameResolver.resolve(data.getUniversityName(), candidate ->
+                            universityMapper.selectOne(new LambdaQueryWrapper<University>()
+                                    .eq(University::getName, candidate)
+                                    .eq(University::getStatus, (short) 1)));
                     if (university == null) {
                         errorMsgs.add("第" + rowNum + "行：院校名称'" + data.getUniversityName() + "'不存在");
                         continue;

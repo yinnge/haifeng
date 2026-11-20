@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.haifeng.admin.dto.university.*;
 import com.haifeng.admin.service.university.UniversityService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.university.RankingsVO;
 import com.haifeng.admin.vo.university.UniversityDetailVO;
 import com.haifeng.admin.vo.university.UniversityListVO;
@@ -249,7 +250,11 @@ public class UniversityServiceImpl implements UniversityService {
         university.setFamousUnion(dto.getFamousUnion());
         university.setImageUrl(dto.getImageUrl());
         university.setIntroduction(dto.getIntroduction());
-        university.setSortOrder(dto.getSortOrder());
+        // 排序权重为 null 时保持库中原值：旧数据该列为 NULL，若用表单兜底的 0 覆盖，
+        // 排序键会从 NULL 变成 0，导致仅仅改个 Logo 就让这行在列表里挪位置
+        if (dto.getSortOrder() != null) {
+            university.setSortOrder(dto.getSortOrder());
+        }
         if (dto.getStatus() != null) {
             university.setStatus(dto.getStatus().shortValue());
         }
@@ -704,12 +709,14 @@ public class UniversityServiceImpl implements UniversityService {
                 continue;
             }
 
-            // 根据院校名称查找院校
-            LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
-            univWrapper.eq(University::getName, dto.getUniversityName())
-                       .ne(University::getStatus, (short) 0);
-            List<University> univList = universityMapper.selectList(univWrapper);
-            University university = univList.isEmpty() ? null : univList.get(0);
+            // 根据院校名称查找院校（兼容全/半角括号差异）
+            University university = UniversityNameResolver.resolve(dto.getUniversityName(), candidate -> {
+                List<University> univList = universityMapper.selectList(
+                        new LambdaQueryWrapper<University>()
+                                .eq(University::getName, candidate)
+                                .ne(University::getStatus, (short) 0));
+                return univList.isEmpty() ? null : univList.get(0);
+            });
 
             if (university == null) {
                 errors.add("第" + rowNum + "行: 院校[" + dto.getUniversityName() + "]不存在");
