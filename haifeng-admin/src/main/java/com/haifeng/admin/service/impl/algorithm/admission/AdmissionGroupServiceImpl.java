@@ -494,14 +494,18 @@ public class AdmissionGroupServiceImpl implements AdmissionGroupService {
             }
 
             // ---- 位次逻辑关系 ----
-            if (dto.getMinRank() != null && dto.getMaxRank() != null && dto.getMinRank() > dto.getMaxRank()) {
-                errors.add("第" + rowNum + "行: 最低位次不能大于最高位次");
+            // 位次与分数相反：数字越小越靠前。
+            // 「最低位次」= 录取最低分考生的位次（数字最大、排名最靠后）；
+            // 「最高位次」= 录取最高分考生的位次（数字最小、排名最靠前）；
+            // 「中位位次」居中。故合法关系为：最低位次 >= 中位位次 >= 最高位次。
+            if (dto.getMinRank() != null && dto.getMaxRank() != null && dto.getMinRank() < dto.getMaxRank()) {
+                errors.add("第" + rowNum + "行: 最低位次不能小于最高位次");
             }
-            if (dto.getMinRank() != null && dto.getAvgRank() != null && dto.getMinRank() > dto.getAvgRank()) {
-                errors.add("第" + rowNum + "行: 最低位次不能大于中位位次");
+            if (dto.getMinRank() != null && dto.getAvgRank() != null && dto.getMinRank() < dto.getAvgRank()) {
+                errors.add("第" + rowNum + "行: 最低位次不能小于中位位次");
             }
-            if (dto.getAvgRank() != null && dto.getMaxRank() != null && dto.getAvgRank() > dto.getMaxRank()) {
-                errors.add("第" + rowNum + "行: 中位位次不能大于最高位次");
+            if (dto.getAvgRank() != null && dto.getMaxRank() != null && dto.getAvgRank() < dto.getMaxRank()) {
+                errors.add("第" + rowNum + "行: 中位位次不能小于最高位次");
             }
 
             // ---- 大学名校验 + 缓存 ----
