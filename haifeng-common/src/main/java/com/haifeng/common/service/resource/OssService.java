@@ -29,6 +29,11 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class OssService {
 
+    /** 公共读 bucket 中通用图片 objectKey 的固定前缀（规划师头像等），与 uploadPublicBytes 保持一致 */
+    private static final String PUBLIC_IMAGE_KEY_PREFIX = "haifeng/images/";
+    /** 培训机构图片 objectKey 前缀，与 V83 种子数据的 haifeng/institutions/ 同目录、同 bucket */
+    public static final String PUBLIC_INSTITUTION_KEY_PREFIX = "haifeng/institutions/";
+
     private final OssProperties ossProperties;
 
     private OSS createClient() {
@@ -124,12 +129,26 @@ public class OssService {
      * @return 可直接访问的完整 URL
      */
     public String uploadPublicBytes(byte[] data, String extension) {
+        return uploadPublicBytes(data, extension, PUBLIC_IMAGE_KEY_PREFIX);
+    }
+
+    /**
+     * 上传公开素材字节流到「公共读」Bucket 的指定前缀下。
+     * <p>OSS 没有真实目录，前缀即「文件夹」。同 bucket 下可用不同 keyPrefix 区分业务，
+     * 如培训机构图片走 {@link #PUBLIC_INSTITUTION_KEY_PREFIX}，与种子数据同目录。
+     *
+     * @param data      图片字节内容
+     * @param extension 扩展名（含点，如 {@code .png}）
+     * @param keyPrefix objectKey 固定前缀
+     * @return 可直接访问的完整 URL
+     */
+    public String uploadPublicBytes(byte[] data, String extension, String keyPrefix) {
         String publicBucket = ossProperties.getPublicBucketName();
         if (publicBucket == null || publicBucket.isBlank()) {
             throw new IllegalStateException("公开素材 Bucket 未配置（oss.public-bucket-name），无法上传图片");
         }
 
-        String objectKey = "haifeng/images/" + UUID.randomUUID().toString().replace("-", "") + extension;
+        String objectKey = keyPrefix + UUID.randomUUID().toString().replace("-", "") + extension;
 
         OSS ossClient = createClient();
         try (InputStream inputStream = new ByteArrayInputStream(data)) {
@@ -152,6 +171,11 @@ public class OssService {
         }
 
         return buildPublicUrl(objectKey);
+    }
+
+    /** 上传培训机构图片（轮播图 / 微信二维码），落到 haifeng/institutions/ 前缀 */
+    public String uploadInstitutionImage(byte[] data, String extension) {
+        return uploadPublicBytes(data, extension, PUBLIC_INSTITUTION_KEY_PREFIX);
     }
 
     /**
@@ -195,6 +219,187 @@ public class OssService {
             prefix = "https://" + bucket + "." + host;
         }
         return prefix.replaceAll("/+$", "") + "/" + objectKey;
+    }
+
+    /**
+     * 拼接指定公共读 bucket 的完整访问 URL（通用版）。
+     * <p>优先用显式 {@code urlPrefix}；留空则按 {@code https://{bucket}.{endpointHost}} 推导。
+     *
+     * @param bucket    bucket 名（用于留空时推导前缀）
+     * @param urlPrefix 显式访问前缀，可空
+     * @param objectKey 对象 key
+     * @param label     配置缺失时的提示标签（如「院校 Logo」）
+     */
+    public String buildBucketUrl(String bucket, String urlPrefix, String objectKey, String label) {
+        String prefix = urlPrefix;
+        if (prefix == null || prefix.isBlank()) {
+            String endpoint = ossProperties.getEndpoint();
+            if (bucket == null || bucket.isBlank() || endpoint == null || endpoint.isBlank()) {
+                throw new IllegalStateException(label + "访问地址未配置，请检查 bucket 与 url-prefix 配置");
+            }
+            String host = endpoint.replaceFirst("^https?://", "").replaceAll("/+$", "");
+            prefix = "https://" + bucket + "." + host;
+        }
+        return prefix.replaceAll("/+$", "") + "/" + objectKey;
+    }
+
+    /**
+     * 上传图片字节到指定公共读 bucket，objectKey = keyPrefix + UUID + 扩展名，返回完整访问 URL。
+     * <p>admin 的院校 Logo / 轮播图上传都走这里，各 bucket 用不同 keyPrefix 区分，
+     * 便于取消上传时从 URL 反推所属 bucket 并删除。
+     *
+     * @param bucket    publid-read bucket 名
+     * @param urlPrefix 访问前缀，可空（留空时按 bucket+endpoint 推导）
+     * @param keyPrefix objectKey 固定前缀（如 universities/logo/）
+     * @param label     日志/异常里的可读标签
+     * @return 完整可访问 URL
+     */
+    public String uploadImageToBucket(byte[] data, String extension, String bucket,
+                                      String urlPrefix, String keyPrefix, String label) {
+        if (bucket == null || bucket.isBlank()) {
+            throw new IllegalStateException(label + "Bucket 未配置，无法上传");
+        }
+        String objectKey = keyPrefix + UUID.randomUUID().toString().replace("-", "") + extension;
+
+        OSS ossClient = createClient();
+        try (InputStream inputStream = new ByteArrayInputStream(data)) {
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, objectKey, inputStream);
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentType(resolveContentType(extension));
+            putObjectRequest.setMetadata(metadata);
+            ossClient.putObject(putObjectRequest);
+            log.info("{}上传OSS成功: bucket={}, key={}, size={}, contentType={}",
+                    label, bucket, objectKey, data.length, metadata.getContentType());
+        } catch (Exception e) {
+            log.error("{}上传OSS失败: bucket={}, key={}, error={}", label, bucket, objectKey, e.getMessage(), e);
+            throw new RuntimeException(label + "上传失败: " + e.getMessage());
+        } finally {
+            ossClient.shutdown();
+        }
+        return buildBucketUrl(bucket, urlPrefix, objectKey, label);
+    }
+
+    /**
+     * 删除指定 bucket 中的对象（公共读 bucket 通用版，按完整 URL 反推 objectKey）。
+     * <p>只处理 URL 中含 {@code keyPrefix} 的对象；外部地址 / 其它 bucket 跳过，避免误删。
+     * 删除异常只记日志不抛出，不影响主流程。
+     *
+     * @param url       完整访问 URL
+     * @param keyPrefix 该 bucket 的 objectKey 前缀（如 universities/logo/）
+     * @param bucket    目标 bucket
+     * @param label     日志标签
+     */
+    public void deleteBucketFileByUrl(String url, String keyPrefix, String bucket, String label) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        int idx = url.indexOf(keyPrefix);
+        if (idx < 0) {
+            return;
+        }
+        String objectKey = url.substring(idx);
+        int query = objectKey.indexOf('?');
+        if (query >= 0) {
+            objectKey = objectKey.substring(0, query);
+        }
+        int fragment = objectKey.indexOf('#');
+        if (fragment >= 0) {
+            objectKey = objectKey.substring(0, fragment);
+        }
+        if (bucket == null || bucket.isBlank()) {
+            log.warn("{}Bucket 未配置，跳过删除: key={}", label, objectKey);
+            return;
+        }
+        OSS ossClient = createClient();
+        try {
+            ossClient.deleteObject(bucket, objectKey);
+            log.info("{}删除OSS成功: bucket={}, key={}", label, bucket, objectKey);
+        } catch (Exception e) {
+            log.error("{}删除OSS失败: bucket={}, key={}, error={}", label, bucket, objectKey, e.getMessage(), e);
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    /**
+     * SVG 消毒：剥离 script 块、on*= 事件属性与 javascript: 伪协议。
+     * <p>公共读 bucket 上的 SVG 可被任意人直接访问，内嵌脚本会形成存储型 XSS。
+     * 提到公共工具供 admin 各上传接口复用，避免多处重复实现。
+     */
+    public static byte[] sanitizeSvg(byte[] raw) {
+        String content = new String(raw, StandardCharsets.UTF_8);
+        String cleaned = content
+                .replaceAll("(?is)<script[^>]*>.*?</script>", "")
+                .replaceAll("(?is)<script[^>]*/?>", "")
+                .replaceAll("(?is)\\son[a-z]+\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)", "")
+                .replaceAll("(?is)javascript\\s*:", "");
+        return cleaned.length() == content.length() ? raw : cleaned.getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 院校 Logo / 轮播图 objectKey 前缀，供上传与按 URL 删除共用。
+     */
+    public static final String UNIVERSITY_LOGO_KEY_PREFIX = "universities/logo/";
+    public static final String UNIVERSITY_DETAIL_KEY_PREFIX = "universities/detail/";
+    /** 校园图册图片 objectKey 前缀（universities-album bucket） */
+    public static final String UNIVERSITY_ALBUM_KEY_PREFIX = "universities/album/";
+    /** 城市封面图 objectKey 前缀（city-cover-image bucket） */
+    public static final String CITY_COVER_KEY_PREFIX = "city/cover/";
+
+    /** 上传院校 Logo，返回完整访问 URL */
+    public String uploadUniversityLogo(byte[] data, String extension) {
+        return uploadImageToBucket(data, extension,
+                ossProperties.getUniversityLogoBucketName(),
+                ossProperties.getUniversityLogoUrlPrefix(),
+                UNIVERSITY_LOGO_KEY_PREFIX, "院校Logo");
+    }
+
+    /** 上传院校详情轮播图，返回完整访问 URL */
+    public String uploadUniversityDetailImage(byte[] data, String extension) {
+        return uploadImageToBucket(data, extension,
+                ossProperties.getUniversityDetailBucketName(),
+                ossProperties.getUniversityDetailUrlPrefix(),
+                UNIVERSITY_DETAIL_KEY_PREFIX, "院校轮播图");
+    }
+
+    /** 从完整 URL 删除院校 Logo 对象 */
+    public void deleteUniversityLogoByUrl(String url) {
+        deleteBucketFileByUrl(url, UNIVERSITY_LOGO_KEY_PREFIX,
+                ossProperties.getUniversityLogoBucketName(), "院校Logo");
+    }
+
+    /** 从完整 URL 删除院校详情轮播图对象 */
+    public void deleteUniversityDetailImageByUrl(String url) {
+        deleteBucketFileByUrl(url, UNIVERSITY_DETAIL_KEY_PREFIX,
+                ossProperties.getUniversityDetailBucketName(), "院校轮播图");
+    }
+
+    /** 上传校园图册图片，返回完整访问 URL */
+    public String uploadUniversityAlbumImage(byte[] data, String extension) {
+        return uploadImageToBucket(data, extension,
+                ossProperties.getUniversityAlbumBucketName(),
+                ossProperties.getUniversityAlbumUrlPrefix(),
+                UNIVERSITY_ALBUM_KEY_PREFIX, "校园图册图片");
+    }
+
+    /** 从完整 URL 删除校园图册图片对象 */
+    public void deleteUniversityAlbumImageByUrl(String url) {
+        deleteBucketFileByUrl(url, UNIVERSITY_ALBUM_KEY_PREFIX,
+                ossProperties.getUniversityAlbumBucketName(), "校园图册图片");
+    }
+
+    /** 上传城市封面图，返回完整访问 URL */
+    public String uploadCityCoverImage(byte[] data, String extension) {
+        return uploadImageToBucket(data, extension,
+                ossProperties.getCityCoverBucketName(),
+                ossProperties.getCityCoverUrlPrefix(),
+                CITY_COVER_KEY_PREFIX, "城市封面图");
+    }
+
+    /** 从完整 URL 删除城市封面图对象 */
+    public void deleteCityCoverImageByUrl(String url) {
+        deleteBucketFileByUrl(url, CITY_COVER_KEY_PREFIX,
+                ossProperties.getCityCoverBucketName(), "城市封面图");
     }
 
     /**
@@ -369,5 +574,96 @@ public class OssService {
         } finally {
             ossClient.shutdown();
         }
+    }
+
+    /**
+     * 删除「公共读」bucket 中的素材对象（头像 / 轮播图 / 二维码等）。
+     * 与 {@link #deleteFile(String)} 严格区分：后者删的是私有 bucket（VIP 门禁文件），
+     * 公共素材在 publicBucketName，切勿混用。
+     */
+    public void deletePublicFile(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return;
+        }
+        String publicBucket = ossProperties.getPublicBucketName();
+        if (publicBucket == null || publicBucket.isBlank()) {
+            log.warn("公共素材 Bucket 未配置，跳过删除: key={}", objectKey);
+            return;
+        }
+        OSS ossClient = createClient();
+        try {
+            ossClient.deleteObject(publicBucket, objectKey);
+            log.info("公共素材OSS删除成功: bucket={}, key={}", publicBucket, objectKey);
+        } catch (Exception e) {
+            log.error("公共素材OSS删除失败: bucket={}, key={}, error={}", publicBucket, objectKey, e.getMessage(), e);
+        } finally {
+            ossClient.shutdown();
+        }
+    }
+
+    /**
+     * 按完整 URL 删除本系统公共读图片，自动识别所属 bucket。
+     * <p>支持以下 objectKey 前缀：
+     * <ul>
+     *   <li>{@code haifeng/images/}        — 通用公开素材（规划师头像等）</li>
+     *   <li>{@code haifeng/institutions/}  — 培训机构图片（轮播图 / 二维码，与种子数据同目录）</li>
+     *   <li>{@code universities/logo/}   — 院校 Logo</li>
+     *   <li>{@code universities/detail/} — 院校详情轮播图</li>
+     *   <li>{@code universities/album/}  — 校园图册图片</li>
+     *   <li>{@code city/cover/}          — 城市封面图</li>
+     * </ul>
+     * 外部 http(s) 地址、相对路径、私有 bucket 文件一律跳过，避免误删。
+     * <p>这样上一轮的 {@code /cleanup-images} 接口无需改动即可回收所有本系统图片。</p>
+     */
+    public void deletePublicFileByUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        if (url.contains(UNIVERSITY_LOGO_KEY_PREFIX)) {
+            deleteUniversityLogoByUrl(url);
+            return;
+        }
+        if (url.contains(UNIVERSITY_DETAIL_KEY_PREFIX)) {
+            deleteUniversityDetailImageByUrl(url);
+            return;
+        }
+        if (url.contains(UNIVERSITY_ALBUM_KEY_PREFIX)) {
+            deleteUniversityAlbumImageByUrl(url);
+            return;
+        }
+        if (url.contains(CITY_COVER_KEY_PREFIX)) {
+            deleteCityCoverImageByUrl(url);
+            return;
+        }
+        // 培训机构图片与通用素材在同一个 public bucket，只是前缀不同
+        String institutionKey = extractPublicObjectKey(url, PUBLIC_INSTITUTION_KEY_PREFIX);
+        if (institutionKey != null) {
+            deletePublicFile(institutionKey);
+            return;
+        }
+        String objectKey = extractPublicObjectKey(url, PUBLIC_IMAGE_KEY_PREFIX);
+        if (objectKey == null) {
+            // 非本系统公共素材 URL，跳过（外部地址 / 相对路径 / 其它 bucket）
+            return;
+        }
+        deletePublicFile(objectKey);
+    }
+
+    /** 从完整 URL 截取 objectKey，并去掉可能携带的 query 参数或 fragment */
+    private static String extractPublicObjectKey(String url, String keyPrefix) {
+        int idx = url.indexOf(keyPrefix);
+        if (idx < 0) {
+            return null;
+        }
+        String objectKey = url.substring(idx);
+        int query = objectKey.indexOf('?');
+        if (query >= 0) {
+            objectKey = objectKey.substring(0, query);
+        }
+        int fragment = objectKey.indexOf('#');
+        if (fragment >= 0) {
+            objectKey = objectKey.substring(0, fragment);
+        }
+        return objectKey;
     }
 }

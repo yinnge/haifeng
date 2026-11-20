@@ -9,6 +9,7 @@ import com.haifeng.admin.dto.university.DepartmentAddDTO;
 import com.haifeng.admin.dto.university.DepartmentQueryDTO;
 import com.haifeng.admin.dto.university.DepartmentUpdateDTO;
 import com.haifeng.admin.service.university.DepartmentService;
+import com.haifeng.admin.util.UniversityNameResolver;
 import com.haifeng.admin.vo.major.ImportResultVO;
 import com.haifeng.admin.vo.university.DepartmentDetailVO;
 import com.haifeng.admin.vo.university.DepartmentListVO;
@@ -466,10 +467,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
 
             University university = universityCache.get(normalizedUniversityName);
             if (university == null) {
-                LambdaQueryWrapper<University> univWrapper = new LambdaQueryWrapper<>();
-                univWrapper.eq(University::getName, normalizedUniversityName)
-                           .ne(University::getStatus, (short) 0);
-                university = universityMapper.selectOne(univWrapper);
+                university = UniversityNameResolver.resolve(normalizedUniversityName, candidate ->
+                        universityMapper.selectOne(new LambdaQueryWrapper<University>()
+                                .eq(University::getName, candidate)
+                                .ne(University::getStatus, (short) 0)));
                 if (university != null) {
                     universityCache.put(normalizedUniversityName, university);
                 }
@@ -596,10 +597,10 @@ public class DepartmentServiceImpl extends ServiceImpl<DepartmentMapper, Departm
                 String normalizedUniversityName = normalizeName(dto.getUniversityName());
                 mainDeptNames.add(normalizedDeptName);
 
-                University university = universityMapper.selectOne(
-                        new LambdaQueryWrapper<University>()
-                                .eq(University::getName, normalizedUniversityName)
-                                .ne(University::getStatus, (short) 0));
+                University university = UniversityNameResolver.resolve(normalizedUniversityName, candidate ->
+                        universityMapper.selectOne(new LambdaQueryWrapper<University>()
+                                .eq(University::getName, candidate)
+                                .ne(University::getStatus, (short) 0)));
                 if (university == null) {
                     errors.add("第" + rowNum + "行: 院校[" + normalizedUniversityName + "]不存在");
                     continue;

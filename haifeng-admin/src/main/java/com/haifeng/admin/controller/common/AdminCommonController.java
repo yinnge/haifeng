@@ -10,13 +10,14 @@ import com.haifeng.common.service.resource.OssService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -43,15 +44,38 @@ public class AdminCommonController {
     private final OssService ossService;
 
     /**
-     * 上传公开素材图片
+     * 上传通用公开素材图片（objectKey 前缀 haifeng/images/）
      *
      * <p>图片写入独立的「公共读」bucket，返回永久有效的完整 URL，
-     * 可直接被 C 端 {@code <img src>} 引用（头像 / 轮播图 / 微信二维码等）。
+     * 可直接被 C 端 {@code <img src>} 引用（规划师头像等）。
      * 私有 bucket 承载 VIP 门禁文件，绝不复用。
      */
     @PostMapping("/upload")
     @OperationLog(module = "通用工具", action = "上传图片")
     public R<ImageUploadVO> uploadImage(@RequestParam("file") MultipartFile file) {
+        ValidatedImage image = validateAndRead(file);
+        String url = ossService.uploadPublicBytes(image.content(), "." + image.extension());
+        log.info("上传图片成功: url={}, size={}", url, image.content().length);
+        return R.ok(new ImageUploadVO(url, image.originalName(), (long) image.content().length));
+    }
+
+    /**
+     * 上传培训机构图片：与通用素材同一个公共读 bucket，仅 objectKey 前缀改为 haifeng/institutions/。
+     *
+     * <p>该前缀与 V83 种子数据（qihang-*.svg / shangan-*.svg 等）一致，
+     * OSS 无真实目录，因此新旧图片在控制台的 institutions「文件夹」下共存，无需新增 bucket。
+     */
+    @PostMapping("/upload-institution")
+    @OperationLog(module = "通用工具", action = "上传机构图片")
+    public R<ImageUploadVO> uploadInstitutionImage(@RequestParam("file") MultipartFile file) {
+        ValidatedImage image = validateAndRead(file);
+        String url = ossService.uploadInstitutionImage(image.content(), "." + image.extension());
+        log.info("上传机构图片成功: url={}, size={}", url, image.content().length);
+        return R.ok(new ImageUploadVO(url, image.originalName(), (long) image.content().length));
+    }
+
+    /** 上传前统一校验：非空、大小、扩展名白名单、SVG 消毒 */
+    private ValidatedImage validateAndRead(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "请选择要上传的图片");
         }
@@ -74,38 +98,39 @@ public class AdminCommonController {
             throw new BusinessException(ResultCode.BAD_REQUEST, "图片读取失败");
         }
         if ("svg".equals(extension)) {
-            content = sanitizeSvg(content);
+            content = OssService.sanitizeSvg(content);
         }
-
-        String url = ossService.uploadPublicBytes(content, "." + extension);
-        log.info("上传图片成功: url={}, size={}", url, content.length);
-        return R.ok(new ImageUploadVO(url, originalName, (long) content.length));
+        return new ValidatedImage(content, extension, originalName);
     }
 
     /**
-     * SVG 消毒：剥离 {@code <script>} 块、事件属性（on*=）与 javascript: 伪协议。
-     * <p>公共读 bucket 上的 SVG 可被任意人直接访问，内嵌脚本会形成存储型 XSS。
+     * 清理「已上传但最终未保存」的图片（孤儿图）。
      *
-     * @return 消毒后的字节内容
+     * <p>编辑弹窗里上传的图片会先落到 OSS，若用户中途取消、或反复换图，
+     * 这些中间产物从未写进业务表，后端基于「数据库旧值」的清理扫不到，会永久残留。
+     * 前端在弹窗关闭时把本次会话上传、但未被最终保存的 URL 送到这里删除。
+     *
+     * <p>安全约束：{@code deletePublicFileByUrl} 只处理含 {@code haifeng/images/} 或
+     * {@code haifeng/institutions/} 等本系统前缀的公共 bucket 对象，外部地址、相对路径、
+     * 私有 bucket 文件一律跳过，
+     * 即使前端误传也不会删错对象。删除失败只记日志不中断请求。
      */
-    private byte[] sanitizeSvg(byte[] raw) {
-        String content = new String(raw, StandardCharsets.UTF_8);
-
-        String cleaned = content
-                // 去掉 <script ...>...</script> 整块（含大小写混写）
-                .replaceAll("(?is)<script[^>]*>.*?</script>", "")
-                // 去掉自闭合/独立的 <script ... />
-                .replaceAll("(?is)<script[^>]*/?>", "")
-                // 去掉 on*= 事件属性（onload= / onclick= / onerror= 等）
-                .replaceAll("(?is)\\son[a-z]+\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)", "")
-                // 去掉 javascript: 伪协议
-                .replaceAll("(?is)javascript\\s*:", "");
-
-        if (cleaned.length() != content.length()) {
-            log.warn("上传的 SVG 含潜在脚本内容，已做剥离处理");
-            return cleaned.getBytes(StandardCharsets.UTF_8);
+    @PostMapping("/cleanup-images")
+    @OperationLog(module = "通用工具", action = "清理未使用图片")
+    public R<Void> cleanupImages(@RequestBody List<String> urls) {
+        if (urls == null || urls.isEmpty()) {
+            return R.ok();
         }
-        return raw;
+        if (urls.size() > 50) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "单次最多清理 50 张图片");
+        }
+        int count = 0;
+        for (String url : urls) {
+            ossService.deletePublicFileByUrl(url);
+            count++;
+        }
+        log.info("清理未使用图片完成: 请求={} 张, 实际删除={} 张", urls.size(), count);
+        return R.ok();
     }
 
     /**
@@ -120,5 +145,9 @@ public class AdminCommonController {
             return "";
         }
         return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    /** 校验后的图片载荷 */
+    private record ValidatedImage(byte[] content, String extension, String originalName) {
     }
 }

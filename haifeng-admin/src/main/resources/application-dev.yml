@@ -94,5 +94,17 @@ oss:
   # 严禁把上面的私有 bucket 改成公共读——那会让 fileload 的 VIP 门禁失效
   public-bucket-name: ${OSS_PUBLIC_BUCKET_NAME:}
   public-url-prefix: ${OSS_PUBLIC_URL_PREFIX:}
+  # 院校 Logo 专用 bucket（公共读）
+  university-logo-bucket-name: ${OSS_UNIVERSITY_LOGO_BUCKET_NAME:}
+  university-logo-url-prefix: ${OSS_UNIVERSITY_LOGO_URL_PREFIX:}
+  # 院校详情轮播图专用 bucket（公共读）
+  university-detail-bucket-name: ${OSS_UNIVERSITY_DETAIL_BUCKET_NAME:univeristies-detail}
+  university-detail-url-prefix: ${OSS_UNIVERSITY_DETAIL_URL_PREFIX:}
+  # 校园图册图片专用 bucket（公共读）
+  university-album-bucket-name: ${OSS_UNIVERSITY_ALBUM_BUCKET_NAME:}
+  university-album-url-prefix: ${OSS_UNIVERSITY_ALBUM_URL_PREFIX:}
+  # 城市封面图专用 bucket（公共读）
+  city-cover-bucket-name: ${OSS_CITY_COVER_BUCKET_NAME:}
+  city-cover-url-prefix: ${OSS_CITY_COVER_URL_PREFIX:}
   url-expire: ${OSS_URL_EXPIRE:3600}
   kkfileview-base-url: http://127.0.0.1:8012

@@ -52,6 +52,42 @@ public class OssProperties {
      */
     private String avatarUrlPrefix;
 
+    /**
+     * 院校 Logo 专用 Bucket（公共读）。
+     * <p>院校基础信息 imageUrl 上传目标，与通用公开 bucket 分离，便于独立管理与防盗链。
+     */
+    private String universityLogoBucketName;
+
+    /** 院校 Logo 访问前缀；留空则由 universityLogoBucketName + endpoint 推导。 */
+    private String universityLogoUrlPrefix;
+
+    /**
+     * 院校详情轮播图专用 Bucket（公共读）。
+     * <p>院校详情 carouselImages 上传目标。
+     */
+    private String universityDetailBucketName;
+
+    /** 院校详情轮播图访问前缀；留空则由 universityDetailBucketName + endpoint 推导。 */
+    private String universityDetailUrlPrefix;
+
+    /**
+     * 校园图册图片专用 Bucket（公共读）。
+     * <p> CampusGallery.imageUrl 上传目标。
+     */
+    private String universityAlbumBucketName;
+
+    /** 校园图册图片访问前缀；留空则由 universityAlbumBucketName + endpoint 推导。 */
+    private String universityAlbumUrlPrefix;
+
+    /**
+     * 城市封面图专用 Bucket（公共读）。
+     * <p> City.coverImageUrl 上传目标。
+     */
+    private String cityCoverBucketName;
+
+    /** 城市封面图访问前缀；留空则由 cityCoverBucketName + endpoint 推导。 */
+    private String cityCoverUrlPrefix;
+
     /** 预签名 URL 过期时间（秒） */
     private Integer urlExpire = 3600;
 
