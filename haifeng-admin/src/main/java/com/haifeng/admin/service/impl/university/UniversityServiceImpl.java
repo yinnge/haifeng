@@ -18,6 +18,7 @@ import com.haifeng.common.mapper.university.UniversityDetailMapper;
 import com.haifeng.common.mapper.university.UniversityGuideMapper;
 import com.haifeng.common.mapper.university.UniversityMapper;
 import com.haifeng.common.response.ResultCode;
+import com.haifeng.common.service.resource.OssService;
 import com.haifeng.common.util.ProvinceNameUtil;
 import com.haifeng.common.util.SnowflakeIdGenerator;
 import com.alibaba.excel.EasyExcel;
@@ -27,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -53,6 +56,7 @@ public class UniversityServiceImpl implements UniversityService {
     private static final int MAX_ERROR_SHOWN = 50;
     private final UniversityDetailMapper universityDetailMapper;
     private final UniversityGuideMapper universityGuideMapper;
+    private final OssService ossService;
 
     @Override
     public IPage<UniversityListVO> page(UniversityQueryDTO dto) {
@@ -306,12 +310,24 @@ public class UniversityServiceImpl implements UniversityService {
             log.info("新增院校详情成功: universityId={}, detailId={}", id, detailId);
         } else {
             // 更新详情记录
+            // 收集被移除的旧轮播图 URL，事务提交后删 OSS（保留 DB 仍在引用的图）
+            List<String> obsoleteCarousels = new ArrayList<>();
+            List<String> oldCarousels = detail.getCarouselImages();
+            List<String> newCarousels = dto.getCarouselImages();
+            if (oldCarousels != null) {
+                for (String oldUrl : oldCarousels) {
+                    if (StringUtils.hasText(oldUrl) && (newCarousels == null || !newCarousels.contains(oldUrl))) {
+                        obsoleteCarousels.add(oldUrl);
+                    }
+                }
+            }
+
             detail.setAddress(dto.getAddress());
             detail.setAdmissionPhone(dto.getAdmissionPhone());
             detail.setWebsite(dto.getWebsite());
             detail.setHistoryGroupScore(dto.getHistoryGroupScore());
             detail.setScienceGroupScore(dto.getScienceGroupScore());
-            detail.setCarouselImages(dto.getCarouselImages());
+            detail.setCarouselImages(newCarousels);
             detail.setIntroduction(dto.getIntroduction());
             detail.setRankings(dto.getRankings());
             detail.setAbroadRate(dto.getAbroadRate());
@@ -325,7 +341,9 @@ public class UniversityServiceImpl implements UniversityService {
             detail.setUpdatedAt(now);
 
             universityDetailMapper.updateById(detail);
-            log.info("修改院校详情成功: universityId={}, detailId={}", id, detail.getId());
+            deleteOssAfterCommit(obsoleteCarousels);
+            log.info("修改院校详情成功: universityId={}, detailId={}, 清理旧轮播图{}张",
+                    id, detail.getId(), obsoleteCarousels.size());
         }
     }
 
@@ -883,5 +901,32 @@ public class UniversityServiceImpl implements UniversityService {
             db.setGenderRatio(dto.getGenderRatio());
         }
         db.setUpdatedAt(now);
+    }
+
+    /**
+     * 事务提交后再删 OSS 图片：先保证 DB 变更落地，删除失败也只留孤儿对象，不会因回滚丢图。
+     * 有事务走 afterCommit，无事务（单测/非事务调用）则立即删。
+     */
+    private void deleteOssAfterCommit(List<String> obsoleteUrls) {
+        if (obsoleteUrls == null || obsoleteUrls.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doDeleteOss(obsoleteUrls);
+                }
+            });
+        } else {
+            doDeleteOss(obsoleteUrls);
+        }
+    }
+
+    /** 按 URL 前缀路由到对应 bucket 删除（院校详情轮播图走 universities-detail bucket） */
+    private void doDeleteOss(List<String> obsoleteUrls) {
+        for (String url : obsoleteUrls) {
+            ossService.deletePublicFileByUrl(url);
+        }
     }
 }
